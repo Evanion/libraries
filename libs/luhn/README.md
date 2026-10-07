@@ -1,18 +1,29 @@
-[![npm version](https://img.shields.io/npm/v/@evanion/luhn)](https://www.npmjs.com/package/@evanion/luhn)
-[![npm downloads](https://img.shields.io/npm/dm/@evanion/luhn)](https://www.npmjs.com/package/@evanion/luhn)
-[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
+# @evanion/luhn
 
-# Luhn Library
+**Prevent mistyped identifiers from hitting your database.**
 
-Generate and validate check characters over any alphabet you choose. A
-dictionary is validated once, at construction, and the object you get back
-carries `generate` and `validate` bound to it.
+Stop performing database lookups for IDs that cannot exist. Whether it's an order number, a gift card, or a tracking ID, `@evanion/luhn` lets you add a check character to your identifiers, allowing you to reject typos instantly and locally.
+
+## The Problem: The "Ghost Lookup" Bottleneck
+
+When a user types an ID into a form, the standard approach is to send that ID to the server and query the database. But what happens when the user makes a simple typo?
+
+1. **Wasted Resources**: Your database spends CPU and I/O searching for a record that cannot possibly exist.
+2. **Poor Feedback**: The user gets a generic "Not Found" error, which doesn't tell them _why_ the ID is invalid—only that it isn't in the system.
+3. **Infrastructure Stress**: At scale, mistyped IDs add a "ghost load" to your primary data store.
+
+## The Solution: Check-Character Validation
+
+By adding a single check character to the end of your identifier, you turn the ID into a self-validating string. Using a generalized Luhn algorithm, `@evanion/luhn` verifies the integrity of an identifier in memory, without a network call or a database query.
+
+### Core Concept: The Local Gate
 
 <!-- #region round-trip -->
 
 ```ts @import.meta.vitest
 import { Luhn } from '@evanion/luhn';
 
+// 1. Generate a check character and append it to the order number
 function orderCode(orderNumber: string): string {
   const { checksum } = Luhn.generate(orderNumber);
   return `${orderNumber}-${checksum}`;
@@ -20,22 +31,16 @@ function orderCode(orderNumber: string): string {
 
 const printed = orderCode('order-2026-0042'); // -> 'order-2026-0042-l'
 
+// 2. Validate the code a customer reads back, locally
 Luhn.validate(printed).isValid; // -> true
 Luhn.validate('order-2026-0042-1').isValid; // -> false
 ```
 
 <!-- #endregion round-trip -->
 
-`generate` returns the check character and does not append it, so `orderCode`
-decides where it goes. `validate` accepts the printed code and refuses it with
-its last character read as a `1`, without a database lookup.
+`generate` returns the check character and does not append it, so `orderCode` decides where it goes. `validate` refuses the code with its last character misread as a `1`.
 
-## Why use it
-
-A check character lets you reject a mistyped input without a database lookup.
-That is worth having anywhere a person types an identifier by hand: an order
-code read back over the phone, a pickup code typed at a counter, a gift card
-number.
+### What a Check Character Catches
 
 <!-- #region catches -->
 
@@ -49,8 +54,15 @@ Luhn.validate('order-2026-0024-l').isValid; // -> false
 
 <!-- #endregion catches -->
 
-The second code has one digit changed and the third has two adjacent digits
-swapped. Both are refused.
+The second code has one digit changed and the third has two adjacent digits swapped. Both are refused.
+
+## Key Features
+
+- 🌍 **Alphabet Agnostic**: Works over any even-sized alphabet you choose—numbers, letters, or custom symbols.
+- 🛡️ **Typo-Resistant**: Detects every single-character substitution and every adjacent swap except one: the dictionary's first and last characters.
+- ⚡ **Zero DB Overhead**: Reject mistyped input at the edge or in the middleware, before it ever reaches your data layer.
+- ⚙️ **Customizable Moduli**: Support for standard Mod-10 (Credit Cards) or custom Mod-N alphabets.
+- 🪶 **Zero Dependencies**: ESM-only, for Node 20 or newer and any browser.
 
 ## Installation
 
@@ -70,7 +82,11 @@ Or with pnpm:
 pnpm add @evanion/luhn
 ```
 
-## Generate a check character
+## Generating and Validating
+
+`@evanion/luhn` exposes two calls on every instance: `generate` computes a check character, and `validate` checks a code that carries one.
+
+### What `generate` Returns
 
 <!-- #region generate -->
 
@@ -81,13 +97,11 @@ Luhn.generate('ORDER 2026/0042'); // -> { phrase: 'order20260042', checksum: 'l'
 
 <!-- #endregion generate -->
 
-`generate` returns the filtered phrase alongside the check character, because
-the phrase it computed over is not always the phrase you passed in. See
-[Filtering](#filtering).
+`generate` returns the phrase it computed over alongside the check character, because the phrase is not always the input you passed in. Characters outside the dictionary are dropped and counted in `filtered`.
 
-An input with no dictionary code points in it throws `EmptyInputError`. A check
-character over no payload carries no information, and returning one makes
-`generate('')` and `generate('--')` indistinguishable:
+### Handling Empty Input
+
+`generate` throws `EmptyInputError` when no character of the input is in the dictionary. A check character over no payload carries no information, and returning one would make `generate('')` and `generate('--')` indistinguishable:
 
 <!-- #region empty-input -->
 
@@ -109,9 +123,9 @@ checkCharacterFor('--'); // -> null
 
 <!-- #endregion empty-input -->
 
-## Validate a string
+### What `validate` Returns
 
-The last dictionary code point of the input is the check character.
+`validate` treats the last dictionary character of its input as the check character, and never throws.
 
 <!-- #region validate -->
 
@@ -125,13 +139,11 @@ Luhn.validate('--'); // -> { phrase: '', isValid: false, filtered: 2 }
 
 <!-- #endregion validate -->
 
-Fewer than two surviving code points is not valid, because a payload and a
-check character is the minimum. `validate` never throws.
+Fewer than two surviving characters is never valid, because a payload and a check character is the minimum.
 
-`validate`'s `phrase` includes the check character, so the phrase `generate`
-returned for the order number is `phrase.slice(0, -1)`. Store that phrase with
-the order and look the order up by it, whatever case and separators the code was
-typed with:
+### Mapping a Code Back to an Order
+
+`validate`'s `phrase` includes the check character, so the phrase `generate` returned for the order number is `phrase.slice(0, -1)`. Store that phrase with the order and look the order up by it, whatever case and separators the code was typed with:
 
 <!-- #region look-up -->
 
@@ -148,13 +160,9 @@ orderPhrase('order-2026-0043-l'); // -> null
 
 <!-- #endregion look-up -->
 
-## Filtering
+### Strict Input with `filtered`
 
-Code points outside the dictionary are dropped before the checksum is computed,
-so a hyphenated, spaced or accented rendering of the same code checks the same.
-`filtered` counts the dropped code points. A barcode scanner sends exactly the
-characters the barcode holds, so a till reading one can refuse anything the
-filter dropped:
+A barcode scanner sends exactly the characters the barcode holds, so a till reading one can refuse anything the filter dropped:
 
 <!-- #region strict-input -->
 
@@ -175,7 +183,11 @@ readBarcode('order20260043l'); // -> 'misread'
 
 <!-- #endregion strict-input -->
 
-## The dictionary
+## Custom Dictionaries
+
+A dictionary is the alphabet `@evanion/luhn` reads a code against. `createLuhn` validates a dictionary once, at construction, and returns a frozen instance carrying `generate` and `validate` bound to it.
+
+### The Default Dictionary
 
 The default is 36 lowercase alphanumerics, with case folding on:
 
@@ -192,13 +204,11 @@ Luhn.caseInsensitive; // -> true
 
 <!-- #endregion default-dictionary -->
 
-The order of the dictionary decides which index each code point occupies, and
-therefore every check character it produces. Two dictionaries with the same
-characters in a different order are different alphabets.
+The order of the dictionary decides which index each character occupies, and therefore every check character it produces. Two dictionaries with the same characters in a different order are different alphabets.
 
-Build your own with `createLuhn`. The shop's pickup codes draw on 32 characters,
-the 36 with `i`, `l`, `o` and `w` dropped because they are confused when read
-or heard:
+### Building Your Own with `createLuhn`
+
+The shop's pickup codes draw on 32 characters: the 36 with `i`, `l`, `o` and `w` dropped, because they are confused when read or heard:
 
 <!-- #region pickup-dictionary -->
 
@@ -215,8 +225,9 @@ pickup.caseInsensitive; // -> false
 
 <!-- #endregion pickup-dictionary -->
 
-A dictionary must satisfy all of these, and `createLuhn` throws
-`InvalidDictionaryError`, carrying a `reason`, when it does not:
+### Dictionary Constraints
+
+`createLuhn` throws `InvalidDictionaryError`, carrying a `reason`, when a dictionary breaks one of five constraints:
 
 | `reason`       | What the dictionary must be                                           |
 | -------------- | --------------------------------------------------------------------- |
@@ -249,11 +260,11 @@ problemWith('0'); // -> { reason: 'too-short', offending: [] }
 
 <!-- #endregion constraints -->
 
-Everything is checked once, at construction. Nothing is checked at use, so an
-instance you hold cannot produce a code its own `validate` rejects.
+Everything is checked once, at construction, so an instance you hold cannot produce a code its own `validate` rejects.
 
-Counting is by code point, so an astral dictionary, such as emoji or anything
-outside the Basic Multilingual Plane, is measured and indexed as you wrote it:
+### Unicode Dictionaries
+
+Counting is by code point, so an astral dictionary, such as emoji or anything outside the Basic Multilingual Plane, is measured and indexed as you wrote it:
 
 <!-- #region code-points -->
 
@@ -266,9 +277,9 @@ suits.n; // -> 4
 
 <!-- #endregion code-points -->
 
-A dictionary that varies at runtime is an instance per dictionary. Building one
-is one pass over the dictionary, the pass that validates it, so cache the
-instance when the same few recur:
+### Caching Instances
+
+A dictionary that varies at runtime needs an instance per dictionary. `createLuhn` validates the dictionary and builds a lookup table every time it is called, so cache the instance when the same few recur:
 
 <!-- #region instance-per-dictionary -->
 
@@ -288,14 +299,9 @@ luhnFor(pickupAlphabet) === luhnFor(pickupAlphabet); // -> true
 
 <!-- #endregion instance-per-dictionary -->
 
-## Case sensitivity
+### Case Sensitivity
 
-`caseInsensitive` folds input to lowercase before looking it up. It is a
-property of the dictionary, not of the call: folding is sound only when the
-dictionary contains no case pairs, because otherwise two distinct indices fold
-onto one and the rest become unreachable.
-
-It defaults to `true` when you supply no dictionary and `false` when you do.
+`caseInsensitive` folds input to lowercase before looking it up. It defaults to `true` when you supply no dictionary and `false` when you do. `ALTERNATING_CASE_DICTIONARY` holds 62 characters, `0-9` then `Aa Bb … Zz`, and an instance over it reads case:
 
 <!-- #region case-sensitivity -->
 
@@ -320,8 +326,7 @@ sensitive.validate('order-2026-0042-F').isValid; // -> false
 
 <!-- #endregion case-sensitivity -->
 
-Asking for folding over a dictionary that has case pairs is rejected rather
-than quietly downgraded:
+Folding over a dictionary that holds both `A` and `a` would leave the index of `A` unreachable, so `createLuhn` rejects it rather than quietly downgrading:
 
 <!-- #region case-pairs -->
 
@@ -343,10 +348,11 @@ refused?.offending.slice(0, 3); // -> ['Aa', 'Bb', 'Cc']
 
 <!-- #endregion case-pairs -->
 
-## Mod-10
+## Standards and Modulo Bias
 
-With `dictionary: '0123456789'` this library is plain Luhn mod-10, and matches
-the published vectors:
+### Mod-10: The Industry Standard
+
+With `dictionary: '0123456789'`, `@evanion/luhn` is plain Luhn mod-10 and matches the published vectors:
 
 <!-- #region mod-10 -->
 
@@ -361,17 +367,15 @@ digits.generate('20260042').checksum; // -> '5'
 
 <!-- #endregion mod-10 -->
 
-## Modulo bias
+Luhn's patent [US 2,950,048](https://patents.google.com/patent/US2950048A/en) defines mod-10, and ISO/IEC 7812-1 Annex B specifies it for issuer identification numbers, restated in 3GPP TS 23.003 Annex B.2 and in the [CMS NPI check-digit specification](https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf).
 
-The obvious way to use this library is to draw a random string over the
-dictionary and then check-character it. Drawing with `byte % dictionary.length`
-is uniform only when the dictionary size divides 256. The default 36-character
-dictionary does not: `256 % 36` is 4, and the first four characters come up
-about 14% more often than the rest.
+### Mod-N: No Formal Standard
 
-This library does not generate random values and will not start; a checksum
-library shipping a CSPRNG sampler acquires a security surface for a problem
-that is not its own. It states the fact instead:
+No RFC, ISO, ITU or ANSI document defines the generalisation to an arbitrary alphabet. The `floor(a / n) + (a % n)` formula everyone uses traces to [Wikipedia revision 74161899](https://en.wikipedia.org/w/index.php?title=Luhn_mod_N_algorithm&oldid=74161899), dated 2006-09-06 and unsourced. With any `n` other than 10, this library implements that common generalisation and claims nothing more.
+
+### Modulo Bias
+
+Drawing a random string over a dictionary with `byte % n` is uniform only when `n` divides 256. The default 36-character dictionary does not: `256 % 36` is 4, and the first four characters come up about 14% more often than the rest. `@evanion/luhn` does not generate random values, and `uniformOverBytes` reports whether an instance's dictionary is safe to draw from that way:
 
 <!-- #region modulo-bias -->
 
@@ -384,81 +388,12 @@ pickup.uniformOverBytes; // -> true
 
 <!-- #endregion modulo-bias -->
 
-`uniformOverBytes` reports that `byte % n` is unbiased. It says nothing about
-the quality of the bytes. If you intend to sample from your dictionary, pick a
-size that divides 256. 32 is the useful one.
+`uniformOverBytes` says nothing about the quality of the bytes.
 
-## Standards
-
-**Mod-10 is normative.** Luhn's patent
-[US 2,950,048](https://patents.google.com/patent/US2950048A/en) defines it, and
-ISO/IEC 7812-1 Annex B specifies it for issuer identification numbers, restated
-in 3GPP TS 23.003 Annex B.2 and in the
-[CMS NPI check-digit specification](https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf).
-With `dictionary: '0123456789'` this library matches the published vectors.
-
-**Mod-N is not.** No RFC, ISO, ITU or ANSI document defines the generalisation
-to an arbitrary alphabet. The `floor(a / n) + (a % n)` formula everyone uses
-traces to
-[Wikipedia revision 74161899](https://en.wikipedia.org/w/index.php?title=Luhn_mod_N_algorithm&oldid=74161899),
-dated 2006-09-06, which was unsourced then and is unsourced now; the
-implementations that exist say in their own comments that they were
-transliterated from that page. With any `n` other than 10, this library
-implements that common generalisation and claims nothing more.
-
-The fold itself is Luhn's original formulation rather than a generalisation of
-"subtract 9". The patent describes "twice the original digit plus an end around
-carry … the addition of any digit standing in the tens position to the digit
-standing in the units position". Subtract-9 is the decimal shortcut for it.
-
-## API reference
-
-### `createLuhn(options?)`
-
-Validates the dictionary and returns a frozen `Luhn`.
-
-- `options.dictionary`: the alphabet. Defaults to `DEFAULT_DICTIONARY`.
-- `options.caseInsensitive`: fold input to lowercase. Defaults to `true` when
-  `dictionary` is omitted, `false` when it is given.
-
-### The returned object
-
-- `dictionary: string`
-- `n: number`: the modulus, counted by code point.
-- `caseInsensitive: boolean`
-- `uniformOverBytes: boolean`: whether `n` divides 256.
-- `generate(input): { phrase, checksum, filtered }`: throws `EmptyInputError`
-  when nothing survives the filter.
-- `validate(input): { phrase, isValid, filtered }`
-
-### Constants
-
-- `Luhn`: `createLuhn()`, frozen. `Luhn.dictionary = x` throws a `TypeError`.
-- `DEFAULT_DICTIONARY`: 36 lowercase alphanumerics.
-- `ALTERNATING_CASE_DICTIONARY`: 62 characters, `0-9` then `Aa Bb … Zz`.
-
-<!-- #region frozen -->
-
-```ts @import.meta.vitest
-let thrown: unknown;
-
-try {
-  (Luhn as { dictionary: string }).dictionary = '0123456789';
-} catch (error) {
-  thrown = error;
-}
-
-thrown instanceof TypeError; // -> true
-Luhn.dictionary; // -> '0123456789abcdefghijklmnopqrstuvwxyz'
-```
-
-<!-- #endregion frozen -->
-
-### Errors
+## Errors
 
 - `LuhnError`: base class for everything this library throws.
-- `InvalidDictionaryError extends LuhnError`: carries `reason`, `dictionary`,
-  and `offending` (the repeated code points, or the case pairs).
+- `InvalidDictionaryError extends LuhnError`: thrown by `createLuhn`; carries `reason`, `dictionary`, and `offending` (the repeated code points, or the case pairs).
 - `EmptyInputError extends LuhnError`: `generate` had nothing to work with.
 
 Catching `LuhnError` handles both without naming either:
@@ -484,15 +419,28 @@ mint('012345678', '20260042'); // -> 'InvalidDictionaryError'
 
 <!-- #endregion catch-any -->
 
+Every instance is frozen, so an assignment to `Luhn.dictionary` throws a `TypeError` in an ES module:
+
+<!-- #region frozen -->
+
+```ts @import.meta.vitest
+let thrown: unknown;
+
+try {
+  (Luhn as { dictionary: string }).dictionary = '0123456789';
+} catch (error) {
+  thrown = error;
+}
+
+thrown instanceof TypeError; // -> true
+Luhn.dictionary; // -> '0123456789abcdefghijklmnopqrstuvwxyz'
+```
+
+<!-- #endregion frozen -->
+
 ## Migrating from 2.x
 
-**Every check character changes.** The default dictionary goes from 62
-characters to 36, which changes the modulus and moves every letter, so a code
-2.x produced validates under 3.x only by coincidence.
-
-2.x's default lowercased its input and then read it against the 62 characters
-without folding. `ALTERNATING_CASE_DICTIONARY` over lowercased input reproduces
-every check character it produced:
+**Every check character changes.** The default dictionary went from 62 characters to 36, so a code 2.x produced validates under 3.x only by coincidence. `ALTERNATING_CASE_DICTIONARY` over lowercased input reproduces every check character the 2.x default produced:
 
 <!-- #region legacy-default -->
 
@@ -516,32 +464,20 @@ Luhn.validate('order-2026-0042-E').isValid; // -> false
 
 <!-- #endregion legacy-default -->
 
-`issuedBy2x` lowercases everything but the check character. 2.x's own
-`validate` lowercased that too, so it refused every code whose check character
-was an uppercase letter.
+[Migrating from 2.x](https://docs.evanion.com/luhn/migration) maps every 2.x call to its 3.x form.
 
-`caseInsensitive` defaults to `true` when you pass no dictionary and `false`
-when you pass one.
+## Beyond the Basics
 
-| 2.x                                                 | 3.x                                                                                                                                                               |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Luhn.generate(input)`                              | unchanged call, new value                                                                                                                                         |
-| `Luhn.validate(input)`                              | unchanged call; it now accepts every code `generate` produces                                                                                                     |
-| `Luhn.generate(input, true)`                        | `createLuhn({ caseInsensitive: false }).generate(input)`                                                                                                          |
-| `Luhn.validate(input, true)`                        | `createLuhn({ caseInsensitive: false }).validate(input)`                                                                                                          |
-| `class X extends Luhn { static dictionary = d }`    | `createLuhn({ dictionary: d, caseInsensitive: true })`, same values; when `d` holds both cases of a letter, `createLuhn({ dictionary: d })` over lowercased input |
-| `class X extends Luhn { static sensitive = true }`  | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })`, same values                                                                                            |
-| `Luhn.dictionary = d`                               | `TypeError`; the default instance is frozen                                                                                                                       |
-| `Luhn.sensitive`                                    | `!Luhn.caseInsensitive`; the flag's meaning is inverted                                                                                                           |
-| `Luhn.lowercaseOnly(d)`                             | removed; nothing folds a dictionary any more                                                                                                                      |
-| the `protected static` helpers                      | removed; an override of `char2index` never took effect, because `reduce` called `Luhn`'s own                                                                      |
-| `ValidationError`                                   | `LuhnError`                                                                                                                                                       |
-| `validate('')` → `isValid: true`                    | `isValid: false`                                                                                                                                                  |
-| `generate('')` → `{ checksum: '0' }`                | throws `EmptyInputError`                                                                                                                                          |
-| a dictionary of odd length throws at the first call | throws at `createLuhn`                                                                                                                                            |
+The documentation site covers each topic above in depth, including:
 
-A per-request dictionary is a per-request instance. That is one pass over the
-dictionary, which is the pass that would have happened anyway.
+- **Custom Dictionaries**: How to create a "confusable-free" alphabet to prevent reading errors.
+- **Modulo Bias**: Understanding the impact of dictionary size on sampling uniformity.
+- **Filtering**: How to handle separators (hyphens, spaces) without breaking the checksum.
+- **Migrating from 2.x**: Every 2.x call mapped to its 3.x form, and how to keep validating codes 2.x issued.
+
+For the full API reference and worked examples, visit our documentation site:
+
+👉 **[docs.evanion.com/luhn](https://docs.evanion.com/luhn)**
 
 ## License
 
