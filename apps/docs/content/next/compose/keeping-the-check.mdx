@@ -20,9 +20,11 @@ When you declare an `@evanion/compose` array in a variable, TypeScript **widens*
 
 If your constant holds hand-written tuples, declare it `as const`, which tells TypeScript to treat the array as a read-only fixed-length array type with exact values. The example below declares three arrays:
 
-- `annotated` is typed `ProviderArray`, and renders `ThemeProvider` with no `theme` and no error.
+- `annotated` is typed `ProviderArray`, and renders [`ThemeProvider`](../type-checking#validating-providers-at-different-stages), which requires `theme`, with no `theme` and no error.
 - `constant` holds the same entry `as const` and reports the missing prop.
 - `plain` holds a correct entry with no `as const`, and `ComposeProvider` refuses it.
+
+`markup` is `annotated`, rendered with `renderToStaticMarkup`:
 
 ```tsx twoslash file=libs/compose/README.md region=named-array
 
@@ -42,13 +44,13 @@ If your constant holds hand-written tuples, declare it `as const`, which tells T
 
 `satisfies ProviderArray` leaves the array its inferred type, but TypeScript infers that type against `ProviderArray`, whose length is `number`, so the array's length is `number` too.
 
-**Pro Tip**: Using the `provider()` helper avoids this entire problem. Because `provider()` checks props at the call site, the check is preserved regardless of how the resulting tuple is stored. A bare component gets no such protection: a bare `ThemeProvider`, which requires `theme`, compiles in the three widened rows.
+**Pro Tip**: Using the `provider()` helper avoids this entire problem. Because `provider()` checks props at the call site, the check is preserved regardless of how the resulting tuple is stored. A bare component gets no such protection: a bare `ThemeProvider` compiles in the three widened rows.
 
 ## Preserving Checks in Wrapper Components
 
 It is common to create a custom wrapper component (e.g., `<AppProviders />`) to encapsulate your `@evanion/compose` root. However, if you type the `providers` prop as plain `ProviderArray`, you've silenced the check for anyone using your wrapper.
 
-To fix this, use a **const type parameter**. This forces TypeScript to infer the caller's array as a fixed-length array type. In the example, the first `<AppProviders>` exists only for its compile error, and the second renders `markup`:
+To fix this, use a **const type parameter**. This forces TypeScript to infer the caller's array as a fixed-length array type. In the example, `CartProvider` renders `<div id="cart">` as on [Where the check happens](../type-checking#validating-providers-at-different-stages). The first `<AppProviders>` exists only for its compile error, and the second renders `markup`:
 
 ```tsx twoslash file=libs/compose/README.md region=wrapper
 

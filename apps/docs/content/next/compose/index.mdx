@@ -25,7 +25,7 @@ Without `@evanion/compose`, your root component grows into a "pyramid of doom" o
 
 `ComposeProvider`, from `@evanion/compose`, accepts a flat array of providers and handles the nesting for you. It reads the array from top to bottom: the first provider becomes the outermost wrapper, and the last provider wraps the `children`.
 
-The examples on these pages are set in Baize, a board game shop, and `<p>Brass: Birmingham</p>` stands in for one of its pages. The two providers below each render a `div`, and `renderToStaticMarkup`, from `react-dom/server`, turns the tree into the HTML string `markup`, so the markup shows where each one sits:
+The examples on these pages are set in Baize, a board game shop, and `<p>Brass: Birmingham</p>` stands in for one of its pages. Each example takes `React` from `import * as React from 'react'`. The two providers below each render a `div`, and `renderToStaticMarkup`, from `react-dom/server`, turns the tree into the HTML string `markup`, so the markup shows where each one sits:
 
 ```tsx twoslash file=libs/compose/README.md region=render-order
 
