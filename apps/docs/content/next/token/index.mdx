@@ -41,7 +41,7 @@ These terms name the parts of an `@evanion/token` code, and every later page use
 - **Code**: The chunked body and check character, such as `a4kp-9mxa`. `generate` returns the printed code as `value`: the code, with the prefix in front when there is one.
 - **Body**: The random characters excluding separators and the check character, such as `a4kp9mx`. This is the part you store in your database.
 - **Check Character**: The final character used for error detection, computed by `@evanion/luhn` (a dependency that installs with token) using the Luhn algorithm. Luhn sums the dictionary positions of the body's characters, doubling every second one, and picks the character that makes the total divisible by the dictionary size.
-- **Dictionary**: The set of characters used to generate the code. The default dictionary excludes confusing characters like `i`, `l`, `o`, and `w` to prevent misreads. The API also calls it the alphabet, in `InvalidAlphabetError` and the reason `outside-alphabet`.
+- **Dictionary**: The set of characters used to generate the code. The default dictionary excludes `i`, `l`, `o` and `w` to prevent misreads. The API also calls it the alphabet, in `InvalidAlphabetError` and the reason `outside-alphabet`.
 - **Chunk**: A group of characters (four by default) used to make codes easier to read.
 - **Separator**: The character between chunks (a hyphen by default). `validate` removes it before checking.
 - **Prefix**: An optional identifier, such as `ORD`, printed in front of a code for categorization. It is not part of the code.
