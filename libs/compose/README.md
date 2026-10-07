@@ -109,13 +109,13 @@ While the basic usage is simple, `@evanion/compose` handles the cases a producti
 - **Type-Safe Tuples**: Use `[Component, props]` tuples for a concise alternative to the `provider()` helper.
 - **Fixed-Length Arrays**: The library uses TypeScript's `const` type inference to check every entry in your array individually.
 - **Wrapper Components**: `ComposeProviderProps<T>` lets your own wrapper pass its caller's array through still checked.
-- **Remounting Logic**: Learn how to manage conditional providers without accidentally unmounting your entire application subtree.
+- **Remounting**: [Changing the Array Remounts the Subtree](#changing-the-array-remounts-the-subtree), below, keeps a conditional provider from remounting everything under it.
 
 For guides on where the check happens and how to keep it, visit the documentation site:
 
 👉 **[docs.evanion.com/compose](https://docs.evanion.com/compose)**
 
-The rest of this README is the reference: every example below runs in the package's test suite.
+The rest of this README is the reference: every example below marked `@import.meta.vitest` runs in the package's test suite.
 
 ## A Root Component with Three Context Providers
 
