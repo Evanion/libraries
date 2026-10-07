@@ -23,21 +23,29 @@ Even before checking for a specific widget type, `validateItems` checks if an it
 
 ```
 
-| Entry | Structural Fault | Resulting Message |
-| :--- | :--- | :--- |
-| 0 | Saved as `null` instead of an object | `item is not an object` |
-| 1 | Missing the `id` field | `item id is not a string` |
-| 2 | `children` is a string instead of a list | `children is not a list` |
-| 3 | `id` repeats a sibling's `id` | `duplicate sibling id` |
-| 3 | Missing the `props` object | `props is not an object` |
+| Entry | Structural Fault                         | Resulting Message         |
+| :---- | :--------------------------------------- | :------------------------ |
+| 0     | Saved as `null` instead of an object     | `item is not an object`   |
+| 1     | Missing the `id` field                   | `item id is not a string` |
+| 2     | `children` is a string instead of a list | `children is not a list`  |
+| 3     | `id` repeats a sibling's `id`            | `duplicate sibling id`    |
+| 3     | Missing the `props` object               | `props is not an object`  |
 
 ### Special Case: Payload is not a list
 
 If the entire payload is not an array (e.g., it's an object `{ items: [] }`), `validateItems` returns a single problem with an index of `-1` and a message of `items is not a list`.
 
+```ts twoslash file=libs/astro-widget/README.md region=not-a-list
+
+```
+
 ### Nested Indexing
 
 Because `validateItems` performs a depth-first walk, it reports problems for nested children using an index relative to their own siblings. A top-level item and its first child can both report `index: 0`. You must use the `id` field to uniquely identify the faulty item.
+
+```ts twoslash file=libs/astro-widget/README.md region=nested-index
+
+```
 
 ## How `Widgets.astro` Renders a Bad Item
 
@@ -45,15 +53,15 @@ Because `validateItems` performs a depth-first walk, it reports problems for nes
 
 Unless `NODE_ENV` is `production`, the renderer prints a warning to the console using `ERROR_MESSAGES`.
 
-| Fault | Render Result | Console Warning |
-| :--- | :--- | :--- |
-| Unknown `type` | Nothing renders | `ERROR_MESSAGES.UNKNOWN_WIDGET` |
-| No string `type` | Nothing renders | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type: "unknown") |
-| Not an object | Nothing renders | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type/id: "unknown") |
-| Missing prop | Widget renders, but with `undefined` for that prop | None |
-| `items` is not a list | Nothing renders | `ERROR_MESSAGES.MALFORMED_ITEMS` |
-| Missing/Repeated `id` | Widget renders (if type is known) | None |
-| `children` not a list | Widget renders; its internal `<Widgets />` warns | `ERROR_MESSAGES.MALFORMED_ITEMS` |
+| Fault                 | Render Result                                      | Console Warning                                      |
+| :-------------------- | :------------------------------------------------- | :--------------------------------------------------- |
+| Unknown `type`        | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET`                      |
+| No string `type`      | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type: "unknown")    |
+| Not an object         | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type/id: "unknown") |
+| Missing prop          | Widget renders, but with `undefined` for that prop | None                                                 |
+| `items` is not a list | Nothing renders                                    | `ERROR_MESSAGES.MALFORMED_ITEMS`                     |
+| Missing/Repeated `id` | Widget renders (if type is known)                  | None                                                 |
+| `children` not a list | Widget renders; its internal `<Widgets />` warns   | `ERROR_MESSAGES.MALFORMED_ITEMS`                     |
 
 ## The "Double-Validation" Gap
 

@@ -36,11 +36,13 @@ npm install @evanion/astro-widget
 An `astro-widget` widget is just an ordinary `.astro` component. It receives the item's `props` as its own props.
 
 **Example: Listing Header** (`src/widgets/ListingHeader.astro`)
+
 ```astro file=libs/astro-widget/examples/src/widgets/ListingHeader.astro region=listing-header
 
 ```
 
 **Example: Price Box** (`src/widgets/PriceBox.astro`)
+
 ```astro file=libs/astro-widget/examples/src/widgets/PriceBox.astro region=price-box
 
 ```
@@ -84,6 +86,12 @@ npm run dev
 ```
 
 Open `http://localhost:4321/brass-birmingham`. You will see the header and the price box rendered in the order they appear in the JSON. Note that `Widgets.astro` adds no extra HTML elements of its own inside the `<main>` tag.
+
+The package keeps the same files under its `examples/src` and renders the page in its own tests, with the container API [the Overview](../) used. The code below is that test, and its last line holds the `<main>` element your page renders:
+
+```ts file=libs/astro-widget/README.md region=first-render
+
+```
 
 ## Catch a Stale Type Before it Ships
 
