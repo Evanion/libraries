@@ -1,16 +1,25 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { bucketOf } from './bucketing.js';
 import { configDigest } from './digest.js';
 import { createFeatures } from './features.js';
 import { parseFeatureConfig } from './parse.js';
 import { serializeConfig } from './serialize.js';
 import type { FeatureConfig } from './config.js';
 
+/** One bucketing vector: the bucket `value` falls in under `seed`. */
+interface Vector {
+  value: string;
+  seed: string;
+  bucket: number;
+}
+
 interface Fixture {
   config: FeatureConfig;
   context: { now: string; [field: string]: unknown };
   decisions: Record<string, unknown>;
+  buckets: readonly Vector[];
 }
 
 const fixture = JSON.parse(
@@ -159,7 +168,7 @@ describe('the document the fixture publishes', () => {
     );
     expect(conditions.filter((each) => each.op === 'eq').length).toBe(1);
     expect(conditions.filter((each) => each.op === 'after').length).toBe(1);
-    expect(rules.filter((each) => each.rollout).length).toBe(1);
+    expect(rules.filter((each) => each.rollout).length).toBe(2);
     expect(
       definitions
         .flatMap((each) => each.variants ?? [])
@@ -177,6 +186,58 @@ describe('the document the fixture publishes', () => {
       variant: expect.any(String),
       assignment: { source: 'weighted', bucket: expect.any(Number) },
     });
+  });
+
+  it('decides one rollout against the subject and one for it', () => {
+    const refused = fixture.decisions['new-nav'] as {
+      enabled: boolean;
+      rules: readonly { rollout?: { percent: number; member: boolean } }[];
+    };
+    const admitted = fixture.decisions['gift-wrap'] as {
+      enabled: boolean;
+      reason: string;
+    };
+
+    // One rollout each way, because membership is one bit. A port that answers
+    // `false` for every rollout, or `true` for every rollout, reproduces one of
+    // these two decisions and disagrees with the other.
+    expect(refused.enabled).toBe(false);
+    expect(refused.rules[0]?.rollout?.member).toBe(false);
+    expect(admitted.enabled).toBe(true);
+    expect(admitted.reason).toBe('rule-match');
+  });
+
+  it('states the bucket of every pair it buckets on', () => {
+    // The decisions above state which side of the threshold each subject fell
+    // on, which a port reproduces by accident about half the time whatever hash
+    // it uses. These are the numbers that say the hash agrees. `bucketing.spec
+    // .ts` holds the same obligation inside this package, and `package.json`
+    // keeps no `.spec.ts` in the tarball, so a port author reads it here.
+    for (const vector of fixture.buckets) {
+      expect(bucketOf(vector.value, vector.seed)).toBe(vector.bucket);
+    }
+  });
+
+  it('states a bucket for every seed its own decisions turn on', () => {
+    const definitions = fixture.config.features;
+    const seeds = [
+      ...definitions.flatMap((definition) =>
+        (definition.rules ?? [])
+          .map((rule) => rule.rollout?.seed)
+          .filter((seed): seed is string => seed !== undefined),
+      ),
+      ...definitions
+        .map((definition) => definition.variantSeed)
+        .filter((seed): seed is string => seed !== undefined),
+    ];
+
+    expect(seeds).not.toHaveLength(0);
+    expect(new Set(fixture.buckets.map((vector) => vector.seed))).toEqual(
+      new Set(seeds),
+    );
+    for (const vector of fixture.buckets) {
+      expect(vector.value).toBe(fixture.context['targetingKey']);
+    }
   });
 
   it('answers one decision for every definition it carries', () => {
