@@ -34,13 +34,9 @@ yarn add @evanion/luhn
 pnpm add @evanion/luhn
 ```
 
-## Using the Default Instance
-
-The most common use case for `@evanion/luhn` is the default 36-character dictionary (0-9, a-z). For this, you don't need any configuration: `import { Luhn } from '@evanion/luhn'` gives you the default instance, and the next section runs it.
-
 ## Print an Order Code with a Check Character
 
-`@evanion/luhn` computes the check character but leaves the final string formatting to you.
+`@evanion/luhn` computes the check character but leaves the final string formatting to you. `import { Luhn } from '@evanion/luhn'` gives you the default instance over the 36-character dictionary (`0-9`, `a-z`), with no configuration.
 
 Imagine your database holds an **order number** like `order-2026-0042`. You want to print an **order code** on the receipt—the order number plus a check character—so that it can be validated locally.
 
