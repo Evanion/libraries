@@ -3629,6 +3629,36 @@ describe('the envelope', () => {
     expect(build).not.toThrow(FeatureConfigError);
   });
 
+  /**
+   * A condition is pointed at by the rule the document carries it in.
+   *
+   * The walks after the shape walk read the rules it read, and it reads past an
+   * element it refused, so the array they walk is shorter than the one the
+   * document declares. § 7 declares `ConfigIssue.path` a JSON pointer into the
+   * candidate, and an operator who follows one into a rule that holds nothing
+   * reads a position the document never carried.
+   */
+  it('points at a condition by the rule the document declares it in', () => {
+    const config = {
+      features: [
+        {
+          key: 'a',
+          enabled: true,
+          rules: [
+            null,
+            { when: [{ field: 'now', op: 'after', value: { nope: 1 } }] },
+          ],
+        },
+      ],
+    } as unknown as FeatureConfig;
+
+    const result = validateConfig(config);
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/rules/0', '/features/0/rules/1/when/0/value']);
+  });
+
   it('reports the hole a nested array leaves at the position it leaves it', () => {
     const paths = [
       { ...TRAVELS, variants: hole({ name: 'blue', weight: 1, order: 0 }) },
