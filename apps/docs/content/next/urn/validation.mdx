@@ -44,11 +44,7 @@ A common JavaScript error occurs when passing static methods as callbacks. Every
 
 ```
 
-`catalogue.filter(GameURN.isValidFormat)` returns an empty list because the binding is lost. To fix this, wrap the call in an arrow function to preserve the class context:
-
-```ts
-catalogue.filter(urn => GameURN.isValidFormat(urn));
-```
+`catalogue.filter(GameURN.isValidFormat)` returns an empty list because the binding is lost. To fix this, wrap the call in an arrow function to preserve the class context, as the first `map` and the last `filter` do.
 
 ## Distinguishing Malformed URNs from Bad Parts
 
@@ -63,12 +59,12 @@ catalogue.filter(urn => GameURN.isValidFormat(urn));
 
 Every `InvalidError` is also a `ValidationError`. An `InvalidError` carries detailed fields to explain exactly what failed:
 
-| Field         | What it holds                                                                                                       |
-| ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Field         | What it holds                                                                                   |
+| ------------- | ----------------------------------------------------------------------------------------------- |
 | `property`    | The failed part: `'URN'`, `'NID'`, `'NSS'`, `'R-COMPONENT'`, `'Q-COMPONENT'` or `'F-COMPONENT'` |
-| `value`       | The part as it was written                                                                                          |
-| `invalidChar` | The first character outside the grammar (absent if the whole part is fundamentally broken)                         |
-| `reason`      | The rule broken when characters are valid (e.g., the NID is too short)                                             |
+| `value`       | The part as it was written                                                                      |
+| `invalidChar` | The first character outside the grammar (absent if the whole part is fundamentally broken)      |
+| `reason`      | The rule broken when characters are valid (e.g., the NID is too short)                          |
 
 ## Minting Batches Safely
 
