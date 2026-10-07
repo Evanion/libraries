@@ -12,7 +12,7 @@
 
 ## Minting a Check Character with `Luhn.generate`
 
-`Luhn.generate` takes an identifier (without a check character) and returns the necessary data to build a valid code.
+`Luhn.generate` takes an identifier without a check character and returns its `phrase`, its `checksum` and its `filtered` count.
 
 ```ts twoslash file=libs/luhn/README.md region=generate
 
@@ -28,7 +28,7 @@
 | `checksum` | The computed check character.                       | `'l'`                       |
 | `filtered` | The number of characters dropped (separators, etc). | `2`                         |
 
-Because `generate` reads the [phrase](../#how-the-luhn-sum-works), inputs like `order-2026-0042` and `ORDER 2026/0042` produce the same checksum. This ensures that the identity of the resource is preserved regardless of how it was written.
+Because `generate` reads the [phrase](../#how-the-luhn-sum-works), inputs like `order-2026-0042` and `ORDER 2026/0042` produce the same checksum. So a code typed in capitals with spaces finds the same order as the printed one.
 
 ## Handling Empty Inputs
 
