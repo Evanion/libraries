@@ -1,20 +1,27 @@
 # @evanion/acl
 
-In most applications, authorization rules are written twice: once in the handler that guards the data, and once in the frontend that hides buttons. `@evanion/acl` lets you write them exactly once.
+In most applications, authorization rules are written twice: once in the backend handler to guard the data, and once in the frontend to hide or show buttons. The moment a rule changes, these two copies drift, leading to a frustrating experience where a user sees a button they aren't allowed to click, or a feature they should have access to is hidden.
+
+`@evanion/acl` solves this by allowing you to write your authorization rules exactly once and share them across every process in your stack.
 
 ## One set of rules, shared everywhere
 
-Instead of duplicating logic, `@evanion/acl` keeps your rules in a single JSON document called the **matrix**. Two hand-written copies drift the moment a rule changes, and a user sees a button they aren't allowed to click, or a feature they should have is hidden.
+Instead of duplicating logic, `@evanion/acl` keeps your rules in a single JSON document called the **matrix**. 
 
-Your server defines the policy and builds the matrix in memory. Any other process, such as a browser or another service, can then hold a copy of that matrix and answer authorization questions locally, with no network call back to the server.
+Your server defines the policy and builds the matrix in memory. Any other process—such as a browser or a microservice—can then hold a copy of that matrix and answer authorization questions locally, with no network call back to the server.
 
-Every example on these pages is set in Baize, a board game shop, where a customer who asked a question may edit it:
+Every example on these pages is set in Baize, a board game shop, where a customer who asked a question may be allowed to edit it:
 
 ```ts twoslash file=libs/acl/README.md region=quick-start
 
 ```
 
-Each `// ->` comment is the value its line returns. `policy()` turns the rules into `access`, the evaluator, and `access.can` answers whether customer-41 may update a question they asked: `true`.
+Here is how the code above works:
+- `policy()` initializes the rule-set.
+- `.for('question', (p) => …)` defines the rules for a specific object kind (in this case, `question`).
+- `p.allow('update', …)` grants permission if the provided conditions are met. For example, `p.eq('object.askedBy', 'subject.id')` ensures only the original author can edit the question.
+- `.build()` returns the **evaluator** (which we call `access`), the object used to check permissions.
+- `access.can(subject, kind, action, row)` is the final check: "Can this user perform this action on this specific record?"
 
 The `access.matrix` property is the raw JSON representation of these rules. By passing this JSON to `hydratePolicy` in another process, you can recreate the exact same evaluator in the browser:
 
@@ -27,59 +34,53 @@ flowchart LR
   B --> U["what the screen draws"]
 ```
 
-Because the answer is computed inside the process that asked, the UI responds instantly. A copy keeps answering with the old rules after you change one, until it fetches the new matrix.
+Because the answer is computed locally, the UI responds instantly. When rules change on the server, the browser simply fetches the new matrix to stay in sync.
 
 ## The acl vocabulary
 
-These `@evanion/acl` terms appear on every acl page:
+To help you navigate the rest of these docs, here are the core terms we use:
 
-- **Subject**: The entity acting (e.g., the logged-in user), resolved by your auth layer before the call.
-- **Object**: The resource being acted upon. This consists of a **kind** (like `question`) and optionally a **row** (a specific record). A row's properties are its **fields**.
-- **Permission**: A pair of an object kind and an action (e.g., `question.delete`), keyed `` `${object}.${action}` ``.
-- **Condition**: A check comparing a path in the subject or row with a value or with another path (e.g., `object.askedBy` must equal `subject.id`).
-- **Rule**: A list of conditions, which matches when all of them hold. **Allow rules** grant access; **deny rules** refuse it, and a deny rule that matches outranks every allow rule.
-- **Default deny**: If no allow rule matches a request, the permission is refused by default.
-- **Matrix**: The complete set of rules serialized as one JSON object, holding a flat list of permissions.
-- **Evaluator**: The engine that uses a matrix to answer `can()` requests. `policy().build()` and `hydratePolicy` each return one.
-- **Decision**: The result of a `can()` call. `allowed` is the answer and the only field to act on. `reason` says why (e.g., `denied` or `no-rule-matched`), `rule` names the rule that decided, and `missing` lists the row fields the call needed and did not pass.
+- **Subject**: The entity acting (e.g., the logged-in user), typically resolved by your auth layer.
+- **Object**: The resource being acted upon. This consists of a **kind** (like `question`) and optionally a **row** ( a specific record). A row's properties are its **fields**.
+- **Permission**: A pair of an object kind and an action (e.g., `question.delete`).
+- **Condition**: A logic check comparing a path in the subject or row to a value (e.g., `object.askedBy` must equal `subject.id`).
+- **Rule**: A set of conditions. **Allow rules** grant access; **deny rules** refuse it.
+- **Default Deny**: If no allow rule matches a request, the permission is refused by default.
+- **Matrix**: The complete set of rules serialized as a JSON object.
+- **Evaluator**: The engine that uses a matrix to answer `can()` requests.
+- **Decision**: The result of a `can()` call. It includes whether the action was `allowed` and the `reason` why (e.g., `denied` or `no-rule-matched`).
 
 ## What acl can do
 
-`@evanion/acl` handles a wide range of authorization patterns locally, on a server and in a browser alike:
+`@evanion/acl` handles a wide range of authorization patterns locally:
 
 | The question                                          | The answer                                                                   |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------- |
-| May this subject take this action on this row?        | a single decision with a specific reason                                     |
-| May they take it on each of these rows?               | one decision per row, returned in a single call                              |
-| What may they do at all, with no row in hand?         | every permission in the matrix at once                                       |
-| Which fields of this write may they set?              | a decision per field, and the write with the refused fields removed          |
-| Why was this refused?                                 | the rule that refused, or the fields that were missing                       |
-| Who gained or lost access when the rules changed?     | a detailed report comparing the old and new matrices                         |
-| May a service answer from a matrix another one built? | yes, from its copy; an action missing from the copy answers `allowed: false` |
+| May this subject take this action on this row?        | a single decision with a specific reason                                      |
+| May they take it on each of these rows?               | one decision per row, returned in a single call                                |
+| What may they do at all, with no row in hand?         | a full list of every permission in the matrix                                   |
+| Which fields of this write may they set?              | a decision per field, returning only the approved values                        |
+| Why was this refused?                                 | the specific rule that caused the refusal                                     |
+| Who gained or lost access when the rules changed?     | a detailed report comparing the old and new matrices                             |
+| May a service answer from a matrix another one built? | yes, as long as it has a copy of the JSON                                       |
 
 ## When acl is the wrong tool
 
-`@evanion/acl` does not do these four things:
+While powerful, `@evanion/acl` is not designed for every security task:
 
-- **Secret rules**: The matrix is sent to the browser, meaning all object kinds, action and field names, and condition values (such as a role name or a cut-off date) are public. Rules that must remain secret must be written in your server code.
-- **Database filtering**: The library makes decisions on individual instances. Generating `WHERE` clauses for database queries is out of scope.
-- **Dynamic functions**: Conditions must be declarative so they survive `JSON.stringify` unchanged. You cannot put a JavaScript function inside a rule.
-- **Non-JS backends**: Only the JSON is portable. A .NET or Go service brings its own evaluator.
+- **Secret Rules**: The matrix is sent to the browser, meaning all object kinds, action names, and condition values are public. Rules that must remain secret must be written in your server code.
+- **Database Filtering**: The library makes decisions on individual instances. Generating complex `WHERE` clauses for database queries is out of scope.
+- **Dynamic Functions**: Conditions must be declarative so they can be serialized to JSON. You cannot put a JavaScript function inside a rule.
+- **Non-JS Backends**: Only the JSON is portable. If your backend is in Go or .NET, you would need a compatible evaluator for those languages.
 
-Four more questions stay outside the matrix: how soon a revoked permission reaches a copy, how a rule relates two rows, the full list of subjects who may take an action, and which service's log of decisions is the access record for an audit. [What `@evanion/acl` does not do](./limits) answers each.
+For more detailed constraints, see [What `@evanion/acl` does not do](./limits).
 
 <Panel heading="A browser answer is advisory">
   <Text as="div" size="sm">
-    Remember that a browser-side check is only for the UI. The same `can` call
-    carries the same signature and return type on a server and in a browser, and
-    nothing in the types separates them. A hidden button still leaves the
-    request it would have sent, and anyone can send that request by hand. Call
-    `can()` in every server process on the request's path; a gateway that
-    allowed the request does not excuse the service behind it. [The security
-    contract](./security) explains this boundary in detail.
+    Remember that a browser-side check is only for the UI. Because the browser environment can be manipulated, a `can()` call in the browser only tells you what to draw. You MUST still call `can()` in every server process that handles the actual request to ensure the action is truly authorized. [The security contract](./security) explains this boundary in detail.
   </Text>
 </Panel>
 
 ## Install acl and write a policy of your own
 
-You have seen one rule answer from a matrix that a server and a browser can both hold. [Getting started](./getting-started) will guide you through installing the package, building your first policy, and sharing it with a browser.
+Now that you understand the mental model, you can start implementing it. [Getting started](./getting-started) will guide you through installing the package, building your first policy, and sharing it with a browser.

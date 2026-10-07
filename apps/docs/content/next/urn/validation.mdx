@@ -1,6 +1,6 @@
 # Checking URN input
 
-`isValidFormat` in `@evanion/urn` screens a URN from outside the shop before `parse` reads it, and two error classes say what failed when a call throws.
+`isValidFormat` in `@evanion/urn` screens a URN from outside the shop before `parse` reads it, ensuring your application doesn't crash on malformed input.
 
 <PageSheet
   difficulty={2}
@@ -16,15 +16,15 @@
   ]}
 />
 
-## Untrusted Input
+## The Problem: Untrusted Input
 
-When receiving URNs from external sources—API requests, URL parameters, or user input—you cannot assume they are well-formed. Attempting to `parse` a string that isn't a URN will throw an `@evanion/urn` error, which, if uncaught, can crash your request handler.
+When receiving URNs from external sources—API requests, URL parameters, or user input—you cannot assume they are well-formed. Attempting to `parse` a string that isn't a URN will throw an error, which, if uncaught, can crash your request handler.
 
-Wrapping every call in a `try...catch` block is verbose.
+Checking every input with a `try...catch` block is verbose and computationally expensive for high-volume endpoints.
 
-## Pre-screening with `isValidFormat`
+## Solution: Pre-screening with `isValidFormat`
 
-`isValidFormat` in `@evanion/urn` lets you screen input without writing a `try` block. It calls `parse` and returns `false` where `parse` would throw, so your validation logic and parsing logic never disagree. It checks that a URN is well-formed, not which namespace it belongs to.
+`isValidFormat` allows you to screen input without the overhead of exception handling. It internally calls `parse` but returns a boolean instead of throwing, ensuring that your validation logic and parsing logic never disagree.
 
 [`GameURN`](../getting-started) screens a URN from outside the shop before reading it:
 
@@ -32,11 +32,11 @@ Wrapping every call in a `try...catch` block is verbose.
 
 ```
 
-In this example, `urnOrNull` returns `null` for the space in `spirit island`, and for `hive`, which lacks both a scheme and a NID. It returns the order URN parsed, with `nid: 'order'`, so code that wants only games also calls `belongsToNamespace`.
+In this example, `gameOrNull` returns `null` for the space in `spirit island`, and for `hive`, which lacks both a scheme and a NID.
 
 ## Avoiding the "Unbound Static" Pitfall
 
-Passed as a bare callback, an `@evanion/urn` static such as `GameURN.extractId` loses its class binding. Every static reads `this` to determine the current namespace.
+A common JavaScript error occurs when passing static methods as callbacks. Every static method of an `@evanion/urn` class reads `this` to determine the current namespace. If you pass a static method as a bare callback, it loses its class binding.
 
 `stringify`, `parse` and `extractId` will throw a `TypeError` in this scenario. However, `isValidFormat`, `sameNamespace` and `equals` are designed to fail gracefully and return `false` instead.
 
@@ -44,39 +44,35 @@ Passed as a bare callback, an `@evanion/urn` static such as `GameURN.extractId` 
 
 ```
 
-`catalogue.filter(GameURN.isValidFormat)` returns an empty list because the binding is lost. To fix this, wrap the call in an arrow function to preserve the class context, as the first `map` and the last `filter` do.
+`catalogue.filter(GameURN.isValidFormat)` returns an empty list because the binding is lost. To fix this, wrap the call in an arrow function to preserve the class context:
 
-`belongsToNamespace` takes the scheme as an optional third argument, and throws the `TypeError` only when that argument is left out. `filter` and `map` pass a third argument, so under either it returns `false` for every URN.
+```ts
+catalogue.filter(urn => GameURN.isValidFormat(urn));
+```
 
 ## Distinguishing Malformed URNs from Bad Parts
 
 `@evanion/urn` provides two distinct error classes to help you provide better feedback to your users.
 
-- **`ValidationError`**: The string is not a URN at all (e.g., `azul`, which has no scheme and no NID).
+- **`ValidationError`**: The string is not a URN at all (e.g., it is missing the `urn:` scheme or the NID).
 - **`InvalidError`**: The string is a URN, but a specific part (like the NSS) broke its grammar.
 
 ```ts twoslash file=libs/urn/README.md region=error-handling
 
 ```
 
-Every `InvalidError` is also a `ValidationError`, so `problemWith` checks `InvalidError` first. An `InvalidError` carries detailed fields to explain exactly what failed:
+Every `InvalidError` is also a `ValidationError`. An `InvalidError` carries detailed fields to explain exactly what failed:
 
-| Field         | What it holds                                                                                                                                                                   |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `property`    | The failed part: `'URN'` for the scheme, `'NID'`, `'NSS'`, `'R-COMPONENT'`, `'Q-COMPONENT'` or `'F-COMPONENT'`, or `'COMPONENT'` on a class whose separator contains `?` or `#` |
-| `value`       | The part as it was written                                                                                                                                                      |
-| `invalidChar` | The first character outside the grammar, `undefined` when no single character is at fault                                                                                       |
-| `reason`      | The rule broken when every character is allowed (e.g., the NID is too short), `undefined` otherwise                                                                             |
-
-An empty part leaves both `invalidChar` and `reason` `undefined`, and its message says the part must not be empty. `rejection` reads the fields off two refusals from `stringify`:
-
-```ts twoslash file=libs/urn/README.md region=invalid-error
-
-```
+| Field         | What it holds                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `property`    | The failed part: `'URN'`, `'NID'`, `'NSS'`, `'R-COMPONENT'`, `'Q-COMPONENT'` or `'F-COMPONENT'` |
+| `value`       | The part as it was written                                                                                          |
+| `invalidChar` | The first character outside the grammar (absent if the whole part is fundamentally broken)                         |
+| `reason`      | The rule broken when characters are valid (e.g., the NID is too short)                                             |
 
 ## Minting Batches Safely
 
-Since `stringify` in `@evanion/urn` throws an `InvalidError` on a part that breaks its grammar, you should catch these errors when processing a batch of IDs. This ensures one bad slug doesn't stop the entire process:
+Since `stringify` throws an `InvalidError` on a part that breaks its grammar, you should catch these errors when processing a batch of IDs. This ensures one bad slug doesn't stop the entire process:
 
 ```ts twoslash file=libs/urn/README.md region=batch-mint
 
@@ -84,18 +80,18 @@ Since `stringify` in `@evanion/urn` throws an `InvalidError` on a part that brea
 
 ## URN Part Grammars
 
-`@evanion/urn` checks the NID and the NSS against RFC 8141, and the scheme against RFC 3986, so it accepts schemes other than `urn`:
+To ensure strict RFC 8141 compliance, `@evanion/urn` validates each part against specific grammars:
 
 - **Scheme**: A letter, followed by letters, digits, `+`, `-` and `.`.
 - **NID**: Letters, digits and interior hyphens. `stringify` requires 2-32 characters; `parse` accepts 1-32.
 - **NSS**: Letters, digits, `-._~!$&'()*+,;=:@`, percent-encoded characters, and `/` after the first character. Spaces, `?` and `#` are prohibited.
 
-`schemeGrammar`, `nidGrammar` and `nssGrammar` hold the patterns `stringify` checks. The NID is the only part read and written differently: `parse` accepts a one-character NID (per RFC 2141, the URN standard before RFC 8141), so `isValidFormat` accepts `urn:g:azul` while `stringify` refuses to write it.
+`schemeGrammar`, `nidGrammar` and `nssGrammar` hold the patterns `stringify` checks. Note that the NID is the only part read and written differently: `parse` accepts a one-character NID (per RFC 2141), while `stringify` refuses to write it.
 
 ```ts twoslash file=libs/urn/README.md region=grammars
 
 ```
 
-## Adding metadata to a URN
+## Next steps: Adding metadata
 
-Each `@evanion/urn` grammar above stops at the end of the NSS. An edition or a section of the rules goes after it, in a component, and [r-, q- and f-components](../components) adds both to `urn:game:brass-birmingham`.
+A URN that `isValidFormat` accepts has passed each `@evanion/urn` grammar. [r-, q- and f-components](../components) shows how to add an edition and a section of the rules to `urn:game:brass-birmingham`, and reads both back with `parse`.

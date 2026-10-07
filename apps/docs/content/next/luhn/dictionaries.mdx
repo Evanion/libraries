@@ -1,6 +1,6 @@
 # Dictionaries
 
-`createLuhn({ dictionary })` builds an instance over the characters you choose. The default dictionary can produce `l` or `o` as a check character, which a pickup code read aloud leaves out.
+`createLuhn({ dictionary })` builds an instance over a set of characters of your choice. This allows you to adapt the Luhn algorithm to any alphabet—from credit card digits to a custom set of symbols.
 
 <PageSheet
   difficulty={3}
@@ -10,9 +10,9 @@
   unlocks={[['Standards and modulo bias', '../standards']]}
 />
 
-## The Default `Luhn` Dictionary
+## The Foundation: The Default Dictionary
 
-The standard `Luhn` instance of `@evanion/luhn` is built over the `DEFAULT_DICTIONARY`, which consists of the 36 lowercase alphanumerics (`0-9` and `a-z`).
+The standard `Luhn` instance is built over the `DEFAULT_DICTIONARY`, which consists of the 36 lowercase alphanumerics (`0-9` and `a-z`).
 
 ```ts twoslash file=libs/luhn/README.md region=default-dictionary
 
@@ -22,71 +22,57 @@ The default instance automatically folds input to lowercase. This ensures that `
 
 ## Building Custom Instances with `createLuhn`
 
-When your identifiers use a different alphabet, `createLuhn` from `@evanion/luhn` builds a custom instance.
+When your identifiers use a different alphabet, you can build a custom Luhn instance. 
 
-The shop's pickup codes use 32 characters, the 36 without `i`, `l`, `o` and `w`, because people confuse those when they read or hear a code. `@evanion/token` uses the same 32 by default. `pickup` below is an instance over them:
+For example, the `@evanion/token` package uses a 32-character dictionary that drops "confusable" characters (`i`, `l`, `o`, `w`) to prevent human transcription errors. You can create a similar instance manually:
 
 ```ts twoslash file=libs/luhn/README.md region=pickup-dictionary
 
 ```
 
-`pickup.generate` and `pickup.validate` are the same calls `Luhn` carries, bound to the new dictionary. A larger dictionary lets fewer random strings through `validate`.
+### Important: The Importance of Order
 
-### Order Decides the Check Characters
+The dictionary string is not just a set of characters—it is an **ordered list**. The index of each character in the string determines its value in the Luhn sum. 
 
-The dictionary string is an **ordered list** of characters. The index of each character in the string determines its value in the Luhn sum.
-
-**Never derive the dictionary string at runtime.** If you change the order of characters, you change the check characters the instance produces, which will break validation for any codes already issued.
+**Never sort or deduplicate your dictionary string at runtime.** If you change the order of characters, you change the check characters the instance produces, which will break validation for any codes already issued.
 
 ## Dictionary Constraints
 
-To ensure the Luhn algorithm works correctly, `createLuhn` validates your dictionary against five constraints, once, when it builds the instance. If any is broken, it throws an `InvalidDictionaryError` whose `reason` names the constraint.
+To ensure the Luhn algorithm works correctly, `createLuhn` validates your dictionary against five constraints. If any are broken, it throws an `InvalidDictionaryError`.
 
-| `reason`       | Constraint                                    | Why it matters                                                                                                   |
-| :------------- | :-------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
-| `not-a-string` | Must be a string                              | The library requires a sequence of characters.                                                                   |
-| `too-short`    | At least 2 code points                        | With only one character, every code would technically be valid.                                                  |
-| `odd-length`   | Must have an even size                        | Over an odd size, two indices contribute the same amount when doubled, so a substitution between them is missed. |
-| `duplicate`    | No repeated characters                        | Each character must map to exactly one unique index.                                                             |
-| `case-pairs`   | No case variants (if `caseInsensitive: true`) | If `A` and `a` both exist, folding input to lowercase would make the index of `A` unreachable.                   |
-
-The error's `offending` names what failed, so a settings screen can point at it: the repeated characters for `duplicate`, the case pairs joined as `'Aa'` for `case-pairs`, and nothing for the other three.
+| `reason` | Constraint | Why it matters |
+| :--- | :--- | :--- |
+| `not-a-string` | Must be a string | The library requires a sequence of characters. |
+| `too-short` | At least 2 characters | With only one character, every code would technically be valid. |
+| `odd-length` | Must have an even size | The doubling step in the Luhn sum requires an even-sized alphabet to avoid "blind spots." |
+| `duplicate` | No repeated characters | Each character must map to exactly one unique index. |
+| `case-pairs` | No case variants (if `caseInsensitive: true`) | If `A` and `a` both exist, folding input to lowercase would make the index of `A` unreachable. |
 
 ```ts twoslash file=libs/luhn/README.md region=constraints
 
 ```
 
-Because `createLuhn` refuses a dictionary it cannot use, an instance you hold cannot produce a code its own `validate` rejects.
-
 ## Handling Case Sensitivity
 
-By default, `createLuhn` sets `caseInsensitive` to `false` when you provide a custom dictionary, and to `true` when you provide none. The library cannot assume your own dictionary expects input folded to lowercase.
+By default, `createLuhn` sets `caseInsensitive` to `false` when you provide a custom dictionary. This is because the library cannot assume you want your input folded to lowercase.
 
-To make a custom instance ignore case, set `caseInsensitive: true`. A lowercase dictionary such as the pickup one needs it to accept uppercase input. `ALTERNATING_CASE_DICTIONARY` holds both cases, 62 characters ordered `0-9` then `Aa Bb … Zz`, so an instance over it leaves folding off and tells `A` from `a`.
+If you want your custom instance to ignore case, set `caseInsensitive: true`. This is useful for dictionaries that only contain lowercase letters but need to accept uppercase input from users.
 
 ```ts twoslash file=libs/luhn/README.md region=case-sensitivity
 
 ```
 
-The pickup instance refuses `A4KP-9MXA` because it does not fold case, so `A`, `K`, `P`, `M` and `X` are not in its lowercase dictionary. `validate` drops them and checks `49`, which fails. `folding` accepts the same code.
+## Advanced Considerations
 
-Asking for `caseInsensitive: true` over `ALTERNATING_CASE_DICTIONARY` would send both `A` and `a` to the index of `a`, so `createLuhn` refuses it rather than quietly downgrading:
-
-```ts twoslash file=libs/luhn/README.md region=case-pairs
-
-```
-
-## Code Points in a Luhn Dictionary
-
-`createLuhn` from `@evanion/luhn` counts **code points**, not UTF-16 units. An astral character such as 🂡 counts as one entry. An emoji built from several code points, such as ❤️ or a flag, counts as several.
+### Unicode and Code Points
+`createLuhn` counts **code points**, not UTF-16 units. This means you can safely use emojis or other multi-byte symbols in your dictionary without breaking the index mapping.
 
 ```ts twoslash file=libs/luhn/README.md region=code-points
 
 ```
 
-## Caching Instances
-
-`createLuhn` from `@evanion/luhn` validates the dictionary and builds a lookup table for it every time it is called. If your application uses a few recurring dictionaries (e.g., one for orders, one for pickup codes), you should cache the resulting instances in a `Map` rather than recreating them on every request. `Luhn` is a type as well as the default instance, so `Map<string, Luhn>` names what `createLuhn` returns.
+### Caching Instances
+`createLuhn` builds a lookup table for the dictionary every time it is called. If your application uses a few recurring dictionaries (e.g., one for orders, one for pickup codes), you should cache the resulting instances in a `Map` rather than recreating them on every request.
 
 ```ts twoslash file=libs/luhn/README.md region=instance-per-dictionary
 
@@ -94,4 +80,4 @@ Asking for `caseInsensitive: true` over `ALTERNATING_CASE_DICTIONARY` would send
 
 ## Matching Published Standards
 
-Payment cards, IMEIs and US provider IDs use Luhn mod-10, which `@evanion/luhn` computes over the dictionary `'0123456789'`. [Standards and modulo bias](../standards) lists which dictionary matches which standard, and how to draw random codes over a dictionary without modulo bias.
+Different industries use different dictionaries for their checksums. [Standards and modulo bias](../standards) explains which dictionaries match published standards and how to avoid "modulo bias" when generating random codes.

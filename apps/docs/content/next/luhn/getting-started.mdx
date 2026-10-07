@@ -1,6 +1,6 @@
 # Getting started
 
-By the end of this page, your code prints an order code with its check character, and `Luhn.validate` refuses the code when its `l` is misread as a `1`.
+By the end of this page, your code will be able to print an order code with its check character and refuse a code where the check character is misread (e.g., reading an `l` as a `1`).
 
 <PageSheet
   difficulty={1}
@@ -12,10 +12,8 @@ By the end of this page, your code prints an order code with its check character
 
 ## Prerequisites
 
-`@evanion/luhn` needs only a modern JavaScript runtime:
-
 - **Node 20 or newer**, or any modern browser.
-- **An ES module (ESM) project**. A CommonJS project loads the package with `require()` only on Node 20.19, 22.12 or newer. An older `require()` fails with `ERR_REQUIRE_ESM`.
+- **An ES module (ESM) project**. If you are using CommonJS, you will need Node 20.19, 22.12 or newer to load ES modules via `require()`.
 - **Dependencies**: None. The package has no peer or runtime dependencies.
 
 ## Install luhn
@@ -26,28 +24,28 @@ Run the command for your preferred package manager:
 npm install @evanion/luhn
 ```
 
-```bash
-yarn add @evanion/luhn
-```
+## Using the Default Instance
 
-```bash
-pnpm add @evanion/luhn
+The most common use case is the default 36-character dictionary (0-9, a-z). For this, you don't need any configuration—just import the `Luhn` instance.
+
+```ts
+import { Luhn } from '@evanion/luhn';
 ```
 
 ## Print an Order Code with a Check Character
 
-`@evanion/luhn` computes the check character but leaves the final string formatting to you. `import { Luhn } from '@evanion/luhn'` gives you the default instance over the 36-character dictionary (`0-9`, `a-z`), with no configuration.
+`@evanion/luhn` computes the check character but leaves the final string formatting to you. 
 
-Imagine your database holds an **order number** like `order-2026-0042`. You want to print an **order code** on the receipt, the order number plus a check character, so that it can be validated locally.
+Imagine your database holds an **order number** like `order-2026-0042`. You want to print an **order code** on the receipt—the order number plus a check character—so that it can be validated locally.
 
 ```ts twoslash file=libs/luhn/README.md region=round-trip
 
 ```
 
-In this example, `Luhn.generate` returns the check character as `checksum`, and `orderCode` appends it after a hyphen for readability. When a customer reads the code back, `Luhn.validate` ignores the hyphen and other non-dictionary characters (reading only the [phrase](../#how-the-luhn-sum-works)), allowing it to verify the code regardless of how it was formatted.
+In this example, `Luhn.generate` returns the check character as `checksum`. We append it with a hyphen for readability. When a customer reads the code back, `Luhn.validate` ignores the hyphen and other non-dictionary characters (reading only the **phrase**), allowing it to verify the code regardless of how it was formatted.
 
-If a customer reads `order-2026-0042-l` as `order-2026-0042-1`, `validate` immediately returns `isValid: false`. Your system can then ask the customer to repeat the code before ever querying the database for an order that doesn't exist.
+If a customer reads `order-2026-0042-l` as `order-2026-0042-1`, `validate` will immediately return `isValid: false`. Your system can then ask the customer to repeat the code before ever querying the database for an order that doesn't exist.
 
-## Read the Full Results
+## Next Steps
 
-Your code now prints order codes with an `@evanion/luhn` check character and refuses misread ones. [Generating and validating](../usage) reads the full result objects and maps a code a customer types back to its order.
+Your code now prints order codes and refuses misread ones. [Generating and validating](../usage) explores the full result objects returned by the API and shows how to use the `phrase` to extract the original order ID from a customer's input.

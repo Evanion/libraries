@@ -1,6 +1,6 @@
 # Entropy and collisions
 
-To determine the correct `length` for the codes your system will issue, read `entropyBits` on the token instance that `createToken` returns.
+To determine the correct `length` for the codes your system will issue, you can use the `entropyBits` property on the token instance returned by `createToken`.
 
 <PageSheet
   difficulty={3}
@@ -10,15 +10,15 @@ To determine the correct `length` for the codes your system will issue, read `en
   unlocks={[['API reference', '../api']]}
 />
 
-## Collisions and the Birthday Paradox
+## The Problem: The "Birthday Paradox" in Codes
 
-When `@evanion/token` generates random codes, you don't just worry about running out of possible values: you worry about **collisions**. A collision occurs when `generate()` produces a value that has already been issued to another user.
+When you generate random IDs, you don't just worry about running out of possible values—you worry about **collisions**. A collision occurs when `generate()` produces a value that has already been issued to another user.
 
-Because of the "Birthday Paradox," collisions happen much sooner than you'd expect: with 35 bits of entropy, you don't need 34 billion codes to see a collision; there's a 50% chance of a collision after only 218,000 codes.
+Because of the "Birthday Paradox," collisions happen much sooner than you'd expect. For example, with 35 bits of entropy, you don't need 34 billion codes to see a collision; there's a 50% chance of a collision after only 218,000 codes.
 
 ## Calculating Entropy
 
-The entropy of an `@evanion/token` code is the total number of random bits it carries. Since the check character is computed from the body and isn't random, the formula is:
+The entropy of a token is the total number of random bits it carries. Since the check character is computed from the body and isn't random, the formula is:
 
 $$\text{Entropy Bits} = (\text{length} - 1) \times \log_2(\text{dictionary size})$$
 
@@ -28,56 +28,55 @@ $$\text{Entropy Bits} = (\text{length} - 1) \times \log_2(\text{dictionary size}
 
 ```
 
-The default `length` of 8 and 32-character dictionary provide 35 bits. A `length` of 12 provides 55 bits, and a `length` of 13 provides 60. The example passes `chunkSize: 13` because the default chunk size of 4 does not divide 13, which `createToken` refuses.
+The default `length` of 8 and 32-character dictionary provide 35 bits. Increasing the length to 13 increases the entropy to 60 bits.
 
 ### Collision Probability
 
-The 50% collision point is roughly $1.18 \times \sqrt{2^{\text{bits}}}$. The last column is the number of issued codes at which the next insert's chance of a conflict reaches 1 in 1,000, the figure the sizing rule below uses. Both grow fast with the length:
+The 50% collision point is roughly $1.18 \times \sqrt{2^{\text{bits}}}$. As you increase the length, the risk of collision drops exponentially:
 
-| `length` | Bits | 50% Collision Point | 1 in 1,000 per Insert |
-| :------- | :--- | :------------------ | :-------------------- |
-| 6        | 25   | 6,800               | 34,000                |
-| 8        | 35   | 218,000             | 34,000,000            |
-| 10       | 45   | 7,000,000           | 35,000,000,000        |
-| 13       | 60   | 1,300,000,000       | 1,200,000,000,000,000 |
+| `length` | Bits | 50% Collision Point |
+| :--- | :--- | :--- |
+| 6 | 25 | 6,800 |
+| 8 | 35 | 218,000 |
+| 10 | 45 | 7,000,000 |
+| 13 | 60 | 1,300,000,000 |
 
 ## Handling Collisions with Unique Indexes
 
-`@evanion/token` does not check your database for collisions because it has no access to your issued codes, and `generate` never retries. The responsibility for uniqueness lies with your database.
+`@evanion/token` does not check your database for collisions because it has no access to your issued codes. The responsibility for uniqueness lies with your database.
 
-Put a `UNIQUE` index on the `body` column and redraw the code if the insert fails:
+The best practice is to put a `UNIQUE` index on the `body` column and redraw the code if the insert fails:
 
 ```ts twoslash file=libs/token/README.md region=issue
 
 ```
 
-In this pattern, `issued` stands in for the unique index, and `insertPickupCode` returns `false` where a database raises a unique violation. In your code, catch that violation and nothing else, then call `generate()` again. `issuePickupCode` draws up to five times and then throws, so a table that has run out of codes raises an error. Once `length` keeps each insert's chance of a conflict under 1 in 1,000, the sizing rule in the next section, five consecutive collisions happen about once in $10^{15}$ inserts.
+In this pattern, you catch the unique violation error and call `generate()` again. The chance of five consecutive collisions at 35 bits is effectively zero ($\approx 10^{-15}$), making this a robust implementation.
 
 ## Sizing Your Code Length
 
-To choose the right `length` for an `@evanion/token` code, calculate the chance that the _next_ insert will conflict: $\frac{\text{Codes Issued}}{2^{\text{bits}}}$.
+To choose the right `length`, calculate the chance that the *next* insert will conflict: $\frac{\text{Codes Issued}}{2^{\text{bits}}}$.
 
-Keep this probability below 1 in 1,000 for your expected volume over the next three years. For a default 35-bit code, the probability reaches 1 in 1,000 at about 34 million issued codes. The 50% collision point of 218,000 codes measures something else: the point where some two codes have an even chance of matching, and the retry loop redraws that one match.
+A good rule of thumb is to keep this probability below 1 in 1,000 for your expected volume over the next three years. For a default 35-bit token, this threshold is reached at about 34 million issued codes.
 
 ## Security Warning: Guessing vs. Typo-Detection
 
-**`@evanion/token` codes are not secure credentials**.
+It is critical to understand that **token codes are not secure credentials**. 
 
-A 35-bit code is designed to protect against _transcription errors_ (typos), not _adversarial guessing_. An attacker can enumerate 35 bits, so a code that grants access by being known, such as a password reset link, needs a different tool.
+A 35-bit code is designed to protect against *transcription errors* (typos), not *adversarial guessing*. If a code grants high-value access (like a password reset or a gift card balance), it is susceptible to enumeration attacks.
 
-- **Wrong tool**: Do not use `@evanion/token` for session IDs, password resets, or any code where knowing the string grants access. Use a 128-bit random value for those, and do not make it readable, because nobody types it.
+- **Wrong tool**: Do not use `@evanion/token` for session IDs or security tokens. Use a 128-bit random value (UUID) for those.
 - **Right tool**: Use it for pickup codes, support tickets, or any identifier a human must handle.
 
-If a readable code _must_ gate a resource (like a gift card), you must implement additional security:
-
+If a readable code *must* gate a resource (like a gift card), you must implement additional security:
 1. **Rate-limiting**: Prevent attackers from guessing thousands of codes per second.
 2. **Second-factor binding**: Bind the code to a known identity, such as the customer's email address.
 
-## Why Codes Are Not Shorter
+## Why not just make codes shorter?
 
-`@evanion/token` could get the same bits from fewer characters with a larger dictionary or without the check character, and does neither:
+You might wonder why we don't just use a larger dictionary or drop the check character to save space.
 
-1. **Alphabet Limits**: `createToken` refuses uppercase, so a 64-character dictionary would require punctuation or non-ASCII characters. Even expanding to a full alphanumeric set (36 chars) would bring back characters like `o` and `l`, which are confused with `0` and `1`, and 36 does not divide 256.
-2. **The Value of the Check**: Dropping the check character would increase entropy (e.g., 40 bits instead of 35), but it would mean every mistyped code triggers a database lookup and a "Not Found" error. `createToken` has no option to drop it.
+1. **Alphabet Limits**: Using a 64-character dictionary would require punctuation or non-ASCII characters. Even expanding to a full alphanumeric set (36 chars) would force us to include characters like `o` and `l`, which are easily confused with `0` and `1`. We prioritize a "clean" alphabet to ensure human readability and transcription accuracy over raw density.
+2. **The Value of the Check**: Dropping the check character would increase entropy (e.g., 40 bits instead of 35), but it would mean every mistyped code triggers a database lookup and a "Not Found" error. 
 
-The check character is what `@evanion/token` adds to a random string. [The API reference](../api) lists every option, field and error these pages use.
+The check character is the primary value proposition of the library; without it, you're just generating random strings.

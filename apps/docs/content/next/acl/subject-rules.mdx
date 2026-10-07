@@ -1,6 +1,8 @@
 # Rules about who the user is
 
-In a real application, you often need exceptions, such as preventing a suspended bookseller from reading the stock report. This page adds them with `p.deny`, and names rules with `.id`.
+In a real application, authorization is rarely as simple as "all staff can do X." You often need to handle exceptions—such as preventing a suspended employee from accessing sensitive reports—or differentiate between different levels of staff.
+
+When these rules depend only on the user's properties (like their roles or account status), they are called **subject-only rules**. Because they don't need to know which specific object is being accessed, they are extremely fast and can be evaluated without any database reads.
 
 <PageSheet
   difficulty={2}
@@ -15,22 +17,19 @@ In a real application, you often need exceptions, such as preventing a suspended
 
 ## Handling exceptions with deny rules
 
-A **subject-only rule** in `@evanion/acl` depends only on the user's properties, like their roles or account status, so it is evaluated without any database reads. While `p.allow` grants permission, `p.deny` explicitly revokes it. If a deny rule matches, the permission is refused, even if an allow rule also matches.
+While `p.allow` grants permission, you often need a way to explicitly revoke it. `@evanion/acl` provides `p.deny` for this purpose. A deny rule is a "hard stop": if a deny rule matches, the permission is refused, even if an allow rule also matches.
 
-Consider the Baize shop's stock report: any staff member with the `bookseller` role may read it, unless their account has been suspended. Replace the contents of `access.ts` with this file, which keeps the question rule from [Getting started](../getting-started) and adds the report:
+Consider the Baize shop's stock report. We want any staff member with the `bookseller` role to read the report, unless their account has been suspended.
 
 ```ts twoslash file=libs/acl/README.md region=subject-deny
 
 ```
 
 In this policy, the `report.read` permission is decided by two rules:
-
 1. An **allow rule** that grants access to anyone with the `bookseller` role.
-2. A **deny rule** that refuses access to anyone with the `suspended` role. Baize suspends an account by adding that role, and the account keeps `bookseller`.
+2. A **deny rule** that refuses access to anyone with the `suspended` role.
 
-`p.deny(action, ...conditions)` takes the same conditions `p.allow` takes. `p.allow`, `p.deny` and `.id` each return `p`, so the calls chain one after another. One policy holds every object kind your app has: `report` joins `question` in the `Objects` type, and the second `.for()` chains onto the same `policy()`, so `access.matrix` holds both kinds' permissions in one list.
-
-Wrap each line ending in `// ->` in a `console.log` and run `npx tsx access.ts`. When `can()` is called, the engine checks deny rules first. If a user is both a `bookseller` and `suspended`, the deny rule wins: `allowed` is `false` and the `reason` is `denied`. If they are only a `bookseller`, `allowed` is `true` and the `reason` is `allow`. If they are neither, the `reason` is `no-rule-matched` (the default deny).
+When `can()` is called, the engine checks deny rules first. If a user is both a `bookseller` and `suspended`, the deny rule wins, and the result is `denied`. If they are only a `bookseller`, they are `allowed`. If they are neither, the result is `no-rule-matched` (the default deny).
 
 ```mermaid caption="The order can() settles one permission in, when every condition reads the subject."
 flowchart TD
@@ -43,21 +42,17 @@ flowchart TD
 
 ### Identifying rules with `.id`
 
-`.id(name)` gives the rule written by the `.allow` or `.deny` call just before it a human-readable name, and a decision reports that name in its `rule` field. The suspended bookseller's refusal above reports `suspended-reads-nothing`, the third line the file prints.
+By default, `@evanion/acl` generates an internal hash as the ID for every rule. While this works for the engine, it's useless for logging or debugging. 
 
-A rule you do not name reports an id derived from its conditions. The id stays put when a rule is inserted above it, and changes only when a release of `@evanion/acl` changes how a condition is represented. A stored derived id stops matching its rule after such a release, and nothing reports it. Name the rules whose ids you store, such as in a log.
-
-### One permission never gates another
-
-An `@evanion/acl` deny rule goes into the permission it refuses. A deny on `report.read` leaves `report.export` untouched, even though a person would call reading a precondition for exporting. Two actions that share a deny rule each carry their own copy of it in the matrix, so a person reading either permission there sees every rule that decides it.
+You can use `.id(name)` to give a rule a human-readable name. For example, naming a rule `suspended-reads-nothing` allows your application to log exactly why a user was blocked, making it much easier to provide helpful feedback to the user or support staff.
 
 ## The scope of subject-only rules
 
-A subject-only `@evanion/acl` rule is completely decoupled from the resource. This leads to two major advantages:
+A subject-only rule is a powerful tool because it is completely decoupled from the resource. This leads to two major advantages:
 
-1. **Final answers**: The server resolves the subject (the user) whole, once per request, so every condition has data to read. A permission here always answers `allow`, `denied` or `no-rule-matched`, without triggering additional database queries.
-2. **Pre-flight checks**: You can ask about these permissions before you've fetched any object. For example, a navigation menu can decide whether to show the "Stock report" link without loading a single row.
+1. **Instant Answers**: Because the server resolves the subject (the user) once per request, subject-only rules can be evaluated immediately without triggering additional database queries.
+2. **Pre-flight Checks**: You can ask about these permissions before you've even fetched a specific object. For example, a navigation menu can use subject-only rules to decide whether to show the "Admin Dashboard" link without needing to know which specific admin resource is being targeted.
 
-However, once you need to check a relationship, such as "Can this user edit _this specific_ question?", you have moved beyond the subject. You now need to read the object itself, and the handler has to load it before it asks. A question loaded without the field the rule reads gets `allowed: false` with the reason `unevaluable`: the evaluator could not decide, and fetching that field settles it.
+However, once you need to check a relationship—such as "Can this user edit *this specific* question?"—you have moved beyond the subject. You now need to read the object itself.
 
-[Rules about the thing being accessed](../object-rules) explains how to write conditions that compare the user to the resource, and how to handle `unevaluable`.
+[Rules about the thing being accessed](../object-rules) explains how to write conditions that compare the user to the resource.

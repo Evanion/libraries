@@ -1,6 +1,6 @@
 # Check CMS items before Astro renders them
 
-`validateItems` checks the items a CMS saved against the widget types you render. By running it before `astro build`, you stop the build on an unknown type or a blank required prop.
+`validateItems` checks the items a CMS saved against the widget types you render. By running this check as part of your build process, you can stop `astro build` on any save that would otherwise publish a page with missing or broken items.
 
 <PageSheet
   difficulty={2}
@@ -13,63 +13,61 @@
   ]}
 />
 
-## The Silent Gap in Production
+## The Problem: The "Silent Gap" in Production
 
-astro-widget's `Widgets.astro` skips an item whose `type` the registry does not hold, the fail-soft rule [Getting started](../getting-started#catch-a-stale-type-before-it-ships) ended on, and renders the rest of the list.
+`Widgets.astro` follows a "fail-soft" strategy: if it encounters a widget `type` it doesn't recognize, it simply skips that item and renders the rest of the region. 
 
-`Widgets.astro` warns about a skipped item only when `NODE_ENV` is not `production`. `astro build` sets `NODE_ENV` to `production` when your environment has not set it, so a production build skips the item with no warning and publishes the page with a gap. A content editor might accidentally use a stale widget type or misspell a type name, and you wouldn't know the page is broken until a user reports it.
+While this prevents the entire page from crashing, it results in a "silent gap" in your production content. A content editor might accidentally use a stale widget type or misspell a type name, and you wouldn't know the page is broken until a user reports it.
 
-## Check the Items with `validateItems`
+## Solution: A Build-Time Quality Gate
 
-Run astro-widget's `validateItems` over the CMS payload before `astro build`, so the build script throws on a save `Widgets.astro` would render with a gap. It takes the items and `known`, the widget types you render, and an optional third argument, `required`, which maps a type to the props it cannot render without:
+You can use `validateItems` to scan your CMS payload before the build process starts. This turns a silent runtime failure into a loud build-time error.
 
 ```ts twoslash file=libs/astro-widget/README.md region=validate
 
 ```
 
-Each problem returned is a `WidgetProblem` object, containing the item's `index`, `id`, `type`, and a `message`. In the example above, `answer-wall` is an unknown type, and the `price-box` item is missing its required `price` prop, which the message calls a field: `missing field price`. Nothing threw, and one call returned both faults.
+Each problem returned is a `WidgetProblem` object, containing the item's `index`, `id`, `type`, and a `message`. In the example above, `answer-wall` is an unknown type, and the `price-box` item is missing its required `price` prop.
 
 ### Integrating into the Build Process
 
-To stop the build on those problems, create a **build gate**, a script such as `scripts/check-content.ts` that checks `items`, the list [Getting started](../getting-started) typed from the CMS's JSON:
+To ensure no broken content ever ships, create a validation script (e.g., `scripts/check-content.ts`) and call it as part of your `build` command:
 
 ```ts file=libs/astro-widget/examples/scripts/check-content.ts region=build-gate
 
 ```
 
-`known` lists the type names, because a script Node runs cannot import the `.astro` modules the registry holds. `Widgets.astro` has a subpath of its own, so `@evanion/astro-widget` itself holds no `.astro` file, and Node imports `validateItems` from it.
-
-Set your `package.json`'s `build` script to run this check before `astro build`. `tsx` runs a TypeScript file in Node, and `npx` fetches it if the project does not have it:
+Update your `package.json` to run this check before `astro build`:
 
 ```bash
 npx tsx scripts/check-content.ts && astro build
 ```
 
-`validateItems` itself never throws. If it finds any problems, the script throws an error and exits with a non-zero code, stopping the build before Astro runs.
+If `validateItems` finds any problems, the script will throw an error and exit with a non-zero code, stopping the build immediately.
 
 ## Enforcing Required Props
 
-astro-widget's `validateItems` is the only check that an item carries the props its widget needs, for the reason [the Overview](../#pages-a-cms-lays-out) gave.
+Since `.astro` components do not have the same compile-time prop inference as React, `validateItems` is the only way to ensure that an item carries the data it needs to render.
 
-A `required` map names the props that must be present and not blank (where "blank" means `undefined`, `null`, or a string of only whitespace). A CMS text field an editor opened and left empty arrives as such a string:
+By passing a `required` map, you can specify which props must be present and not blank (where "blank" means `undefined`, `null`, or a string of only whitespace).
 
 ```ts twoslash file=libs/astro-widget/README.md region=required-fields
 
 ```
 
-`validateItems` only checks required props for items whose `type` is already known. If a type is unknown, it is reported once as an unknown type, and `required` is not checked against it.
+`validateItems` only checks required props for items whose `type` is already known. If a type is unknown, it is reported once as an `UNKNOWN_TYPE` fault, and its props are ignored.
 
 ## Registry vs. List of Names
 
-astro-widget's `validateItems` accepts either a full component registry or a plain list of type names as the `known` argument. From a registry it reads only the keys, so both report the same problems. The example below imports `items` and `registry` from the package's copy of the [Getting started](../getting-started#open-the-listing-page) files under `examples/src`.
+`validateItems` can accept either a full component registry or a simple list of type names as the `known` argument.
 
 - **List of Names**: Ideal for Node scripts (like a CI build) where you cannot import `.astro` components.
-- **Registry**: Ideal for code that Astro or Vite compiles (like a page's frontmatter), as it ensures the validation and the rendering use a single source of truth for supported types.
+- **Registry**: Ideal for code running within the Astro/Vite pipeline (like a page's frontmatter), as it ensures the validation and the rendering use a single source of truth for supported types.
 
 ```ts file=libs/astro-widget/README.md region=known-types
 
 ```
 
-## Lay Out the Rest of the Page
+## Next Steps: Page Layout
 
-Your build now stops on an unknown type or a blank required prop. [Page data, wrappers and nested items](../layout) shows how to provide page-level data to your widgets, wrap them in shared markup, and create nested layouts.
+Your build now stops on a missing type or a blank required prop. [Page data, wrappers and nested items](../layout) shows how to provide page-level data to your widgets, wrap them in shared markup, and create nested layouts.

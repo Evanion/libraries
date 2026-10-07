@@ -1,6 +1,8 @@
 # Security Analysis and Attack Mitigations
 
-`@evanion/acl` holds itself to a register of thirty-six classes of attack, each referenced by its Common Weakness Enumeration (CWE) and OWASP entries. Every row below names how the library handles its class, and one test proves it.
+Authorization is not just about defining who can do what; it is about ensuring that those definitions cannot be bypassed. `@evanion/acl` is designed to neutralize a wide array of common security vulnerabilities by building defenses directly into the engine's core.
+
+This page provides a detailed mapping of thirty-six classes of attack—referenced by their Common Weakness Enumeration (CWE) and OWASP entries—and how the library handles them.
 
 <PageSheet
   difficulty={5}
@@ -12,79 +14,78 @@
 
 ## The Defense Model: Tiers of Mitigation
 
-Not every attack on `@evanion/acl` is handled in the same way, and the tier decides what its test may claim:
+Not every attack is handled in the same way. We categorize our mitigations into three tiers, which determine whether the library prevents the attack automatically or provides the primitives for the consumer to handle it.
 
-- **Tier 1: Prevented by the Engine.** The library's own logic stops the attack. Tests for Tier 1 assert either a construction error (the policy cannot be built) or an explicit refusal of the action.
-- **Tier 2: Handled via Primitives.** The library provides the security primitive, but the consumer must call it. Tests assert that the primitive is correct, and that the insecure idiom it replaces is wrong on the same decision.
-- **Tier 3: Out of Scope (Contractual).** The class is external to the engine's responsibilities (e.g., session management). Tests assert that the [security contract](../security) still documents the gap, and where the engine's behaviour looks like a defence, pin what it actually does.
+### Tier 1: Prevented by the Engine
+These attacks are neutralized by the library's internal logic. The engine is designed so that these vulnerabilities are structurally impossible. Tests for Tier 1 mitigations assert either a construction error (the policy cannot be built) or an explicit refusal of the action.
 
-How the suite runs:
+### Tier 2: Handled via Primitives
+The library provides the necessary security primitives, but the consumer must call them correctly to achieve the mitigation. In these cases, the library ensures the primitive is correct and provides an idiomatic way to replace insecure patterns.
 
-- `libs/acl/src/security` holds the suite, one test per row under the row's identifier.
-- The package's own `src/**/*.{test,spec}.ts` include matches the suite, so `nx test @evanion/acl` runs it with no project to forget.
-- A unit test asserts what a function does. A register test is the test a row below names, and it asserts that an attack fails.
+### Tier 3: Out of Scope (Contractual)
+Some vulnerabilities are external to the ACL engine's responsibilities (e.g., session management). These are documented to ensure developers are aware of the gap and implement the necessary defenses in their own application layer.
 
 ---
 
-## Tier 1: Attacks the engine prevents
+## Tier 1: Prevented Mitigations
 
-The `@evanion/acl` engine itself stops these twenty classes, and `tier1-prevented.test.ts` verifies each one.
+These defenses are baked into the engine and verified in `tier1-prevented.test.ts`.
 
-| ID      | Attack Class                                 | CWE / OWASP        | Mitigation Mechanism                                                                                                                              |
-| ------- | -------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| SEC-001 | Mass assignment via proposed keys            | CWE-915, API3:2023 | The write axis evaluates every key in the `proposed` object, whether the row holds it or not.                                                     |
-| SEC-002 | Fail-open on absent/null conditions          | CWE-1188, CWE-276  | Construction throws on a `when` that is absent, null or not a list. An unconditional grant is written `when: []`.                                 |
-| SEC-003 | Key/Object/Action mismatch                   | CWE-566            | Validation ensures the `key` exactly matches `object.action`, and neither half carries a dot.                                                     |
-| SEC-004 | Deny rule reading missing data               | CWE-863, A01:2021  | If a `deny` rule references a path the object lacks, it decides `unevaluable`, naming the paths, and outranks any `allow`.                        |
-| SEC-005 | Prototype pollution in decisions             | CWE-1321           | Every path read is guarded as an own property; internal maps are created using `Object.defineProperty`.                                           |
-| SEC-006 | Prototype pollution in transitions           | CWE-1321           | The transitions map is accessed using own-properties only, so an inherited member never names an edge.                                            |
-| SEC-007 | `__proto__` injection in narrowed writes     | CWE-1321           | `__proto__` is not a recognized field; `pickAllowedFields` will never include it in the result.                                                   |
-| SEC-008 | Syntax characters as literal keys            | CWE-915            | `*` and `!name` are rule syntax; a key spelled that way on the row or in the write request is dropped.                                            |
-| SEC-009 | Operator/Value confusion in conditions       | CWE-20             | An operand the engine would ignore is rejected during policy construction.                                                                        |
-| SEC-010 | Incorrect default permissions                | CWE-276, A01:2021  | No rules, an empty rule list, and an unknown action all result in a refusal (fail-closed).                                                        |
-| SEC-011 | Bypass via user-controlled keys              | CWE-566, API1:2023 | Untrusted documents fail closed on unknown keys; authored documents throw.                                                                        |
-| SEC-012 | Post-adoption matrix mutation                | CWE-913            | The engine evaluates a deep-frozen copy, so mutating the matrix you passed changes nothing, and the exposed one is frozen too.                    |
-| SEC-013 | Divergence between validation and evaluation | CWE-367            | The envelope (the document's top-level object around its permissions) is rebuilt from a single read, then frozen and validated as that same copy. |
-| SEC-014 | Non-coercible object data                    | CWE-754, CWE-248   | Only primitives can name an edge; any object with a hostile `toString` method results in a denial.                                                |
-| SEC-015 | Exhaustion via matrix depth                  | CWE-674, CWE-400   | The freeze walk is iterative; values nested beyond the maximum allowed depth are refused.                                                         |
-| SEC-016 | Linear growth of decision cost               | CWE-400            | A decision reads the permission it was asked about and nothing else; the test asserts the bound as a count of subject reads.                      |
-| SEC-017 | Type confusion across JSON boundaries        | CWE-1287           | All comparisons are strict (e.g., `'1'` is not `1`, and `null` is not the same as an absent field).                                               |
-| SEC-018 | Unparseable clock or boundary                | CWE-754            | A clock that fails to parse answers `unusable-clock`, which outranks an allow, so a timed deny keeps denying.                                     |
-| SEC-019 | Write escaping the decision                  | CWE-915            | Property tests verify that every key in the generated write was explicitly marked as `allowed` by the decision.                                   |
-| SEC-020 | Malformed envelope document                  | CWE-20             | Documents missing `permissions`, having invalid versions, or being bare lists are all refused by the engine.                                      |
+| ID      | Attack Class                                        | CWE / OWASP        | Mitigation Mechanism                                                                                                  |
+| ------- | -------------------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| SEC-001 | Mass assignment via proposed keys                   | CWE-915, API3:2023 | The write axis evaluates every key in the `proposed` object, regardless of whether the library expects it.                      |
+| SEC-002 | Fail-open on absent/null conditions                | CWE-1188, CWE-276  | The `when` property is required; an empty list is treated as an open grant, forcing explicit definition.                             |
+| SEC-003 | Key/Object/Action mismatch                          | CWE-566            | Validation ensures the `key` exactly matches `object.action` and contains no unexpected separators.                                  |
+| SEC-004 | Deny rule reading missing data                      | CWE-863, A01:2021  | If a `deny` rule references a path the object lacks, it is treated as `unevaluable` and outranks any `allow` rule.              |
+| SEC-005 | Prototype pollution in decisions                    | CWE-1321           | Every path read is guarded by `hasOwnProperty`; internal maps are created using `Object.defineProperty`.                            |
+| SEC-006 | Prototype pollution in transitions                | CWE-1321           | The transitions map is accessed using own-properties only, preventing inherited prototype members from altering logic.                  |
+| SEC-007 | `__proto__` injection in narrowed writes            | CWE-1321           | `__proto__` is not a recognized field; `pickAllowedFields` will never include it in the result.                                 |
+| SEC-008 | Syntax characters as literal keys                   | CWE-915            | `*` and `!name` are treated as rule syntax, not as literal keys on the row or in the write request.                                  |
+| SEC-009 | Operator/Value confusion in conditions             | CWE-20             | Any operand that the engine cannot unambiguously interpret is rejected during policy construction.                                    |
+| SEC-010 | Incorrect default permissions                     | CWE-276, A01:2021  | By default, an empty rule list or an unknown action results in an immediate refusal (fail-closed).                                    |
+| SEC-011 | Bypass via user-controlled keys                     | CWE-566, API1:2023 | Untrusted paths fail closed on unknown keys; authored paths throw an error if they are invalid.                                     |
+| SEC-012 | Post-adoption matrix mutation                      | CWE-913            | The policy matrix is deep-frozen upon adoption; any attempt to mutate the matrix will fail.                                       |
+| SEC-013 | Divergence between validation and evaluation       | CWE-367            | The envelope is rebuilt from a single read, then frozen and validated as a single atomic unit.                                     |
+| SEC-014 | Non-coercible object data                          | CWE-754, CWE-248   | Only primitives can name an edge; any object with a hostile `toString` method results in a denial.                                  |
+| SEC-015 | Exhaustion via matrix depth                         | CWE-674, CWE-400   | The freeze walk is iterative; values nested beyond the maximum allowed depth are refused.                                           |
+| SEC-016 | Linear growth of decision cost                      | CWE-400            | Decisions only read their own specific permission; the total cost is bound by the number of subject reads.                            |
+| SEC-017 | Type confusion across JSON boundaries               | CWE-1287           | All comparisons use strict equality (e.g., `'1'` is not `1`, and `null` is not the same as an absent field).                        |
+| SEC-018 | Unparseable clock or boundary                       | CWE-754            | A clock that fails to parse is treated as a high-priority deny, ensuring timed windows fail closed.                                   |
+| SEC-019 | Write escaping the decision                         | CWE-915            | Property tests verify that every key in the generated write was explicitly marked as `allowed` by the decision.                      |
+| SEC-020 | Malformed envelope document                        | CWE-20             | Documents missing `permissions`, having invalid versions, or being bare lists are all refused by the engine.                           |
 
 ## Tier 2: Consumer-Driven Mitigations
 
-These eight `@evanion/acl` mitigations rely on the consumer using the provided primitives correctly, and are verified in `tier2-primitives.test.ts`.
+These mitigations rely on the consumer using the provided ACL primitives correctly. They are verified in `tier2-primitives.test.ts`.
 
-| ID      | Attack Class                              | CWE / OWASP        | Correct Primitive / Idiom                                                                                        |
-| ------- | ----------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| SEC-101 | Mass assignment during write application  | CWE-915, API3:2023 | Use `pickAllowedFields` to keep only what was decided as `allowed`; avoid simple `!== 'denied'` checks.          |
-| SEC-102 | Field config read as writable list        | CWE-915            | A `targets` or `transitions` config binds a single field; `fields.fields` is the set of writable fields.         |
-| SEC-103 | Object-level auth (IDOR / BOLA)           | CWE-639, API1:2023 | Use conditions over `object.*` combined with a projection that carries the specific field being accessed.        |
-| SEC-104 | Unevaluable decisions read as grants      | CWE-863            | Use the `allowed` boolean as the gate; the `missing` paths name what a data refetch brings.                      |
-| SEC-105 | Unicode/Key-shape attacks on names        | CWE-176            | Names are matched byte-for-byte; use an explicit allow-list of permitted names to close the question.            |
-| SEC-106 | `in` and `eq` disagreement on NaN         | CWE-1077           | Use equality checks to explicitly define "never" cases, as `includes` (SameValueZero) and `===` differ on `NaN`. |
-| SEC-107 | Stale matrix granting revoked permissions | CWE-672            | Monitor `access.version` to detect mismatches; the consumer is responsible for refetching the matrix.            |
-| SEC-108 | Field maps treated as the primary gate    | CWE-863            | Field maps answer whatever the action decides; the composed `allowed` boolean must still be checked.             |
+| ID      | Attack Class                                        | CWE / OWASP        | Correct Primitive / Idiom                                                                                                       |
+| ------- | -------------------------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| SEC-101 | Mass assignment during write application         | CWE-915, API3:2023 | Use `pickAllowedFields` to keep only what was decided as `allowed`; avoid simple `!== 'denied'` checks.                                 |
+| SEC-102 | Field config read as writable list                  | CWE-915            | Distinguish between `targets` (a single field) and `fields.fields` (the set of writable fields).                                      |
+| SEC-103 | Object-level auth (IDOR / BOLA)                     | CWE-639, API1:2023 | Use conditions over `object.*` combined with a projection that carries the specific field being accessed.                                |
+| SEC-104 | Unevaluable decisions read as grants                | CWE-863            | Use the `allowed` boolean as the primary gate; the `missing` state should trigger a data refetch.                                     |
+| SEC-105 | Unicode/Key-shape attacks on names                  | CWE-176            | Names are matched byte-for-byte; use an explicit allow-list of permitted names to close the question.                                    |
+| SEC-106 | `in` and `eq` disagreement on NaN                   | CWE-1077           | Use equality checks to explicitly define "never" cases, as `includes` (SameValueZero) and `===` differ on `NaN`.                        |
+| SEC-107 | Stale matrix granting revoked permissions           | CWE-672            | Monitor `access.version` to detect mismatches; the consumer is responsible for refetching the matrix.                                    |
+| SEC-108 | Field maps treated as the primary gate             | CWE-863            | Field maps only refine the decision; the primary `allowed` boolean must still be checked.                                             |
 
 ## Tier 3: Out-of-Scope (Contractual)
 
-The following eight classes are not handled by `@evanion/acl` because they occur outside the library's boundary, and each is verified in `tier3-contract.test.ts`. Each test asserts the clause is still written down in the contract, and SEC-204, SEC-207 and SEC-208 also pin what the engine does.
+The following classes are not handled by `@evanion/acl` because they occur outside the library's boundary. These are documented as part of the security contract to ensure they are handled by the application.
 
-| ID      | Attack Class                          | CWE / OWASP       | Why it is Out of Scope                                                                                                             |
-| ------- | ------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| SEC-201 | Confused Deputy (Forged Subject)      | CWE-441, A01:2021 | `can` authorizes the subject it is handed. The application must resolve the subject from a verified, secure session.               |
-| SEC-202 | Lack of Complete Mediation            | CWE-862, A01:2021 | While `authorize(subject)` makes the checked path easy, the library cannot block other code paths from accessing data.             |
-| SEC-203 | TOCTOU (Time-of-Check to Time-of-Use) | CWE-367           | A decision is a snapshot. To prevent data from changing between the check and the write, re-check inside the database transaction. |
-| SEC-204 | Self-Authorizing Conditions           | CWE-639           | The engine cannot know which object fields the subject can write, and so which rule a write would satisfy.                         |
-| SEC-205 | Client-Side Enforcement               | CWE-602           | The library works identically in browser and server; the application must ensure the server is the final authority.                |
-| SEC-206 | Information Disclosure via Matrix     | CWE-200           | Every key, role string, field name and time window ships to the client. Name these elements carefully.                             |
-| SEC-207 | Caller-Supplied Clock                 | CWE-807, CWE-367  | If a provided clock parses correctly, the engine accepts it. The application must provide a trusted, server-side clock.            |
-| SEC-208 | Live-read Subject/Object Data         | CWE-367           | The matrix is frozen, but the app's data is not. Pass resolved, static objects to the evaluator to ensure consistency.             |
+| ID      | Attack Class                                     | CWE / OWASP       | Why it is Out of Scope                                                                                                          |
+| ------- | ------------------------------------------------ | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| SEC-201 | Confused Deputy (Forged Subject)                  | CWE-441, A01:2021 | `can` authorizes the subject it is handed. The application must resolve the subject from a verified, secure session.                      |
+| SEC-202 | Lack of Complete Mediation                       | CWE-862, A01:2021 | While `authorize(subject)` simplifies checks, the library cannot physically block other code paths from accessing data.                |
+| SEC-203 | TOCTOU (Time-of-Check to Time-of-Use)              | CWE-367           | A decision is a snapshot. To prevent data from changing between the check and the write, re-check inside the database transaction. |
+| SEC-204 | Self-Authorizing Conditions                      | CWE-639           | The engine cannot know if the subject is attempting to write to a field that would then grant them more permissions.                    |
+| SEC-205 | Client-Side Enforcement                           | CWE-602           | The library works identically in browser and server; the application must ensure the server is the final authority.                    |
+| SEC-206 | Information Disclosure via Matrix              | CWE-200           | The matrix contains roles and keys. Name these elements carefully, as they are shipped to the client.                                         |
+| SEC-207 | Caller-Supplied Clock                            | CWE-807, CWE-367  | If a provided clock parses correctly, the engine accepts it. The application must provide a trusted, server-side clock.                    |
+| SEC-208 | Live-read Subject/Object Data                     | CWE-367           | The matrix is frozen, but the app's data is not. Pass resolved, static objects to the evaluator to ensure consistency.                    |
 
-## The contract and guides behind this register
+## Where to go next
 
 - [The Security Contract](../security): A prose explanation of these mitigations and the broader security philosophy.
 - [Field Permissions](../fields): Learn more about how the "Write Axis" prevents mass assignment.
-- [Which fields may they write?](../writing): Writing field rules that keep a subject out of the fields it must not set.
+- [Writing Rules](../writing): Best practices for authoring secure policies.

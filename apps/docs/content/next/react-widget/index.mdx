@@ -1,82 +1,82 @@
 # @evanion/react-widget
 
-A content management system (CMS) sends a page as JSON, and nothing checks an item's props against the component its `type` names. `@evanion/react-widget` maps each `type` to a React component, and TypeScript checks every item against it.
+**Bridge the gap between CMS JSON and type-safe React components.**
+
+Content management systems (CMS) allow editors to build pages by selecting widgets and filling in their data. But because this data is often just plain JSON, there is no native way to ensure that a CMS payload is compatible with your React components before it is rendered.
+
+`@evanion/react-widget` provides a structured orchestration layer that maps CMS widget types to React components, while using TypeScript's power to ensure that your items and their props are valid at compile time.
 
 <PageSheet
   difficulty={1}
   read={4}
   unlocks={[
     ['Getting started', './getting-started'],
-    ['Nesting items', './nesting'],
+    ['Nesting widgets', './nesting'],
   ]}
 />
 
-## Mapping a CMS `type` to a component by hand
+## The Problem: The "Untyped JSON" Gap
 
-Without `@evanion/react-widget`, the JSON a CMS sends reaches React unchecked: editors build a page by picking widgets and filling in their data, and nothing compares that data with the components. When you render it, you usually end up with a large `switch` statement or a lookup object that maps a string `type` to a component, which has several weaknesses:
-
+When you render CMS data in React, you usually end up with a large `switch` statement or a lookup object that maps a string `type` to a component. This approach has several weaknesses:
 - **Type Blindness**: TypeScript doesn't know which props are required for a `listing` widget versus a `hero` widget.
 - **Runtime Crashes**: A missing required prop in the JSON payload can cause a component to crash, taking down the entire page.
 - **Maintenance Burden**: Adding a new widget requires updating the map, the types, and the validation logic in multiple places.
 
-## Typing the component map with `createWidgets`
+## The Solution: A Typed Component Map
 
-The core of `@evanion/react-widget` is `createWidgets`, which takes a **component map** (an object where the keys are the widget types and the values are the React components that render them) and returns a `Widgets` component. The `Widgets` component takes an array of items and renders them in order. For example, Baize, the board-game shop every example on these pages builds for, maps a `listing` type to a `ListingCard` component and a `booking` type to a `TableBooking` component:
+The core of the library is `createWidgets`. This function takes a **component map**—an object where the keys are the widget types and the values are the React components that render them. It then returns a `Widgets` component.
+
+The `Widgets` component takes an array of items and renders them in order. For example, in the Baize shop, we map a `listing` type to a `ListingCard` component and a `booking` type to a `BookingStrip`:
 
 ```tsx twoslash file=libs/react-widget/examples/listing.tsx region=catalogue
 
 ```
 
-By defining your widgets this way, TypeScript can verify your data immediately. If you change a `price` from a number to a string in your item array, or name a `type` other than `listing` or `booking`, you'll get a compile error before the code ever runs.
-
-`Widgets` checks these items because they are written inline in its `items` prop. An array held in a variable needs `defineItems` for the same check, which [Getting started](./getting-started) shows.
+By defining your widgets this way, TypeScript can verify your data immediately. If you change a `price` from a number to a string in your item array, you'll get a compile error before the code ever runs.
 
 ## The react-widget Vocabulary
 
-To help you build your UI, react-widget uses these terms:
+To help you build your UI, we use these terms:
 
 - **Component Map**: The object passed to `createWidgets` that links types to components.
 - **Item**: A single entry in the data array (plain JSON).
 - **Widget**: The actual React component rendered for an item's type.
 - **Region**: The area of the page rendered by a single `<Widgets>` component.
-- **Chrome**: The layout elements surrounding the widgets. `chrome.wrapper` wraps the whole region and is a `<section>` by default, and `chrome.item` wraps each individual widget and is a `<div>` by default.
+- **Chrome**: The layout elements surrounding the widgets. `chrome.wrapper` wraps the whole region, and `chrome.item` wraps each individual widget.
 - **`ctx`**: Page-level data (like a current currency) passed to every widget in the region via the `<Widgets ctx={…}>` prop.
 
 ### Item Anatomy
 
-Every react-widget item consists of these five fields:
-
+Every item consists of these five fields:
 - `id`: A stable string used for the React key and the `data-widget-id` attribute.
-- `type`: A key from the component map, also written to the `data-widget-type` attribute.
+- `type`: A key from the component map.
 - `props`: The data passed to the component (excluding `children` and `ctx`).
-- `meta`: Optional placement data (e.g., grid spans) read by the `chrome.item` wrapper and never passed to the widget.
-- `children`: Optional nested items, which are rendered as the component's `children`. An item may carry them only when its component declares a `children` prop, and nesting under any other widget is a compile error.
+- `meta`: Optional placement data (e.g., grid spans) read by the `chrome.item` wrapper.
+- `children`: Optional nested items, which are rendered as the component's `children`.
 
 ## Core Capabilities
 
-`@evanion/react-widget` turns JSON data into a type-safe React tree with these tools:
+`@evanion/react-widget` handles the heavy lifting of turning JSON data into a type-safe React tree:
 
-| Goal                                 | Tool                                                                 |
-| :----------------------------------- | :------------------------------------------------------------------- |
-| Render a region from an item array   | `createWidgets`, which returns the `Widgets` component               |
-| Type-safe item arrays in variables   | `defineItems`, which ensures items match the component map           |
-| CMS payload validation               | `validateItems`, which checks the JSON before rendering              |
-| Server Component support             | `Widgets` carries no `'use client'` and supports `async` widgets     |
-| Custom layouts for regions/items     | `chrome.wrapper` and `chrome.item`                                   |
-| Grid placement the widget never sees | an item's `meta`                                                     |
-| Global data shared by all widgets    | The `ctx` prop on `<Widgets>`                                        |
+| Goal | Tool |
+| :--- | :--- |
+| Render a region from an item array | `createWidgets`, which returns the `Widgets` component |
+| Type-safe item arrays in variables | `defineItems`, which ensures items match the component map |
+| CMS payload validation | `validateItems`, which checks the JSON before rendering |
+| Server Component support | `Widgets` is RSC-compatible and supports `async` widgets |
+| Custom layouts for regions/items | `chrome.wrapper` and `chrome.item` |
+| Global data shared by all widgets | The `ctx` prop on `<Widgets>` |
 | Independent loading for slow widgets | [`chrome.suspense`](./suspense), giving each widget its own boundary |
 
 ## Design Boundaries
 
-To keep `@evanion/react-widget` lean, a few responsibilities are left to your application:
+To keep the library lean, a few responsibilities are left to your application:
 
 - **Context**: The library does not create a React context. Use the `ctx` prop to share page-level data.
-- **Error Boundaries**: The package ships no error boundary, so a widget that throws can take down the page until you add your own.
-- **Virtualization**: `Widgets` renders all items in the array, off-screen ones included. For extremely long lists, virtualize in your own `chrome.wrapper`.
-- **Astro**: The library does not render Astro components. `@evanion/astro-widget`, a separate package, renders the same items at build time.
-- **Render-time Validation**: `Widgets` skips an item whose `type` it does not know, so a stale widget type ships as a gap. To catch these errors before they ship, run `validateItems` in your build or CI pipeline.
+- **Error Boundaries**: If a widget crashes, it can take down the page. Wrap your `chrome.item` in an error boundary to isolate failures.
+- **Virtualization**: `Widgets` renders all items in the array. For extremely long lists, integrate a virtualization library.
+- **Render-time Validation**: `Widgets` simply skips items it cannot render. To catch these errors before they ship, run `validateItems` in your build or CI pipeline.
 
 ## Render Your First Listing
 
-You now have the react-widget mental model: a component map, an item array, and the `Widgets` component that brings them together. [Getting started](./getting-started) will guide you through installing the package and rendering a Baize listing to HTML.
+You now have the mental model: a component map, an item array, and the `Widgets` component that brings them together. [Getting started](./getting-started) will guide you through installing the package and rendering a Baize listing to HTML.

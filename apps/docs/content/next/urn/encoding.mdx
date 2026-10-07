@@ -16,35 +16,34 @@
   ]}
 />
 
-## "Messy" Titles and Inconsistent Spelling
+## The Problem: "Messy" Titles and inconsistent Spelling
 
-`@evanion/urn` checks a Namespace Specific String (NSS) against RFC 8141, which refuses the space in `Brass: Birmingham`. A title put directly into a URN runs into two problems:
-
+A URN's Namespace Specific String (NSS) has a strict grammar. If you try to put a title like `Brass: Birmingham` directly into a URN, you run into two problems:
 1. **Grammar Violations**: Characters like spaces are prohibited in the NSS.
-2. **Equivalence Drift**: Different services might spell the same URN differently (e.g., `URN:GAME:azul` against `urn:game:azul`, or `%3a` against `%3A`), making string equality (`===`) fail.
+2. **Equivalence Drift**: Different services might represent the same title differently (e.g., one uses `%3A` for a colon, another uses a literal `:`), making simple string equality (`===`) fail.
 
-## Percent-Encoding with `encodeNss`
+## Solution: Percent-Encoding with `encodeNss`
 
-`@evanion/urn` accepts a character outside the NSS grammar only once it is percent-encoded.
+To include characters that aren't allowed (or should be consistent) in your identifiers, you must percent-encode them.
 
 `encodeNss` leaves letters, digits and `-._~` alone and percent-encodes every other character, writing each of its UTF-8 bytes as a `%` and two hex digits. `decodeNss` reverses this process.
 
-`stringify` and `parse` do not perform encoding automatically:
+Note that `stringify` and `parse` do not perform encoding automatically:
 
 ```ts twoslash file=libs/urn/README.md region=nss-encoding
 
 ```
 
-`encodeNss` also encodes the `:`, even though the NSS grammar allows it unencoded. It encodes everything outside the RFC 3986 `unreserved` set, so its output is valid anywhere in an NSS. `equals` treats `%3A` and `:` as different characters, so `Brass%3A%20Birmingham`, encoded in full, and `Brass:%20Birmingham`, with only its space encoded, name two different games.
+`encodeNss` also encodes the `:`, even though the NSS grammar allows it unencoded. This ensures that two services encoding the same title always produce identical NSS strings.
 
 ## Comparing URNs Across Services
 
-When URNs arrive from multiple services, you cannot rely on string equality. `equals` in `@evanion/urn` implements RFC 8141 §3.1 equivalence.
+When URNs arrive from multiple services, you cannot rely on simple string equality. `equals` implements RFC 8141 §3.1 equivalence.
 
 It treats URNs as equal if:
-
 - The scheme and NID match (case-insensitively).
-- The NSS matches character for character, case included, except the hex digits of a percent-encoded character, which match ignoring case. A percent-encoded character is never decoded for the comparison.
+- The NSS matches exactly (case-sensitively).
+- The hex digits in percent-encoded characters match (case-insensitively).
 
 ```ts twoslash file=libs/urn/README.md region=equality
 
@@ -54,7 +53,7 @@ Use `equals` wherever you need to verify that two differently spelled URNs refer
 
 ## Carrying a URN in a URL Path
 
-To carry a URN from `@evanion/urn` as a segment in a URL path (e.g., `/games/urn:game:brass-birmingham`), you must handle two layers of encoding.
+To use a URN as a segment in a URL path (e.g., `/resources/urn:game:brass-birmingham`), you must handle two layers of encoding. 
 
 The NSS must be encoded first, and then the entire URN must be encoded to ensure that characters like `:` and `%` do not interfere with the browser or the router.
 
@@ -62,8 +61,8 @@ The NSS must be encoded first, and then the entire URN must be encoded to ensure
 
 ```
 
-The `%3A` inside the NSS becomes `%253A` in the path. A single `decodeURIComponent` restores the URN. A router that decodes path parameters has already made that one decode, so call `parse` on its value directly. A second decode would turn `%3A` into `:` and `%20` into a space, and `parse` throws on the space.
+The `%3A` inside the NSS becomes `%253A` in the path. A single `decodeURIComponent` restores the URN. A second decode would turn `%3A` into `:`, potentially introducing characters that cause `parse` to throw.
 
 ## Mint URNs outside RFC 8141
 
-You can now carry any title in an `@evanion/urn` NSS, compare URNs that two services spelled differently, and pass a URN through a URL path. Every namespace class so far keeps the `urn` scheme and the `:` separator. A class that overrides both writes a dotted key such as `baize.game.azul`, which [Schemes and separators](../separators) builds.
+While the library defaults to the RFC standard, you aren't limited by it. [Schemes and separators](../separators) shows how to give an `@evanion/urn` namespace class a custom scheme and separator, allowing you to create identifiers that read as dotted paths.

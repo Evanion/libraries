@@ -1,6 +1,6 @@
 # Chrome, meta and ctx
 
-`createWidgets` takes a `chrome` option that allows you to customize the markup surrounding each widget and the entire region. This separates the markup around your widgets from the widget components themselves.
+`createWidgets` takes a `chrome` option that allows you to customize the markup surrounding each widget and the entire region. This separates the visual "shell" of your page from the actual widget components.
 
 <PageSheet
   difficulty={3}
@@ -13,65 +13,58 @@
   ]}
 />
 
-## Customizing the Region and Item Chrome
+## The Problem: Mixing Layout with Business Logic
 
-`@evanion/react-widget` keeps layout (like grid spans or aria-labels) out of a widget component through chrome, the markup the [Overview](../) introduced. A `ListingCard` then cares about the game's title and price, not whether it occupies two columns in a specific grid. The chrome consists of two components:
+A common mistake is to bake layout logic (like grid spans or aria-labels) directly into a widget component. This makes the component less reusable—a `ListingCard` should care about the game's title and price, not whether it occupies two columns in a specific grid.
 
-- **`chrome.wrapper`**: The outermost element of the region (e.g., a `<section>`). It receives the `children` and `items`, the region's top-level items, in the same order as `children`.
-- **`chrome.item`**: The element that wraps every individual widget. It receives the `children` (the widget itself), the `data-widget-id` and `data-widget-type` attributes, and the item's `meta` object.
+`@evanion/react-widget` solves this by introducing "Chrome."
 
-The package exports `DefaultWrapper` and `DefaultItem` as starting points, and a custom chrome typically spreads its props into one of these defaults. Each fence on this page leaves out the imports of `createWidgets`, `DefaultWrapper` and `DefaultItem` from the package, and `renderToStaticMarkup` from `react-dom/server`. Every fence but the `ctx` one declares `ListingCard`, the one-prop card, above the part shown:
+## Customizing the Region and Item Shells
+
+The "Chrome" consists of two components:
+- **`chrome.wrapper`**: The outermost element of the region (e.g., a `<section>`). It receives the `children` and the full list of `items`.
+- **`chrome.item`**: The element that wraps every individual widget. It receives the `children` (the widget itself), the item's `id`, `type`, and its `meta` object.
+
+The package exports `DefaultWrapper` and `DefaultItem` as starting points. A custom chrome typically spreads these defaults to maintain the essential `data-widget-*` attributes.
 
 ```tsx twoslash file=libs/react-widget/README.md region=chrome
 
 ```
 
-**Note**: Keep the `data-widget-id` and `data-widget-type` attributes on the element. These are essential for CMS click-to-edit overlays, analytics and automated E2E tests. `DefaultWrapper` drops `items` and `DefaultItem` drops `meta`, because React warns about an unknown attribute for each prop that reaches the DOM.
-
-## Overriding the Map or the Chrome for One Region
-
-Each `<Widgets>` from `@evanion/react-widget` takes `components` and `chrome` of its own, merged over the ones passed to `createWidgets`. This is how you render a special "featured" item on one region without a second component map. The Wingspan item below renders through `FeaturedListing` on this one region only:
-
-```tsx twoslash file=libs/react-widget/README.md region=overrides
-
-```
-
-`components` merges the two maps key by key. `chrome` resolves field by field, so a `<Widgets>` that overrides `wrapper` keeps every other `chrome` field passed to `createWidgets`.
+**Developer Tip**: Keep the `data-widget-id` and `data-widget-type` attributes on the element. These are essential for CMS click-to-edit overlays and automated E2E tests.
 
 ## Positioning Widgets with `meta`
 
-While a react-widget item's `props` contain the data, the `meta` property is used for placement. Because `meta` is passed to the `chrome.item` and never to the widget's props, a widget renders identically regardless of its position.
+While a widget's `props` contain the data, the `meta` property is used for placement. Because `meta` is passed to the `chrome.item` and never to the widget's props, a widget renders identically regardless of its position.
 
-You can use the `WidgetItemComponent` type to annotate your chrome and ensure that `defineItems` validates the `meta` fields for every item. `createWidgets` infers the `meta` type from the annotated chrome, so there is no type argument to pass.
+You can use the `WidgetItemComponent` type to annotate your chrome and ensure that `defineItems` validates the `meta` fields for every item.
 
-```tsx twoslash file=libs/react-widget/README.md region=meta-grid
+```tsx twoslash la=libs/react-widget/README.md region=meta-grid
 
 ```
 
-In this example, `GridCell` reads a `column` property from `meta`, and Root spans columns 2 and 3. The Hive item names `col`, a key `GridCell` does not read, so it compiles only under `@ts-expect-error`. `meta` is optional on every item, so the chrome should provide a fallback for a missing key (here, `grid-column: auto`). A `createWidgets` call with no `chrome.item`, or with an unannotated one, accepts any object as `meta`.
+In this example, `GridCell` reads a `column` property from `meta`. If an item's `meta` is missing a key, the chrome should provide a fallback (e.g., `grid-column: auto`).
 
 ## Sharing Page-Level Data via `ctx`
 
-Sometimes every widget in a react-widget region needs the same data—such as the current currency or a user's locale. Rather than passing this data into every single item's `props` in the CMS, you can use the `ctx` prop on the `<Widgets>` component. `ctx` travels as a prop because React's `react-server` build, which Server Components run against, exports no `createContext`.
+Sometimes every widget in a region needs the same data—such as the current currency or a user's locale. Rather than passing this data into every single item's `props` in the CMS, you can use the `ctx` prop on the `<Widgets>` component.
 
 ```tsx twoslash file=libs/react-widget/README.md region=ctx
 
 ```
 
-`Widgets` injects this `ctx` object into every widget's props. `ctx` is left out of an item's `props`, the way `children` is, so `ListingCard` can declare it required while the Root item carries only a `title`. Because `ctx` is added _after_ the item's own props, a CMS payload cannot override this global context.
-
-Nothing checks that `<Widgets ctx={…}>` supplies the `ctx` a widget declares: `<Widgets>` types its `ctx` prop as `Record<string, unknown>`.
+`Widgets` injects this `ctx` object into every widget's props. Because `ctx` is added *after* the item's own props, a CMS payload cannot accidentally override this global context.
 
 ## Optimizing Long Regions
 
-react-widget's `Widgets` renders all items in the array. For server-rendered pages with many widgets, you can improve performance using the CSS property `content-visibility: auto` on your item chrome. This tells the browser to skip the layout and paint of off-screen widgets, and every widget stays in the HTML.
+`Widgets` renders all items in the array. For server-rendered pages with many widgets, you can improve performance using the CSS property `content-visibility: auto` on your item chrome. This tells the browser to skip the layout and paint of off-screen widgets.
 
 ```tsx twoslash file=libs/react-widget/README.md region=content-visibility
 
 ```
 
-For client-side lists that are long enough to require virtualization, you can implement it within a custom `'use client'` `chrome.wrapper`. Since the wrapper receives the `items` array in the same order as `children`, it can measure and window the widgets by item.
+For client-side lists that are long enough to require virtualization, you can implement it within a custom `'use client'` `chrome.wrapper`. Since the wrapper receives the `items` array in order, it can easily measure and window the widgets.
 
 ## Isolating Slow or Failing Widgets
 
-`@evanion/react-widget`'s `Widgets` puts a `<Suspense>` boundary around each widget, so one slow widget does not hold up its siblings. A widget that throws needs an error boundary, which you put inside a custom `chrome.item`. [Suspense and error boundaries](../suspense) covers the `<Suspense>` boundary `Widgets` puts around each widget, and the error boundary you put inside a custom `chrome.item`.
+Because every widget is wrapped in your custom chrome, you have a perfect hook to isolate them. [Suspense and error boundaries](../suspense) shows how to put a loading fallback and an error boundary inside the item chrome, ensuring that a single failing widget doesn't crash the entire page.

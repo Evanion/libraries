@@ -1,6 +1,10 @@
 # @evanion/luhn
 
-A customer reads an order code back, and one digit comes out wrong. `@evanion/luhn` computes a check character for every code, so your app refuses the mistyped one locally.
+**Prevent database pollution and user frustration with an industry-standard check-character system.**
+
+A customer reads an order code back over the phone, and one digit comes out wrong. Without a check character, your system performs a database lookup and returns "Order not found." The user is frustrated, and the staff doesn't know if the code was mistyped or if the order truly doesn't exist.
+
+`@evanion/luhn` solves this by appending a single check character to your codes. This allows your application to validate the code's integrity *locally* before your database is ever asked.
 
 <PageSheet
   difficulty={1}
@@ -11,35 +15,36 @@ A customer reads an order code back, and one digit comes out wrong. `@evanion/lu
   ]}
 />
 
-## A Mistyped Code Still Reaches the Database
+## The Problem: The "Silent Typo"
 
-Without `@evanion/luhn`, an ID is just a string. If a user types `order-2026-0043` instead of `order-2026-0042`, the system treats it as a perfectly valid request for a non-existent resource, which leads to:
+In most systems, an ID is just a string. If a user types `order-2026-0043` instead of `order-2026-0042`, the system treats it as a perfectly valid request for a non-existent resource.
 
+This leads to:
 - **Wasted Resources**: Every mistyped ID triggers an unnecessary database query.
-- **Poor User Experience**: The user receives a "Not Found" error and has no way of knowing they mistyped a single character.
+- **Poor User Experience**: The user receives a "Not Found" error and has no way of knowing they simply mistyped a single character.
 - **Support Overhead**: Staff must manually verify the order, as they cannot tell the difference between a typo and a missing record.
 
-## A Check Character Refuses the Mistyped Code
+## The Solution: The Luhn Algorithm
 
-`@evanion/luhn` implements the Luhn algorithm, the check-digit scheme on credit card numbers, generalized to any even-sized alphabet, to detect transcription errors. It computes a single character from the rest of the code; if any character is changed or almost any two neighbors are swapped, the check character no longer matches.
+`@evanion/luhn` implements the Luhn algorithm—the same system used by credit cards globally—to detect transcription errors. It computes a single character based on the rest of the code; if any character is changed or swapped, the checksum will no longer match.
 
-For example, the order number `order-2026-0042` results in a check character of `l`, so the final code becomes `order-2026-0042-l`.
+For example, the order number `order-2026-0042` results in a check character of `l`. The final code becomes `order-2026-0042-l`.
 
 ```ts twoslash file=libs/luhn/README.md region=catches
 
 ```
 
-If a user types `order-2026-0043-l` (one digit changed) or `order-2026-0024-l` (two digits swapped), `Luhn.validate` immediately returns `isValid: false`, and your code rejects it before it queries the database.
+If a user types `order-2026-0043-l` (one digit changed) or `order-2026-0024-l` (two digits swapped), `Luhn.validate` immediately returns `isValid: false`. The request is rejected before it ever reaches your database.
 
-## How the Luhn Sum Works
+## How it Works: The Luhn Sum
 
-`@evanion/luhn` calculates the check character through a process called the Luhn sum:
+The check character is calculated through a process called the Luhn sum:
 
-1. **Phrase Extraction**: Every character outside the chosen **dictionary**, the alphabet a code is read against, is dropped. The default **instance**, `Luhn`, the object that carries `generate` and `validate`, reads against the 36 characters `0-9` then `a-z` and folds uppercase to lowercase. `ORDER 2026 0042` becomes the **phrase** `order20260042`.
-2. **Index Mapping**: Each character is replaced by its **index**, its position in the dictionary (e.g., `o` → 24).
-3. **The Doubling Step**: Starting with the rightmost character of the phrase, every other index is doubled. If the result reaches the dictionary size, its two digits (in the dictionary's base) are added together.
-4. **Summation**: All values are added together to create the **Luhn sum**, 123 for `order20260042`.
-5. **Final Character**: The **check character** is the one whose index brings the sum up to the next multiple of the dictionary size: 144, four times 36, minus 123 is 21, the index of `l`.
+1. **Phrase Extraction**: Every character outside the chosen dictionary is dropped, and uppercase is folded to lowercase. `ORDER 2026 0042` becomes `order20260042`.
+2. **Index Mapping**: Each character is replaced by its index in the dictionary (e.g., `o` $\rightarrow$ 24).
+3. **The Doubling Step**: Starting from the right, every second index is doubled. If the result exceeds the dictionary size, its digits (in the dictionary's base) are added together.
+4. **Summation**: All values are added together to create the Luhn sum.
+5. **Final Character**: The check character is the one whose index brings the total sum to the nearest multiple of the dictionary size.
 
 ```mermaid caption="The @evanion/luhn pipeline: Case folding and cleaning, index mapping, Luhn summation, and final checksum generation."
 flowchart LR
@@ -49,33 +54,29 @@ flowchart LR
   L --> C["'l', index 21<br>the check character"]:::accent
 ```
 
-## `generate`, `validate` and `createLuhn`
+## Core Capabilities
 
-`@evanion/luhn` covers these tasks:
-
-| Goal                            | Tool                                                                                          |
-| :------------------------------ | :-------------------------------------------------------------------------------------------- |
-| Add a check character to a code | `Luhn.generate(code).checksum`                                                                |
-| Validate a code's integrity     | `Luhn.validate(code).isValid`                                                                 |
-| Support flexible input          | On the default instance, both calls ignore case and separators (non-dictionary chars)         |
-| Custom alphabets                | `createLuhn({ dictionary })` builds a custom instance, and refuses a dictionary it cannot use |
-| Credit card validation          | `createLuhn({ dictionary: '0123456789' })`                                                    |
+| Goal | Tool |
+| :--- | :--- |
+| Add a check character to a code | `Luhn.generate(code).checksum` |
+| Validate a code's integrity | `Luhn.validate(code).isValid` |
+| Support flexible input | Both calls ignore case and separators (non-dictionary chars) |
+| Custom alphabets | `createLuhn({ dictionary })` builds a custom instance |
+| Credit card validation | `createLuhn({ dictionary: '0123456789' })` |
 
 ## What a Check Character Catches (and What it Doesn't)
 
 `@evanion/luhn` is a tool for **error detection**, not **security**.
 
-### It catches
-
-- **Every single-character substitution**: If one character is replaced by another, at any position including the check character itself, the check fails.
+### It catches:
+- **Every single-character substitution**: If one character is replaced by another, the checksum will fail.
 - **Almost every adjacent swap**: If two neighboring characters are swapped, it is caught (except for a swap of the dictionary's first and last characters, e.g., `0` and `z`).
 
-### It does NOT
-
-- **Prove existence**: A random string passes the check one time in `n`, the dictionary's size: 1 in 36 under the default. You still need a database to verify the code was actually issued.
-- **Provide authentication**: The algorithm and the dictionary are public. Anyone can compute a valid check character for any string.
-- **Choose the ID**: This library only provides the check character. Use [`@evanion/token`](/token) if you need to generate random, human-readable IDs.
+### It does NOT:
+- **Prove existence**: A random string can pass the Luhn check (1 in 36 chance). You still need a database to verify the code was actually issued.
+- **Provide authentication**: The algorithm is public. Anyone can compute a valid check character for any string.
+- **Choose the ID**: This library only provides the checksum. Use [`@evanion/token`](/token) if you need to generate random, human-readable IDs.
 
 ## Install and Issue Your First Code
 
-You have seen what an `@evanion/luhn` check character catches and how the Luhn sum produces one. [Getting started](./getting-started) installs the package and writes a function that appends check characters to your order numbers.
+Now that you understand how the Luhn sum prevents "silent typos," you can implement it in your project. [Getting started](./getting-started) shows you how to install the package and write a function that appends check characters to your order numbers.
