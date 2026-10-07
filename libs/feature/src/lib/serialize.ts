@@ -1,6 +1,5 @@
 import { FeatureConfigError } from './errors.js';
-import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
-import { bucketingPosition, variantSeedOf } from './variants.js';
+import { bucketingStated } from './variants.js';
 import type { Features } from './features.js';
 import type {
   ConfigEnvelope,
@@ -13,7 +12,6 @@ import type {
   FeatureKey,
   Rule,
   VariantInfo,
-  VariantSpec,
 } from './types.js';
 
 /** The name a refusal calls a value by, read off the constructor it carries. */
@@ -204,33 +202,12 @@ function documentRule(rule: Rule, path: string): unknown {
 }
 
 /**
- * Every variant with an explicit `order`, in the array order the store holds.
- *
- * `validateVariants` refuses a partial declaration, so either every variant
- * carries an order or none does, and `bucketingPosition` supplies the walk
- * position when none does. A control plane rebuilding this feature from rows
- * with no `ORDER BY` then hands the variants back permuted and assigns
- * identically, which is what decision 11 of the variants spec asks the envelope
- * to carry.
- */
-function ordered(variants: readonly VariantSpec[]): readonly VariantSpec[] {
-  return variants.map((variant, at) => ({
-    ...variant,
-    order: bucketingPosition(variant, at),
-  }));
-}
-
-/**
  * One definition as the document carries it, before the walk writes its leaves.
  *
- * It materializes the three bucketing parameters a store leaves implicit. § 3
- * names four members that travel whole or the document is refused: a variant
- * `weight`, which `VariantSpec` requires of every author, and
- * `VariantSpec.order`, `variantBy` and `variantSeed`, which a definition may
- * leave out. A holder meeting one of those three absent fills it from
- * `bucketingPosition`, from `DEFAULT_ROLLOUT_FIELD` and from `variantSeedOf`,
- * and § 3 is written against exactly that: a holder that fills the gap with a
- * default computes a different assignment and reports nothing while it does.
+ * `bucketingStated` materializes the three bucketing parameters a store leaves
+ * implicit, and § 3 is written against exactly that: a holder that fills the
+ * gap with a default of its own computes a different assignment and reports
+ * nothing while it does.
  * Two of the three derive from members the document carries, so a holder today
  * agrees with the publisher, and a document that states the assignment holds
  * against two changes it otherwise would not. A Swift or Kotlin implementation
@@ -257,20 +234,13 @@ function documentDefinition<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
   path: string,
 ): Record<string, unknown> {
-  const body: Record<string, unknown> = { ...definition };
+  const body: Record<string, unknown> = { ...bucketingStated(definition) };
 
   const rules = definition.rules;
   if (rules) {
     body['rules'] = rules.map((rule, at) =>
       documentRule(rule, `${path}/rules/${String(at)}`),
     );
-  }
-
-  const variants = definition.variants;
-  if (variants) {
-    body['variants'] = ordered(variants);
-    body['variantBy'] = definition.variantBy ?? DEFAULT_ROLLOUT_FIELD;
-    body['variantSeed'] = variantSeedOf(definition);
   }
 
   return body;
