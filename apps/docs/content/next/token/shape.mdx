@@ -17,7 +17,7 @@ To mint an `@evanion/token` code longer or shorter than a pickup code, or groupe
 
 A short, 8-character `@evanion/token` code suits a pickup order: it's easy to read and type. But a gift card is issued in larger numbers and holds a balance, so an 8-character code collides sooner and is guessed sooner than you want. You need a longer identifier that still feels "human-readable" through proper chunking.
 
-Conversely, a code that staff call out across a room might need a very specific shape (perhaps two short words separated by a space) to reduce miscommunication.
+Conversely, a code that staff call out across a room might need a very specific shape (perhaps two groups of three characters separated by a space) to reduce miscommunication.
 
 ## Choosing a Code Shape
 
@@ -44,7 +44,7 @@ In this example, `giftCard` draws 15 random characters and appends a check chara
 
 ## Creating "Spoken" Codes
 
-If you need an `@evanion/token` code that is easy to call out across a room, set `length` to 6 with a `chunkSize` of 3 and a space as the separator. Six characters leave 25 random bits, and the code reads like two short words:
+If you need an `@evanion/token` code that is easy to call out across a room, set `length` to 6 with a `chunkSize` of 3 and a space as the separator. Six characters leave 25 random bits, and the code reads aloud as two groups of three:
 
 ```ts twoslash file=libs/token/README.md region=spoken
 
@@ -56,13 +56,13 @@ Because `validate` is tied to the instance that created the code, `counterCode.v
 
 Not every combination of `@evanion/token` shape options describes a code. `createToken` will throw an `InvalidShapeError` if the shape is invalid. This is designed to stop your application at start-up rather than failing silently at runtime.
 
-In the example below, `refusal` is a helper of your own: it catches the error and returns it, or returns `undefined` when the options are accepted.
+In the example below, `refusal` is a helper of your own: it takes a `TokenOptions` object, the type of `createToken`'s options, and returns the error `createToken` throws, or `undefined` when the options are accepted.
 
 ```ts twoslash file=libs/token/README.md region=shape-errors
 
 ```
 
-The option to change is not always the one `reason` names: a `length` of 12 fixes the same shape that a `chunkSize` of 5 fixes. So the error also carries `length`, `chunkSize` and `separator` as `createToken` resolved them, defaults included, which is why the last line reads the default `length` of 8.
+`reason` names one option, and another can fix the same shape: `length: 10, chunkSize: 4` passes with a `chunkSize` of 5 or with a `length` of 12. So the error also carries `length`, `chunkSize` and `separator` as `createToken` resolved them, defaults included, which is why the last line reads the default `length` of 8.
 
 ### Common Shape Errors
 
