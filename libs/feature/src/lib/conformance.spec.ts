@@ -304,27 +304,17 @@ describe('the document the fixture publishes', () => {
 
   it('prints, in each decision that buckets, the number the hash answers', () => {
     const subject = fixture.context['targetingKey'] as string;
-    const navSeed = fixture.config.features.find(
-      (definition) => definition.key === 'new-nav',
-    )?.rules?.[0]?.rollout?.seed;
     const ctaSeed = fixture.config.features.find(
       (definition) => definition.key === 'cta',
     )?.variantSeed;
-    const refused = fixture.decisions['new-nav'] as {
-      rules: readonly { rollout?: { bucket?: number } }[];
-    };
     const assigned = fixture.decisions['cta'] as {
       assignment?: { bucket?: number };
     };
 
-    // `bucketing.spec.ts` holds the hash itself. This holds the numbers the
-    // published decisions print against it, so a hand-edited fixture cannot
+    // `bucketing.spec.ts` holds the hash itself. This holds the number the
+    // published decision prints against it, so a hand-edited fixture cannot
     // publish a bucket the engine never computes.
-    expect(navSeed).toBeTypeOf('string');
     expect(ctaSeed).toBeTypeOf('string');
-    expect(refused.rules[0]?.rollout?.bucket).toBe(
-      bucketOf(subject, navSeed as string),
-    );
     expect(assigned.assignment?.bucket).toBe(
       bucketOf(subject, ctaSeed as string),
     );

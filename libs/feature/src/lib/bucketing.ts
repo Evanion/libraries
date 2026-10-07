@@ -183,27 +183,17 @@ export function bucketOf(value: string, seed: string): number {
 }
 
 /**
- * Whether `bucket` is inside a `percent` rollout.
+ * Whether `value` is inside a `percent` rollout seeded with `seed`.
  *
  * Strictly below the threshold, so 0% includes nobody; every bucket is below 1,
  * so 100% includes everybody.
- *
- * The threshold lives here and not in `inRollout` because `evaluateRule`
- * reports the bucket on `RuleOutcome.rollout.bucket` and needs the comparison
- * against a bucket it already holds. Two copies of the comparison are two
- * places a port can be told different things.
  */
-export function admits(bucket: number, percent: number): boolean {
-  if (!(percent > 0)) return false;
-  if (percent >= 100) return true;
-  return bucket * 100 < percent;
-}
-
-/** Whether `value` is inside a `percent` rollout seeded with `seed`. */
 export function inRollout(
   value: string,
   percent: number,
   seed: string,
 ): boolean {
-  return admits(bucketOf(value, seed), percent);
+  if (!(percent > 0)) return false;
+  if (percent >= 100) return true;
+  return bucketOf(value, seed) * 100 < percent;
 }
