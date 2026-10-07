@@ -49,17 +49,17 @@ The compiler can detect multiple types of errors:
 
 ## Debugging Compose Errors
 
-To make these complex TypeScript failures readable, `@evanion/compose` wraps them in a `ComposeError` type. When a check fails, the expected type of the entry becomes `ComposeError<"message">`.
+To make these complex TypeScript failures readable, `@evanion/compose` wraps them in a `ComposeError` type. When a check fails, the expected type of the entry becomes `ComposeError<"message">`, except for a missing or mistyped prop value, where it becomes the shape the entry should have had.
 
 Since no value can match this type, the entry fails to compile, and the message is displayed directly in the TypeScript output.
 
-| Message                                   | Meaning                                                                   |
-| :---------------------------------------- | :------------------------------------------------------------------------ |
-| `unknown prop 'x'`                        | The props object contains a key the component does not declare.           |
-| `this component requires props — ...`     | A bare component was used, but it requires mandatory props.               |
-| `first tuple element must be a component` | The tuple is ordered incorrectly or the first element is not a component. |
-| `second tuple element must be props...`   | The tuple contains two components instead of a component and its props.   |
-| `not a valid provider`                    | The entry is neither a component nor a valid two-element tuple.           |
+| Message                                   | Meaning                                                                                                                                                             |
+| :---------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `unknown prop 'x'`                        | The props object contains a key the component does not declare.                                                                                                     |
+| `this component requires props — ...`     | A bare component was used, but it requires mandatory props.                                                                                                         |
+| `first tuple element must be a component` | The tuple is ordered incorrectly or the first element is not a component. `ComposeProvider` rejects this entry earlier, as a `Provider` or `AnyComponent` mismatch. |
+| `second tuple element must be props...`   | The tuple contains two components instead of a component and its props.                                                                                             |
+| `not a valid provider`                    | The entry is neither a component nor a valid two-element tuple. `ComposeProvider` rejects this entry earlier, as a `Provider` mismatch.                             |
 
 ## Solving the "Type 'string' is not assignable to type 'never'" Error
 
