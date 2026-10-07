@@ -5,44 +5,75 @@ import type { ConfigIssue, FeatureConfig } from './config.js';
 import type { FeatureOptions } from './observe.js';
 import type { FeatureKey, VariantInfo } from './types.js';
 
+/** The key an issue names, for a definition whose key a document chose. */
+function keyOf(definition: unknown): FeatureKey | undefined {
+  if (typeof definition !== 'object' || definition === null) return undefined;
+  const key: unknown = (definition as Record<string, unknown>)['key'];
+  return typeof key === 'string' || typeof key === 'number' ? key : undefined;
+}
+
 /**
- * A raise out of a construction path the checker cannot ask about, as the issue
- * that reports it.
+ * A raise out of the construction path, as the issue that reports it.
  *
- * The checker asks about the copy. `cloneIssues` in `validate.ts` runs
- * `structuredClone` over every definition, so a value nested deeper than the
- * stack holds and a value `structuredClone` has no serialization for are both
- * issues `collectIssues` reports, and the refusal below never sees them. § 7 of
- * `docs/specs/2026-09-23-feature-config-distribution.md` and Decision 11 put
- * both entry points behind that one checker, and a refusal this function
- * manufactured would be one `validateConfig` never reported about the same
- * document.
+ * Two walks inside `createFeatures` enter the values a definition carries and
+ * the checker declares nothing about. `structuredClone` at `features.ts:393`
+ * has no serialization for a function or a symbol and raises a `DOMException`
+ * over either, it recurses once per level so a value nested deeper than the
+ * stack holds raises `RangeError`, and `deepFreeze` at `features.ts:225` hands
+ * `Object.freeze` a typed array holding elements, which raises a `TypeError`.
  *
- * What is left is `deepFreeze` at `features.ts:225`, which the checker cannot
- * run: it is private to `features.ts` and `collectIssues` is what `features.ts`
- * imports. `Object.freeze` raises a `TypeError` over a typed array holding
- * elements, so a definition carrying one at a variant value refuses here and
- * passes the checker. No document a transport carried holds one, because JSON
- * has no text for a typed array, so the gap is a caller handing this entry
- * point a literal.
+ * The checker is asked nothing about them. Decision 11 gives it the document
+ * the publisher served and the literal an author wrote, and a question about
+ * the copy would answer for the construction path alone: § 3's refusals name a
+ * member a holder cannot read, and `validateConfig` reports each one at the
+ * position the document carries it. A copy question in the checker also puts a
+ * definition-level refusal ahead of the precise one, and `createFeatures`
+ * throws the first issue, so the author of a literal whose condition value no
+ * text names would read a message naming no condition.
  *
- * `unknown-member` is the code. § 3 gives it to a holder that meets a member it
- * does not understand: it refuses the whole document, drops nothing and
- * evaluates nothing. The message carries the raise's own text, which is the
- * only part of this that says anything about the value.
+ * So this entry point asks it, where the promise that nothing is thrown lives.
+ * The raise names the definition: the walk copies each one and reports the
+ * first that answers the way the construction path did, which carries the key
+ * and the pointer every other refusal at a definition carries. A raise no copy
+ * reproduces is the freeze, and the issue then carries the raise's own text,
+ * which is the only part of it that says anything about the value.
  *
- * The catch narrows to no constructor, for the reason `nameable` at
- * `validate.ts:1086` narrows to none either. This entry point answers a
- * document a poller fetched, every raise answers it alike, and a catch keyed on
+ * `unknown-member` is the code. § 3 of
+ * `docs/specs/2026-09-23-feature-config-distribution.md` gives it to a holder
+ * that meets a member it does not understand: it refuses the whole document,
+ * drops nothing and evaluates nothing.
+ *
+ * The catch narrows to no constructor, for the reason `nameable` in
+ * `validate.ts` narrows to none either. A control plane chooses what reaches a
+ * variant value, every raise answers this question alike, and a catch keyed on
  * one class hands the next value class to a caller that was promised a report.
  */
-function unreadable(raise: unknown): readonly ConfigIssue[] {
-  return [
-    {
-      code: 'unknown-member',
-      message: raise instanceof Error ? raise.message : String(raise),
-    },
-  ];
+function unreadable(
+  raise: unknown,
+  features: readonly unknown[],
+): readonly ConfigIssue[] {
+  const text = raise instanceof Error ? raise.message : String(raise);
+  for (const [at, definition] of features.entries()) {
+    try {
+      structuredClone(definition);
+      continue;
+    } catch {
+      const key = keyOf(definition);
+      const named =
+        key === undefined
+          ? `the definition at /features/${String(at)}`
+          : `feature "${String(key)}"`;
+      return [
+        {
+          code: 'unknown-member',
+          message: `${named} carries a value no copy of the definition holds: ${text}`,
+          ...(key === undefined ? {} : { key }),
+          path: `/features/${String(at)}`,
+        },
+      ];
+    }
+  }
+  return [{ code: 'unknown-member', message: text }];
 }
 
 /**
@@ -75,15 +106,15 @@ export function parseFeatureConfig<
 ):
   | { ok: true; features: Features<S, boolean> }
   | { ok: false; issues: readonly ConfigIssue[] } {
-  // `digestIssues` hands the whole document to `configDigest` and catches what
-  // the canonicaliser raises, and `cloneIssues` catches what the copy raises,
-  // so each walk that enters a value reports its own raise. This catch answers
-  // a raise out of a walk that declared none.
+  // Nothing about the document is trusted, and the checker reads its members
+  // off the object the caller handed over, so a member that answers a read with
+  // a raise reports here. `validateConfig` throws such a document back at its
+  // caller, and this entry point promises a report.
   let refused: ReturnType<typeof collectIssues>;
   try {
     refused = collectIssues(config);
   } catch (raise) {
-    return { ok: false, issues: unreadable(raise) };
+    return { ok: false, issues: unreadable(raise, []) };
   }
 
   if (refused.length > 0) {
@@ -91,9 +122,9 @@ export function parseFeatureConfig<
   }
 
   // The same construction path the literal entry point takes, which is what
-  // keeps one store shape in the package. It runs the checker above before it
-  // copies anything, so every issue it reports is one the checker reported and
-  // the catch answers the freeze alone.
+  // keeps one store shape in the package. The checker just passed, so every
+  // typed error it answers for is answered, and the catch reports the copy and
+  // the freeze.
   let features: Features<S, boolean>;
   try {
     features = createFeatures<S>(
@@ -101,7 +132,13 @@ export function parseFeatureConfig<
       (options ?? {}) as FeatureOptions<S>,
     );
   } catch (raise) {
-    return { ok: false, issues: unreadable(raise) };
+    return {
+      ok: false,
+      issues: unreadable(
+        raise,
+        Array.isArray(config.features) ? config.features : [],
+      ),
+    };
   }
 
   return { ok: true, features };

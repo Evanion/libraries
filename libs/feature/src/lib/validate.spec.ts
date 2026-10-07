@@ -1144,14 +1144,9 @@ describe('validateConfig', () => {
     // A served document reaches this depth through `JSON.parse`, where no value
     // holds itself, and `written` recurses once per level, so this exhausts the
     // stack the way a self-reference does. The issue names the member.
-    //
-    // `cloneIssues` names the definition after it. `structuredClone` recurses
-    // once per level too, so the copy the construction path takes of this
-    // definition raises where the canonical text does, and the checker reports
-    // both refusals the document earns.
     expect(
       result.ok === false && result.issues.map((issue) => issue.path),
-    ).toEqual(['/features/0/rules/0/when/0/value', '/features/0']);
+    ).toEqual(['/features/0/rules/0/when/0/value']);
   });
 
   it('names the value of a rule whose condition outgrows the string ceiling', () => {
@@ -1324,24 +1319,15 @@ describe('validateConfig', () => {
     // `ruleId` joins every part's text before hashing, so reaching it takes a
     // rule whose parts each fit the string ceiling and whose joined text does
     // not.
-    // `cloneIssues` names the definition first, because a `toString` method is
-    // a value `structuredClone` has no serialization for and the construction
-    // path copies the definition whole. The message carries the method's own
-    // source, so the codes and the paths are what this asserts.
-    expect(
-      result.ok === false &&
-        result.issues.map((issue) => [issue.code, issue.path]),
-    ).toEqual([
-      ['unknown-member', '/features/0'],
-      ['invalid-instant', '/features/0/rules/0/when/0/value'],
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'invalid-instant',
+        key: 'a',
+        message:
+          'feature "a" declares the instant at /features/0/rules/0/when/0/value as a value this checker cannot read as a point in time, and the derivation a decision reads this rule\'s id from raises on it',
+        path: '/features/0/rules/0/when/0/value',
+      },
     ]);
-    expect(result.ok === false && result.issues[1]).toEqual({
-      code: 'invalid-instant',
-      key: 'a',
-      message:
-        'feature "a" declares the instant at /features/0/rules/0/when/0/value as a value this checker cannot read as a point in time, and the derivation a decision reads this rule\'s id from raises on it',
-      path: '/features/0/rules/0/when/0/value',
-    });
   });
 
   it('accepts a rule declaring an id for a condition value no text names', () => {
@@ -3523,8 +3509,8 @@ describe('validateConfig, on a rollout the assignment algorithm cannot read', ()
  * one meets `RangeError: Invalid string length`. The ceiling is the string's,
  * not the stack's, so no runtime flag turns this fixture off.
  *
- * `structuredClone` keeps the sharing, so `cloneIssues` copies the definition
- * and the digest is the one walk that gives up on the value.
+ * `structuredClone` keeps the sharing, so the construction path copies the
+ * definition and the digest is the one walk that gives up on the value.
  */
 function wide(): FeatureConfig {
   let value: unknown = 1;

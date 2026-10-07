@@ -1680,57 +1680,6 @@ function envelopeIssues(config: Checkable): readonly Found[] {
 }
 
 /**
- * The copy the construction path takes of a definition, as the issue that
- * reports a value it cannot hold.
- *
- * `createFeatures` copies every definition with `structuredClone` at
- * `features.ts:409`, and that copy enters values no walk here reads: a variant
- * value and a condition value are whatever a control plane put there.
- * `structuredClone` has no serialization for a function or a symbol and raises
- * a `DOMException` over either, and a value nested deeper than the stack holds
- * raises `RangeError: Maximum call stack size exceeded`.
- *
- * Decision 11 puts both entry points behind this checker, so the question is
- * asked here and not in a catch around the construction path. A document
- * `validateConfig` answers `{ ok: true }` about is one `parseFeatureConfig`
- * builds a store from, and this refusal names the feature and the definition
- * the way every other refusal at a definition does.
- *
- * `unknown-member` is the code. § 3 of
- * `docs/specs/2026-09-23-feature-config-distribution.md` gives it to a holder
- * that meets a member it does not understand: it refuses the whole document,
- * drops nothing and evaluates nothing. The raise's own text is the only part of
- * this that says anything about the value, so the message carries it.
- *
- * The catch narrows to no constructor, for the reason `nameable` narrows to
- * none either. A control plane chooses what reaches a variant value, every
- * raise answers this question alike, and a catch keyed on one class hands the
- * next value class to a caller that was promised a report.
- */
-function cloneIssues(
-  definition: Readonly<Record<string, unknown>>,
-  at: number,
-  key: FeatureKey | undefined,
-): readonly Found[] {
-  try {
-    structuredClone(definition);
-    return [];
-  } catch (raise) {
-    const named =
-      key === undefined
-        ? `the definition at ${pointer(at)}`
-        : `feature "${String(key)}"`;
-    return [
-      unreadable(
-        `${named} carries a value no copy of the definition holds: ${raise instanceof Error ? raise.message : String(raise)}`,
-        pointer(at),
-        key,
-      ),
-    ];
-  }
-}
-
-/**
  * Every defect in a document, in the order a reader meets them.
  *
  * The shape walk comes first, and each member it could not read stops that
@@ -1779,14 +1728,6 @@ export function collectIssues(
   rows.forEach((row, at) => {
     const definition = config.features[at];
     if (!definition) return;
-
-    // The construction path copies the definition before its own checker runs,
-    // so the copy reaches the values this checker declares nothing about. The
-    // non-records the shape walk refused are skipped: it named each one at the
-    // definition already.
-    if (isRecord(definition)) {
-      all.push(...cloneIssues(definition, at, row.key));
-    }
 
     // The definition the walks below read, whose `variants` and `rules` hold
     // the elements the shape walk read. An element it could not read is the one

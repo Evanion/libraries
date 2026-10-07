@@ -555,20 +555,20 @@ describe('the store a document builds', () => {
 });
 
 /**
- * Decision 11 puts both entry points behind one checker.
+ * The copy the construction path takes, which the checker asks nothing about.
  *
- * A control plane that pre-flights a candidate with `validateConfig` and
- * publishes what it answered `{ ok: true }` about publishes a document every
- * holder builds a store from. A value the construction path cannot copy is the
- * one class of defect that used to divide them: the checker read no member
- * below a variant value, `structuredClone` at `features.ts:409` raised on it,
- * and the catch in `parseFeatureConfig` manufactured an issue the checker had
- * never reported.
+ * Decision 11 puts both entry points behind one checker, and the checker reads
+ * the members § 3 names. It reads no value below a variant value, so a document
+ * whose variant value `structuredClone` has no serialization for is one it
+ * answers `{ ok: true }` about. `createFeatures` copies the definition and
+ * raises there, and this entry point reports the raise as the definition that
+ * carries the value.
  *
- * `cloneIssues` asks the question in the checker, so each case here holds the
- * two answers to one document side by side.
+ * The literal path keeps the raise. A value no copy holds is a programming
+ * error at the authoring site, which is the argument `errors.ts:3-11` makes for
+ * every throw this library raises where the configuration is supplied.
  */
-describe('the answer both entry points give one document', () => {
+describe('the copy a document asks the construction path for', () => {
   /** The documents whose variant value no copy of the definition holds. */
   const UNCOPYABLE: readonly FeatureConfig[] = [
     {
@@ -584,31 +584,16 @@ describe('the answer both entry points give one document', () => {
     DEEP,
   ];
 
-  it('refuses through the checker what parseFeatureConfig refuses', () => {
+  it('reports what the checker reads no member of', () => {
     const answers = UNCOPYABLE.map((config) => [
       validateConfig(config).ok,
       parseFeatureConfig(config).ok,
     ]);
 
     expect(answers).toEqual([
-      [false, false],
-      [false, false],
+      [true, false],
+      [true, false],
     ]);
-  });
-
-  it('reports the same issues from the checker and from the document reader', () => {
-    const answers = UNCOPYABLE.map((config) => {
-      const checked = validateConfig(config);
-      const parsed = parseFeatureConfig(config);
-      return [
-        checked.ok ? undefined : checked.issues,
-        parsed.ok ? undefined : parsed.issues,
-      ];
-    });
-
-    expect(answers.map(([checked]) => checked)).toEqual(
-      answers.map(([, parsed]) => parsed),
-    );
   });
 
   it('keys the refusal on the feature and points at the definition', () => {
@@ -626,15 +611,42 @@ describe('the answer both entry points give one document', () => {
     });
   });
 
-  it('throws out of createFeatures the error the checker reports', () => {
-    const config = UNCOPYABLE[0] as unknown as FeatureConfig;
-    const checked = validateConfig(config);
+  it('names the definition the second row of a document carries', () => {
+    const config = {
+      features: [
+        { key: 'a', enabled: true },
+        {
+          key: 'cta',
+          enabled: true,
+          ...TRAVELS,
+          variants: [{ name: 'blue', weight: 1, order: 0, value: () => 1 }],
+        },
+      ],
+    } as unknown as FeatureConfig;
 
+    const result = parseFeatureConfig(config);
+
+    expect(result.ok === false && result.issues[0]?.path).toBe('/features/1');
+  });
+
+  it('reports the raise no copy of a definition reproduces', () => {
+    const config = carrying(new Uint8Array([1, 2, 3]));
+
+    const result = parseFeatureConfig(config);
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        message: 'Cannot freeze array buffer views with elements',
+      },
+    ]);
+  });
+
+  it('throws out of createFeatures the copy raise and no typed error', () => {
+    const config = UNCOPYABLE[0] as unknown as FeatureConfig;
     const build = () => createFeatures(config.features);
 
-    expect(build).toThrow(FeatureConfigError);
-    expect(build).toThrow(
-      checked.ok ? 'nothing' : (checked.issues[0]?.message ?? 'nothing'),
-    );
+    expect(build).toThrow('() => 1 could not be cloned.');
+    expect(build).not.toThrow(FeatureConfigError);
   });
 });
