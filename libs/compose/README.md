@@ -1,12 +1,12 @@
 # @evanion/compose
 
-**Escape "Provider Hell" with flattened, type-safe provider composition.**
+**Flatten nested React providers into one type-checked list.**
 
-Stop nesting your React providers in a deepening pyramid that makes your `App.tsx` unreadable and your component tree a nightmare to maintain. `@evanion/compose` lets you flatten nested providers into a single, readable list, while TypeScript still checks each provider's props against its own component.
+A React root nests one provider inside the next, so adding one reindents the tree and moving one means finding its closing tag. `@evanion/compose` lets you flatten nested providers into a single, readable list, while TypeScript still checks each provider's props against its own component.
 
-## The Problem: The Provider Pyramid of Doom
+## The Problem: Nested Providers
 
-As your app grows, your root component becomes a wall of nesting. It's hard to read, hard to reorder, and a missing prop in a deeply nested provider is hard to find:
+As your app grows, your root component nests one level deeper per provider. It's hard to read, hard to reorder, and a missing prop in a deeply nested provider is hard to find:
 
 ```tsx
 const App: React.FC = () => {
@@ -16,11 +16,11 @@ const App: React.FC = () => {
         <ThemeProvider theme={theme}>
           <TranslationProvider locale={locale} messages={messages}>
             <StateProvider state={stateStore}>
-              <CoffeeProvider>
-                <SanityProvider>
+              <CartProvider>
+                <TooltipProvider>
                   <Routes />
-                </SanityProvider>
-              </CoffeeProvider>
+                </TooltipProvider>
+              </CartProvider>
             </StateProvider>
           </TranslationProvider>
         </ThemeProvider>
@@ -32,7 +32,7 @@ const App: React.FC = () => {
 
 ## The Solution: Flattened Composition
 
-`@evanion/compose` replaces the pyramid with a simple array. The first entry in the list becomes the outermost provider, matching the natural order of your nesting.
+`@evanion/compose` replaces the nesting with an array. The first entry in the list becomes the outermost provider, matching the natural order of your nesting.
 
 ```tsx
 import { ComposeProvider, provider } from '@evanion/compose';
@@ -43,8 +43,8 @@ const providers = [
   provider(ThemeProvider, { theme }),
   provider(TranslationProvider, { locale, messages }),
   provider(StateProvider, { state: stateStore }),
-  CoffeeProvider,
-  SanityProvider,
+  CartProvider,
+  TooltipProvider,
 ];
 
 const App: React.FC = () => {
