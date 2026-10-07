@@ -1,9 +1,12 @@
 # @evanion/widget
 
-When a content management system (CMS) saves a page item whose `type` no
-renderer can draw, the renderer skips it and in production logs no warning.
-`@evanion/widget`, the widget core, defines the item and finds such items
-first.
+**Stop "Silent Failures" in your CMS-driven pages with a framework-agnostic widget validation engine.**
+
+When a content management system (CMS) saves a page, it typically stores the content as a list of "items." Each item specifies a `type` (which component should be used) and `props` (the data for that component). 
+
+The danger is a **Silent Failure**: if a CMS saves an item with a type that your frontend doesn't recognize—or if a required prop is missing—the renderer will often simply skip that item. In production, this leaves a mysterious gap in your page where a widget should have been, and since no error is thrown, you might not notice it until a user reports it.
+
+`@evanion/widget` is the core engine that identifies these "missing" or "broken" widgets before they ever hit the browser. It allows you to catch content errors during the save process, in a webhook, or as a blocking step in your CI pipeline.
 
 <PageSheet
   difficulty={2}
@@ -14,74 +17,59 @@ first.
   ]}
 />
 
-## How a widget item array describes a page
+## The Model: Page as an Item Array
 
-In `@evanion/widget`, a **widget** is one block of a page, such as a game
-listing or a shelf of listings, and a **widget item**, or item for short,
-describes one: `type` names the component that draws it, and `props` carries
-that component's data. A **renderer** is the package that draws items with one
-framework's components: `@evanion/react-widget` for React and
-`@evanion/astro-widget` for Astro. The array below is a listing page in Baize,
-the board game shop these examples are set in: a wide listing for Brass:
-Birmingham, then a shelf headed "On the table tonight" holding a listing for
-Wingspan. `validateItems` checks it against the types the page's renderer has a
-component for:
+In this system, a **widget** is a single structural block of a page—such as a game listing, a hero banner, or a featured shelf. A **widget item** is the data representation of that block.
+
+A **renderer** (such as `@evanion/react-widget` or `@evanion/astro-widget`) is the framework-specific package that actually turns these data items into UI components.
+
+Consider this listing page for the Baize board game shop. It contains a wide listing for *Brass: Birmingham* and a shelf of other games. We can use `validateItems` to ensure that every item in this array can be rendered:
 
 ```ts twoslash file=libs/widget/README.md region=shape
 
 ```
 
-`problems` is an empty array: every item's `type` is in the list, and every item
-carries a `props` object. Each of the other three fields has one job:
+If `problems` is empty, every item is valid. If it's not, the library tells you exactly which item is causing the issue, allowing you to alert the content editor immediately.
 
-- `id` identifies an item among its siblings, and every item needs one.
-- `meta` holds placement. A renderer hands it to the **wrapper**, the element
-  it draws around each item, and never to the component's `props`. Your
-  application supplies the wrapper to the renderer as `chrome.item`, and the
-  wrapper decides what `span: 2` does, such as giving the listing two columns
-  of the page's grid. Without a wrapper of yours, `meta` changes nothing.
-- `children` nests items. Wingspan's listing sits inside the `tonight` shelf, so
-  a CMS editor who moves the shelf moves Wingspan's listing with it.
+### Anatomy of a Widget Item
 
-## The widget vocabulary
+Every item consists of a few key fields that standardize how your CMS talks to your frontend:
+- `id`: A unique string used for React keys and DOM attributes.
+- `type`: The name of the component used to render the widget.
+- `props`: The actual data passed to the component.
+- `meta`: Optional placement data (like `span: 2` for a grid). This is handled by the **wrapper** (the element that surrounds each widget) rather than the widget itself.
+- `children`: An optional array of nested items, allowing you to create complex layouts like shelves containing listings.
 
-`@evanion/widget` and both renderers use three more terms on later pages.
+## The Widget Vocabulary
 
-- The **known types** are the types a renderer has a component for.
-  `validateItems` takes them as its second argument, `known`, and reports an
-  item whose `type` is not among them.
-- A **registry** maps each known type to the component a renderer draws for it.
-  `defineWidgets(registry)` returns the same object, typed so that your code
-  editor completes on its keys, and `validateItems` accepts it as `known`.
-- A **problem** is one entry in the array `validateItems` returns, typed
-  `WidgetProblem`: the item's `index` among its siblings, its `id` and `type`,
-  and a `message`.
+To help you build your renderer, we use these terms:
 
-## What the widget core can do
+- **Known Types**: The list of widget types that your renderer actually has components for.
+- **Registry**: A map that links each known type to its corresponding component.
+- **Problem**: An error report generated by `validateItems`, containing the index and type of the faulty item.
 
-| You want to                                        | What the widget core gives you                                                                                                         |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| describe a page as data a CMS can write            | `AnyWidgetItem`, the type of one item: plain JSON with no class or builder                                                             |
-| name the types a page may use                      | a registry from `defineWidgets`, or a plain array of type names                                                                        |
-| reject a bad payload before it renders             | `validateItems(items, known)`, which returns every problem and throws nothing                                                          |
-| demand the props a CMS editor must fill in         | a third `validateItems` argument, `required`, which maps a widget type to the props that must not be missing, empty or whitespace only |
-| run the check where no renderer is installed       | `validateItems` from a package that imports no framework and has no dependencies                                                       |
-| print the same warning from a renderer of your own | `ERROR_MESSAGES`, the warning text both renderers print, and `warnOnce`, which prints each warning once                                |
+## Core Capabilities
 
-## What the widget core does not do
+`@evanion/widget` provides the logic for validating your CMS payloads without requiring a frontend framework:
 
-- Draw anything. A renderer draws the items.
-- Check a prop against its component's type at compile time.
-  `@evanion/react-widget` does that, because it knows what a React component
-  accepts.
-- Run `validateItems` for you. Neither renderer calls it, so the check runs
-  where your code calls it.
-- Fetch or store the payload. Where the array comes from is your application's
-  code.
+| Goal | Tool |
+| :--- | :--- |
+| Describe a page as JSON data | `AnyWidgetItem`, a type for items that can be written by a CMS |
+| Define supported types | A registry from `defineWidgets`, or a simple list of type names |
+| Reject bad payloads before rendering | `validateItems(items, known)`, which reports all problems without throwing |
+| Enforce required props in the CMS | A `required` map for `validateItems` to ensure essential props are present |
+| Framework-agnostic checks | `validateItems` has no dependencies and runs in any JS environment |
+| Consistent error reporting | `ERROR_MESSAGES` and `warnOnce` to keep warnings consistent across your app |
 
-## Set up the widget core
+## Design Boundaries
 
-The widget core's model is an array of items, each naming a `type` and carrying
-`props`, and one call that reports every item a renderer would skip.
-[Getting started](./getting-started) installs `@evanion/widget` and makes that
-call the gate a saved page has to pass.
+To keep the core lightweight and portable, it is important to distinguish the core from the renderer:
+
+- **No UI Rendering**: The core does not draw anything on the screen; that is the job of the renderer.
+- **No Compile-time Prop Checks**: The core only knows if a `type` exists. It cannot check if the `props` match a component's TypeScript definition (though `@evanion/react-widget` can).
+- **No Automatic Execution**: The library doesn't run `validateItems` automatically; you must call it in your own code (e.g., in a webhook or build script).
+- **No Data Fetching**: The core only validates the data it is given; it doesn't know where the data comes from.
+
+## Set up the Widget Core
+
+The core's model is simple: an array of items, a list of supported types, and a validation call. [Getting started](./getting-started) shows you how to install the package and use `validateItems` as a quality gate for your saved pages.

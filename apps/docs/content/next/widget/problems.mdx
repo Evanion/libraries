@@ -1,9 +1,8 @@
 # What validateItems reports
 
-To find everything wrong with a content management system (CMS) payload before
-a renderer draws it, call `validateItems(items, known)` once over the whole
-payload. It walks nested items too, throws nothing, and returns one
-`WidgetProblem` per fault.
+Even with a strictly typed renderer, you still need a way to validate the data arriving from your CMS. A single typo in a widget type or a missing required prop can lead to a "broken" page where parts of the UI simply vanish.
+
+`validateItems(items, known)` allows you to scan a whole payload in one pass, identifying every fault—including those nested deep within other widgets—without throwing exceptions.
 
 <PageSheet
   difficulty={3}
@@ -15,126 +14,85 @@ payload. It walks nested items too, throws nothing, and returns one
   ]}
 />
 
-## Check a whole widget payload in one call
+## The Problem: Structural Faults in CMS Data
 
-`validateItems` from `@evanion/widget` reports every fault in a payload from one
-call, including faults in nested items. `check.mts`, the script
-[Getting started](../getting-started) builds, found one renamed type. The payload
-below has three faults, and the `.map` keeps each problem's `index` and
-`message`:
+CMS data is inherently untyped. When your frontend receives a JSON payload, a few common errors can cause the UI to fail silently:
+- **Unknown Types**: A content editor types `listting` instead of `listing`.
+- **Missing Props**: A required field like `title` is left blank.
+- **Malformed Structure**: An item is a string instead of an object, or `children` is not a list.
+- **Identity Collisions**: Two widgets in the same section share the same `id`.
+
+If these aren't caught, your renderer will simply skip the faulty items, leaving mysterious gaps in your page.
+
+## Solution: Deep-Payload Scanning
+
+`validateItems` performs a depth-first walk of your widget tree. It reports an item's own problems first, then recursively validates its `children` before moving to the next sibling.
+
+Consider a payload with three distinct faults: a missing `props` object, a duplicate ID, and a typo in a widget type.
 
 ```ts twoslash file=libs/widget/README.md region=sweep
 
 ```
 
-The first item, Wingspan's listing, has no `props`. The second item repeats its
-`id`, `wingspan`, in the same sibling list. The shelf `tonight` is valid, and
-its one child, Hive's listing, names the type `listting`, which is not in the
-list of known types.
+In this case, the engine identifies the missing props on the first item and the duplicate ID on the second. Finally, it descends into the `tonight` shelf and finds that its child, Hive's listing, has an unknown type. 
 
-`validateItems` walks the payload depth first. It reports an item's own
-problems, then walks that item's `children`, then moves to the next sibling.
-Hive's problem comes last because `tonight` is the last top-level item, and its
-`index` is 0, its position inside the shelf.
+Because it walks the tree depth-first, Hive's problem is reported last, and its `index` is `0` because it is the first child of the shelf, not the third item in the overall payload.
 
-An `id` repeated at two depths is not reported. `@evanion/react-widget` passes
-an item's `id` to React as its key, and React compares keys only among siblings,
-so two items with one `id` at different depths never collide.
+### Anatomy of a WidgetProblem
 
-## The fields of a widget problem
+Every fault found by the library is returned as a `WidgetProblem` object:
 
-Each `WidgetProblem` that `@evanion/widget`'s `validateItems` returns carries
-four fields.
+| Field | Description |
+| :--- | :--- |
+| `index` | The item's position among its siblings. Returns `-1` if the payload is not a list. |
+| `id` | The item's `id` string, or `-` if the ID is missing. |
+| `type` | The item's `type` string, or `-` if the type is missing. |
+| `message` | A human-readable error string from `VALIDATION_MESSAGES`. |
 
-| Field     | What it holds                                                                                   |
-| --------- | ----------------------------------------------------------------------------------------------- |
-| `index`   | the item's position in its own sibling list, and `-1` when `items` is not a list                |
-| `id`      | the item's `id`, or `-` when the item has no string `id`                                        |
-| `type`    | the item's `type`, or `-` when the item has no string `type`                                    |
-| `message` | a string from `VALIDATION_MESSAGES`, the exported object that holds every message it can return |
+## Standardized Error Messages for Automation
 
-A child's `index` counts from its own parent, so the first item nested in a
-shelf reports `index: 0` whatever its position in the whole payload. That is the
-position a CMS editor sees inside the shelf they opened.
+To make it easier to translate or group errors, `@evanion/widget` exports `VALIDATION_MESSAGES`. Instead of comparing raw strings, you should compare the `message` against these constants.
 
-## The messages validateItems returns
+| Constant | Message | Cause |
+| :--- | :--- | :--- |
+| `NOT_A_LIST` | `items is not a list` | The payload is not an array. |
+| `NOT_AN_OBJECT` | `item is not an object` | An entry is a primitive (string, number, etc.) instead of an object. |
+| `INVALID_ID` | `item id is not a string` | The `id` field is missing or is not a string. |
+| `INVALID_TYPE` | `item type is not a string` | The `type` field is missing or is not a string. |
+| `UNKNOWN_TYPE` | `unknown widget type` | The `type` is not present in the `known` list. |
+| `INVALID_PROPS` | `props is not an object` | The `props` field is missing, or is not an object. |
+| `INVALID_CHILDREN` | `children is not a list` | The `children` field is present but is not an array. |
+| `DUPLICATE_ID` | `duplicate sibling id` | Two items in the same sibling list share the same `id`. |
+| `MISSING_FIELD` | `missing field <name>` | A field marked as `required` is absent or contains only whitespace. |
 
-`VALIDATION_MESSAGES`, exported from `@evanion/widget`, holds every string
-`validateItems` reports.
+**Common Pitfall**: Placing data at the top level of the item (e.g., `{ id: '1', type: 'listing', title: 'Game' }`). This will trigger an `INVALID_PROPS` error because the renderer only looks for data inside the `props` object.
 
-| Constant           | Message                     | What produced it                                         |
-| ------------------ | --------------------------- | -------------------------------------------------------- |
-| `NOT_A_LIST`       | `items is not a list`       | the payload itself is not an array                       |
-| `NOT_AN_OBJECT`    | `item is not an object`     | an entry is a string, a number, `null` or an array       |
-| `INVALID_ID`       | `item id is not a string`   | `id` is absent, or is something other than a string      |
-| `INVALID_TYPE`     | `item type is not a string` | `type` is absent, or is something other than a string    |
-| `UNKNOWN_TYPE`     | `unknown widget type`       | `type` is not one of the known types                     |
-| `INVALID_PROPS`    | `props is not an object`    | `props` is absent, or is an array, `null` or a primitive |
-| `INVALID_CHILDREN` | `children is not a list`    | `children` is present and is not an array                |
-| `DUPLICATE_ID`     | `duplicate sibling id`      | two items in one sibling list carry the same `id`        |
-| `MISSING_FIELD`    | `missing field <name>`      | a prop `required` demands is absent or blank             |
+## Enforcing Required Fields in CMS Data
 
-A renderer warns with a different set, `ERROR_MESSAGES`, which
-[Your own renderer](../renderer#the-warning-a-widget-renderer-prints) covers.
-Compare a problem's `message` against `VALIDATION_MESSAGES` to group, count or
-translate a report. `MISSING_FIELD` is a function of the field name, so compare
-against `VALIDATION_MESSAGES.MISSING_FIELD('title')`. A CMS editor who reads
-`missing field title` knows which box to fill.
+Beyond checking if a widget type is known, you can enforce that certain props are present and not blank (where "blank" means `undefined`, `null`, or a string of only whitespace).
 
-`INVALID_PROPS` also catches an item that carries its data at the top level,
-such as `{ id: 'wingspan', type: 'listing', title: 'Wingspan' }`. Both renderers
-read a widget's data only from `props`, so they would draw that listing empty
-and print nothing.
-
-## Required props, and what blank means
-
-`validateItems` from `@evanion/widget` takes an optional third argument,
-`required`, which maps a widget type to the props that must be present and not
-blank. Blank is `undefined`, `null`, an empty string, or a string of only
-whitespace. A CMS text field arrives blank when an editor opened it and typed
-nothing:
+You do this by passing a `required` map as the third argument to `validateItems`:
 
 ```ts twoslash file=libs/widget/README.md region=required
 
 ```
 
-`title` is present and is a string. A check for presence alone would pass it,
-and the renderer would draw a listing with no name, so `validateItems` also
-rejects a blank value.
+In the example above, even though `title` is a string, it is blank. `validateItems` rejects this, ensuring that your renderer never attempts to draw a listing without a name.
 
-Two limits apply to `required`. Its keys are plain strings, which TypeScript
-does not check against your widget types. A misspelled type there is an entry
-nothing reads. An item whose `type` is unknown is reported once, as
-`unknown widget type`, and its required props are not checked.
+Note that `required` checks only happen for known types. If a widget's `type` is unknown, it is reported as an `UNKNOWN_TYPE` fault, and its required props are ignored.
 
-## Check against the registry a renderer draws from
+## Syncing Validation with Your Renderer
 
-`validateItems` in `@evanion/widget` takes a registry as its second argument,
-`known`, as well as a plain array of type names. Passing the registry your
-renderer draws from keeps the check and the renderer agreeing on which types
-exist. `defineWidgets` types it:
+You can pass the same registry your renderer uses as the `known` argument to `validateItems`. This ensures that your validation logic and your rendering logic always agree on which types exist.
+
+If you are running a validation check in a CI environment where you cannot import your React components, you can simply pass a plain array of type names.
 
 ```ts twoslash file=libs/widget/README.md region=registry
 
 ```
 
-`defineWidgets` returns the object it was handed. Its generic parameter keeps
-the keys `listing` and `shelf` as a union, which a code editor completes on.
-`WidgetRegistry` is the type of any registry, and annotating the object as
-`WidgetRegistry` widens the keys to `string`. `validateItems` reads only the
-registry's keys and never calls a value. A continuous integration (CI) job that
-cannot import the components therefore passes a plain array of the same names.
+By using `defineWidgets`, you get the best of both worlds: a typed registry for your code editor and a plain list of strings for `validateItems`.
 
-`validateItems` matches a `type` only against keys set on the registry object
-itself, which it tests with `Object.prototype.hasOwnProperty`. So an item typed
-`constructor`, `toString` or `__proto__` is reported as `unknown widget type`.
-Both published renderers look a type up with the same test, so a type
-`validateItems` rejects is one they skip.
+## Next steps: Layout and Rendering
 
-## Draw a payload that passes the widget check
-
-A payload that `validateItems` from `@evanion/widget` passes goes to a
-renderer, which draws the items in the order the array holds them.
-[Order and nesting](../layout) shows how each published renderer draws nesting
-and placement, on the dashboard Baize's staff read each week, and lets you move
-its items.
+Now that you can identify faults in your content, you can learn how the renderer actually handles the valid items. [Order and nesting](../layout) explains how the library handles layout, nesting, and placement.
