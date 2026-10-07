@@ -74,16 +74,17 @@ The option to change is not always the one `reason` names: a `length` of 12 fixe
 | `separator-empty`         | `separator` is an empty string.                       | Provide a separator, or set `chunkSize` equal to `length` for an unchunked code. |
 | `separator-in-dictionary` | `separator` shares a character with the `dictionary`. | Choose a separator that doesn't appear in the dictionary.                        |
 
-If the `separator` shared a character with the `dictionary`, `validate` would be unable to strip it without accidentally removing part of the code's body, which is why this is forbidden. A `dictionary` that breaks an alphabet rule throws `InvalidAlphabetError`, or `InvalidDictionaryError` from `@evanion/luhn`. A dictionary that passes those rules but holds the separator, such as `'0123456789abcde-'` with the default hyphen, throws `InvalidShapeError` with `separator-in-dictionary`.
+If the `separator` shared a character with the `dictionary`, `validate` would be unable to strip it without accidentally removing part of the code's body, which is why this is forbidden. A dictionary of your own throws `InvalidShapeError` with `separator-in-dictionary` when it holds the separator, as `'0123456789abcde-'` does with the default hyphen.
 
 ## Try a Token Shape
 
-The card below mints `@evanion/token` codes in your browser. Its "Say it as" control sets the `length` and `chunkSize` pair, and its "Drawn from" control picks the default 32 characters or hexadecimal.
+The card below mints `@evanion/token` codes in your browser. Its "Say it as" control sets the `length` and `chunkSize` pair, and its "Drawn from" control picks the default 32 characters or hexadecimal, the 16 characters `0` to `9` and `a` to `f`.
 
 <TokenSpecimen initial="a4kp-9mxa" />
-*The caption reports the code's random bits, and how many codes you can issue
-before the chance that two match reaches one in two. [Entropy and
-collisions](../entropy) explains both numbers.*
+*The caption reports the code's random bits, 5 for each character before the
+check character with the default dictionary and 4 with hexadecimal. It also
+reports how many codes you can issue before the chance that two match reaches
+one in two, a number that doubles with every 2 bits the code gains.*
 
 ## Draw Codes from Another Dictionary
 
