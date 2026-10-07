@@ -1,9 +1,6 @@
 # Write your own widget renderer
 
-A renderer for a framework with no published package passes
-`ERROR_MESSAGES.UNKNOWN_WIDGET(type, id)` to `warnOnce` for each item it skips,
-so its warnings match the published renderers'. React and Astro projects need
-neither.
+If you are using a framework without a published renderer, you can implement your own. To ensure your renderer provides a consistent developer experience, you should synchronize its warnings with the `@evanion/widget` core.
 
 <PageSheet
   difficulty={4}
@@ -16,78 +13,47 @@ neither.
   unlocks={[['API reference', '../api']]}
 />
 
-## The warning a widget renderer prints
+## The Problem: Inconsistent Warning Logs
 
-A renderer that meets an item whose `type` it has no component for skips the
-item and warns. Both `@evanion/react-widget` and `@evanion/astro-widget` take
-that warning from `ERROR_MESSAGES` in `@evanion/widget`, so the same item gets
-the same line from either one:
+When a renderer encounters a widget `type` it doesn't have a component for, it must skip that item. If every renderer in your ecosystem has its own way of warning about this, your logs become a mess of inconsistent messages.
+
+Both `@evanion/react-widget` and `@evanion/astro-widget` solve this by using `ERROR_MESSAGES` from the core. This ensures that regardless of the framework, the same content error produces the same log line.
 
 ```ts twoslash file=libs/widget/README.md region=warning
 
 ```
 
-`ERROR_MESSAGES` is the text a renderer prints to the console while it draws.
-[`VALIDATION_MESSAGES`](../problems#the-messages-validateitems-returns) is the
-text `validateItems` returns in a problem, before anything is drawn. Search
-`ERROR_MESSAGES` for a line your console printed, and `VALIDATION_MESSAGES` for
-a line your check printed.
+### Using `warnOnce`
 
-`warnOnce` prints a message the first time it meets it and never again in that
-process, and it prints nothing when `NODE_ENV` is `production`. A renderer warns
-from render, so without `warnOnce` one item whose type the registry lacks would
-warn on every re-render.
+Renderers run during the render loop. Without protection, a single unknown widget would trigger a warning on every single re-render, flooding your console.
 
-## Draw widget items and warn once
+`@evanion/widget` provides `warnOnce`, which prints a message the first time it is encountered in a process and then silences it. It also automatically suppresses all warnings when `NODE_ENV` is set to `production`.
 
-The renderer below draws `@evanion/widget` items as lines of text, looks each
-`type` up in a registry, and passes the warning for a type it cannot draw to
-`warnOnce`. It imports `warnOnce` and `resetWarnings` from `@evanion/widget`,
-because neither published renderer re-exports them:
+## Implementing the Render Loop
 
-- `Listing` is `AnyWidgetItem<string, { title?: string }>`: an item whose
-  `type` is any string and whose `props` may carry a `title`.
-- `WidgetRegistry<T>` maps each type to a `T`, here a function from props to a
-  line of text.
-- `Object.prototype.hasOwnProperty` is the own-key test
-  [`validateItems` applies](../problems#check-against-the-registry-a-renderer-draws-from).
-  `item.type in registry` or `registry[item.type]` alone finds what every
-  object inherits: a function for `constructor` and `toString`, and
-  `Object.prototype` itself for `__proto__`.
-- `resetWarnings` clears the set of messages `warnOnce` has printed. A
-  renderer's tests call it before each case, so one case's warning cannot
-  silence the next. The example calls it once, before its first render.
+A basic renderer iterates over the widget items, looks up the `type` in a registry, and renders the corresponding component. If the type is missing, it uses `warnOnce` to report the issue.
 
 ```ts twoslash file=libs/widget/README.md region=renderer
 
 ```
 
-Both calls return Wingspan's line only, so Hive's listing is missing from the
-page. The first call prints `Unknown widget type "listting" for widget ID "hive".
-Skipping render.` and the second prints nothing. With `NODE_ENV` set to
-`production` neither call prints, and only a `validateItems` call reports the
-missing listing.
+### Key implementation details:
+- **Registry Lookup**: Use `Object.prototype.hasOwnProperty` to check for the type. Avoiding `item.type in registry` prevents the renderer from accidentally trying to render inherited object properties (like `toString`).
+- **Warning Reset**: In your tests, call `resetWarnings` before each case to ensure that one test's warning doesn't silence the next.
+- **Production Silence**: In production, `warnOnce` prints nothing. This is why you must run `validateItems` as a separate quality gate (as shown in [Getting started](../getting-started)) to catch content errors before they hit production.
 
-## What else a widget renderer handles
+## Extending the Renderer for Complex Layouts
 
-A renderer built on `@evanion/widget` handles four more things:
+To build a production-ready renderer, you need to handle four additional responsibilities:
 
-- Children. Draw them inside the parent, as `@evanion/react-widget` does, or
-  hand them to the parent's component as data, as `@evanion/astro-widget` does.
-  [Order and nesting](../layout#how-each-renderer-draws-children-and-the-wrapper)
-  compares the two.
-- `meta`. Hand it to the [wrapper](../#how-a-widget-item-array-describes-a-page)
-  the application supplies, never to the component's `props`.
-- The other warnings, each passed to `warnOnce`: `MALFORMED_ITEMS` when the
-  items handed to the renderer are not an array, `MALFORMED_ITEM(id, type)` for
-  an entry that is not an object or has no string `type`, and
-  `MALFORMED_CHILDREN(id)` for `children` that is present and not an array.
-  `ERROR_MESSAGES.UNKNOWN` stands in for an `id` or `type` a message lacks.
-- `validateItems`. Neither published renderer calls it. A renderer skips and
-  warns, and the check runs where the payload enters, as
-  [Getting started](../getting-started) sets it up.
+1. **Children**: Decide how to handle nested items. You can either draw them inside the parent (like `@evanion/react-widget`) or pass them as data to the parent's component (like `@evanion/astro-widget`).
+2. **Meta**: Pass the `meta` property to the **wrapper** component, never to the widget's `props`.
+3. **Structural Warnings**: Use `warnOnce` to report structural failures:
+    - `MALFORMED_ITEMS`: The items provided are not an array.
+    - `MALFORMED_ITEM(id, type)`: An entry is not an object or lacks a string `type`.
+    - `MALFORMED_CHILDREN(id)`: The `children` field is present but is not an array.
+4. **Separation of Concerns**: Do not call `validateItems` inside the renderer. The renderer's job is to draw what it can and warn about what it can't. The validation check should run where the payload first enters your system.
 
 ## Every widget core export
 
-[API reference](../api) lists every export of `@evanion/widget` with its
-signature and the shape of each `ERROR_MESSAGES` key.
+The [API reference](../api) lists every export of `@evanion/widget` with its signature and the shape of each `ERROR_MESSAGES` key.
