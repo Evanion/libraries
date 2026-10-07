@@ -18,10 +18,10 @@ the shopper's browser and only shows or hides controls.
 ## What a react-acl app calls on the server
 
 A server module builds its evaluator once, with `policy` from `@evanion/acl`,
-and imports nothing from `@evanion/react-acl`. The react-acl package keeps it as
-`examples/server.tsx`. `ListingPage` asks `'read'` before it renders anything,
-and `editListing`, the handler behind the Edit button, asks `'edit'` before it
-writes:
+and imports nothing from `@evanion/react-acl`. The libraries repository keeps
+it at `libs/react-acl/examples/server.tsx`, outside the published package.
+`ListingPage` asks `'read'` before it renders anything, and `editListing`, the
+handler behind the Edit button, asks `'edit'` before it writes:
 
 ```tsx twoslash file=libs/react-acl/examples/server.tsx region=server
 
@@ -31,7 +31,8 @@ The policy uses parts of `@evanion/acl` that acl's own Getting started page
 does not show:
 
 - The third type argument, which declares each kind's actions as in
-  [Getting started](../getting-started), now lists `'read' | 'edit'`.
+  [react-acl's Getting started](../getting-started), now lists
+  `'read' | 'edit'`.
 - `p.always` is a condition that always holds, so everybody may read a listing.
 - `.deny` refuses where its condition holds, and a refusal wins over any
   allow, so nobody edits a published listing.
@@ -64,11 +65,11 @@ matrix the shopper can read, against a subject the shopper's own page supplied.
 | `PolicyProvider` and its tree                        | browser | never; it toggles what the shopper sees |
 | Action, Server Action, route handler                 | server  | yes, independently, for what it writes  |
 
-A caller reaches the last row directly. `curl` posts to the action without
-rendering anything, so the handler resolves the subject from the session, reads
-the listing from the database, and decides again. Every layer runs its own
-evaluation and trusts no earlier one. If Baize splits its shop into a
-storefront service and an order service, the order service decides again on
+A caller reaches an action, the last row, directly. `curl` posts to the action
+without rendering anything, so the handler resolves the subject from the
+session, reads the listing from the database, and decides again. Every layer
+runs its own evaluation and trusts no earlier one. If Baize splits its shop into
+a storefront service and an order service, the order service decides again on
 every call from the storefront, for the same reason.
 
 `access.can` is synchronous and reads a matrix the server already holds in
