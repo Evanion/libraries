@@ -1,8 +1,6 @@
 # Getting started
 
-By the end of this page your own `policy()` lets Baize's staff, who carry the
-`bookseller` role, delete a question and refuses a customer. A copy rebuilt from
-its JSON gives the same answers.
+By the end of this page, you will have written your first `policy()`: it lets the `bookseller` role delete questions and refuses customers, and a copy rebuilt from a JSON snapshot gives the same answers.
 
 <PageSheet
   difficulty={1}
@@ -14,23 +12,17 @@ its JSON gives the same answers.
 
 ## Before you install acl
 
-- Node 20 or newer.
-- An ESM project, meaning a `package.json` with `"type": "module"`.
-  `@evanion/acl` ships no CommonJS build.
-- (Optional) TypeScript 5.5 or newer, for the compiler to check your object
-  kinds and actions. The package runs without it, and the examples below run as
-  JavaScript once you delete their `type` lines and the `<…>` after `policy`.
-- A way to run a TypeScript file. The steps below use `npx tsx`, which downloads
-  tsx on first use. A project that already compiles its
-  TypeScript runs the file its usual way.
-- No API key, no service to run and no environment variable. `policy()` builds
-  the matrix in your own process.
-- No framework. The `@evanion/acl` entry point imports none, and the React
-  provider and hooks are a separate package, [`@evanion/react-acl`](/react-acl).
+`@evanion/acl` needs the following in the project you install it into:
+
+- **Node 20 or newer.**
+- **An ESM project**: Your `package.json` must include `"type": "module"`, as `@evanion/acl` does not ship a CommonJS build.
+- **TypeScript 5.5 or newer (Optional)**: While the package runs in plain JavaScript, TypeScript allows the compiler to check your object kinds and actions for errors. The examples below run as JavaScript once you delete their `type` lines and the `<…>` after `policy`.
+- **A way to run TypeScript**: We use `npx tsx` in the examples below, which downloads tsx on first use. A project that already compiles its TypeScript runs the file its usual way.
+- **Nothing else**: There are no API keys to manage, no external services to run, no environment variables to configure, and no framework to install. `policy()` builds the matrix directly within your own process, and the React provider and hooks are a separate package, [`@evanion/react-acl`](/react-acl).
 
 ## Install acl
 
-Pick the line for your package manager.
+Run the command for your preferred package manager:
 
 ```bash
 npm install @evanion/acl
@@ -44,65 +36,45 @@ yarn add @evanion/acl
 pnpm add @evanion/acl
 ```
 
-## Write the smallest policy that answers something
+## Create your first policy
 
-An `@evanion/acl` policy is three chained calls.
+Defining an authorization policy in `@evanion/acl` is a three-step chain:
 
-- `policy<Subject, Objects>()` names two types. `Subject` is the shape of
-  whoever is acting. `Objects` maps each object kind to the shape of its row, so
-  `{ question: Question }` declares one kind called `question` whose rows are
-  `Question`. Add a kind by adding a key.
-- `.for(kind, block)` writes one kind's rules. The `kind` is one of the keys you
-  just declared in `Objects`.
-- `.build()` returns the evaluator, here `access`.
+1. **Name your types**: Use `policy<Subject, Objects>()` to define the shape of the user (`Subject`) and the kinds of objects being protected (`Objects`). `{ question: Question }` declares one kind called `question` whose rows are `Question`.
+2. **Define the rules**: Use `.for(kind, block)` to write rules for one of the object kinds you declared.
+3. **Build the evaluator**: Call `.build()` to create the `access` object, which you will use to check permissions.
 
-`.for()` hands your block one argument, conventionally `p`, and every rule and
-condition comes off it:
+Within the `.for()` block, you use a helper (conventionally named `p`) to grant or deny access:
 
-- `p.allow(action, ...conditions)` grants an action when every condition holds.
-- `p.contains(path, value)` holds when the array at `path` contains `value`. A
-  path is a string rooted at `subject` or at `object`, so `'subject.roles'`
-  reads `roles` off the subject.
+- `p.allow(action, ...conditions)`: Grants access if all provided conditions are true.
+- `p.contains(path, value)`: A condition that checks if the array at `path` contains `value`. A path is a string rooted at `subject` or at `object`, so `'subject.roles'` reads `roles` off the user.
 
-Baize's staff carry the `bookseller` role, and a bookseller may delete any
-question. Save this as `access.ts` in your project:
+Let's put this into practice. In our example shop, Baize, only staff members with the `bookseller` role should be allowed to delete questions. Save the following as `access.ts`:
 
 ```ts twoslash file=libs/acl/README.md region=first-policy
 
 ```
 
-Wrap each line that ends in a `// ->` comment in `console.log` and run
-`npx tsx access.ts`. The three lines print `true`, `false` and
-`no-rule-matched`, and acl is answering in your project.
+To see it in action, wrap each line ending in `// ->` in a `console.log` and run `npx tsx access.ts`. The file prints `true`, `false` and `no-rule-matched`: acl is answering in your project.
 
-`no-rule-matched` is the customer's `reason`, the default deny
-[the Overview](../) named.
+The `no-rule-matched` result is the customer's `reason`, the **default deny** behavior explained in the [Overview](../): if no rule explicitly allows an action, it is refused.
 
-## Rebuild the acl evaluator from its JSON
+## Share your policy with the browser
 
-`access.matrix` is the `@evanion/acl` matrix that the diagram on
-[the Overview](../) sends to the browser, and `hydratePolicy` rebuilds an
-evaluator from it. Change the first line of `access.ts` to
-`import { hydratePolicy, policy } from '@evanion/acl';`, then add these lines at
-the end of the file:
+An `@evanion/acl` evaluator's `access.matrix` property contains the policy as a plain JSON document. You can send this JSON to the browser, where `hydratePolicy` rebuilds a fully functional evaluator.
+
+Change the first line of `access.ts` to `import { hydratePolicy, policy } from '@evanion/acl';`, and add these lines to the end of the file:
 
 ```ts twoslash file=libs/acl/README.md region=first-copy
 
 ```
 
-Wrap the two new `// ->` lines in `console.log` and run the file again. They
-print `true` and `false`, the answers the server's evaluator gave. Here the JSON
-stays inside one process. In your app the server writes the same string into the
-page or an API response, and the browser's code parses it and passes the result
-to `hydratePolicy`.
+Run the file again. The two new lines print `true` and `false`, matching the server's answers exactly. Here the JSON stays inside one process; in a real application, your server writes this JSON string into a page or API response, and the browser parses it and passes the result to `hydratePolicy`.
 
-With no type arguments, the evaluator `hydratePolicy` returns accepts any object
-kind and action string, so the compiler no longer checks them.
+_Note: When using `hydratePolicy` without type arguments, the evaluator accepts any object kind or action string, meaning the TypeScript compiler can no longer verify them._
 
 ## Refuse a suspended bookseller
 
-Your `@evanion/acl` policy now grants one action by role, and a copy rebuilt
-from its JSON answers the same way.
-[Rules about who the user is](../subject-rules) adds a stock report that a
-suspended bookseller may not read, and names each rule so a decision reports
-which one decided.
+You now have a working `@evanion/acl` policy that grants access by role, and a copy of it rebuilt in another process.
+
+In the next section, [Rules about who the user is](../subject-rules), we'll explore how to handle more complex scenarios, such as preventing a suspended bookseller from reading stock reports, and how to name your rules so that your application can explain exactly why a request was refused.

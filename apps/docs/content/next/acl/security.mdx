@@ -1,12 +1,12 @@
-# Security contract
+# The Security Contract
 
-`can` answers authoritatively in a trusted environment and advisory everywhere
-else. The runtime decides which answer a caller holds.
+`can` answers **authoritatively** in a trusted environment and **advisory** everywhere else, including every check made in a browser. `@evanion/acl` is a tool, not a complete security system, and using it securely starts with that boundary.
 
-## Where a `can` decision binds
+<PageSheet difficulty={5} read={20} hands={5} />
 
-The server's evaluator and the one a browser rebuilds from the same document
-return the same `Decision` for the same question:
+## Authoritative and Advisory Decisions
+
+An `@evanion/acl` decision is **authoritative** only when it is made in a trusted environment (like a server) and used there to guard a write or a sensitive read. In all other cases the decision is **advisory**: a hint to the UI that cannot be trusted as a security boundary. The server's evaluator and the one a browser rebuilds from the same document return the same `Decision` for the same question:
 
 ```ts twoslash file=libs/acl/README.md region=one-call-both-sides
 
@@ -19,8 +19,7 @@ return the same `Decision` for the same question:
 | the server side of an API boundary         | enforces the decision, and guards the write |
 | a browser                                  | toggles controls only, and enforces nothing |
 
-- `can` keeps one signature and one return type in every row above.
-- Nothing in the types separates an authoritative answer from an advisory one.
+`can` keeps one signature and one return type in every row above, so nothing in the types separates an authoritative answer from an advisory one. The runtime decides.
 
 <Panel heading="In a browser, `can` decides what the user sees">
   <Text as="div" size="sm">
@@ -31,191 +30,127 @@ return the same `Decision` for the same question:
   </Text>
 </Panel>
 
-## Every layer decides for itself
+## The Trust Chain: Every Layer Decides for Itself
 
-Every app in the chain evaluates for itself and trusts no earlier layer.
+A common architectural failure is the "Trusted Gateway" fallacy: the belief that if a gateway or BFF (Backend-for-Frontend) has already authorized a request, the downstream service can trust that `@evanion/acl` decision.
 
-```mermaid caption="One matrix, evaluated once per process. The browser's answer draws the interface and the gateway's answer does not excuse the service, so the service's own answer guards the write. A caller reaches the service directly whenever it wants to."
+In a secure system, every layer must evaluate the request for itself. A caller can bypass your gateway and reach your service directly; therefore, the service's own decision is the only one that matters. There is no transitive trust and no "already checked upstream" exemption.
+
+```mermaid caption="The multi-layer trust chain. The browser provides a UI hint, the gateway provides a routing hint, but only the final service evaluation guards the actual data mutation."
 flowchart LR
-  B["browser<br>can(subject, …)"] --> G["gateway or BFF<br>can(subject, …)"]
-  G --> S["service<br>can(subject, …)"]:::accent
-  S --> W[("the write")]
-  B -. "reaches the service directly" .-> S
+  B["Browser<br>can(subject, …)"] --> G["Gateway/BFF<br>can(subject, …)"]
+  G --> S["Service<br>can(subject, …)"]:::accent
+  S --> W[("Data Write")]
+  B -. "direct access" .-> S
 ```
 
-- A gateway or a backend-for-frontend layer that already allowed the request
-  does not excuse the service behind it, because a caller reaches that service
-  directly whenever it wants to.
-- The second evaluation is a local function call over a frozen object, so no
-  evaluation waits on a network call.
-- A team can keep "check again" as a rule for that reason.
+Each layer evaluates the matrix it already holds in its own process, with no network round trip, which makes "check again" a rule a team can keep.
 
-## The matrix is a public document
+## Transparency and the Public Matrix
 
-The matrix ships to the client in full, names and structure as well as values.
-Anyone who loads the page reads:
+The `@evanion/acl` matrix is a public document, in its names and structure as well as its values. When shipped to a client for UI toggles, the entire document is visible to anyone who opens the browser's developer tools:
 
 - every object kind and every action name
 - every role string in a condition
 - every field name, including the ones the API never returns
 - every state machine and every time window
 
-Ship it anyway. Security must not rest on the document staying secret, and here
-it does not.
+**Security must not rely on the secrecy of the matrix**, and here it does not, so ship it anyway.
 
-- Name things as if a reader has them open, because one does: an action named
-  `bypass-kyc` or a role named `internal-fraud-reviewer` is disclosed the moment
-  the page loads.
-- Keep secrets and server-only predicates outside the matrix, in the app layer.
+- **Avoid Sensitive Naming**: Do not name actions or roles in a way that discloses internal secrets. An action named `bypass-kyc` or a role named `internal-fraud-reviewer` is disclosed the moment the page loads.
+- **Externalize Secrets**: Keep server-only predicates and sensitive business logic outside the matrix, in the application layer.
 
-## Three tiers
+## Three Tiers of Responsibility
 
-The package holds itself to [a register](../attacks) running under
-`nx test @evanion/acl`, one row per class of attack, each row naming the test
-that proves it and the tier it sits in:
+`@evanion/acl` holds itself to [a register of attack classes](../attacks), run under `nx test @evanion/acl`, one row per class, each naming the test that proves it and the tier it sits in:
 
-- Tier 1, where the library refuses or throws a construction error, from mass
-  assignment to matrix shapes that exhaust the process.
-- Tier 2, where the library supplies the primitive and the consumer calls it:
-  [`pickAllowedFields`](../fields#writing) for a write, `allowed` for a gate.
-- Tier 3, structurally out of scope, and every section below sits here.
+- **Tier 1**: The library refuses or throws a construction error, from mass assignment to matrix shapes that exhaust the process.
+- **Tier 2**: The library supplies the primitive and the consumer calls it: [`pickAllowedFields`](../fields#writing) for a write, `allowed` for a gate.
+- **Tier 3**: Structurally out of scope. Every section below sits here, and is yours to own.
 
-## Subject authenticity
+## Subject Authenticity (The Confused Deputy)
 
-`can(subject, …)` authorizes the bag it is handed and has no channel to ask
-where that bag came from. The engine faithfully authorizes an attacker's claimed
-identity when you derive the subject from:
+`@evanion/acl`'s `can(subject, …)` is a pure evaluator; it authorizes the `subject` bag it is handed. It has no way of knowing if that bag is authentic.
 
-- a header
-- a query parameter
-- an unverified token body
-- a field the client posted
+If you derive the subject from an untrusted source, such as a request header, a query parameter, an unverified token body, or a client-posted field, you create a "Confused Deputy" vulnerability where an attacker can claim any identity. No evaluator can fix this.
 
-No evaluator can fix this confused deputy. Resolve the subject from a verified
-session or token, server-side, before it reaches `can`.
+**The Fix**: Always resolve the subject from a verified, server-side session or a verified token before passing it to `@evanion/acl`.
 
-## Complete mediation
+## Complete Mediation
 
-Nothing makes you call `can`. Each of these runs unguarded until someone guards
-it:
+`@evanion/acl` does not automatically guard your application. It is a library, not a framework. Every single entry point into your data must be explicitly guarded.
 
-- a new route
-- a new resolver
-- a background job
-- an admin script
+Forgotten paths, such as a new API route, a new resolver, a background job, or an admin script, remain unguarded until you explicitly call `can`. While `authorize(subject)`, the handle bound to one subject that [Can this user do this?](../asking) teaches, puts the check in middleware on the path a developer already takes, the library cannot make the unchecked path impossible. Your own tests are where you assert that every path is covered.
 
-The library narrows the gap:
+## Time-of-Check to Time-of-Use (TOCTOU)
 
-- `authorize(subject)` binds once in middleware and puts the check on the path a
-  developer already takes.
-- The library cannot make the unchecked path impossible.
-- Your own tests are where you assert that every path is covered.
+An `@evanion/acl` decision is a snapshot of the state provided to it, and the library carries no freshness token and cannot see the gap. Between the moment `can` returns `true` and the moment the write hits the database, the state of the world can change:
 
-## Time of check to time of use
+- The object may change owners.
+- The subject may lose a required role.
+- A time-based window may close.
 
-A decision describes the snapshot it was given, and the library carries no
-freshness token and cannot see the gap. Between `can` returning true and the
-write landing:
+Close this gap: re-read the object and re-check the permission inside the database transaction, or use a conditional write predicate that fails if the state has shifted.
 
-- the object can change owner
-- the subject can lose the role
-- the time window can close
+## Time Windows and Clock Trust
 
-Close the gap either way:
+The `now` parameter, the fifth argument of `@evanion/acl`'s `can`, is the instant every time-based boundary (`before`/`after`) compares against, and every window moves with the value the caller passes.
 
-- Re-read the object and re-check inside the transaction.
-- Write with a conditional predicate that fails when the state has moved.
+| `now` Value                                                   | Engine Behavior              | Result                                                                                                  |
+| ------------------------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Omitted                                                       | Uses the process wall clock. | Evaluated against the current time of that process.                                                     |
+| Supplied Instant                                              | Uses the provided value.     | Evaluated against the specific instant.                                                                 |
+| `null`, `NaN`, an `Invalid Date`, a string that is not a date | Cannot determine time.       | Every permission that needs the clock to decide returns `{ allowed: false, reason: 'unusable-clock' }`. |
 
-## The clock a decision reads
-
-`now` is a parameter, and every `before`/`after` window moves with the value the
-caller passes.
-
-| `now`                                                         | What the engine reads          | What a permission with a time window answers            |
-| ------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------- |
-| omitted                                                       | the wall clock of the process  | the window as that process's clock sees it              |
-| an instant the caller supplies                                | that instant                   | the window as the caller's instant places it            |
-| a browser wall clock                                          | the clock the subject controls | a closed window the subject re-opens by setting it back |
-| `null`, `NaN`, an `Invalid Date`, a string that is not a date | nothing it can parse           | `{ allowed: false, reason: 'unusable-clock' }`          |
+Omitted in a browser, `now` is the client's wall clock, and a user can set their system clock back to re-open a closed window.
 
 ```ts twoslash file=libs/acl/README.md region=unusable-clock
 
 ```
 
-- A `now` that reaches `can` from a client payload (a request body, a query
-  string, anything the browser sent) hands the client every time window in the
-  matrix.
-- Pass `now` only to make a server render and the client's first render agree,
-  and resolve it on the server.
-- A refusal on an unusable clock decides nothing, so a deny gated on a time
-  window goes on denying.
-- A `before`/`after` boundary that does not parse is refused earlier still, at
-  construction.
+Never trust a `now` value sent from a client payload, such as a request body or a query string: it hands the client every time window in the matrix. Pass `now` only to make a server render and the client's first render agree, and resolve it on the server.
 
-### One page, two clocks
+- A refusal on an unusable clock decides nothing, so a deny gated on a time window goes on denying.
+- A `before`/`after` boundary in the document that does not parse is refused earlier still, at construction.
+- In a browser, a role condition reads the subject a server resolved, while a time condition on the same page reads what the subject's machine produced. A server passing its own `now` is unaffected.
 
-In a browser the wall clock belongs to the subject, and the library cannot see a
-subject who sets it back, because the clock is an argument.
+## The Bag a Decision Reads
 
-- A role condition reads the subject a server resolved, and a time condition on
-  the same page reads what the subject's machine produced.
-- A server passing its own `now` is unaffected.
+`@evanion/acl` conditions read `subject` and `object` live, field by field, as the decision walks the rules. The engine reads the deny side before the allow side, and each side reads the fields its own rules name. A bag whose properties are accessors, such as an ORM row, a lazy proxy, or a memoised getter over a cache that can refill, can answer the two sides differently and pass the deny it should have matched.
 
-## The bag a decision reads
+The matrix the engine evaluates is a frozen deep copy for this reason. The engine copies neither the subject nor the object, because they are the app's data.
 
-Conditions read `subject` and `object` live, field by field, as the decision
-walks the rules. The engine reads the deny side before the allow side, and each
-side reads the fields its own rules name. A bag whose properties are accessors
-can answer the two sides differently and pass the deny it should have matched:
+**The Fix**: Pass plain, already-resolved objects. [Caveats and pitfalls](../pitfalls#the-live-bag-problem) shows an accessor whose deny rule never matches.
 
-- an ORM row
-- a lazy proxy
-- a memoised getter over a cache that can refill
+## Avoiding Self-Authorizing Conditions
 
-The matrix the engine evaluates is a frozen deep copy for this reason.
+A security breach occurs when a subject can modify a field that an `@evanion/acl` rule then reads to grant them access. This is known as a "self-authorizing condition."
 
-- The engine copies neither the subject nor the object, because they are the
-  app's data.
-- Pass plain, already-resolved objects.
-
-## What a condition may read
-
-A condition may read only fields the subject cannot write.
+In the example below, the share dialog writes `sharedWith`, and any customer reaches it. A read rule keyed on `sharedWith` therefore hands the wishlist to whoever shares it with themselves. The engine cannot see this, because it does not know which fields the subject can write, and the write that sets `sharedWith` is a different action from the read.
 
 ```ts twoslash file=libs/acl/README.md region=self-authorizing
 
 ```
 
-- A rule that keys on an object field within the subject's reach is
-  self-authorizing: the subject edits the field, then passes the check the field
-  controls.
-- The engine cannot see this, because it does not know which fields the subject
-  can write, and the write that opens the door is a different action from the
-  read.
-- Let no action the subject holds write the field a read rule keys on, or key
-  the rule on something the subject cannot reach: ownership set at creation, or
-  a field the server alone writes.
+**The Fix**: Ensure that no action a subject holds can write to a field that is used as a key for a read rule. Key your rules on something the subject cannot reach: ownership set at creation (like `ownerId` above), or a field only the server writes.
 
-## Matrix freshness
+## Matrix Freshness and Revocation
 
-A client holds the matrix it last fetched, and rebuilds when the served
-`version` moved:
+When a policy is updated on the server, clients holding a cached copy of the `@evanion/acl` matrix will continue to grant permissions based on the old version until they refetch. Nothing pushes an update to a holder.
+
+- **The Version Check**: The library supplies `access.version`, and the comparison is yours. The `revalidate` function below keeps the held evaluator while `access.version` equals the served `version`, and otherwise rebuilds with `parseMatrix`, so a key the new version dropped answers `unknown-action`.
+- **The Freshness Budget**: An owner that states `maxStale` bounds how long a consumer that passes `fetchedAt` may keep deciding: past `fetchedAt + maxStale`, or the consumer's own tighter `maxStale`, every key answers `stale-contract` until the consumer fetches again. [How long a consumer may keep deciding](../publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract) has the arithmetic.
 
 ```ts twoslash file=libs/acl/README.md region=revalidate
 
 ```
 
-- When an owner revokes a permission, the client keeps granting it until it
-  refetches.
-- `revalidate` keeps the held evaluator while `access.version` equals the served
-  `version`, and otherwise rebuilds with `parseMatrix`, so a key the new version
-  dropped answers `unknown-action`.
-- An owner that states `maxStale` bounds the wait for a consumer that passes
-  `fetchedAt`: past `fetchedAt + maxStale` every key answers `stale-contract`.
-  [How long a consumer may keep deciding](../publishing#how-long-a-consumer-may-keep-deciding-on-an-acl-contract)
-  has the arithmetic.
-- The comparison is `===`, so a digest or a composite covering every input works
-  as well as a counter.
-- A document that states no version leaves `access.version` undefined, so two
-  such documents compare equal and `revalidate` never rebuilds.
-- The server never depends on a client's copy; it evaluates its own.
+The version comparison is a plain equality, so a digest or a composite covering every input works as well as a counter. A document that states no version leaves `access.version` undefined, so two such documents compare equal and `revalidate` never rebuilds.
+
+While these mechanisms reduce the window of inconsistency, they do not eliminate it. Because the server always evaluates its own matrix on every request, a revoked permission is enforced at the API boundary as soon as the server holds the new rules, even if the client's UI still shows the control.
+
+## The register and the guides behind this contract
+
+- [Attack Classes](../attacks): The register of attack classes, each naming the test that proves how `@evanion/acl` handles it.
+- [Field Permissions](../fields): Learn how `pickAllowedFields` prevents mass assignment.
+- [Which fields may they write?](../writing): Writing field rules that keep a subject out of the fields it must not set.

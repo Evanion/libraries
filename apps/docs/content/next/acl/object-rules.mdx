@@ -1,8 +1,6 @@
 # Rules about the thing being accessed
 
-A condition that names a path beginning `object.` reads the row your handler
-passed to `can`, so one rule can tell the customer who asked a question from the
-customer who did not.
+A condition whose path begins with `object.` reads the row you pass to `can()`. While any customer can _view_ a question in the Baize shop, only the customer who _asked_ it should be allowed to _edit_ it.
 
 <PageSheet
   difficulty={3}
@@ -15,27 +13,21 @@ customer who did not.
   ]}
 />
 
-## What an acl object condition reads
+## Authorizing based on the resource
 
-Sam and Jo are both customers of Baize with exactly the same permissions. Only
-the `askedBy` field on the question about the Brass: Birmingham listing tells them
-apart, so the rule that lets a customer edit their own question has to read that
-field off the row in hand.
+When an `@evanion/acl` condition begins with `object.`, the evaluator looks at the row passed to the `can()` call. This allows you to create dynamic rules based on the data in your database.
 
-You write that comparison by hand, as an `if` in the handler beside the code that
-does the work. Six months later there are forty of them, three are subtly
-different, and the bulk close job never had one at all.
-
-`p.eq('object.askedBy', 'subject.id')` states it once:
+Declare the relationship once in your policy, and the handlers stop carrying `if` checks that drift apart. Sam and Jo below are both customers with exactly the same roles, so nothing on the subject tells them apart:
 
 ```ts twoslash file=libs/acl/README.md region=object-condition
 
 ```
 
-A subject-only condition reads the subject the server resolved whole, so it
-holds or it fails. A condition naming an object path also reads the instance the
-caller passed, and that instance carries whatever columns your database query
-selected.
+By using `p.eq('object.askedBy', 'subject.id')`, you've created a rule that only matches if the user's ID matches the `askedBy` field of the question. Sam asked the question and may edit it; Jo may not.
+
+## The `unevaluable` answer
+
+An `@evanion/acl` rule that reads the object depends on the row you pass to `can()`. If your query didn't select a field the rule reads, the evaluator cannot decide whether the rule holds, and the decision is a fourth answer beside `allow`, `denied` and `no-rule-matched`: `unevaluable`.
 
 ```mermaid caption="The two inputs a condition can read, and the third outcome the second one adds."
 flowchart LR
@@ -46,96 +38,51 @@ flowchart LR
   C2 --> O2["holds<br>fails<br>unevaluable"]
 ```
 
-A fourth answer arrives with that condition, and this page is about it.
-The query chose which fields of the question to select, so the row in hand may not
-carry the field a rule reads, and a decision that cannot be reached is neither yes
-nor no.
-
-Naming a path also opens one way to get it wrong. `object.askedBy` is a string and
-a string takes typos: write `object.askedBv` with a v and the matrix builds, the
-tests pass, the permission never says yes to anybody, and you find out from a bug
-report. Declaring the row shape in `Objects` is what lets the compiler check the
-path against it, and [Typed authoring](../authoring) covers the whole of that,
-including the third type parameter that names a kind's actions.
-
-## The fourth answer an acl decision can give
-
-A subject-only permission answers `allow`, `denied` or `no-rule-matched`, and
-every one of those is a settled answer. A permission reading the object has a
-fourth, and it arrives when the row in hand does not carry a path the rules read.
-
-Baize's listing page loads forty questions and selects from each only the fields
-it renders. The allow rule reads `object.askedBy` and the deny rule reads
-`object.status`, so a question carrying neither field settles as neither yes nor
-no. This policy produces all four answers:
+Baize's listing page loads forty questions and selects from each only the fields it renders. In the policy below, the allow rule reads `object.askedBy` and the deny rule reads `object.status`, so it produces all four answers:
 
 ```ts twoslash file=libs/acl/README.md region=four-outcomes
 
 ```
 
-The engine could not tell, so it answers `unevaluable`, and `missing` names the
-paths it could not read. Fetch those fields and ask again. Both sides' unreadable
-paths come back together, so one refetch settles the permission however many
-rules read the object.
+An `unevaluable` decision's `missing` field lists the paths the object lacked, so your application can refetch exactly those and ask again. The allow rules and the deny rules are a permission's two sides, and the paths neither side could read come back together, so one refetch settles the permission however many rules read the object.
+
+An absent `object.*` path is unevaluable whatever the condition asked of it. `p.ne('object.status', 'locked')` (not equal) over an absent `status` is as unevaluable as `p.eq` over it, because a field nobody read says nothing either way.
 
 <Panel heading="`unevaluable` is not `denied`">
   <Text as="div" size="sm">
-    `allowed` is already `false`, so nothing leaks. The answer is repairable
-    though: fetch what `missing` names and ask once more. A UI that renders it
-    as forbidden hides something the user can have. [Why was this
-    refused?](../refusals) has both halves.
+    An `unevaluable` result is still `allowed: false`, so a server that gates on
+    `allowed` refuses it. A denied request is a settled refusal; an unevaluable
+    request lacks information. Treating it as "forbidden" can hide a feature
+    from a user who has permission. [Why was this refused?](../refusals) covers
+    both halves.
   </Text>
 </Panel>
 
-An absent `object.*` path is unevaluable whatever the condition asked of it.
-`p.ne('object.status', 'locked')` over an absent `status` is as unevaluable as
-`p.eq` over it, because a field nobody read says nothing either way.
+### Watching a decision move between the four answers
 
-### Watching an acl decision move between the four answers
-
-The control below runs the policy above. A field's checkbox says whether the query
-selected it and its select says what it holds. A field the query left out never
-reaches the engine.
+The control below runs the `@evanion/acl` policy above. A field's checkbox says whether the query selected it, and its select says what it holds.
 
 <UnevaluableDemo />
 
-It opens on a row that carries neither field, so the decision is
-`unevaluable` and `missing` names both paths. Three moves take it elsewhere:
+It opens on a row with neither field, so the decision is `unevaluable` and `missing` names both paths. Three moves take it elsewhere:
 
 - Select both fields, and the asker's own draft question decides `allow`.
-- Change `askedBy` to `s2`, and the allow rule compares two identifiers that
-  differ, which is `no-rule-matched`.
-- Change `status` to `locked`, and the deny rule matches, which is `denied`
-  whatever the allow side said.
+- Change `askedBy` to `s2`, and the allow rule compares two different identifiers: `no-rule-matched`.
+- Change `status` to `locked`, and the deny rule matches, which is `denied` whatever the allow side said.
 
-Clearing a field again shows where the fourth answer comes back and where it does
-not. Clear `status` on the asker's own draft question and the deny side has nothing
-to read, so `missing` names `object.status`. Clear it on somebody else's question
-and the answer stays `no-rule-matched`. The engine answers a matched deny first
-and a definitely failed allow side second, ahead of a deny it could not read,
-because fetching `status` cannot make that allow rule match. A refetch selects exactly what `missing` named and asks
-again.
+Clear `status` on somebody else's question and the answer stays `no-rule-matched`: fetching `status` cannot make that allow rule match, so the engine answers the failed allow side first. A deny it could not read still outranks an allow that matched. [Why deny, then allow, then deny?](../resolution) has the whole order.
 
-## Where to go next
+## Ensuring path safety
 
-A rule reading the object changes two things about how you call `access`, and each
-change has a page.
+An `@evanion/acl` path such as `object.askedBy` is a string, so it's easy to make a typo (e.g., `object.askedBv`). In a large policy, these typos can be hard to find because the matrix still builds, and the rules never match.
 
-- [Can this user do this?](../asking). A row arrives as whatever your query
-  selected, and a page renders forty of them. Covers the decision's own shape,
-  `readsObject` for the guard that runs before the fetch, and `canMany` for the
-  list.
-- [Which fields may they write?](../writing). A question has fields and a write
-  proposes new values for some of them. Covers `canFields`, which decides the
-  action and every key of the write in one pass, and `pickAllowedFields`, which
-  applies that decision to the object you hand the database.
+To prevent this, `@evanion/acl` allows you to declare the shape of your objects in the `Objects` type parameter of `policy<Subject, Objects>()`. This enables the TypeScript compiler to check your paths against your data model at compile time.
 
-Three more pages build on this one.
+For a deep dive into using types to secure your policy, including the third type parameter that names a kind's actions, see [Typed authoring](../authoring).
 
-- [Typed authoring](../authoring). The builder chain in full: the third type
-  parameter that names a kind's actions, every condition helper, and what the
-  compiler checks.
-- [Rules that another service wrote](../advanced). The schema that catches a
-  mistyped path at construction, a foreign document, and versioning.
-- [Caveats and pitfalls](../pitfalls). The mistakes this API makes easy, and
-  what to write in their place.
+## Applying object rules to rows and writes
+
+You can now write `@evanion/acl` rules that read the resource, and the next step is applying them to your data.
+
+- [Can this user do this?](../asking) explains how to handle the `unevaluable` state, how `readsObject` tells a guard that runs before the fetch which permissions need the row, and how to check permissions for lists of objects (`canMany`).
+- [Which fields may they write?](../writing) covers the more advanced `canFields` API, which decides whether an action is allowed and which specific fields of the object may be updated.
