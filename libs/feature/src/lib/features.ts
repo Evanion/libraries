@@ -1,4 +1,5 @@
 import { validateConditions } from './conditions.js';
+import { instantEpoch } from './instant.js';
 import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
 import { collectIssues } from './validate.js';
@@ -326,6 +327,53 @@ function sameIntent(
 }
 
 /**
+ * One definition with every window boundary read to the instant it names.
+ *
+ * Decision 12 has a `WindowCondition.value` travel as an ISO string, so a store
+ * built from a literal holds the `Date` an author wrote and every candidate a
+ * publisher serves holds the string `serializeConfig` wrote for it. `toEpoch`
+ * at `conditions.ts:18-22` reads both to one epoch, so the two decide the window
+ * alike and state one intent. Without this the first reload after any
+ * serialization names every windowed feature, and a poller that invalidates a
+ * cache on `changed` invalidates on every poll.
+ *
+ * Only `before` and `after` convert, which is the pair `documentCondition`
+ * converts and the pair `AttributeCondition.op` excludes. `evaluateCondition`
+ * runs every other operator over `===`, so a `Date` and its ISO string decide
+ * an attribute rule two ways and state two intents.
+ *
+ * A boundary this reads to `NaN` compares equal to nothing, including the same
+ * unreadable value on the other side. Only a store built by `createFeatures`
+ * carries one: `whenIssues` runs for a served document alone, so every
+ * candidate that reaches the diff names an instant at every boundary, and a
+ * store holding one that does not states an intent the candidate changed.
+ */
+function windowsRead(
+  definition: FeatureDefinition<FeatureKey>,
+): FeatureDefinition<FeatureKey> {
+  const rules = definition.rules;
+  if (!rules) return definition;
+
+  return {
+    ...definition,
+    rules: rules.map((rule) => {
+      const when = rule.when;
+      if (!when) return rule;
+
+      return {
+        ...rule,
+        when: when.map((condition) => {
+          if (condition.op !== 'before' && condition.op !== 'after') {
+            return condition;
+          }
+          return { ...condition, value: instantEpoch(condition.value) };
+        }),
+      };
+    }),
+  };
+}
+
+/**
  * The keys whose stored intent differs between two documents, in the order the
  * candidate declares them, with a key the candidate drops reported after them.
  *
@@ -346,7 +394,10 @@ function changedKeys(
 
   for (const definition of after) {
     const held = previous.get(definition.key);
-    if (held === undefined || !sameIntent(held, definition)) {
+    if (
+      held === undefined ||
+      !sameIntent(windowsRead(held), windowsRead(definition))
+    ) {
       changed.push(definition.key);
     }
     previous.delete(definition.key);
