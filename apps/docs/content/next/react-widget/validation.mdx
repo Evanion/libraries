@@ -14,7 +14,7 @@
 
 While `defineItems` ensures your _code_ is type-safe, the data coming from your CMS is just plain JSON. A content editor might accidentally use a widget type that no longer exists in your code, or leave a required field blank.
 
-If you pass this raw JSON directly to `<Widgets>`, the renderer will simply skip the invalid items. In production, this results in a "silent failure"—a gap in your page that you only discover after the page is live.
+If you pass this raw JSON directly to `<Widgets>`, the renderer will simply skip items of an unknown type and draw items with blank fields as they are. In production, this results in a "silent failure"—a gap in your page that you only discover after the page is live.
 
 ## Solution: Runtime Validation in CI/CD
 
@@ -40,7 +40,7 @@ You can ensure that a widget is not just "known" but also "complete." By passing
 
 ```
 
-`validateItems` ensures that essential data—like a listing's `title`—is present before the renderer even tries to draw the component.
+`validateItems` reports when essential data—like a listing's `title`—is missing, before the renderer even tries to draw the component.
 
 ## Handling Nested Problems
 
