@@ -8,6 +8,11 @@ import {
   useFeature,
   useVariant,
 } from './index.js';
+import type {
+  FeatureConfig,
+  ReloadResult,
+  SerializedDefinition,
+} from './index.js';
 
 const features = createFeatures([
   {
@@ -173,5 +178,24 @@ describe('the bound provider, over the store it is handed', () => {
     );
 
     expectTypeOf(element).toEqualTypeOf<ReactElement>();
+  });
+});
+
+describe('the react entry', () => {
+  it('re-exports the document types', () => {
+    const read = (result: ReloadResult) => result.version;
+    const document: FeatureConfig = { features: [] };
+
+    expectTypeOf(read).toBeCallableWith({
+      ok: true,
+      version: 1,
+      previousVersion: undefined,
+      changed: [],
+    });
+    // `toBeArray` asks whether the member extends `any[]`, and `features` is
+    // declared `readonly`, which no mutable array type accepts.
+    expectTypeOf(document.features).toEqualTypeOf<
+      readonly SerializedDefinition<FeatureKey>[]
+    >();
   });
 });

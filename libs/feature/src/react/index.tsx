@@ -27,6 +27,39 @@ import type {
 } from '../lib/types.js';
 
 /**
+ * The document types, re-exported so a component file imports one specifier.
+ *
+ * A React application that holds a store and reloads it from a poller writes
+ * the handler beside the component, and that file names `ReloadResult` and
+ * `FeatureConfig`. Types only: `serializeConfig`, `configDigest`,
+ * `validateConfig` and `parseFeatureConfig` stay on the core entry, because a
+ * component calling one of them holds configuration in a render tree and
+ * reaches for the core.
+ */
+export type {
+  BaseFieldType,
+  ConfigEnvelope,
+  ConfigIssue,
+  ConfigIssueCode,
+  ContextSchema,
+  FeatureConfig,
+  FeatureSchema,
+  FeatureShape,
+  FieldType,
+  JsonValue,
+  ReloadResult,
+  SerializedAttributeCondition,
+  SerializedCondition,
+  SerializedDefinition,
+  SerializedInstant,
+  SerializedRule,
+  SerializedVariantSpec,
+  SerializedWindowCondition,
+  ValidationResult,
+  ValueShape,
+} from '../lib/config.js';
+
+/**
  * What a provider publishes, at the erased types.
  *
  * Every `Decision<'cta', 'control' | 'blue', { label: string }>` assigns to
