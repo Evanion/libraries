@@ -47,7 +47,7 @@ If you draw a random byte (0-255) and use `byte % n` to pick a character, every 
 
 The default 36-character dictionary is not uniform: $256 \bmod 36 = 4$. This means the first four characters in the dictionary will appear roughly 14.3% more often than the others.
 
-`uniformOverBytes` allows you to check if a dictionary is safe for simple modulo drawing:
+`uniformOverBytes` reports whether an instance's dictionary is safe for `byte % n`. The fence checks the default `Luhn` and `pickup`, the 32-character instance from [Building Custom Instances](../dictionaries#building-custom-instances-with-createluhn):
 
 ```ts twoslash file=libs/luhn/README.md region=modulo-bias
 
