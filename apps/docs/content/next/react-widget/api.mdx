@@ -250,8 +250,9 @@ type WidgetDataProps<C extends AnyWidgetComponent> = [
 ```
 
 A component with no props left resolves to `Record<string, never>`, which admits
-`props: {}` and rejects any key. Typed `{}`, the same `props` admits every key,
-because TypeScript assigns any object to `{}` with no excess-property check.
+`props: {}` and rejects any key. Were the type `{}` instead, the same `props`
+would admit every key, because TypeScript assigns any object to `{}` with no
+excess-property check.
 
 ## `WidgetChildren`
 
@@ -270,7 +271,7 @@ type WidgetChildren<
 The `never` makes nesting under a widget that renders no `children` a compile
 error. Without it, `Widgets` drops that subtree and logs nothing.
 
-```tsx twoslash file=libs/react-widget/README.md region=nesting
+```tsx twoslash file=libs/react-widget/README.md region=nesting-rejected
 
 ```
 

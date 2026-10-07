@@ -1,53 +1,23 @@
-[![npm version](https://img.shields.io/npm/v/@evanion/react-widget)](https://www.npmjs.com/package/@evanion/react-widget)
-[![npm downloads](https://img.shields.io/npm/dm/@evanion/react-widget)](https://www.npmjs.com/package/@evanion/react-widget)
-[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
-
 # @evanion/react-widget
 
-Render dynamic, type-safe React widget regions from structured data. Built for
-CMS-driven layouts, dashboards and configurable sidebars.
+**Type-safe, dynamic React widget regions from structured data.**
 
-Full documentation:
-[docs.evanion.com/react-widget](https://docs.evanion.com/react-widget). The item
-shape, the registry and the validator come from
-[`@evanion/widget`](https://www.npmjs.com/package/@evanion/widget), which this
-package pins exactly and re-exports, so installing this one is enough. The Astro
-renderer of the same items, for build-time sections with no runtime, is
-[`@evanion/astro-widget`](https://www.npmjs.com/package/@evanion/astro-widget).
+Stop fighting with `any` types and runtime crashes when rendering CMS-driven layouts. `@evanion/react-widget` allows you to map structured JSON data to React components with compile-time prop safety, ensuring that your dynamic dashboards, sidebars, and landing pages are robust and maintainable.
 
-## Features
+The item shape, the registry and the validator come from [`@evanion/widget`](https://www.npmjs.com/package/@evanion/widget), which this package pins exactly and re-exports, so installing this one package is enough. [`@evanion/astro-widget`](https://www.npmjs.com/package/@evanion/astro-widget) renders the same items in Astro, at build time.
 
-- **Type-safe**: `createWidgets` infers from your component map, so an unknown
-  widget `type`, mismatched `props`, or `children` on a component that does not
-  accept them is a compile error rather than a runtime surprise
-- **Server-component ready**: no `'use client'`, no context, no class
-  components. Importable from a React Server Component, and a widget can be an
-  async Server Component that fetches its own data
-- **Composable chrome**: wrapper, per-item wrapper, a Suspense fallback, and
-  per-region control over whether there is a boundary at all
-- **Placement without prop leakage**: `meta` reaches the item chrome and never
-  the widget
-- **Validation for untrusted data**: `validateItems` for payloads that never met
-  the type checker, with an optional map of props each type must supply
-- **One item shape across runtimes**: the same array renders through
-  `@evanion/astro-widget` and produces the same widgets in the same order
+## Map a CMS `type` to a component
 
-## Installation
+When your UI is driven by a CMS or a database, you typically map a `type` string (like `"listing"`) to a component. This creates two risks:
 
-```bash
-npm install @evanion/react-widget
-```
+1. **Runtime Surprises**: A CMS editor changes a field name or misses a required prop, and your component crashes the entire page because it expected a string but got `undefined`.
+2. **Implicit Contracts**: The "contract" between the data and the component exists only in the editor's head, making it impossible for developers to know exactly what props a widget needs without digging through the code.
 
-## One component map, one item array, one region
+`@evanion/react-widget` creates a strict link between your component map and your data. TypeScript accepts an item of type `"listing"` only when it carries the props the `ListingCard` component declares. Data that never met the compiler, such as a CMS payload, goes through `validateItems` instead.
 
-The examples in this README leave out three imports:
-`import * as React from 'react'`,
-`import { renderToStaticMarkup, renderToString } from 'react-dom/server'` and
-`import { createWidgets, DefaultItem, DefaultWrapper } from '@evanion/react-widget'`.
+### Core Concept: The Typed Region
 
-`components` maps a `type` to a component, an item says which component to render
-and with what props, and `Widgets` renders one against the other. The string
-below is the markup it produced:
+The examples in this README leave out three imports: `import * as React from 'react'`, `import { renderToStaticMarkup, renderToString } from 'react-dom/server'` and `import { createWidgets, DefaultItem, DefaultWrapper } from '@evanion/react-widget'`. The string in the `// ->` comment is the markup the region produced. The docs site renders a block that has a `// ---cut---` line from that line down, and the lines above it declare what the block needs to compile:
 
 <!-- #region region-markup -->
 
@@ -58,10 +28,12 @@ const ListingCard = (props: { title: string; price: number }) => (
   </h3>
 );
 
+// 1. Create a typed widget set from the component map
 const { Widgets, defineItems } = createWidgets({
   components: { listing: ListingCard },
 });
 
+// 2. Define items with compile-time prop checking
 const shelf = defineItems([
   {
     id: 'brass',
@@ -70,30 +42,47 @@ const shelf = defineItems([
   },
 ]);
 
+// 3. Render the region
 const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><div data-widget-id="brass" data-widget-type="listing"><h3>Brass: Birmingham, 649 kr</h3></div></section>'
 ```
 
 <!-- #endregion region-markup -->
 
-The `section` is the region's default wrapper, and `chrome.wrapper` replaces it.
-Inside it the renderer puts each widget in an element carrying the item's `id` and
-`type`, so a widget is findable in the DOM without the widget rendering the
-attributes itself. Add a second item and it renders after the first, in the order
-the array reads. `defineItems` types the array against the component map, which
-the next section explains.
+The `<section>` is the region's default wrapper, and the `<div>` around each widget carries the item's `id` and `type`, so a widget is findable in the DOM without rendering the attributes itself. Items render in the order the array reads.
 
-Call `createWidgets` once, at module scope. It returns a new `Widgets` component
-on every call, so calling it inside a component remounts the region on every
-render.
+Call `createWidgets` once, at module scope. It returns a new `Widgets` component on every call, so calling it inside a component remounts the region on every render.
 
-That page can be a Server Component. The package uses only React APIs that exist
-under the `react-server` export condition -- `createElement`, `Suspense`,
-`memo` -- so nothing here forces your widgets into the client bundle.
+### What the package checks
 
-## Typing your items
+- **Compile-Time Safety**: Mismatched props, unknown widget types, and `children` on a component that does not accept them are caught by TypeScript during development, not by users in production.
+- **Server Component Ready**: Designed for the modern React era. It's importable from a React Server Component (RSC) without needing a `'use client'` boundary, because it uses only `createElement`, `Suspense` and `memo`. A widget can be an async Server Component that fetches its own data.
+- **Recursive Nesting**: Naturally supports nested widgets (e.g., a "Showcase" widget containing multiple "Listing" widgets) with full type-safety for children.
+- **Placement vs. Content**: Separates layout metadata (`meta`) from component props, so your widgets don't need to know where they are positioned on the page.
 
-`createWidgets` infers the allowed `type` values and each item's `props` from the
-component map. `defineItems` hands that type to an array held in a variable:
+## Installation
+
+```bash
+npm install @evanion/react-widget
+```
+
+React 18 or 19 is the only peer dependency. The package needs Node 20 or newer and ships as an ES module only, with no CommonJS build.
+
+## Beyond the Basics
+
+Creating a basic list is simple, but production layouts often require more control. The sections below cover the advanced patterns, including:
+
+- **Custom Chrome**: Replacing the default `<section>` and `<div>` wrappers with your own custom layout components.
+- **Optimizing Suspense**: Managing `<Suspense>` boundaries to prevent a single slow widget from blocking the entire page render.
+- **Dynamic Overrides**: Overriding a widget component on a per-instance basis for special "featured" items.
+- **Ingestion Validation**: Using `validateItems` to check untrusted CMS payloads before they reach your components.
+
+For the guided walkthrough, visit the documentation site:
+
+👉 **[docs.evanion.com/react-widget](https://docs.evanion.com/react-widget)**
+
+## Typing Items Held in a Variable
+
+An array written inline in `<Widgets items={…}>` is checked against the component map. An array held in a variable is not: TypeScript widens its `type` to `string`, which cannot narrow to the map's keys, so `Widgets` refuses it. `defineItems` is an identity function that supplies the type:
 
 <!-- #region typed-items -->
 
@@ -120,26 +109,23 @@ const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><d
 
 <!-- #endregion typed-items -->
 
-A bare `const shelf = [{ type: 'listing', ... }]` widens `type` to `string`,
-which cannot narrow to the map's keys, so `Widgets` refuses it. `defineItems` is
-an identity function that exists to supply the contextual type. An array written
-inline in JSX is already contextually typed and needs neither.
+A component that declares no props takes `props: {}`, typed `Record<string, never>`, so an unexpected key is a compile error there too.
 
-## Nesting
+## Nesting Widgets
 
-Nested items render as the parent component's `children`:
+An item's `children` field holds nested items, and `Widgets` renders them as the parent component's `children` prop:
 
 <!-- #region nesting -->
 
 ```tsx @import.meta.vitest
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+// ---cut---
 const Showcase = (props: { title: string; children?: React.ReactNode }) => (
   <div>
     <h2>{props.title}</h2>
     {props.children}
   </div>
 );
-
-const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
 
 const { Widgets, defineItems } = createWidgets({
   components: { showcase: Showcase, listing: ListingCard },
@@ -154,27 +140,47 @@ const tonight = defineItems([
   },
 ]);
 
-defineItems([
-  // @ts-expect-error ListingCard renders no children, so nothing nests under it
-  { id: 'azul', type: 'listing', props: { title: 'Azul' }, children: [] },
-]);
-
 const html = renderToStaticMarkup(<Widgets items={tonight} />); // -> '<section><div data-widget-id="tonight" data-widget-type="showcase"><div><h2>On the table tonight</h2><div data-widget-id="hive" data-widget-type="listing"><h3>Hive</h3></div></div></div></section>'
 ```
 
 <!-- #endregion nesting -->
 
-`children` is type-gated: it is permitted only when the mapped component
-actually accepts `children`, and typed `never` otherwise. Nesting under a widget
-that would drop the child items is a compile error rather than content that
-silently disappears.
+`children` is permitted only when the mapped component declares a `children` prop, and typed `never` otherwise. Nesting under a widget that would drop the child items is a compile error:
 
-## `validateItems`
+<!-- #region nesting-rejected -->
 
-`WidgetItem<C>` checks items at compile time. `validateItems` checks the data
-that never met the type checker -- a CMS payload, a webhook body, a fixture on
-disk. The standalone export takes a list of type names, so a CI script imports
-no React component:
+```tsx @import.meta.vitest
+const Showcase = (props: { title: string; children?: React.ReactNode }) => (
+  <div>
+    <h2>{props.title}</h2>
+    {props.children}
+  </div>
+);
+
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+
+const { defineItems } = createWidgets({
+  components: { showcase: Showcase, listing: ListingCard },
+});
+// ---cut---
+defineItems([
+  {
+    id: 'azul',
+    type: 'listing',
+    props: { title: 'Azul' },
+    // @ts-expect-error ListingCard declares no children, so nothing nests under it
+    children: [{ id: 'hive', type: 'listing', props: { title: 'Hive' } }],
+  },
+]);
+```
+
+<!-- #endregion nesting-rejected -->
+
+`Widgets` uses each item's `id` as its React key, and React keys each sibling list separately, so an `id` has to be unique among its siblings only.
+
+## Ingestion Validation
+
+`WidgetItem<C>` checks items at compile time. `validateItems` checks the data that never met the type checker: a CMS payload, a webhook body, a fixture on disk. The standalone export takes a list of type names, so a CI script imports no React component:
 
 <!-- #region validate-payload -->
 
@@ -190,13 +196,9 @@ const problems = validateItems(payload, ['listing', 'booking']); // -> [{ index:
 
 <!-- #endregion validate-payload -->
 
-It returns problems and never throws, accumulates rather than stopping at the
-first, and recurses into `children`. It reports: a non-list root, a non-object
-item, a non-string `id` or `type`, an unknown `type`, missing or non-object
-`props`, non-list `children`, and duplicate sibling `id`s.
+`validateItems` returns problems and never throws. It reports every problem, not only the first, and recurses into `children`. It reports a non-list root, a non-object item, a non-string `id` or `type`, an unknown `type`, missing or non-object `props`, non-list `children`, and duplicate sibling `id`s.
 
-A nested item's `index` counts within its own sibling list, so the `id` is what
-finds it:
+A nested item's `index` counts within its own sibling list, so the `id` is what finds it:
 
 <!-- #region validate-nested -->
 
@@ -212,17 +214,13 @@ const problems = validateItems(payload, ['showcase', 'listing']); // -> [{ index
 
 <!-- #endregion validate-nested -->
 
-`createWidgets` returns a second form, bound to the component map, so it takes
-no list of names. Its optional argument maps a widget type to the props that
-must be present and non-blank, where blank means `undefined`, `null` or
-whitespace only -- which is what a CMS text field that was opened and left empty
-arrives as:
+`createWidgets` returns a second form, bound to the component map, so it takes no list of names. Its optional argument maps a widget type to the props that must be present and non-blank, where blank means `undefined`, `null` or whitespace only. That is what a CMS text field that was opened and left empty arrives as:
 
 <!-- #region validate-bound -->
 
 ```tsx @import.meta.vitest
 const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
-
+// ---cut---
 const { validateItems } = createWidgets({
   components: { listing: ListingCard },
 });
@@ -236,18 +234,16 @@ const problems = validateItems(payload, { listing: ['title'] }); // -> [{ index:
 
 <!-- #endregion validate-bound -->
 
-The standalone export takes the same map as its third argument.
+The standalone export takes the same map as its third argument. Neither form checks the names in the map against the component, so a misspelt name is reported as missing on every item of that type.
 
-`validateItems` returns a list, not a type guard, so a payload that passes is
-still `unknown`. Cast it to the item type once the list is empty, and render no
-items for a payload that fails:
+`validateItems` returns a list, not a type guard, so a payload that passes is still `unknown`. Cast it to the item type once the list is empty, and render no items for a payload that fails:
 
 <!-- #region render-validated -->
 
 ```tsx @import.meta.vitest
-import type { WidgetItem } from '@evanion/react-widget';
-
 const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+// ---cut---
+import type { WidgetItem } from '@evanion/react-widget';
 
 const components = { listing: ListingCard };
 
@@ -275,14 +271,9 @@ const gap = renderToStaticMarkup(<Widgets items={checked(blank)} />); // -> '<se
 
 <!-- #endregion render-validated -->
 
-The cast asserts the prop types, which `validateItems` does not check: a `title`
-of `42` passes it, because `42` is not blank. The `required` map is what guarantees the props a widget
-cannot render without.
+The cast asserts the prop types, which `validateItems` does not check: a `title` of `42` passes it, because `42` is not blank. The `required` map guarantees that the props a widget cannot render without are there.
 
-A component map declared on its own, so that `createWidgets`, an item type and a
-standalone `validateItems` share it, goes through `defineWidgets`, which returns
-it with its keys kept literal. The same stale type then fails the compile and
-the payload check:
+A component map declared on its own, so that `createWidgets`, an item type and a standalone `validateItems` share it, goes through `defineWidgets`, which returns it with its keys kept literal. The same stale type then fails the compile and the payload check:
 
 <!-- #region define-widgets -->
 
@@ -304,15 +295,13 @@ const problems = validateItems(payload, components); // -> [{ index: 0, id: 'raf
 
 <!-- #endregion define-widgets -->
 
-`Widgets` does not call either form. The renderer stays defensive instead: an
-item it cannot render is skipped with a development-only `console.warn`, and the
-rest of the region renders:
+`Widgets` calls neither form. The renderer follows a "fail-soft" strategy: it skips an item it cannot render, warns in development, and renders the rest of the region:
 
 <!-- #region skipped-item -->
 
 ```tsx @import.meta.vitest
 const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
-
+// ---cut---
 const { Widgets } = createWidgets({ components: { listing: ListingCard } });
 
 const payload = JSON.parse(
@@ -324,24 +313,17 @@ const html = renderToStaticMarkup(<Widgets items={payload} />); // -> '<section>
 
 <!-- #endregion skipped-item -->
 
-The warning reads `Unknown widget type "raffle" for widget ID "raffle".
-Skipping render.` Each message is logged once per process, so a stale `type`
-reports once instead of on every re-render and again on hydration. Nothing is
-logged when `NODE_ENV` is `production`.
+The warning reads `Unknown widget type "raffle" for widget ID "raffle". Skipping render.` Each message is logged once per process, so a stale `type` reports once, not on every re-render and again on hydration. Nothing is logged when `NODE_ENV` is `production`.
 
-## Chrome
+## Custom Chrome
 
-A widget set has two wrappers. `chrome.wrapper` goes around the whole region and
-receives the region's items beside its `children`. `chrome.item` goes around each
-widget and receives `data-widget-id`, `data-widget-type` and `meta`. The
-defaults, `DefaultWrapper` and `DefaultItem`, are exported, so a custom chrome
-can wrap one:
+A widget set has two wrappers. `chrome.wrapper` goes around the whole region and receives the region's items beside its `children`. `chrome.item` goes around each widget and receives `data-widget-id`, `data-widget-type` and `meta`. The defaults, `DefaultWrapper` and `DefaultItem`, are exported, so a custom chrome can wrap one:
 
 <!-- #region chrome -->
 
 ```tsx @import.meta.vitest
 const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
-
+// ---cut---
 const { Widgets, defineItems } = createWidgets({
   components: { listing: ListingCard },
   chrome: {
@@ -359,17 +341,17 @@ const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section ar
 
 <!-- #endregion chrome -->
 
-Keep the `data-widget-*` attributes on the element. CMS click-to-edit overlays,
-analytics and E2E selectors key off them.
+Keep the `data-widget-*` attributes on the element. CMS click-to-edit overlays, analytics and E2E selectors key off them. `DefaultWrapper` drops `items` and `DefaultItem` drops `meta`, because React warns about an unknown attribute for each prop that reaches the DOM.
 
-`<Widgets>` takes `components` and `chrome` of its own, merged over the
-factory's. `components` is a shallow merge of the two maps; `chrome` is resolved
-field by field, so overriding `wrapper` keeps the factory's `item`:
+## Dynamic Overrides
+
+`<Widgets>` takes `components` and `chrome` of its own, merged over the factory's. `components` is a shallow merge of the two maps. `chrome` is resolved field by field, so overriding `wrapper` keeps the factory's `item`:
 
 <!-- #region overrides -->
 
 ```tsx @import.meta.vitest
 const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+// ---cut---
 const FeaturedListing = (props: { title: string }) => <h2>{props.title}</h2>;
 
 const { Widgets, defineItems } = createWidgets({
@@ -389,17 +371,15 @@ const html = renderToStaticMarkup(page); // -> '<section><div data-widget-id="wi
 
 <!-- #endregion overrides -->
 
-## `meta`: placing a widget without telling it where it is
+## Placement with `meta`
 
-A grid of listings needs placement data, and that data belongs to the item
-chrome: a widget renders the same at column 1 and at column 7. `meta` is handed
-to `chrome.item` and is never spread into the widget's props. Annotate
-`chrome.item` with the vocabulary it reads and every item's `meta` is checked
-against it, at the top level and inside `children`:
+A grid of listings needs placement data, and that data belongs to the item chrome: a widget renders the same at column 1 and at column 7. `meta` is handed to `chrome.item` and is never spread into the widget's props. Annotate `chrome.item` with the vocabulary it reads and every item's `meta` is checked against it, at the top level and inside `children`:
 
 <!-- #region meta-grid -->
 
 ```tsx @import.meta.vitest
+const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
+// ---cut---
 import type { WidgetItemComponent } from '@evanion/react-widget';
 
 type GridMeta = { column: number; span?: number };
@@ -418,8 +398,6 @@ const GridCell: WidgetItemComponent<GridMeta> = ({
     {children}
   </div>
 );
-
-const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
 
 const { Widgets, defineItems } = createWidgets({
   components: { listing: ListingCard },
@@ -442,21 +420,11 @@ const html = renderToStaticMarkup(<Widgets items={grid} />); // -> '<section><di
 
 <!-- #endregion meta-grid -->
 
-There is no type argument to pass. `createWidgets` infers the vocabulary from
-the `chrome.item` it is given, through an annotated component, a plain function
-with an annotated parameter object, or a `memo()`-wrapped one. A set with no
-`chrome.item`, or an unannotated one, leaves `meta` as any object.
+There is no type argument to pass. `createWidgets` infers the vocabulary from the `chrome.item` it is given, through an annotated component, a plain function with an annotated parameter object, or a `memo()`-wrapped one. A set with no `chrome.item`, or an unannotated one, accepts any object as `meta`. `meta` is optional on every item, so a chrome that reads a key still writes a fallback for the item that omits it.
 
-Typing `meta` removes the typo, not the narrowing: `meta` is optional on every
-item, so a chrome that needs a key still writes a fallback for the item that
-omits it. `hive` above compiles only under the `@ts-expect-error`, and renders
-through the `auto` fallback.
+## Page-Level Data with `ctx`
 
-## `ctx`: page-level data for every widget
-
-Every widget receives `ctx` as a prop, from `<Widgets ctx={…}>`. This is the
-counterpart to `@evanion/astro-widget`'s `ctx`, and it exists instead of a
-context provider: React's `react-server` condition has no `createContext`.
+Every widget receives `ctx` as a prop, from `<Widgets ctx={…}>`. It exists in place of a context provider, because React's `react-server` condition has no `createContext`:
 
 <!-- #region ctx -->
 
@@ -482,16 +450,11 @@ const html = renderToStaticMarkup(page); // -> '<section><div data-widget-id="ro
 
 <!-- #endregion ctx -->
 
-`ctx` is the renderer's to supply, so it is omitted from an item's `props`
-alongside `children`. A widget may declare it required without every item having
-to repeat a value `<Widgets>` is going to pass anyway, and an item cannot
-override it -- `ctx` follows the spread, and items are untrusted input.
+`ctx` is the renderer's to supply, so it is omitted from an item's `props` alongside `children`. A widget may declare it required without every item repeating it. An item cannot override it: `ctx` follows the spread, and items are untrusted input. Nothing checks that `<Widgets ctx={…}>` supplies what a widget declares, because `<Widgets>` types `ctx` as `Record<string, unknown>`.
 
-## Suspense
+## Optimizing Suspense
 
-By default the renderer wraps every widget in its own `<Suspense>` boundary, so
-one suspending widget does not block its siblings. The fallback comes from
-`chrome.suspenseFallback` and defaults to nothing:
+By default the renderer wraps every widget in its own `<Suspense>` boundary, so one suspending widget does not block its siblings. The fallback comes from `chrome.suspenseFallback` and defaults to nothing:
 
 <!-- #region suspense-fallback -->
 
@@ -519,29 +482,16 @@ const html = renderToStaticMarkup(<Widgets items={stock} />); // -> '<section><d
 
 <!-- #endregion suspense-fallback -->
 
-The boundary lives in the renderer rather than in the item chrome, so replacing
-`chrome.item` cannot silently remove it. There is no default skeleton: a region
-is a grid of cards for one consumer and a table of rows for the next, and one
-generic placeholder would be wrong in both.
+The boundary lives in the renderer, not in the item chrome, so replacing `chrome.item` cannot silently remove it.
 
-### Synchronous regions: `chrome.suspense`
-
-A boundary costs more than its markers when the region is large. React's
-streaming SSR outlines any boundary it has not finished by the time the shell
-passes `progressiveChunkSize` -- 12,800 bytes by default -- **whether or not
-anything in it suspended**. The content is written to a trailing `<div hidden>`
-and an inline `<script>$RC(…)</script>` moves it into place.
-
-Measured over 150 synchronous items of ~1,000 bytes each, streamed with the
-default chunk size:
+React's streaming SSR outlines any boundary it has not finished by the time the shell passes `progressiveChunkSize`, 12,800 bytes by default, **whether or not anything in it suspended**. The content goes into a trailing `<div hidden>` and an inline `<script>$RC(…)</script>` moves it into place. A client that does not run inline scripts, because scripts are off or a Content-Security-Policy rejects inline script without a nonce, never sees outlined content. Measured over 150 synchronous items of about 1,000 bytes each:
 
 | `chrome.suspense` | bytes   | deferred boundaries | rows in the shell |
 | ----------------- | ------- | ------------------- | ----------------- |
 | `per-item`        | 139,233 | 145                 | 5 of 150          |
 | `none`            | 122,069 | 0                   | 150 of 150        |
 
-So for a region whose widgets are all synchronous, say so. `renderToString`
-writes a `<!--$-->` marker pair for each boundary, which shows where they went:
+For a region whose widgets are all synchronous, set `chrome.suspense: 'none'`. `renderToString` writes a `<!--$-->` marker pair for each boundary, which shows where they went:
 
 <!-- #region suspense-none -->
 
@@ -565,34 +515,11 @@ const flat = renderToString(<none.Widgets items={rows} />); // -> '<section><div
 
 <!-- #endregion suspense-none -->
 
-**A client that does not run the inline scripts never sees outlined content.**
-It is in the HTML, inside `<div hidden>`, and `$RC` is what moves it. That
-covers scripts disabled and a Content-Security-Policy that rejects inline
-script without a nonce. Anything reading the HTML in document order -- a text
-extraction, a reader-mode pass, a diffing snapshot test, `curl | sed` -- sees
-placeholders where the content should be and the content at the bottom in
-completion order.
+The renderer does not detect which widgets suspend. A component calling `use(promise)` looks synchronous at runtime, `memo()` hides an async component, and an `async function` downlevelled below ES2017 becomes a plain function. Under `none`, a widget that suspends anyway suspends the nearest boundary above the region. Put your own `<Suspense>` around `<Widgets>` to stop it there.
 
-There is no detection and no heuristic. An `async function` component and
-`React.lazy` are recognisable at runtime; a component calling `use(promise)` is
-not, `memo()` hides both, and an `async function` downlevelled below ES2017
-becomes a plain function. Guessing wrong would drop the boundary from a widget
-that does suspend, which is worse than paying for one that does not. Under
-`none`, a widget that suspends anyway suspends whatever boundary is above the
-region -- put your own `<Suspense>` around `<Widgets>` if that should be the
-region rather than the page.
+## Error Boundaries
 
-The host has a knob too: `progressiveChunkSize` on `renderToPipeableStream`
-takes the deferral to zero, and `renderToString` never defers at all. That is
-the framework's `entry.server` to set, not the library's.
-
-## Error boundaries
-
-The package ships none. React error boundaries require a class component, which
-React does not expose under the `react-server` condition, so a default boundary
-would put a `'use client'` directive on the whole package.
-
-Add your own in a custom `chrome.item`, in your own `'use client'` file:
+The package ships none. React error boundaries require a class component, which React does not expose under the `react-server` condition, so a default boundary would put a `'use client'` directive on the whole package. Add your own in a custom `chrome.item`, in your own `'use client'` file:
 
 <!-- #region error-boundary -->
 
@@ -627,21 +554,17 @@ const SafeItem = (props: React.ComponentProps<typeof DefaultItem>) => (
 
 <!-- #endregion error-boundary -->
 
-Pass it as `chrome: { item: SafeItem }`. The boundary is then client code and
-the widgets inside it are not.
+Pass it as `chrome: { item: SafeItem }`. The boundary is then client code and the widgets inside it are not.
 
-## Large regions
+## Large Regions
 
-The renderer renders every item, and there is no windowing option. For
-server-rendered content, put `content-visibility: auto` on the item chrome. The
-browser skips layout and paint for off-screen items, and every one of them stays
-in the HTML:
+The renderer renders every item, and there is no windowing option. For server-rendered content, put `content-visibility: auto` on the item chrome. The browser skips layout and paint for off-screen items, and every one of them stays in the HTML:
 
 <!-- #region content-visibility -->
 
 ```tsx @import.meta.vitest
 const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;
-
+// ---cut---
 const { Widgets, defineItems } = createWidgets({
   components: { listing: ListingCard },
   chrome: {
@@ -666,15 +589,11 @@ const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><d
 
 <!-- #endregion content-visibility -->
 
-For a client-side list long enough to matter, virtualize in your own
-`'use client'` `chrome.wrapper`. The wrapper receives `items` beside `children`,
-positionally aligned, so it can measure and window by item.
+For a client-side list long enough to matter, virtualize in your own `'use client'` `chrome.wrapper`. The wrapper receives `items` beside `children`, positionally aligned, so it can measure and window by item.
 
 ## API
 
 ### `createWidgets(config)`
-
-`config`:
 
 | field                     | meaning                                                                                             |
 | ------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -709,26 +628,13 @@ Returns `{ Widgets, defineItems, validateItems }`.
 
 ### Exports
 
-`createWidgets`, `validateItems`, `defineWidgets`, `DefaultWrapper`,
-`DefaultItem`, `ERROR_MESSAGES`, `VALIDATION_MESSAGES`, and the types
-`WidgetItem`, `AnyWidgetItem`, `WidgetDataProps`, `WidgetRegistry`,
-`WidgetsConfig`, `WidgetsProps`, `WidgetsChrome`, `WidgetChildren`,
-`WidgetItemComponent`, `WidgetsWrapperComponent`, `WidgetProblem`,
-`WidgetMeta`, `KnownWidgetTypes`, `RenderableWidgetItem`, `AnyWidgetComponent`.
+`createWidgets`, `validateItems`, `defineWidgets`, `DefaultWrapper`, `DefaultItem`, `ERROR_MESSAGES`, `VALIDATION_MESSAGES`, and the types `WidgetItem`, `AnyWidgetItem`, `WidgetDataProps`, `WidgetRegistry`, `WidgetsConfig`, `WidgetsProps`, `WidgetsChrome`, `WidgetChildren`, `WidgetItemComponent`, `WidgetsWrapperComponent`, `WidgetSuspenseMode`, `WidgetProblem`, `WidgetMeta`, `KnownWidgetTypes`, `RenderableWidgetItem`, `AnyWidgetComponent`.
 
-`validateItems`, `defineWidgets`, `AnyWidgetItem`, `WidgetRegistry`,
-`WidgetProblem`, `WidgetMeta`, `KnownWidgetTypes`, `ERROR_MESSAGES` and
-`VALIDATION_MESSAGES` come from `@evanion/widget` and are re-exported here, so
-a consumer who never names the core never installs it by hand.
-
-`props` on a widget whose component declares no props is `Record<string, never>`
-rather than `{}`, so an unexpected key is a compile error there too.
+`validateItems`, `defineWidgets`, `AnyWidgetItem`, `WidgetRegistry`, `WidgetProblem`, `WidgetMeta`, `KnownWidgetTypes`, `ERROR_MESSAGES` and `VALIDATION_MESSAGES` come from `@evanion/widget` and are re-exported here.
 
 ## Migrating from 0.2.x
 
-The item shape, the props and the data are unchanged. Three type names moved to
-`@evanion/widget` and are re-exported from here under the names the whole family
-uses.
+The item shape, the props and the data are unchanged. Three type names moved to `@evanion/widget` and are re-exported from here under the names the whole family uses.
 
 | Was                  | Now                                  |
 | -------------------- | ------------------------------------ |
@@ -736,13 +642,7 @@ uses.
 | `WidgetItemProblem`  | `WidgetProblem`                      |
 | `WidgetProps`        | `AnyWidgetItem`                      |
 
-`WidgetProps` and `WidgetsProps` differed by one character and meant different
-things -- the loose item, and the component's props. `AnyWidgetItem` is the
-untyped counterpart to `WidgetItem`, which is what it always was.
-
-`chrome.wrapper` now receives an `items` prop beside its children. It is
-optional, so an existing wrapper keeps compiling; a wrapper that spreads its
-props onto a DOM element has to drop it, the way `DefaultWrapper` does.
+`chrome.wrapper` now receives an `items` prop beside its children. It is optional, so an existing wrapper keeps compiling. A wrapper that spreads its props onto a DOM element has to drop it, the way `DefaultWrapper` does.
 
 ## Migrating from 0.1.x
 
@@ -755,8 +655,7 @@ props onto a DOM element has to drop it, the way `DefaultWrapper` does.
 | the default `WidgetErrorBoundary`                        | your own boundary in a custom `chrome.item`, in your own `'use client'` file |
 | `DEFAULT_STYLES.LOADING`                                 | `chrome.suspenseFallback`                                                    |
 
-`renderWidget` and `NestedWidgetsContext` are no longer exported: the nesting
-mechanism is internal.
+`renderWidget` and `NestedWidgetsContext` are no longer exported: the nesting mechanism is internal.
 
 ## License
 
