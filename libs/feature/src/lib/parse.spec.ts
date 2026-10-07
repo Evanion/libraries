@@ -49,6 +49,22 @@ describe('parseFeatureConfig', () => {
     expect(() => parseFeatureConfig(config)).not.toThrow();
   });
 
+  it('throws nothing for a document the checker accepts and the clone cannot carry', () => {
+    const config = {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variantBy: 'targetingKey',
+          variantSeed: 'cta:variant',
+          variants: [{ name: 'blue', weight: 1, order: 0, value: () => 1 }],
+        },
+      ],
+    } satisfies FeatureConfig;
+
+    expect(() => parseFeatureConfig(config)).not.toThrow();
+  });
+
   it('installs an observer the caller supplies', () => {
     const seen: string[] = [];
     const config: FeatureConfig = { features: [{ key: 'a', enabled: true }] };
