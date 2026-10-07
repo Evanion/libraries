@@ -28,13 +28,13 @@ npm install @evanion/luhn
 
 The most common use case is the default 36-character dictionary (0-9, a-z). For this, you don't need any configuration—just import the `Luhn` instance.
 
-```ts
-import { Luhn } from '@evanion/luhn';
+```ts twoslash file=libs/luhn/README.md region=default-dictionary
+
 ```
 
 ## Print an Order Code with a Check Character
 
-`@evanion/luhn` computes the check character but leaves the final string formatting to you. 
+`@evanion/luhn` computes the check character but leaves the final string formatting to you.
 
 Imagine your database holds an **order number** like `order-2026-0042`. You want to print an **order code** on the receipt—the order number plus a check character—so that it can be validated locally.
 
