@@ -3419,6 +3419,67 @@ describe('the documents createFeatures refuses', () => {
     ).toThrow(/"features"/);
   });
 
+  /**
+   * The envelope copy is the other walk into values the checker declares
+   * nothing about. `memberIssues` names the six top-level members and
+   * `schemaIssues` fences schema keywords, so `validateConfig` answers `ok` for
+   * both of these documents and the copy inside `createFeatures` is where the
+   * function meets the leaf. `reload` reports the same text as an
+   * `unknown-member` issue, so the two paths say the same thing about the same
+   * value.
+   */
+  it('throws a typed error for an envelope member it cannot copy', () => {
+    const fenced = {
+      schemaVersion: 's1',
+      schema: {
+        features: { cta: { variants: { blue: { type: () => 'string' } } } },
+      },
+      features: [{ key: 'cta', enabled: true }],
+    } as unknown as FeatureConfig;
+
+    expect(validateConfig(fenced)).toEqual({ ok: true });
+    expect(() => createFeatures(fenced)).toThrow(FeatureConfigError);
+    expect(() => createFeatures(fenced)).toThrow(/could not be cloned/);
+  });
+
+  it('throws a typed error for a symbol a document carries at maxStale', () => {
+    const symbolic = {
+      version: 1,
+      maxStale: Symbol('stale'),
+      features: [{ key: 'cta', enabled: true }],
+    } as unknown as FeatureConfig;
+
+    expect(validateConfig(symbolic)).toEqual({ ok: true });
+    expect(() => createFeatures(symbolic)).toThrow(FeatureConfigError);
+  });
+
+  it('reports the message it throws when reload meets the same document', () => {
+    const fenced = {
+      schemaVersion: 's1',
+      schema: {
+        features: { cta: { variants: { blue: { type: () => 'string' } } } },
+      },
+      features: [{ key: 'cta', enabled: true }],
+    } as unknown as FeatureConfig;
+    const store = createFeatures({
+      schemaVersion: 's1',
+      features: [{ key: 'cta', enabled: true }],
+    } as unknown as FeatureConfig);
+    const thrown = (() => {
+      try {
+        createFeatures(fenced);
+        return 'nothing';
+      } catch (raise) {
+        return raise instanceof Error ? raise.message : String(raise);
+      }
+    })();
+
+    expect(store.reload(fenced)).toEqual({
+      ok: false,
+      issues: [{ code: 'unknown-member', message: thrown }],
+    });
+  });
+
   it('leaves the document it refused exactly as it was handed it', () => {
     const document = {
       version: 9,

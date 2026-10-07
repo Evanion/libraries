@@ -45,7 +45,7 @@ export function unreadable(
   raise: unknown,
   features: readonly unknown[],
 ): readonly ConfigIssue[] {
-  const text = raise instanceof Error ? raise.message : String(raise);
+  const text = unreadableText(raise);
   for (const [at, definition] of features.entries()) {
     try {
       structuredClone(definition);
@@ -65,4 +65,19 @@ export function unreadable(
     }
   }
   return [{ code: 'unknown-member', message: text }];
+}
+
+/**
+ * The text a raise out of a copy carries.
+ *
+ * `createFeatures` throws where `reload` and `parseFeatureConfig` report, so
+ * the message a caller reads off the error and the message a caller reads off
+ * the issue come from here and say the same thing about the same value.
+ *
+ * A `DOMException` is an `Error` and carries the leaf in its own message. A
+ * raise that is no `Error` is whatever a host threw, and `String` is all that
+ * can be asked of it.
+ */
+export function unreadableText(raise: unknown): string {
+  return raise instanceof Error ? raise.message : String(raise);
 }
