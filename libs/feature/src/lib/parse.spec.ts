@@ -112,7 +112,10 @@ describe('the documents parseFeatureConfig accepts', () => {
 
     const result = parseFeatureConfig(config);
 
-    expect(result.ok && result.features.isEnabled('a')).toBe(false);
+    expect([result.ok, result.ok && result.features.isEnabled('a')]).toEqual([
+      true,
+      false,
+    ]);
   });
 
   it('keys a definition on the number a document carries', () => {
