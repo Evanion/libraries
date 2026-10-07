@@ -1,6 +1,6 @@
 # @evanion/astro-widget
 
-A content management system (CMS) saves an Astro page as a list of items, each naming its `.astro` component by `type`, so the page cannot import its components by hand. `@evanion/astro-widget` renders that list, one component per item.
+A content management system (CMS) saves an Astro page as a list of items, each naming its `.astro` component by `type`, and `@evanion/astro-widget` renders that list, one component per item.
 
 <PageSheet
   difficulty={1}
@@ -21,7 +21,7 @@ Writing a `switch` statement on the `type` string by hand is repetitive and erro
 
 `@evanion/astro-widget` finds each item's component in a **registry**, a map from each widget type, such as `'listing-header'`, to the `.astro` component that renders it. The `Widgets.astro` component takes your item array and the registry, and renders each item in order through its mapped component when Astro renders the page, so it sends no JavaScript to the browser.
 
-A page renders its items with `<Widgets items={items} registry={registry} />`. The test below renders two items from a listing page at Baize, the board game shop these pages are set in, through a registry that maps `listing-header` and `price-box` to two `.astro` widgets the package keeps under `examples/src`. It calls Astro's container API, which renders a component outside a request and returns its HTML as a string. Your page does not use that API:
+The test below renders two items from a listing page at Baize, the board game shop these pages are set in, through a registry that maps `listing-header` and `price-box` to two `.astro` widgets the package keeps under `examples/src`. Where a page writes `<Widgets items={items} registry={registry} />`, the test calls Astro's container API, which renders a component outside a request and returns its HTML as a string:
 
 ```ts file=libs/astro-widget/README.md region=overview
 
