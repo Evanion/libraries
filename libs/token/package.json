@@ -56,5 +56,8 @@
   },
   "dependencies": {
     "@evanion/luhn": "3.0.1"
+  },
+  "devDependencies": {
+    "@evanion/doc-examples": "*"
   }
 }
