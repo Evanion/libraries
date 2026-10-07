@@ -139,25 +139,27 @@ describe('the round trip', () => {
 
   it('names the same rule after a permutation of the rules array', () => {
     const rules = [
-      {
-        id: 'staff',
-        when: [{ field: 'staff', op: 'eq' as const, value: true }],
-      },
-      { id: 'beta', when: [{ field: 'beta', op: 'eq' as const, value: true }] },
+      { when: [{ field: 'staff', op: 'eq' as const, value: true }] },
+      { when: [{ field: 'beta', op: 'eq' as const, value: true }] },
     ];
     const features = createFeatures([{ key: 'x', enabled: true, rules }]);
     const permuted = createFeatures([
       { key: 'x', enabled: true, rules: [...rules].reverse() },
     ]);
-    // `decide` returns on the first matching rule, so a context matching both
-    // answers 'staff' at one index and 'beta' at the other. The assertion is
-    // that `ruleId` is content-derived, so the one rule that matches carries
-    // the same name whichever index the permutation put it at.
+    // Neither rule declares an id, so `ruleId` derives both from what they
+    // match on and this is the only test that puts the derivation under a
+    // permutation. `rule.id !== undefined` returns before the derivation, so a
+    // rule carrying an id cannot move a positional name either.
+    //
+    // The context matches the staff rule alone, and the assertion is that the
+    // name it carries is the same at index 0 and at index 1. An implementation
+    // naming an id-less rule from its position answers `rule-0` on one side
+    // and `rule-1` on the other.
     const context = { staff: true, beta: false };
+    const named = features.resolve(context).x.rule;
 
-    expect(permuted.resolve(context).x.rule).toBe(
-      features.resolve(context).x.rule,
-    );
+    expect(named).toMatch(/^rule-/);
+    expect(permuted.resolve(context).x.rule).toBe(named);
   });
 
   it('refuses a document whose rules moved and whose digest did not', () => {
