@@ -59,7 +59,8 @@ astro-widget's `Widgets.astro` renders what it can of a bad save, under the [fai
 | No string `type`                     | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type: "unknown")                                              |
 | Not an object                        | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type/id: "unknown")                                           |
 | Missing prop                         | Widget renders, but with `undefined` for that prop | None                                                                                           |
-| `items` is not a list                | Nothing renders                                    | `ERROR_MESSAGES.MALFORMED_ITEMS`                                                               |
+| `items` present and not a list       | Nothing renders                                    | `ERROR_MESSAGES.MALFORMED_ITEMS`                                                               |
+| `items` undefined                    | Nothing renders                                    | None                                                                                           |
 | Missing/Repeated `id`, or no `props` | Widget renders (if type is known)                  | None                                                                                           |
 | `children` not a list                | Widget renders, and receives the value as it is    | `ERROR_MESSAGES.MALFORMED_ITEMS`, only if the widget passes the value to its own `<Widgets />` |
 
