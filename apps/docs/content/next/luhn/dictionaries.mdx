@@ -1,6 +1,6 @@
 # Dictionaries
 
-`createLuhn({ dictionary })` builds an instance over a set of characters of your choice. This allows you to adapt the Luhn algorithm to any even-sized alphabet—from credit card digits to a custom set of symbols.
+`createLuhn({ dictionary })` builds an instance over a set of characters of your choice. The default dictionary can produce `l` or `o` as a check character, and a pickup code read aloud leaves those out, so the shop's pickup codes need a dictionary of their own.
 
 <PageSheet
   difficulty={3}
@@ -34,9 +34,9 @@ The shop's pickup codes use 32 characters, the 36 without `i`, `l`, `o` and `w`,
 
 ### Order Decides the Check Characters
 
-The dictionary string is not just a set of characters—it is an **ordered list**. The index of each character in the string determines its value in the Luhn sum.
+The dictionary string is an **ordered list** of characters. The index of each character in the string determines its value in the Luhn sum.
 
-**Never sort or deduplicate your dictionary string at runtime.** If you change the order of characters, you change the check characters the instance produces, which will break validation for any codes already issued.
+**Never derive the dictionary string at runtime.** If you change the order of characters, you change the check characters the instance produces, which will break validation for any codes already issued.
 
 ## Dictionary Constraints
 
