@@ -3572,6 +3572,24 @@ describe('the envelope', () => {
     expect(validateConfig(wide()).ok).toBe(true);
   });
 
+  /**
+   * The literal path reads the hole the way it always has.
+   *
+   * The amendment in
+   * `docs/superpowers/plans/2026-09-29-feature-config-distribution.md` fixes
+   * the input set `createFeatures` refuses, and a sparse array is not in it. A
+   * hole in `features`, in `dependsOn` or in `variants` is a defect the
+   * literal author's own compiler reads a whole array over, so the construction
+   * path raises where it has always raised and the served walk is the one that
+   * reports a position.
+   */
+  it('leaves the literal path the raise a hole makes at construction', () => {
+    const build = () => createFeatures(hole({ key: 'a', enabled: true }));
+
+    expect(build).toThrow(TypeError);
+    expect(build).not.toThrow(FeatureConfigError);
+  });
+
   it('reports the hole a nested array leaves at the position it leaves it', () => {
     const paths = [
       { ...TRAVELS, variants: hole({ name: 'blue', weight: 1, order: 0 }) },

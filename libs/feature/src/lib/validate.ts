@@ -78,14 +78,23 @@ function graphCode(error: FeatureConfigError): ConfigIssueCode {
  * nothing about the element that is missing and returns one row fewer than the
  * array declares. `collectIssues` pairs each row with `config.features` at the
  * row's own index, so a dropped row sends every issue after it to the wrong
- * definition, and `createFeatures` then reads the hole as `undefined` and
- * raises out of the first member it asks for.
+ * definition.
  *
  * `JSON.parse` writes no hole, and a caller reaches one by assigning past the
  * end of an array or deleting an element. `FeatureConfig` types a sparse array
  * as a whole one, so nothing stands between that caller and this checker. A
  * hole read this way reports the same issue an element written as `undefined`
  * reports, at the same pointer.
+ *
+ * `served` gates the three member walks that read it, for the reason the
+ * amendment in
+ * `docs/superpowers/plans/2026-09-29-feature-config-distribution.md` gives: the
+ * refusals `createFeatures` throws are the ones a store would otherwise raise
+ * out of `resolve`, and a hole in `features`, in `dependsOn` or in `variants`
+ * raises where the literal author's own compiler reads a whole array. The
+ * conditions of a rule are the exception. `evaluate.ts:53` iterates `rule.when`
+ * and reads each element, so a hole there is a `when` element that is not an
+ * object and both callers refuse it.
  */
 function dense(value: readonly unknown[]): readonly unknown[] {
   return Array.from(value);
@@ -845,7 +854,9 @@ function shapeWalk(
     };
   }
 
-  const definitionRows: readonly unknown[] = dense(definitions);
+  const definitionRows: readonly unknown[] = served
+    ? dense(definitions)
+    : definitions;
   const all: Found[] = [];
   const rows: Readable[] = [];
 
@@ -935,7 +946,7 @@ function shapeWalk(
     const declared: unknown = definition['dependsOn'];
     let dependsOn: readonly FeatureKey[] | undefined;
     if (shapes.dependsOn && Array.isArray(declared)) {
-      const elements: readonly unknown[] = dense(declared);
+      const elements: readonly unknown[] = served ? dense(declared) : declared;
       // The elements that answered `isKey`. An element the checker could not
       // read costs the graph that one edge and no other: the siblings name rows
       // the document declares, and a walk over a subset of the edges reports no
@@ -980,7 +991,7 @@ function shapeWalk(
     for (const member of ['variants', 'rules'] as const) {
       const value: unknown = definition[member];
       if (!shapes[member] || !Array.isArray(value)) continue;
-      const elements: readonly unknown[] = dense(value);
+      const elements: readonly unknown[] = served ? dense(value) : value;
       elements.forEach((element, inside) => {
         const path = `${pointer(at, member)}/${String(inside)}`;
         if (!isRecord(element)) {
