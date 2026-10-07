@@ -245,6 +245,14 @@ interface Readable {
    * array or the id one of them declares. Absent under the same two cases.
    */
   readonly someRules?: readonly Rule[];
+  /**
+   * The index each rule in `someRules` holds in the array the document
+   * declares. Absent beside `someRules`, where the two agree. `whenIssues`
+   * points at a condition by the rule that carries it, and the rules it walks
+   * are the ones this walk read, so a document whose second rule is the first
+   * one readable names the second.
+   */
+  readonly someRuleAt?: readonly number[];
 }
 
 /**
@@ -987,6 +995,9 @@ function shapeWalk(
     // that one element, and the conditions of one rule are as much an element
     // as the id of one rule is.
     const unwalked = new Set<unknown>();
+    // The index each rule in `read.rules` holds in the array the document
+    // declares.
+    const ruleAt: number[] = [];
 
     for (const member of ['variants', 'rules'] as const) {
       const value: unknown = definition[member];
@@ -1045,7 +1056,10 @@ function shapeWalk(
         }
         // A rule whose id is not a string is one `ruleIdErrors` would key its
         // map on, so it is the one rule the id walk drops.
-        if (readableId) read.rules.push(element);
+        if (readableId) {
+          read.rules.push(element);
+          ruleAt.push(inside);
+        }
       });
     }
 
@@ -1061,7 +1075,9 @@ function shapeWalk(
       ...(every.variants
         ? {}
         : { someVariants: read.variants as readonly VariantSpec[] }),
-      ...(every.rules ? {} : { someRules: read.rules as readonly Rule[] }),
+      ...(every.rules
+        ? {}
+        : { someRules: read.rules as readonly Rule[], someRuleAt: ruleAt }),
     });
   });
 
@@ -1591,12 +1607,18 @@ function whenIssues(
   definition: FeatureDefinition<FeatureKey>,
   at: number,
   fields: Readonly<Record<string, FieldType>> | undefined,
+  positions: readonly number[] | undefined,
 ): readonly Found[] {
   const issues: Found[] = [];
   const rules: readonly Rule[] = Array.isArray(definition.rules)
     ? definition.rules
     : [];
-  rules.forEach((rule, ruleAt) => {
+  rules.forEach((rule, walkedAt) => {
+    // The index the document declares this rule at. The rules are the ones the
+    // shape walk read, and it reads past an element it refused, so a pointer
+    // built from the position in this array would name the rule the document
+    // carries one place earlier.
+    const ruleAt = positions?.[walkedAt] ?? walkedAt;
     const when: readonly Condition[] = Array.isArray(rule.when)
       ? rule.when
       : [];
@@ -1786,7 +1808,7 @@ export function collectIssues(
     // `whenIssues` reads the conditions the shape walk read, against the
     // instants a window names and the context fields the document declares.
     if (options.arrayIsOrder !== true) {
-      all.push(...whenIssues(walked, at, fields));
+      all.push(...whenIssues(walked, at, fields, row.someRuleAt));
     }
 
     // `ruleIdErrors` reads the rules the shape walk read, and names each one by
