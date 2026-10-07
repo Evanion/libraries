@@ -720,9 +720,18 @@ export function createFeatures(
   let installed: ConfigEnvelope = {};
   // A document installs its own members with the payload removed, so `version`
   // and `envelope` answer the document this store was built from.
+  //
+  // `digest` goes with the payload, for the reason `reload` gives where it
+  // deletes the same two members: `ConfigEnvelope` fences `digest` to `never`,
+  // `configDigest` is the one writer of it, and `serializeConfig` defaults its
+  // envelope to this one and spreads it into the document it writes. A digest
+  // kept here covers the bytes a publisher served and is emitted again over
+  // whatever the store holds after the next toggle, where every holder reports
+  // `digest-mismatch` and refuses the whole document.
   if (isDocument(definitions)) {
     const members: Record<string, unknown> = { ...definitions };
     delete members['features'];
+    delete members['digest'];
     installed = members as ConfigEnvelope;
   }
 
