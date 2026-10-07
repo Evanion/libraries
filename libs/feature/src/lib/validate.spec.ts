@@ -3516,6 +3516,16 @@ describe('the envelope', () => {
     );
   });
 
+  it('refuses a document whose content digests to nothing it can read', () => {
+    const deep = `{"features":[{"key":"a","enabled":true,"variantBy":"targetingKey","variantSeed":"s","variants":[{"name":"blue","weight":1,"order":0,"value":${'['.repeat(5000)}1${']'.repeat(5000)}}]}],"digest":"${'0'.repeat(32)}"}`;
+
+    const result = validateConfig(JSON.parse(deep) as FeatureConfig);
+
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'unknown-member',
+    );
+  });
+
   it('accepts a document whose digest describes it', () => {
     const body: FeatureConfig = { features: [{ key: 'a', enabled: true }] };
 

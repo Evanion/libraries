@@ -72,6 +72,18 @@ const TRAVELS = {
   variantSeed: 'cta:variant',
 } as const;
 
+/**
+ * A document whose variant value nests deeper than a recursive walk of it fits
+ * on the stack.
+ *
+ * `structuredClone` at `features.ts:393` and `canonical` at `canonical.ts:138`
+ * both recurse through the value, so each raises `RangeError: Maximum call
+ * stack size exceeded` over this one. The text is parsed per case, because
+ * `JSON.parse` is the only reader here that builds the value without recursing
+ * that far.
+ */
+const DEEP = `{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey","variantSeed":"cta:variant","variants":[{"name":"blue","weight":1,"order":0,"value":${'['.repeat(5000)}1${']'.repeat(5000)}}]}]}`;
+
 /** The codes a document reports through this entry point, in checker order. */
 function codesOf(config: FeatureConfig): readonly ConfigIssueCode[] {
   const result = parseFeatureConfig(config);
@@ -238,6 +250,35 @@ describe('the documents parseFeatureConfig refuses', () => {
     };
 
     expect(codesOf(config)).toEqual(['digest-mismatch']);
+  });
+
+  it('reports a variant value no structured clone of the document carries', () => {
+    const config = {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          ...TRAVELS,
+          variants: [{ name: 'blue', weight: 1, order: 0, value: () => 1 }],
+        },
+      ],
+    } satisfies FeatureConfig;
+
+    expect(codesOf(config)).toEqual(['unknown-member']);
+  });
+
+  it('reports a variant value nested past the stack a clone of it needs', () => {
+    const config = JSON.parse(DEEP) as FeatureConfig;
+
+    expect(codesOf(config)).toEqual(['unknown-member']);
+  });
+
+  it('reports the digest it cannot take of a document nested that deep', () => {
+    const config = JSON.parse(DEEP) as FeatureConfig;
+
+    expect(codesOf({ ...config, digest: '0'.repeat(32) })).toEqual([
+      'unknown-member',
+    ]);
   });
 
   it('names the member no holder can read', () => {
