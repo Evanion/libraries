@@ -4,19 +4,19 @@
 
 Stop performing database lookups for IDs that cannot exist. Whether it's an order number, a gift card, or a tracking ID, `@evanion/luhn` lets you add a check character to your identifiers, allowing you to reject typos instantly and locally.
 
-## The Problem: The "Ghost Lookup" Bottleneck
+## A Mistyped Identifier Still Costs a Query
 
 When a user types an ID into a form, the standard approach is to send that ID to the server and query the database. But what happens when the user makes a simple typo?
 
 1. **Wasted Resources**: Your database spends CPU and I/O searching for a record that cannot possibly exist.
 2. **Poor Feedback**: The user gets a generic "Not Found" error, which doesn't tell them _why_ the ID is invalid—only that it isn't in the system.
-3. **Infrastructure Stress**: At scale, mistyped IDs add a "ghost load" to your primary data store.
+3. **Database Load**: At scale, every mistyped ID is one more query that finds nothing.
 
-## The Solution: Check-Character Validation
+## A Check Character Refuses the Typo
 
 By adding a single check character to the end of your identifier, you turn the ID into a self-validating string. Using a generalized Luhn algorithm, `@evanion/luhn` verifies the integrity of an identifier in memory, without a network call or a database query.
 
-### Core Concept: The Local Gate
+### Issue and Check an Order Code
 
 <!-- #region round-trip -->
 
@@ -60,11 +60,10 @@ A check character catches typing mistakes and nothing else. A random string pass
 
 ## Key Features
 
-- 🌍 **Alphabet Agnostic**: Works over any even-sized alphabet you choose—numbers, letters, or custom symbols.
-- 🛡️ **Typo-Resistant**: Detects every single-character substitution and every adjacent swap except one: the dictionary's first and last characters.
-- ⚡ **Zero DB Overhead**: Reject mistyped input at the edge or in the middleware, before it ever reaches your data layer.
-- ⚙️ **Customizable Moduli**: Support for standard Mod-10 (Credit Cards) or custom Mod-N alphabets.
-- 🪶 **Zero Dependencies**: ESM-only, for Node 20 or newer and any browser.
+- **Any Even-Sized Alphabet**: Plain Luhn mod-10 over digits, as on payment cards, or mod-N over letters or custom symbols.
+- **Typo-Resistant**: Detects every single-character substitution and every adjacent swap except one: the dictionary's first and last characters.
+- **Local Check**: Refuses a mistyped code in memory, before your code sends the query. A code that passes still needs that query.
+- **Zero Dependencies**: ESM-only, for Node 20 or newer and any browser.
 
 ## Installation
 
@@ -349,7 +348,7 @@ refused?.offending.slice(0, 3); // -> ['Aa', 'Bb', 'Cc']
 
 ## Standards and Modulo Bias
 
-### Mod-10: The Industry Standard
+### Mod-10 and Its Standards
 
 With `dictionary: '0123456789'`, `@evanion/luhn` is plain Luhn mod-10 and matches the published vectors:
 
@@ -368,7 +367,7 @@ digits.generate('20260042').checksum; // -> '5'
 
 Luhn's patent [US 2,950,048](https://patents.google.com/patent/US2950048A/en) defines mod-10, and ISO/IEC 7812-1 Annex B specifies it for issuer identification numbers, restated in 3GPP TS 23.003 Annex B.2 and in the [CMS NPI check-digit specification](https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf).
 
-### Mod-N: No Formal Standard
+### Mod-N Has No Formal Standard
 
 No RFC, ISO, ITU or ANSI document defines the generalisation to an arbitrary alphabet. The `floor(a / n) + (a % n)` formula everyone uses traces to [Wikipedia revision 74161899](https://en.wikipedia.org/w/index.php?title=Luhn_mod_N_algorithm&oldid=74161899), dated 2006-09-06 and unsourced. With any `n` other than 10, this library implements that common generalisation and claims nothing more.
 
@@ -474,7 +473,7 @@ The documentation site covers each topic above in depth, including:
 
 For the full API reference and worked examples, visit our documentation site:
 
-👉 **[docs.evanion.com/luhn](https://docs.evanion.com/luhn)**
+[docs.evanion.com/luhn](https://docs.evanion.com/luhn)
 
 ## License
 
