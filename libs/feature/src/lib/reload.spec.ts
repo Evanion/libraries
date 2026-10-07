@@ -1125,6 +1125,26 @@ describe('reload, the diff it reports', () => {
     expect(result.ok && result.changed).toEqual(['cta']);
   });
 
+  it('names nothing when a variant value holds itself on both sides', () => {
+    const installed: Record<string, unknown> = { label: 'Buy' };
+    installed['self'] = installed;
+    const features = createFeatures([valued(installed)]);
+
+    const candidate: Record<string, unknown> = { label: 'Buy' };
+    candidate['self'] = candidate;
+    const result = features.reload({
+      features: [valued(candidate)],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // `structuredClone` carries the cycle into the store and into the
+    // candidate, so the walk reaches the self edge on both sides with nothing
+    // on the labels to stop it first. The pair map is what terminates: an
+    // object the walk is already inside is equal exactly when its counterpart
+    // is the object it was paired with. Without it this recurses until the
+    // stack goes, out of a poller's `reload`.
+    expect(result.ok && result.changed).toEqual([]);
+  });
+
   it('names nothing when a variant value holds one Map twice', () => {
     const entries: readonly [string, number][] = [['gold', 1]];
     const features = createFeatures([valued(new Map(entries))]);
