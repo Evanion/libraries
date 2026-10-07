@@ -32,6 +32,8 @@ node_modules
 # <project>/test-output/vitest/coverage, so the anchored /coverage above does
 # not catch them.
 test-output
+# Vitest's own artifacts: attachments, blob and reporter output.
+.vitest
 /libpeerconnection.log
 npm-debug.log
 yarn-error.log
