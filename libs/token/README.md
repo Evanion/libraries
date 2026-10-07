@@ -1,6 +1,6 @@
 # @evanion/token
 
-**Human-friendly tokens with built-in error detection.**
+**Human-friendly codes with built-in error detection.**
 
 Stop wasting database resources on mistyped codes. Whether it's a gift card, a pickup code, or a support ticket, a single typo should be caught instantly, before your application ever hits the database.
 
@@ -13,7 +13,7 @@ Most developers generate random strings and validate them by querying the databa
 
 ## Check Characters Refuse a Typo Locally
 
-`@evanion/token` generates tokens with an integrated check character, computed by `@evanion/luhn` with the Luhn algorithm. This allows you to validate a code's structural integrity locally. If a user mistypes a single character, the token is rejected instantly, without a single database query.
+`@evanion/token` generates codes with an integrated check character, computed by `@evanion/luhn` with the Luhn algorithm. This allows you to validate a code's structural integrity locally. If a user mistypes a single character, `validate` rejects the code instantly, without a single database query.
 
 <!-- #region at-a-glance -->
 
@@ -36,7 +36,7 @@ token.validate('a4kp-9mx8'); // -> { valid: false, reason: 'check-failed' }
 - 🛡️ **Instant Validation**: Catch every single-character substitution and almost every adjacent swap before it hits your backend.
 - 🗣️ **Human-Optimized**: Uses a "confusable-free" alphabet that removes `i`, `l`, `o`, and `w` to prevent reading and dictation errors.
 - 📏 **Customizable Shapes**: Control length, chunk size (e.g., `XXXX-XXXX`), and separators to match your brand's needs.
-- 🔐 **CSPRNG Powered**: Uses `crypto.getRandomValues` for cryptographically secure token generation.
+- 🔐 **CSPRNG Powered**: Uses `crypto.getRandomValues` for cryptographically secure code generation.
 - 🪶 **Lightweight**: ESM-only, one dependency (`@evanion/luhn`), and runs on Node 20 or newer and in any browser with no polyfill.
 
 ## Installation
@@ -135,7 +135,7 @@ pickup.value.endsWith(pickup.check); // -> true
 
 <!-- #endregion generate -->
 
-`value` is the code as a person sees it, such as `ORD-a4kp-9mxa`. `body` is what the check character was computed over, unchunked: store and index on it.
+`value` is the printed code, prefix included, such as `ORD-a4kp-9mxa`. `body` is what the check character was computed over, unchunked: store and index on it.
 
 A code that `generate` minted validates back to the same `body`, and a code with one character retyped does not:
 

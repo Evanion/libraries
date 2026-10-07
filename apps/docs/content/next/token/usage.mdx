@@ -1,6 +1,6 @@
 # Generating and validating
 
-To issue a pickup code as `ORD-a4kp-9mxa` and redeem it regardless of how a customer types it, you combine `generate` with a custom prefix and use `validate` to screen the input.
+To print a pickup code as `ORD-a4kp-9mxa` and redeem it regardless of how a customer types it, you combine `generate` with a custom prefix and use `validate` to screen the input.
 
 <PageSheet
   difficulty={2}
@@ -18,7 +18,7 @@ When you pass a `prefix` to the `@evanion/token` `generate` method, it returns t
 
 ```
 
-- **`value`**: The full code as printed (`ORD-a4kp-9mxa`), 13 characters in all.
+- **`value`**: The printed code, prefix included (`ORD-a4kp-9mxa`), 13 characters in all.
 - **`body`**: The seven random characters used as the database key.
 - **`check`**: The final check character, the last character of `value`.
 - **`prefix`**: The prefix you provided.
