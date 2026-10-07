@@ -37,7 +37,7 @@ pnpm add @evanion/token
 
 `@evanion/token` automatically installs `@evanion/luhn`, which handles the check-character calculations.
 
-## Configure your token instance
+## Configure Your Token Instance
 
 The first step is to create an `@evanion/token` instance with `createToken`. `createToken` checks the options once and freezes the instance, so every code it mints has the same length and dictionary. Define it at module scope, so that check runs at start-up.
 
@@ -49,7 +49,7 @@ The `generate()` method returns the human-readable code as `value`:
 
 If you call `createToken()` without options, it uses the defaults: a length of 8 (including the check character), split into chunks of four by a hyphen. This results in a `value` that is 9 characters long (e.g., `a4kp-9mxa`).
 
-## Implement the checkout and pickup flow
+## Implement the Checkout and Pickup Flow
 
 Issue an `@evanion/token` code at checkout and validate it at the counter.
 
@@ -68,8 +68,6 @@ The code `generate` minted finds `order-2026-0042`. `a4kp-9mxa` is well formed, 
 
 In this example, `validate` acts as a gate. It refuses a misheard code before your system performs a database lookup for a code `generate` could never have minted, so you can tell the customer their code is mistyped rather than a bare "not found."
 
-## Adding a prefix
+## Print a Prefix on the Pickup Code
 
-Your counter now tells a misheard `@evanion/token` code from one the shop never issued. To make your codes more recognizable, you can add a prefix like `ORD-`, which helps users and staff identify the code's purpose at a glance.
-
-You can mint prefixed codes by passing a `prefix` option to `generate`. [Generating and validating](../usage) mints one and redeems it however the customer types it.
+Your counter now tells a misheard `@evanion/token` code from one the shop never issued. A prefix such as `ORD-` tells customers and staff what a code is for at a glance, and `generate` takes it as a `prefix` option. [Generating and validating](../usage) mints a prefixed code and redeems it however the customer types it.
