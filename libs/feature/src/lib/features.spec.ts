@@ -3054,8 +3054,8 @@ describe('the definitions a document carries', () => {
         variantBy: 'targetingKey',
         variantSeed: 'cta',
         variants: [
-          { name: 'control', weight: 50 },
-          { name: 'blue', weight: 50 },
+          { name: 'control', weight: 50, order: 1 },
+          { name: 'blue', weight: 50, order: 2 },
         ],
       },
     ];
@@ -3141,7 +3141,9 @@ describe('the documents createFeatures refuses', () => {
           {
             key: 'cta',
             enabled: true,
-            variants: [{ name: 'blue', weight: 1 }],
+            variantBy: 'targetingKey',
+            variantSeed: 'cta',
+            variants: [{ name: 'blue', weight: 1, order: 1 }],
             rules: [{ variant: 'green' }],
           },
         ],
@@ -3215,6 +3217,110 @@ describe('the documents createFeatures refuses', () => {
     } as FeatureConfig);
 
     expect(features.envelope.schemaVersion).toBe('s1');
+  });
+
+  /**
+   * § 3 of `docs/specs/2026-09-23-feature-config-distribution.md` has every
+   * member the assignment reads travel whole or the document be refused, and
+   * `arrayIsOrder` exempts the literal an author wrote. A document that took
+   * that exemption would bucket on an array order a store may permute, on
+   * `DEFAULT_ROLLOUT_FIELD` and on the seed `variantSeedOf` composes, while the
+   * publisher bucketed on what it wrote and nothing reported the difference.
+   */
+  it('refuses the three bucketing members a document omits', () => {
+    const omitted = [
+      {
+        key: 'cta',
+        enabled: true,
+        variantBy: 'targetingKey',
+        variantSeed: 'cta',
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+      {
+        key: 'cta',
+        enabled: true,
+        variantSeed: 'cta',
+        variants: [{ name: 'control', weight: 50, order: 1 }],
+      },
+      {
+        key: 'cta',
+        enabled: true,
+        variantBy: 'targetingKey',
+        variants: [{ name: 'control', weight: 50, order: 1 }],
+      },
+    ];
+
+    for (const definition of omitted) {
+      expect(() =>
+        createFeatures({
+          version: 1,
+          features: [definition],
+        } as unknown as FeatureConfig),
+      ).toThrow(FeatureConfigError);
+    }
+  });
+
+  it('accepts off a bare array the bucketing members it refuses off a document', () => {
+    const rows = [
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ];
+
+    expect(createFeatures(rows).variantOf('cta', { targetingKey: 'u-1' })).toBe(
+      createFeatures(rows).variantOf('cta', { targetingKey: 'u-1' }),
+    );
+    expect(() =>
+      createFeatures({ version: 1, features: rows } as FeatureConfig),
+    ).toThrow(/order/);
+  });
+
+  it('refuses a document whose window names no instant', () => {
+    expect(() =>
+      createFeatures({
+        version: 1,
+        features: [
+          {
+            key: 'checkout',
+            enabled: true,
+            rules: [{ when: [{ field: 'now', op: 'after', value: 'nope' }] }],
+          },
+        ],
+      } as unknown as FeatureConfig),
+    ).toThrow(FeatureConfigError);
+  });
+
+  it('refuses a document whose rule reads a field the schema does not declare', () => {
+    expect(() =>
+      createFeatures({
+        schemaVersion: 's1',
+        schema: { context: { fields: { plan: 'string' } } },
+        features: [
+          {
+            key: 'beta',
+            enabled: true,
+            rules: [{ when: [{ field: 'tier', op: 'eq', value: 'pro' }] }],
+          },
+        ],
+      } as unknown as FeatureConfig),
+    ).toThrow(/tier/);
+  });
+
+  it('refuses a bucketing member a document states on a definition', () => {
+    expect(() =>
+      createFeatures({
+        version: 1,
+        features: [{ key: 'a', enabled: true, hashVersion: 2 }],
+      } as unknown as FeatureConfig),
+    ).toThrow(/hashVersion/);
   });
 
   /**

@@ -693,9 +693,19 @@ export function createFeatures(
     : { features: definitions };
   // One checker answers both paths. `validateConfig` reports what this throws,
   // and the graph is checked before the variants, so a document carrying a
-  // duplicate key and an unusable weight names the key. These definitions are
-  // the literal an author wrote, so the array is the variant order and a variant
-  // declaring none takes its index.
+  // duplicate key and an unusable weight names the key.
+  //
+  // `arrayIsOrder` follows the form the caller passed, for the reason the
+  // `VariantCheckOptions` docblock gives: the flag exempts the literal an
+  // author wrote, where the array is the variant order, a variant declaring no
+  // `order` takes its index, and the author who omitted `variantBy` or
+  // `variantSeed` is the party the default answers. A document a poller fetched
+  // is a served document, and § 3 of
+  // `docs/specs/2026-09-23-feature-config-distribution.md` has every member the
+  // assignment reads travel whole or the document be refused. So a document
+  // is read here the way `parseFeatureConfig`, `validateConfig` and `reload`
+  // read the same bytes, and two holders of one document agree on whether the
+  // configuration exists.
   //
   // It runs before the walk below reads `features`, because a document is
   // untrusted JSON and its `features` member holds whatever a control plane
@@ -703,7 +713,9 @@ export function createFeatures(
   // `features` is no array, and `errors.ts` has every refusal out of this
   // function be a typed `FeatureConfigError`, which a `.map` over such a member
   // would raise a `TypeError` past.
-  const refused = collectIssues(document, { arrayIsOrder: true });
+  const refused = collectIssues(document, {
+    arrayIsOrder: !isDocument(definitions),
+  });
   if (refused[0]) throw refused[0].error;
   const supplied = document.features;
   // Cloned so the store cannot be edited behind its own back, then frozen so an
@@ -713,8 +725,9 @@ export function createFeatures(
   let config: readonly FeatureDefinition<FeatureKey>[] = Object.freeze(
     supplied.map((definition) => deepFreeze(structuredClone(definition))),
   );
-  // The window contract is read here for the reason `whenIssues` gives: that
-  // walk answers a served document, and these definitions are a literal.
+  // The window contract for a literal is read here. `whenIssues` inside the
+  // checker answers a served document and stays behind the `arrayIsOrder` gate,
+  // so a bare array reaches no other reader of the contract.
   for (const definition of config) {
     validateConditions(definition);
   }
