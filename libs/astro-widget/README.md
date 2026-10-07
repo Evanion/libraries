@@ -24,7 +24,7 @@ The item shape, the registry and the validator come from [`@evanion/widget`](htt
 
 ### Core Concept: The Static Region
 
-A page writes `<Widgets items={items} registry={registry} />`. Every example in this README is a test that renders through Astro's container API, which renders a component outside a request, so the HTML each one claims is the HTML Astro wrote. The widgets it renders are ordinary `.astro` files under [`examples/src`](https://github.com/Evanion/libraries/tree/main/libs/astro-widget/examples/src), laid out as an Astro project's `src`.
+A page writes `<Widgets items={items} registry={registry} />`. Every rendering example in this README is a test that renders through Astro's container API, which renders a component outside a request, so the HTML each one claims is the HTML Astro wrote. The widgets it renders are ordinary `.astro` files under [`examples/src`](https://github.com/Evanion/libraries/tree/main/libs/astro-widget/examples/src), laid out as an Astro project's `src`.
 
 <!-- #region overview -->
 
@@ -57,7 +57,7 @@ html; // -> '<header><h1>Brass: Birmingham</h1><p>2-4 players</p></header><p cla
 
 - 🚀 **Instant Load**: No client-side JS is required to figure out which component to render.
 - 📉 **Tiny Bundles**: Layout logic stays on the server, reducing the amount of code shipped to the user.
-- 🛡️ **Safe-by-Default**: `Widgets.astro` skips an item it cannot render, so a bad CMS save cannot break a render. You run `validateItems` as a "loud gate" before `astro build` to catch the same save before it reaches production.
+- 🛡️ **Safe-by-Default**: `Widgets.astro` skips an item whose `type` the registry does not hold, so a stale type in a CMS save cannot break a render. You run `validateItems` as a "loud gate" before `astro build` to catch the same save before it reaches production.
 - 🧩 **Universal Data**: Uses the same item array as `@evanion/react-widget`, allowing you to share layouts between a static Astro site and a dynamic React app. One item array renders through either and produces the same widgets in the same order.
 
 ## Installation
