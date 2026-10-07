@@ -6,23 +6,33 @@ import type { FeatureOptions } from './observe.js';
 import type { FeatureKey, VariantInfo } from './types.js';
 
 /**
- * A raise out of a construction path, as the issue that reports it.
+ * A raise out of a construction path the checker cannot ask about, as the issue
+ * that reports it.
  *
- * `structuredClone` at `features.ts:393` and `canonical` at `canonical.ts:128`
- * both recurse through a value a document carries. A value nested deeper than
- * the stack holds raises `RangeError: Maximum call stack size exceeded` out of
- * either, and a value `structuredClone` has no serialization for raises a
- * `DOMException`. Neither value sits at a member the checker reads, so no walk
- * names it and the raise leaves the call that entered it.
+ * The checker asks about the copy. `cloneIssues` in `validate.ts` runs
+ * `structuredClone` over every definition, so a value nested deeper than the
+ * stack holds and a value `structuredClone` has no serialization for are both
+ * issues `collectIssues` reports, and the refusal below never sees them. § 7 of
+ * `docs/specs/2026-09-23-feature-config-distribution.md` and Decision 11 put
+ * both entry points behind that one checker, and a refusal this function
+ * manufactured would be one `validateConfig` never reported about the same
+ * document.
  *
- * `unknown-member` is the code. § 3 of
- * `docs/specs/2026-09-23-feature-config-distribution.md` gives it to a holder
- * that meets a member it does not understand: it refuses the whole document,
- * drops nothing and evaluates nothing. The message carries the raise's own
- * text, which is the only part of this that says anything about the value.
+ * What is left is `deepFreeze` at `features.ts:225`, which the checker cannot
+ * run: it is private to `features.ts` and `collectIssues` is what `features.ts`
+ * imports. `Object.freeze` raises a `TypeError` over a typed array holding
+ * elements, so a definition carrying one at a variant value refuses here and
+ * passes the checker. No document a transport carried holds one, because JSON
+ * has no text for a typed array, so the gap is a caller handing this entry
+ * point a literal.
+ *
+ * `unknown-member` is the code. § 3 gives it to a holder that meets a member it
+ * does not understand: it refuses the whole document, drops nothing and
+ * evaluates nothing. The message carries the raise's own text, which is the
+ * only part of this that says anything about the value.
  *
  * The catch narrows to no constructor, for the reason `nameable` at
- * `validate.ts:1065` narrows to none either. This entry point answers a
+ * `validate.ts:1086` narrows to none either. This entry point answers a
  * document a poller fetched, every raise answers it alike, and a catch keyed on
  * one class hands the next value class to a caller that was promised a report.
  */
@@ -65,9 +75,10 @@ export function parseFeatureConfig<
 ):
   | { ok: true; features: Features<S, boolean> }
   | { ok: false; issues: readonly ConfigIssue[] } {
-  // The checker reads the members it declares and enters no value below them,
-  // and `digestIssues` hands the whole document to `configDigest`, so a value
-  // a recursive walk cannot finish raises out of this call too.
+  // `digestIssues` hands the whole document to `configDigest` and catches what
+  // the canonicaliser raises, and `cloneIssues` catches what the copy raises,
+  // so each walk that enters a value reports its own raise. This catch answers
+  // a raise out of a walk that declared none.
   let refused: ReturnType<typeof collectIssues>;
   try {
     refused = collectIssues(config);
@@ -80,9 +91,9 @@ export function parseFeatureConfig<
   }
 
   // The same construction path the literal entry point takes, which is what
-  // keeps one store shape in the package. It clones every definition at
-  // `features.ts:393` before its own checker runs, so it enters the values the
-  // checker above declared nothing about.
+  // keeps one store shape in the package. It runs the checker above before it
+  // copies anything, so every issue it reports is one the checker reported and
+  // the catch answers the freeze alone.
   let features: Features<S, boolean>;
   try {
     features = createFeatures<S>(
