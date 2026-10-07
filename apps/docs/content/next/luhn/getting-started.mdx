@@ -1,7 +1,6 @@
 # Getting started
 
-By the end of this page your code prints Baize's order code with its check
-character, and `Luhn.validate` refuses the code with the `l` misread as a `1`.
+By the end of this page, your code prints an order code with its check character, and `Luhn.validate` refuses the code when its `l` is misread as a `1`.
 
 <PageSheet
   difficulty={1}
@@ -11,17 +10,15 @@ character, and `Luhn.validate` refuses the code with the `l` misread as a `1`.
   unlocks={[['Generating and validating', '../usage']]}
 />
 
-## Before you install luhn
+## Prerequisites
 
-- Node 20 or newer, or any browser.
-- An ES module (ESM) project, or a CommonJS project on Node 20.19, 22.12 or
-  newer, whose `require()` loads ES modules. An older `require()` fails with
-  `ERR_REQUIRE_ESM`.
-- No peer dependencies and no runtime dependencies.
+- **Node 20 or newer**, or any modern browser.
+- **An ES module (ESM) project**. If you are using CommonJS, you will need Node 20.19, 22.12 or newer to load ES modules via `require()`. An older `require()` fails with `ERR_REQUIRE_ESM`.
+- **Dependencies**: None. The package has no peer or runtime dependencies.
 
 ## Install luhn
 
-Pick the line for your package manager.
+Run the command for your preferred package manager:
 
 ```bash
 npm install @evanion/luhn
@@ -35,35 +32,24 @@ yarn add @evanion/luhn
 pnpm add @evanion/luhn
 ```
 
-## `Luhn` needs no configuration
+## Using the Default Instance
 
-`Luhn` is `@evanion/luhn`'s default [instance](../#the-luhn-vocabulary), over
-the 36-character default dictionary. `import { Luhn } from '@evanion/luhn'` is
-the whole setup.
+The most common use case for `@evanion/luhn` is the default 36-character dictionary (0-9, a-z). For this, you don't need any configuration: `import { Luhn } from '@evanion/luhn'` gives you the default instance, and the next section runs it.
 
-## Print an order code with a check character
+## Print an Order Code with a Check Character
 
-`@evanion/luhn` returns a check character and leaves the code to you. Baize's
-**order number** is `order-2026-0042`, the id its database already holds. The
-**order code** is the order number with the check character appended, which is
-what the receipt prints and what a customer reads back. `orderCode` builds one:
+`@evanion/luhn` computes the check character but leaves the final string formatting to you.
+
+Imagine your database holds an **order number** like `order-2026-0042`. You want to print an **order code** on the receipt—the order number plus a check character—so that it can be validated locally.
 
 ```ts twoslash file=libs/luhn/README.md region=round-trip
 
 ```
 
-`Luhn.generate` returns the check character as `checksum`, and `orderCode`
-decides that a hyphen goes before it. `validate` accepts the printed code
-without the hyphen counting, because it reads the
-[phrase](../#the-luhn-vocabulary), which drops it.
+In this example, `Luhn.generate` returns the check character as `checksum`, and `orderCode` appends it after a hyphen for readability. When a customer reads the code back, `Luhn.validate` ignores the hyphen and other non-dictionary characters (reading only the [phrase](../#how-it-works-the-luhn-sum)), allowing it to verify the code regardless of how it was formatted.
 
-A customer reading `order-2026-0042-l` off the receipt can take the last
-character for a `1`. `validate` refuses `order-2026-0042-1`, so the shop's till
-asks again before the database is asked about an order that does not match.
+If a customer reads `order-2026-0042-l` as `order-2026-0042-1`, `validate` immediately returns `isValid: false`. Your system can then ask the customer to repeat the code before ever querying the database for an order that doesn't exist.
 
-## Read what luhn's calls return
+## Read the Full Results
 
-Your code now prints order codes and refuses a misread one.
-[Generating and validating](../usage) shows the whole result each call returns,
-and uses `validate`'s `phrase` to find the order a code belongs to, however the
-customer typed it.
+Your code now prints `@evanion/luhn` order codes and refuses misread ones. [Generating and validating](../usage) explores the full result objects returned by the API and shows how to use the `phrase` to extract the original order ID from a customer's input.
