@@ -72,7 +72,7 @@ The test below renders an `answer-wall` item and then the price through the Gett
 
 ## The "Double-Validation" Gap
 
-A common point of confusion is when an item passes astro-widget's `validateItems` check but still renders incorrectly. This usually happens with nested registries.
+A `listing-header` saved inside a `game-grid` passes `validateItems` and renders nothing, because `GameGrid` renders its children through `cardRegistry`.
 
 `GameGrid`, the grid [Page data, wrappers and nested items](../layout#rendering-nested-items) built, renders only `game-card` children. A build gate that checks the page with one `known` list passes a `listing-header` inside the grid, and `GameGrid`'s own `cardRegistry` then skips it. Below, the first call checks the page with one `known` and passes it, and the second checks the children of every `game-grid` against the names in the grid's registry:
 

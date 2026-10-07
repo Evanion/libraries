@@ -51,7 +51,7 @@ npx tsx scripts/check-content.ts && astro build
 
 Since an `.astro` module's type carries no props for TypeScript to infer, astro-widget's `validateItems` is the only check that an item carries the data it needs to render.
 
-By passing a `required` map, you can specify which props must be present and not blank (where "blank" means `undefined`, `null`, or a string of only whitespace). A CMS text field an editor opened and left empty arrives as such a string:
+A `required` map names the props that must be present and not blank (where "blank" means `undefined`, `null`, or a string of only whitespace). A CMS text field an editor opened and left empty arrives as such a string:
 
 ```ts twoslash file=libs/astro-widget/README.md region=required-fields
 
@@ -61,7 +61,7 @@ By passing a `required` map, you can specify which props must be present and not
 
 ## Registry vs. List of Names
 
-astro-widget's `validateItems` can accept either a full component registry or a plain list of type names as the `known` argument. From a registry it reads only the keys, so both report the same problems. The example below imports `items` and `registry` from the package's copy of the [Getting started](../getting-started#open-the-listing-page) files under `examples/src`.
+astro-widget's `validateItems` accepts either a full component registry or a plain list of type names as the `known` argument. From a registry it reads only the keys, so both report the same problems. The example below imports `items` and `registry` from the package's copy of the [Getting started](../getting-started#open-the-listing-page) files under `examples/src`.
 
 - **List of Names**: Ideal for Node scripts (like a CI build) where you cannot import `.astro` components.
 - **Registry**: Ideal for code that Astro or Vite compiles (like a page's frontmatter), as it ensures the validation and the rendering use a single source of truth for supported types.
