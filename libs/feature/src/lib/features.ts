@@ -6,7 +6,8 @@ import { bucketingStated } from './variants.js';
 import type { FeatureGraph } from './graph.js';
 import { collectIssues } from './validate.js';
 import type { Checkable } from './validate.js';
-import { unreadable } from './unreadable.js';
+import { unreadable, unreadableText } from './unreadable.js';
+import { FeatureConfigError } from './errors.js';
 import { createEmitter } from './observe.js';
 import type {
   FeatureEvent,
@@ -558,7 +559,8 @@ function changedKeys(
  * through the `envelope` getter that carries `version` with it.
  *
  * `structuredClone` raises `DataCloneError` for a leaf it cannot carry, which
- * `reload` answers with a result and the construction path throws.
+ * `reload` answers with an `unknown-member` issue and the construction path
+ * rethrows as a `FeatureConfigError` carrying the same text.
  */
 function envelopeOf(document: FeatureConfig<FeatureKey>): ConfigEnvelope {
   const members: Record<string, unknown> = { ...document };
@@ -635,8 +637,9 @@ function isDocument(
  * @throws {DuplicateVariantError} when two of a feature's variants share a name.
  * @throws {UnknownVariantError} when a rule pins a variant its feature does not declare.
  * @throws {FeatureConfigError} when a variant's weight or order is unusable, the
- * variants array is empty, the weights have no usable total, or a window
- * condition names an instant string that hosts read differently.
+ * variants array is empty, the weights have no usable total, a window
+ * condition names an instant string that hosts read differently, or an
+ * envelope member holds a value no copy of the document carries.
  *
  * @example
  * ```ts
@@ -774,10 +777,23 @@ export function createFeatures(
    * The envelope the store last installed. A bare array carries none, and a
    * document installs its own members, so `version` and `envelope` answer the
    * document this store was built from.
+   *
+   * Assigned before the accessors below close over it, and reassigned by
+   * `reload` alone.
    */
-  let installed: ConfigEnvelope = isDocument(definitions)
-    ? envelopeOf(definitions)
-    : {};
+  let installed: ConfigEnvelope;
+  try {
+    installed = isDocument(definitions) ? envelopeOf(definitions) : {};
+  } catch (raise) {
+    // `envelopeOf` copies members the checker declares nothing about:
+    // `memberIssues` names the six top-level members and `schemaIssues` fences
+    // schema keywords, so a function at a fenced keyword and a symbol at
+    // `maxStale` both reach the copy. `errors.ts` has every refusal out of this
+    // function be a `FeatureConfigError`, and a caller catching one to keep the
+    // document it already holds catches no `DOMException`. `reload` answers the
+    // same document with an `unknown-member` issue carrying this same text.
+    throw new FeatureConfigError(unreadableText(raise));
+  }
 
   // The store-level lookup, which the public `definition` member answers with.
   // A caller asking for one definition wants the one the store holds now, so
