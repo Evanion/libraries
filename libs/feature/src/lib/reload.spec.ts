@@ -1158,6 +1158,7 @@ describe('reload, the diff it reports', () => {
     // the pair, and a value this diff cannot compare belongs in `changed`.
     expect(result.ok && result.changed).toEqual(['cta']);
   });
+
   it('names nothing when a variant value holds the same instant twice', () => {
     const features = createFeatures([valued(new Date(0))]);
 
