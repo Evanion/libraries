@@ -27,7 +27,7 @@ This leads to:
 
 ## Solution: Namespace-Specific Classes
 
-The safest way to handle different identifier types is to declare a separate namespace class for each one. This allows you to treat namespaces as first-class types in your application.
+The safest way to handle different identifier types is to declare a separate namespace class for each one. This gives each namespace its own class in your application.
 
 By creating `GameURN` and `OrderURN`, you can use the `belongsToNamespace` helper to filter a mixed list of identifiers instantly:
 
@@ -47,7 +47,7 @@ What happens when you use a specific namespace class—like `GameURN`—to parse
 
 ```
 
-Because the foreign NID (e.g., `order:`) remains part of the `nss`, it will never accidentally match a game slug in your database, effectively isolating your namespaces.
+The foreign NID (e.g., `order:`) remains part of the `nss`, and `nid` reports `order`. An NSS may itself contain a `:`, so check `nid`, or call `belongsToNamespace`, before you look up the `nss` as a game slug.
 
 ## Dynamic Namespaces with the Base URN Class
 

@@ -62,7 +62,7 @@ Every page in this section uses the following terms to describe the parts of a U
 To maintain technical rigor and prevent common bugs, `@evanion/urn` explicitly avoids four behaviors:
 
 - **No automatic normalization**: `parse` preserves the original case. Use `equals` for case-insensitive comparison.
-- **No implicit encoding**: `stringify` throws on literal spaces. You must use `encodeNss` explicitly to avoid creating invalid URNs.
+- **No implicit encoding**: `stringify` throws on literal spaces. You must use `encodeNss` explicitly before `stringify` will accept such an NSS.
 - **No deduplication**: If an ID already contains a `:`, it is preserved as part of the NSS to avoid losing data.
 - **No resolution**: The library names resources; it does not fetch them from a database.
 

@@ -32,7 +32,7 @@ Checking every input with a `try...catch` block is verbose and computationally e
 
 ```
 
-In this example, `gameOrNull` returns `null` for the space in `spirit island`, and for `hive`, which lacks both a scheme and a NID.
+In this example, `urnOrNull` returns `null` for the space in `spirit island`, and for `hive`, which lacks both a scheme and a NID. It returns the order URN, because `isValidFormat` checks the shape and not the namespace.
 
 ## Avoiding the "Unbound Static" Pitfall
 
@@ -63,7 +63,7 @@ Every `InvalidError` is also a `ValidationError`. An `InvalidError` carries deta
 | ------------- | ----------------------------------------------------------------------------------------------- |
 | `property`    | The failed part: `'URN'`, `'NID'`, `'NSS'`, `'R-COMPONENT'`, `'Q-COMPONENT'` or `'F-COMPONENT'` |
 | `value`       | The part as it was written                                                                      |
-| `invalidChar` | The first character outside the grammar (absent if the whole part is fundamentally broken)      |
+| `invalidChar` | The first character outside the grammar (`undefined` if the whole part is fundamentally broken) |
 | `reason`      | The rule broken when characters are valid (e.g., the NID is too short)                          |
 
 ## Minting Batches Safely
@@ -76,7 +76,7 @@ Since `stringify` throws an `InvalidError` on a part that breaks its grammar, yo
 
 ## URN Part Grammars
 
-To ensure strict RFC 8141 compliance, `@evanion/urn` validates each part against specific grammars:
+`@evanion/urn` validates each part against specific grammars: the NID and the NSS against RFC 8141, and the scheme against RFC 3986, so a scheme other than `urn` passes:
 
 - **Scheme**: A letter, followed by letters, digits, `+`, `-` and `.`.
 - **NID**: Letters, digits and interior hyphens. `stringify` requires 2-32 characters; `parse` accepts 1-32.

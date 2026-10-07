@@ -32,7 +32,7 @@ npm install @evanion/urn
 
 ## Define your namespace
 
-The core of the library is the **namespace class**. Instead of passing the namespace identifier (NID) as a string every time you call a function, you define a class that represents that namespace. This provides a clean, type-safe way to handle different kinds of resources.
+The core of the library is the **namespace class**. Instead of passing the namespace identifier (NID) as a string every time you call a function, you define a class that represents that namespace. This provides a clean way to handle different kinds of resources: `GameURN.stringify` needs no NID argument.
 
 For a game shop, we'll create a `GameURN` class that extends the base `URN` class and sets the `nid` to `'game'`. Save this as `game-urn.ts`:
 
@@ -59,4 +59,4 @@ On older versions of Node, use `npx tsx game-urn.ts`. You should see:
 
 You've now seen how to mint a URN and validate a slug. But real applications often deal with many different kinds of identifiers at once.
 
-In [URNs from several namespaces](../namespaces), we'll look at how the shop's `orders` service handles both game URNs and order URNs within a single list.
+In [URNs from several namespaces](../namespaces), we'll look at how to handle both game URNs and order URNs within a single list.
