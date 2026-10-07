@@ -9,6 +9,7 @@ import type {
   FrozenWhenObserved,
   UnobservedOptions,
 } from './observe.js';
+import type { ConfigEnvelope, FeatureConfig, ReloadResult } from './config.js';
 import type {
   Decision,
   Decisions,
@@ -51,6 +52,10 @@ export interface Features<
 > {
   /** Every key, in the order the definitions were supplied. */
   readonly keys: readonly (keyof S & FeatureKey)[];
+  /** The installed document's version, lifted for convenience. */
+  readonly version: string | number | undefined;
+  /** The envelope the store last installed, without its payload. */
+  readonly envelope: ConfigEnvelope;
   /** The stored intent, deeply frozen, in the order it was supplied. */
   readonly config: readonly FeatureDefinition<keyof S & FeatureKey>[];
   definition(
@@ -100,12 +105,27 @@ export interface Features<
    * Dependencies cascade one way only, so there is no upward blocking -- but the
    * information that blocking existed to provide is kept: a UI can confirm
    * before applying, a script can ignore it.
+   *
+   * A reload discards this write. The store's truth is the configuration
+   * source, and a toggle is a local write against it. An operator who wants a
+   * durable toggle writes the row and lets the poller bring it back.
    */
   toggle(
     key: keyof S & FeatureKey,
     enabled: boolean,
     context?: EvaluationContext,
   ): FrozenWhenObserved<Frozen, ToggleResult<keyof S & FeatureKey>>;
+  /**
+   * Validates a candidate whole and installs it, or keeps the current document
+   * and reports why.
+   *
+   * The refusal reports every issue the checker found and leaves every stored
+   * reference where it was, so a store that refuses a candidate keeps
+   * answering from the document it holds. The success names the keys whose
+   * stored intent differs, and it names no key whose resolved answer moved
+   * because the clock moved.
+   */
+  reload(config: FeatureConfig<keyof S & FeatureKey>): ReloadResult;
 }
 
 /**
@@ -246,6 +266,95 @@ function deepFreeze<T>(value: T, walked = new WeakSet<object>()): T {
   }
   for (const nested of Object.values(value)) deepFreeze(nested, walked);
   return Object.freeze(value);
+}
+
+/**
+ * Whether two stored definitions state the same intent.
+ *
+ * `canonical` would answer this in one line and recurses without a guard, and a
+ * variant value that holds itself reaches this walk, because `structuredClone`
+ * carries a cycle through. The pair map is what terminates: an object the walk
+ * is already inside is equal exactly when its counterpart is the object it was
+ * paired with.
+ *
+ * The map is scoped to the path, and the entry drops once the subtree compares
+ * equal. A definition holding one object at two keys would otherwise pair it
+ * with whatever sits at the first key and then refuse the structurally equal
+ * object at the second, and `changed` would name a key nothing changed about.
+ * Reference sharing is not part of the intent.
+ *
+ * `undefined` properties are skipped, so an absent key and a key written as
+ * `undefined` state one intent, which is the rule `canonical.ts:21-22` states
+ * for the same reason.
+ */
+function sameIntent(
+  a: unknown,
+  b: unknown,
+  seen = new Map<object, unknown>(),
+): boolean {
+  if (a === b) return true;
+  if (a instanceof Date && b instanceof Date)
+    return a.getTime() === b.getTime();
+  if (a === null || b === null) return false;
+  if (typeof a !== 'object' || typeof b !== 'object') return false;
+
+  const paired = seen.get(a);
+  if (paired !== undefined) return paired === b;
+  seen.set(a, b);
+
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+
+  const own = (value: object): string[] =>
+    Object.keys(value).filter(
+      (key) => (value as Record<string, unknown>)[key] !== undefined,
+    );
+  const left = own(a);
+  const right = own(b);
+  if (left.length !== right.length) return false;
+
+  const equal = left.every(
+    (key) =>
+      Object.prototype.hasOwnProperty.call(b, key) &&
+      sameIntent(
+        (a as Record<string, unknown>)[key],
+        (b as Record<string, unknown>)[key],
+        seen,
+      ),
+  );
+  seen.delete(a);
+  return equal;
+}
+
+/**
+ * The keys whose stored intent differs between two documents, in the order the
+ * candidate declares them, with a key the candidate drops reported after them.
+ *
+ * It diffs intent. It never diffs a resolved value. Decision 5 of
+ * `docs/specs/2026-09-11-feature-toggles.md` says the store holds intent and
+ * resolution is computed on read and never written back, so a reload replaces
+ * intent and computes nothing. A feature whose window expired between two
+ * documents appears here only when the document changed.
+ */
+function changedKeys(
+  before: readonly FeatureDefinition<FeatureKey>[],
+  after: readonly FeatureDefinition<FeatureKey>[],
+): readonly FeatureKey[] {
+  const previous = new Map(
+    before.map((definition) => [definition.key, definition]),
+  );
+  const changed: FeatureKey[] = [];
+
+  for (const definition of after) {
+    const held = previous.get(definition.key);
+    if (held === undefined || !sameIntent(held, definition)) {
+      changed.push(definition.key);
+    }
+    previous.delete(definition.key);
+  }
+
+  for (const key of previous.keys()) changed.push(key);
+
+  return changed;
 }
 
 /**
@@ -404,17 +513,46 @@ export function createFeatures(
   for (const definition of config) {
     validateConditions(definition);
   }
-  const graph = buildGraph(config);
-  const index = new Map<FeatureKey, number>(config.map((d, i) => [d.key, i]));
-  const keys: readonly FeatureKey[] = Object.freeze(
+  let graph = buildGraph(config);
+  let index = new Map<FeatureKey, number>(config.map((d, i) => [d.key, i]));
+  let keys: readonly FeatureKey[] = Object.freeze(
     config.map((definition) => definition.key),
   );
+  /** The envelope the store last installed. A literal installs none. */
+  let installed: ConfigEnvelope = {};
 
+  // The store-level lookup, which the public `definition` member answers with.
+  // A caller asking for one definition wants the one the store holds now, so
+  // this reads the references and binds nothing.
   const definitionOf = (
     key: FeatureKey,
   ): FeatureDefinition<FeatureKey> | undefined => {
     const at = index.get(key);
     return at === undefined ? undefined : config[at];
+  };
+
+  /**
+   * The store's four references, read at one instant, with a lookup over them.
+   *
+   * `reload` and `toggle` assign those references, and a walk that read them
+   * through the closure would see an assignment that landed mid-walk.
+   * `resolveAll` evaluates the dependency order once and looks a definition up
+   * on every iteration, so a reload from a synchronous hook would put half a
+   * decision set on one document and half on another. An entry point calls
+   * this once and reads only what it holds, which keeps every decision in one
+   * answer computed from one document.
+   */
+  const boundView = () => {
+    const held = config;
+    const walk = graph;
+    const positions = index;
+    const definitionAt = (
+      key: FeatureKey,
+    ): FeatureDefinition<FeatureKey> | undefined => {
+      const position = positions.get(key);
+      return position === undefined ? undefined : held[position];
+    };
+    return { held, walk, positions, definitionAt };
   };
 
   const emit = createEmitter(options);
@@ -482,12 +620,17 @@ export function createFeatures(
   const resolveAll = (
     context: SettledContext,
   ): Record<FeatureKey, Decision<FeatureKey>> => {
+    // The first statement, and not a statement of `resolve`. `resolve` calls
+    // `withNow(context)` first, and `withNow` spreads the caller's context,
+    // which runs every own enumerable getter on it. A binding after that call
+    // would already be too late for a hook the caller hung on a context field.
+    const { walk, definitionAt } = boundView();
     const resolved = new Map<FeatureKey, Decision<FeatureKey>>();
 
-    // `graph.order`, not `keys`: see FeatureGraph.order for why the cascade
+    // `walk.order`, not `keys`: see FeatureGraph.order for why the cascade
     // needs it.
-    for (const key of graph.order) {
-      const definition = definitionOf(key);
+    for (const key of walk.order) {
+      const definition = definitionAt(key);
       if (!definition) continue;
       resolved.set(key, decide(definition, context, resolved));
     }
@@ -504,11 +647,13 @@ export function createFeatures(
     context?: EvaluationContext,
   ): Plan<Record<FeatureKey, VariantInfo>> => {
     const evaluationContext = withNow(context);
+    // Bound after `withNow`, which this needs the settled context from.
+    const { walk, definitionAt } = boundView();
     const plans = new Map<FeatureKey, PlanEntry<FeatureKey>>();
     const resolved = new Map<FeatureKey, Decision<FeatureKey>>();
 
-    for (const key of graph.order) {
-      const definition = definitionOf(key);
+    for (const key of walk.order) {
+      const definition = definitionAt(key);
       if (!definition) continue;
       const entry = planFeature(definition, evaluationContext, plans, resolved);
       plans.set(key, entry);
@@ -539,6 +684,11 @@ export function createFeatures(
     // artefact of the clock moving between the two evaluations. The refused
     // write reads its instant off the same context.
     const evaluationContext = withNow(context);
+    // Bound after `withNow`, which this needs the settled context from. The
+    // install below assigns the outer `config`, never `held`, so the store
+    // answers from the array this wrote and the `resolveAll` that runs after
+    // it takes a fresh binding and reads that same array.
+    const { held, walk, positions } = boundView();
 
     // Reports the write and answers the caller with the same object. An
     // auditor receives the refused write as well as the accepted one, so both
@@ -557,8 +707,8 @@ export function createFeatures(
       return answer;
     };
 
-    const at = index.get(key);
-    const current = at === undefined ? undefined : config[at];
+    const at = positions.get(key);
+    const current = at === undefined ? undefined : held[at];
     if (at === undefined || !current) {
       return reported({ ok: false, key, error: 'unknown-feature' });
     }
@@ -570,12 +720,12 @@ export function createFeatures(
     // still run.
     const before = resolveAll(evaluationContext);
 
-    const next = [...config];
+    const next = [...held];
     next[at] = deepFreeze({ ...current, enabled });
     config = Object.freeze(next);
 
     const after = resolveAll(evaluationContext);
-    const willDisable = graph
+    const willDisable = walk
       .dependants(key)
       .filter(
         (dependant) =>
@@ -586,8 +736,84 @@ export function createFeatures(
     return reported({ ok: true, key, enabled, willDisable });
   };
 
+  /**
+   * Validates a candidate whole and installs it, or keeps the current document
+   * and reports why.
+   *
+   * The order is what makes it atomic. It checks the candidate, clones and
+   * deep-freezes every definition the way construction does, builds the
+   * candidate graph, and only then assigns the references the store reads. A
+   * candidate that fails at any step leaves every reference where it was, and
+   * the failure path touches no state at all.
+   *
+   * `resolveAll` binds its view of the store as its first statement and reads
+   * only those locals, so an assignment during a resolution is invisible to the
+   * running call: it holds the previous frozen array to the end of its walk. A
+   * reload therefore never produces a decision computed half from one document
+   * and half from another.
+   *
+   * The checker reads the candidate as a served document, which is what it is.
+   * Construction passes `arrayIsOrder` because the definitions it holds are a
+   * literal an author wrote, and a candidate arrived from a publisher that
+   * states a variant order or states none.
+   */
+  const reload = (candidate: FeatureConfig<FeatureKey>): ReloadResult => {
+    const refused = collectIssues(candidate);
+    if (refused[0]) {
+      return {
+        ok: false,
+        version: installed.version,
+        rejected: candidate.version,
+        issues: refused.map((each) => each.issue),
+      };
+    }
+
+    const nextConfig = Object.freeze(
+      candidate.features.map((definition) =>
+        deepFreeze(
+          structuredClone(definition) as FeatureDefinition<FeatureKey>,
+        ),
+      ),
+    );
+    const nextGraph = buildGraph(nextConfig);
+    const nextIndex = new Map<FeatureKey, number>(
+      nextConfig.map((definition, at) => [definition.key, at]),
+    );
+    const nextKeys = Object.freeze(
+      nextConfig.map((definition) => definition.key),
+    );
+    const changed = changedKeys(config, nextConfig);
+    const previousVersion = installed.version;
+
+    const envelopeOf: Record<string, unknown> = { ...candidate };
+    delete envelopeOf['features'];
+
+    config = nextConfig;
+    graph = nextGraph;
+    index = nextIndex;
+    keys = nextKeys;
+    installed = envelopeOf as ConfigEnvelope;
+
+    return {
+      ok: true,
+      version: candidate.version,
+      previousVersion,
+      changed,
+    };
+  };
+
   return {
-    keys,
+    // Every reference below is read through an accessor. A value captured here
+    // would keep naming the first document after a reload.
+    get keys() {
+      return keys;
+    },
+    get version() {
+      return installed.version;
+    },
+    get envelope() {
+      return installed;
+    },
     get config() {
       // This getter hands out the store's own array. `Object.freeze` covers
       // that array at construction and covers the new array `toggle` builds on
@@ -599,7 +825,7 @@ export function createFeatures(
       return config;
     },
     definition: definitionOf,
-    dependants: graph.dependants,
+    dependants: (key) => graph.dependants(key),
     // Every event is cast. The engine holds the loose record of `Decision` and
     // the event type holds the schema-mapped `Decisions<S>`, and `FeatureKey`
     // admits a number where a mapped key is a string. The two readers below
@@ -657,5 +883,6 @@ export function createFeatures(
       resolveAll(withNow(context))[key]?.value as never,
     plan,
     toggle,
+    reload,
   };
 }
