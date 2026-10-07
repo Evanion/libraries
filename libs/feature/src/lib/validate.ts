@@ -1314,6 +1314,19 @@ function memberIssues(
 }
 
 /**
+ * The text a message reads a stated digest as.
+ *
+ * `configDigest` writes 32 hex characters, and the member a document states
+ * holds whatever `JSON.parse` returned. An object whose `toString` and
+ * `valueOf` are both non-callable raises `TypeError: Cannot convert object to
+ * primitive value` where a template reads it, so the message names what the
+ * member carries wherever it carries no string.
+ */
+function stated(digest: unknown): string {
+  return typeof digest === 'string' ? digest : met(digest);
+}
+
+/**
  * The digest a document states, against the digest its content takes.
  *
  * `configDigest` removes `digest` and `version` and canonicalises the rest, so
@@ -1340,7 +1353,7 @@ function digestIssues(config: Checkable): readonly Found[] {
       found(
         'unknown-member',
         new FeatureConfigError(
-          `the document states the digest ${config.digest} and its content digests to nothing this checker can read: ${raise instanceof Error ? raise.message : String(raise)}`,
+          `the document states the digest ${stated(config.digest)} and its content digests to nothing this checker can read: ${raise instanceof Error ? raise.message : String(raise)}`,
         ),
       ),
     ];
@@ -1350,7 +1363,7 @@ function digestIssues(config: Checkable): readonly Found[] {
     found(
       'digest-mismatch',
       new FeatureConfigError(
-        `the document states the digest ${config.digest} and its content digests to ${derived}`,
+        `the document states the digest ${stated(config.digest)} and its content digests to ${derived}`,
       ),
       undefined,
       '/digest',

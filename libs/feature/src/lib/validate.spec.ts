@@ -3563,6 +3563,45 @@ describe('the envelope', () => {
     );
   });
 
+  /**
+   * The digest a document states is read as text and never coerced.
+   *
+   * `JSON.parse` writes whatever the body carried at the member, and an object
+   * whose `toString` and `valueOf` are both non-callable raises `TypeError:
+   * Cannot convert object to primitive value` where a template reads it. Both
+   * arms of the digest question name the member, so both read it this way, and
+   * `validateConfig` reports a document stating one where it would otherwise
+   * raise out of the message it was writing.
+   */
+  it('names what a document states at a digest that is no string', () => {
+    const config = {
+      digest: { toString: null, valueOf: null },
+      features: [{ key: 'a', enabled: true }],
+    } as unknown as FeatureConfig;
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'digest-mismatch',
+    );
+    expect(result.ok === false && result.issues[0]?.message).toContain(
+      'the document states the digest an object',
+    );
+  });
+
+  it('reports the digest it cannot take of a document stating no string', () => {
+    const config = {
+      ...wide(),
+      digest: { toString: null, valueOf: null },
+    } as unknown as FeatureConfig;
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'unknown-member',
+    );
+  });
+
   it('asks for no digest of a document that states none', () => {
     // Decision 4 has a holder verify the digest it finds, and this document
     // states none to verify. Whether the content digests at all is a question
