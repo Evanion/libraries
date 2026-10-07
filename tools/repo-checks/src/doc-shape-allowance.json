@@ -1,27 +1,5 @@
 {
-  "feature/build-time.mdx": {
-    "lede": 66
-  },
-  "feature/configuration.mdx": {
-    "lede": 57,
-    "run": 10
-  },
   "feature/getting-started.mdx": {
     "lede": 48
-  },
-  "feature/index.mdx": {
-    "lede": 108
-  },
-  "feature/react.mdx": {
-    "lede": 95,
-    "firstSymbol": 37
-  },
-  "feature/rollouts.mdx": {
-    "lede": 94,
-    "firstSymbol": 46
-  },
-  "feature/variants.mdx": {
-    "lede": 60,
-    "firstSymbol": 64
   }
 }

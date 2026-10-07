@@ -2,203 +2,92 @@
 
 <WorkshopNotice slug="feature" />
 
-`plan()` partitions every feature into resolvable now and deferred, for a build
-that does not have the whole evaluation context.
+`plan()` splits a store's features into those a build can settle and those that wait for the request. A build has no customer, so a feature whose rule reads `targetingKey` stays deferred.
+
+<PageSheet
+  difficulty={3}
+  read={8}
+  hands={15}
+  requires={[['Configuration', '../configuration']]}
+  unlocks={[['API reference', '../api']]}
+/>
+
+## Planning a Build
+
+A static build of `@evanion/feature` flags can write a flag that is on for everyone into the HTML. A flag that is on for booksellers only waits for the request, which knows who is asking; written into the build as a boolean, it would ship to everyone or to nobody.
+
+`plan()` evaluates your feature store against the part of the context a build has, such as `{ game: 'urn:game:azul' }` for a build that renders one page per game, and returns a `PlanEntry` for every feature.
 
 ```ts twoslash file=libs/feature/README.md region=plan
 
 ```
 
-The new checkout is deferred because its rollout reads `targetingKey`, which a
-build does not have. A static site emits only the deferred set and resolves
-that per request; an API calls `resolve()` per request. The resolvable cases go through the same `decide`
-as `resolve` does.
+The new checkout is deferred because its rollout reads `targetingKey`, which a build does not have. Settled entries go through the same decision logic `resolve()` uses, so for a feature that does not set `freezeTimeAtBuild`, a request whose context carries the same fields the build had gets the same `enabled`.
 
-## A plan entry
+### Understanding the Plan Entry
 
-```ts
-interface PlanEntry<
-  F extends FeatureKey = string,
-  V extends string = string,
-  T = unknown,
-> {
-  key: F;
-  resolved: boolean | 'deferred';
-  needs: readonly string[]; // sorted; empty unless deferred
-  decision?: Decision<F, V, T>; // present when `resolved` is a boolean, and sometimes when it is not
-}
-```
+A feature is categorized into one of two states:
 
-`resolved: true` or `false` is a settled answer, and `decision` carries it with
-its reason. `resolved: 'deferred'` means some rule, or this feature's variant
-split, still needs context this plan did not have, and `needs` lists the
-fields, sorted.
+1. **Resolved (`resolved: true | false`)**: The decision is settled, because the fields the build has decide it: the feature is off, a parent is settled off, a rule matched with no rule above it waiting on a missing field, or the build refutes every rule. The `decision` object carries the final result.
+2. **Deferred (`resolved: 'deferred'`)**: The decision depends on context not yet available (e.g., the customer's `role` or `targetingKey`). The `needs` array lists, sorted, exactly which fields the request must provide to resolve this feature.
 
-A parent that has not settled its own enablement holds the feature up: the
-deferred entry's `needs` lists what those parents need, plus this feature's own
-bucketing field when it declares variants, and its own rules never run, so the
-entry says nothing about the fields they read. A parent that resolves off
-decides the feature outright, and the entry is `resolved: false` with an empty
-`needs`. Supply the parent's fields and plan again to see what the feature
-still needs of its own. A parent deferred on its own split alone has settled
-enablement and holds nothing up, so the feature lists what its own rules and
-its own split need.
+### How Rules are Settled
 
-## What makes a rule resolvable
+A rule is settled at build time if it can be decided without the missing context:
 
-A rule whose fields are all present in the context can be decided now; one that
-still needs a field cannot.
-
-```ts
-features.plan({ targetingKey: 'cust-0101' });
-// new-checkout: { resolved: 'deferred', needs: ['now'] }
-```
-
-The rollout resolved — `targetingKey` was there — and the time window did not.
-
-```ts
-createFeatures([
-  {
-    key: 'staff-only',
-    enabled: true,
-    rules: [
-      {
-        id: 'staff-first',
-        when: [{ field: 'role', op: 'eq', value: 'bookseller' }],
-      },
-    ],
-  },
-]).plan({});
-// { 'staff-only': { key: 'staff-only', resolved: 'deferred', needs: ['role'] } }
-```
-
-A rule the context already refutes is decided too. Conditions within a rule are
-AND-ed, so one condition that fails settles the rule whatever an absent field
-holds, and `plan()` walks past it to the rules below.
+- **Refuted Rules**: If a rule's condition is already false regardless of the missing field, the rule is settled off. If the build is Azul's page and a rule requires Spirit Island, that rule is refuted whatever `role` the request carries.
+- **Global Defaults**: A feature with `enabled: false` is settled off whatever its rules need. A feature with no rules and `enabled: true` is settled on, unless a parent is deferred or a variant split still needs `targetingKey`.
 
 ```ts twoslash file=libs/feature/README.md region=plan-refuted
 
 ```
 
-`eu-pro` reads `region`, which the context does not carry. No value of `region`
-matches a context whose `plan` is `free`, so `eu-pro` cannot win, `everyone`
-does, and the feature is settled without `region`.
+A planned breakdown names a failed condition only where every request would name the same one. Where `plan()` stepped over a condition it could not read, the outcome names the rule and drops `failed`, so a UI reading a planned decision checks for `failed` before it names a condition:
 
-When every rule loses this way the feature settles off, and the breakdown on
-its decision says only what every request agrees on. A rule's `failed` names
-one condition out of the several a rule can fail, and which one a request names
-depends on the fields the build did not have, so an outcome names a condition
-only where the answer cannot move: when `plan()` read every condition ahead of
-the refuted one. Step over one it could not read and the outcome names the
-rule and drops `failed`.
+```ts twoslash file=libs/feature/README.md region=plan-breakdown
 
-A feature with `enabled: false` is `resolved: false` immediately, whatever its
-rules need. A feature with no rules is `resolved: true`, given `enabled`.
+```
 
-## A settled feature with a deferred split
+### Features with Variants
 
-A feature can declare variants and still leave enablement fully resolvable at
-build time. `plan()` settles the two questions separately: `checkout-cta`
-below has no rules and resolves on unconditionally, but its variant still
-needs `targetingKey`, which the first context below does not carry:
+`plan()` settles enablement and the variant split separately. A feature with no rules is settled on, and while its split still needs `targetingKey` the entry is `'deferred'` and carries a `decision` without a variant. A filter that keeps only boolean entries leaves such a feature out of the settled half.
 
 ```ts twoslash file=libs/feature/README.md region=plan-variant
 
 ```
 
-`plan({})`'s `resolved` is `'deferred'`, and `decision` is present anyway,
-carrying enablement and nothing about the variant. `variant` and `value` are
-absent, and so is `assignment`. That is the one case a deferred entry carries
-a decision at all.
+## Handling Time Windows
 
-`plan({ targetingKey: 'user-1' })` settles both at once: `resolved` reads the
-enabled boolean, and `decision` carries the full assignment. See
-[Variants](/feature/variants) for what settles a variant at all.
+Time is a special case in `@evanion/feature`. By default, `plan()` withholds `now` from a feature's rules, because whether a date window may be frozen into a build depends on how often you deploy. A window stays deferred even when the build's own clock is past it.
 
-A feature deferred on its split alone holds no dependant up, because its
-enablement is settled. `banner` below defers its split, and `banner-cta`
-cascades off that enablement and plans its own rules. Its `needs` lists the
-field those rules read, and the parent's `targetingKey` stays out:
+However, you can opt in to freezing a time window at build time using the `freezeTimeAtBuild` property in your configuration. This is useful for sites that rebuild on a strict schedule (e.g., hourly) and can afford a small delay in feature activation. A frozen window disagrees with the request from the moment its boundary passes until the next build.
 
-```ts twoslash file=libs/feature/README.md region=plan-split-parent
+```ts twoslash file=libs/feature/README.md region=freeze-time
 
 ```
 
-A `plan()` context carrying `stickyVariants` also settles the split, but to
-that one subject's stored variant, baking a per-subject answer into the build
-where a later request without that entry would get the weighted answer.
+## Implementing the Plan in your App
 
-## `now` is deferred unless the feature opts in
+The `@evanion/feature` `plan()` function splits your features into two paths:
 
-`now` is deliberately not treated as available, even though `plan()` fills it in
-the same way `resolve()` does:
-
-```ts
-createFeatures([
-  {
-    key: 'x',
-    enabled: true,
-    freezeTimeAtBuild: true,
-    rules: [
-      {
-        id: 'live',
-        when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }],
-      },
-    ],
-  },
-  { key: 'y', enabled: true, dependsOn: ['x'] },
-]).plan({ now: new Date('2026-11-01T00:00:00Z') });
-// x: { resolved: true, needs: [], decision: { enabled: true, reason: 'rule-match', rule: 'live' } }
-// y: { resolved: true, needs: [], decision: { enabled: true, reason: 'default-on' } }
-```
-
-Whether a date window may be frozen into a build is a deploy-cadence decision,
-and it belongs to whoever owns the feature rather than to whoever runs the
-build. A site that rebuilds hourly can freeze a window that opens on a date; a
-site that rebuilds monthly cannot, and the same flag in both places has to be
-able to say so.
-
-Without `freezeTimeAtBuild`, a `now`-dependent rule the context leaves open is
-deferred and `'now'` appears in `needs`. The static build emits the rule and the
-request resolves it. A condition beside the window refutes the rule on its own,
-and a refuted rule is settled off, so `'now'` never reaches `needs`:
-
-```ts twoslash file=libs/feature/README.md region=plan-refuted-window
-
-```
-
-## Using a plan
-
-The two halves go to different places.
-
-```mermaid caption="plan() splits every feature in two. The settled half ships with the build as a decisions record; the deferred half ships as rules the request resolves, and the union of their needs is the context the request has to assemble."
+```mermaid caption="The plan() pipeline: settled decisions ship as static data; deferred rules are resolved at runtime."
 flowchart LR
-  F["features"] --> P["plan({ now })"]:::accent
+  F["features"] --> P["plan(buildContext)"]:::accent
   P -->|"resolved: true or false"| S["a decisions record"]
   P -->|"resolved: 'deferred'"| D["a key list, plus needs"]
   S --> B["the build<br>FeatureProvider decisions={…}"]
   D --> R["the request<br>resolve(context)"]
 ```
 
-```ts
-const plan = features.plan({ now: new Date() });
+```ts twoslash file=libs/feature/README.md region=plan-split
 
-const settled = Object.fromEntries(
-  Object.entries(plan)
-    .filter(([, entry]) => entry.resolved !== 'deferred')
-    .map(([key, entry]) => [key, entry.decision!]),
-);
-
-const deferred = Object.values(plan)
-  .filter((entry) => entry.resolved === 'deferred')
-  .map((entry) => entry.key);
 ```
 
-`settled` is a `Decisions` record, which is exactly what
-`<FeatureProvider decisions={…}>` takes — see [React](/feature/react). Ship it
-with the build. `deferred` is the list the runtime still has to resolve, and the
-union of their `needs` is the context the runtime has to assemble.
+### The Workflow
 
-A flag that is settled `false` at build time can be stripped from the bundle
-entirely. One that is deferred cannot, because the branch it gates has to exist
-for the request that turns it on.
+1. **At Build Time**: Run `plan()`. Extract all `resolved` decisions into a `settled` record. Ship this record as a prop to your `<FeatureProvider />`, which takes it as its `decisions`.
+2. **At Runtime**: Call `resolve(context)` with the data the request provides; the union of the deferred entries' `needs` is the context it has to assemble. The provider uses a `decisions` record as it is and resolves nothing beside it. A page whose components read only settled keys renders from the build's record, and a page whose components read a deferred key hands the provider the record `resolve(context)` returned, which carries every key.
+
+Your build can leave out the branch behind a flag settled `false`. A deferred flag keeps its branch, because the request that turns it on needs it. Settled flags ship in the HTML, and only deferred keys cost a request-time `resolve`.
+
+[Observing](../observing) reports each `plan`, `resolve` and `toggle` call as an event.

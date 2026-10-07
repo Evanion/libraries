@@ -2,287 +2,132 @@
 
 <WorkshopNotice slug="feature" />
 
-A feature is stored intent. `createFeatures` takes a list of definitions,
-validates the dependency graph, deep-clones and freezes the configuration, and
-returns the store.
+`createFeatures` takes your feature definitions, validates them, and returns the store every other call reads. A rule in a definition replaces the `role === 'bookseller'` check each component would otherwise repeat.
 
-```ts
-const features = createFeatures([
-  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
-]);
+<PageSheet
+  difficulty={3}
+  read={10}
+  hands={15}
+  requires={[['Overview', '../']]}
+  unlocks={[
+    ['Decisions', '../decisions'],
+    ['Rollouts', '../rollouts'],
+  ]}
+/>
+
+## Declarative Feature Definitions
+
+`@evanion/feature` uses a declarative configuration. You define the intent (is it enabled?) and the rules (when is it active?) in a single place. `createFeatures` validates the dependency graph, deep-clones and freezes your definitions, and returns the store.
+
+```ts twoslash file=libs/feature/README.md region=definition
+
 ```
 
-| Field               | Meaning                                                                          |
-| ------------------- | -------------------------------------------------------------------------------- |
-| `key`               | the identifier. `string` or `number`                                             |
-| `enabled`           | the maintainer wants this on                                                     |
-| `dependsOn`         | features that must resolve on for this one to                                    |
-| `rules`             | activation rules, OR-ed                                                          |
-| `seed`              | bucketing seed for this feature's rollouts. Defaults to the key                  |
-| `freezeTimeAtBuild` | let `plan()` resolve this feature's time windows at build                        |
-| `variants`          | the named variants this feature splits across. See [Variants](/feature/variants) |
-| `variantBy`         | context field variant assignment buckets on. Defaults to `targetingKey`          |
-| `variantSeed`       | bucketing seed for this feature's variant split                                  |
+The store holds a frozen copy of each definition. Your own array stays editable, and an assignment to the copy `definition()` returns throws a `TypeError`, so the store never diverges from what it resolves.
 
-`enabled` records the intent; `rules` decide whether the feature resolves on for
-a given context.
+### The Configuration Schema
 
-The configuration is cloned before it is frozen, so the store cannot be edited
-behind its own back:
+| Field               | Meaning                                                                                  |
+| :------------------ | :--------------------------------------------------------------------------------------- |
+| `key`               | The unique identifier for the feature. A string or a number.                             |
+| `enabled`           | The kill switch. If `false`, the feature is off for everyone.                            |
+| `dependsOn`         | A list of other features that must resolve on for this one to activate.                  |
+| `rules`             | Activation rules (OR-ed). If any rule matches, the feature is active.                    |
+| `seed`              | A bucketing seed for rollouts. Defaults to the `key`.                                    |
+| `freezeTimeAtBuild` | If true, `plan()` resolves time windows at build-time for static sites.                  |
+| `variants`          | The named variants this feature splits across (see [Variants](../variants)).             |
+| `variantBy`         | The context field used to bucket variants. Defaults to `targetingKey`.                   |
+| `variantSeed`       | Bucketing seed for the variant split. Defaults to the `seed` (or `key`) plus `:variant`. |
 
-```ts
-features.config[0].enabled = false;
-// TypeError: Cannot assign to read only property 'enabled' of object
+A rule carries an optional `id`, a `when` list of conditions, an optional `rollout`, and an optional `variant` it pins. A condition names a context `field`, an `op` and a `value`.
+
+## Resolution Precedence
+
+When you call `resolve()`, `@evanion/feature` follows a strict hierarchy to determine if a feature is active.
+
+1. **The Kill Switch**: If `enabled === false`, the feature is off. No rules are evaluated.
+2. **The Dependency Chain**: If any feature in `dependsOn` resolves to `false`, this feature is off. No rules are evaluated.
+3. **The Default State**: If `enabled === true` and there are no rules, the feature is on.
+4. **The Rules**: If rules exist, they are OR-ed. If any rule matches, the feature is on. Inside a rule, conditions are AND-ed.
+
+`enabled` does not depend on rule order. `rule` names the first rule that matched, and that rule's `variant` pin is the one applied, so moving a rule up can change which rule a decision names.
+
+The kill switch works in one direction only. Setting `enabled: true` on a feature whose rules do not match changes the stored intent, and the feature still resolves off.
+
+## Dependency Cascades
+
+`@evanion/feature` cascades dependencies transitively and one way. With demo night booking behind express pickup, and express pickup behind the new checkout, express pickup being off takes demo night booking off and leaves the new checkout on.
+
+```ts twoslash file=libs/feature/README.md region=cascade-chain
+
 ```
 
-## Precedence
+`createFeatures` evaluates in dependency order, so the cascade works at any depth and you can declare your features in any order.
 
-- `enabled === false` short-circuits. Rules never run.
-- A parent that resolved off short-circuits. Rules never run.
-- `enabled === true` with no rules means on.
-- Rules are OR-ed; the `when` conditions inside one rule are AND-ed. A rollout is
-  one more conjunct of the rule that carries it.
+### Configuration Errors
 
-Not first-match. Rule order never changes the outcome, which is what lets a rule
-be added to a list without reading the rules already in it.
+`createFeatures` validates the dependency graph at construction. It throws a subclass of `FeatureConfigError` if it detects:
 
-Toggling `enabled` on for a feature whose rules do not match changes stored
-intent, and the feature still resolves off. It is a kill switch only.
+- **Cycles**: `FeatureCycleError`, e.g., `A` depends on `B`, and `B` depends on `A`. Its `path` property holds the cycle's keys, from the first key back to itself.
+- **Unknown Dependencies**: `UnknownDependencyError`, when a feature depends on a key that isn't configured.
+- **Duplicates**: `DuplicateFeatureError`, when two features share the same key.
 
-## Dependencies
+```ts twoslash file=libs/feature/README.md region=config-errors
 
-```ts
-createFeatures([
-  { key: 'a', enabled: true },
-  { key: 'b', enabled: true, dependsOn: ['a'] },
-  { key: 'c', enabled: true, dependsOn: ['b'] },
-]);
 ```
 
-The cascade is transitive, and one way only — a dependant never blocks its
-parent. Turning `a` off takes `b` and `c` with it:
+Variants are checked at the same point: `DuplicateVariantError` for two variants sharing a name, and `UnknownVariantError` for a rule pinning a variant its feature does not declare. Once `createFeatures` returns, `resolve`, `plan` and `toggle` never throw.
 
-```ts
-features.toggle('a', false);
-// { ok: true, key: 'a', enabled: false, willDisable: ['b', 'c'] }
+## Defining Rules and Conditions
+
+`@evanion/feature` rules let you activate features based on the user's context. Below, a bookseller matches the first rule, and every other customer is subject to the second rule's 10% rollout:
+
+```ts twoslash file=libs/feature/README.md region=rules
+
 ```
 
-Features are evaluated in dependency order rather than in declaration order,
-which is what makes the cascade work at any depth. Evaluating in declaration
-order leaves a dependant with no resolved parent to read, and falling back to the
-parent's stored `enabled` cascades exactly one level.
+A rule that declares no `id` is named by a hash of what it matches on, so its name survives a rule being inserted above it. A decision names the rule in `rule`, and in its breakdown when no rule matched. The hash leaves out `rollout.percent`, so two rollout rules on one feature that differ only in their percentage share a name. Give a rule you expect to read in a log an explicit `id`.
 
-### Three configuration errors
+### Condition Operators
 
-All three are raised by `createFeatures`, not by evaluation.
+| `op`               | Effect                                                | Example                                      |
+| :----------------- | :---------------------------------------------------- | :------------------------------------------- |
+| `before` / `after` | Checks if `now` is strictly before/after an instant.  | `value: '2026-10-01T00:00:00Z'`              |
+| `day-of-week`      | Checks if `now` falls on specific weekdays in a zone. | `zone: 'Europe/Stockholm'`, `value: ['mon']` |
+| `eq` / `ne`        | Strict equality or inequality.                        | `value: 'bookseller'`                        |
+| `in` / `not-in`    | Checks if the value is in/not in an array.            | `value: ['bookseller', 'owner']`             |
+| `contains`         | Checks if the field (array) contains the value.       | `value: 'bookseller'`                        |
 
-```ts
-createFeatures([
-  { key: 'a', enabled: true, dependsOn: ['c'] },
-  { key: 'b', enabled: true, dependsOn: ['a'] },
-  { key: 'c', enabled: true, dependsOn: ['b'] },
-]);
-// FeatureCycleError: feature dependency cycle: a -> c -> b -> a
+A `day-of-week` condition has no default zone: it names an IANA zone, because UTC day-of-week is wrong for a shop open in Stockholm.
 
-createFeatures([{ key: 'a', enabled: true, dependsOn: ['b'] }]);
-// UnknownDependencyError: feature "a" depends on "b", which is not configured
+### Missing Context Fields
 
-createFeatures([
-  { key: 'a', enabled: true },
-  { key: 'a', enabled: true },
-]);
-// DuplicateFeatureError: duplicate feature key "a"
+In `@evanion/feature`, a condition over a field the context does not carry never holds, and that includes `ne` and `not-in`. Treating `ne` on an absent field as true would switch features on for exactly the contexts that carry the least information.
+
+```ts twoslash file=libs/feature/README.md region=absent-field
+
 ```
 
-A cycle has no defined resolution order at all, so there is nothing sensible for
-`resolve` to return for one. The error's `path` is the closed walk, trimmed to
-the cycle itself and ending where it starts, so the edge that closes the loop is
-visible rather than the route taken to reach it.
+### Time Windows
 
-All three errors extend `FeatureConfigError`, which extends `Error`. `resolve`,
-`plan` and `toggle` are total — a store you hold cannot fail mid-evaluation.
+To read the same on every host, a date-time string must include an offset (e.g., `+09:00`, `+0900` or `Z`). A date with no time is read as UTC midnight. `createFeatures` rejects a date-time without an offset, and a date the calendar does not have, at construction.
 
-## Rules
+```ts twoslash file=libs/feature/README.md region=instant-strings
 
-```ts
-{
-  key: 'beta-banner',
-  enabled: true,
-  rules: [
-    { id: 'internal', when: [{ field: 'roles', op: 'contains', value: 'staff' }] },
-    { id: 'ramp', rollout: { percent: 10 } },
-  ],
-}
 ```
 
-Two rules, OR-ed: a staff account matches the first, everyone else is subject to
-the 10% ramp.
+A window's `value` can also be epoch milliseconds or a `Date`. `createFeatures` refuses `NaN` and a number outside the range a `Date` holds, and it takes a `Date` as the instant it holds, so `new Date('2026-01-01T00:00:00')` carries the zone of the host that built it.
 
-`id` is used in `reason`. A rule that declares none is named by a hash of what
-it matches on, so the rule keeps its name when another rule is inserted above
-it and when an operator moves a ramp. Name a rule you expect to read in a log:
-an operator reads `staff-only` faster than a hash.
+## Type-Safe Keys and Variants
 
-The hash excludes `rollout.percent`, so two rollout rules on one feature whose
-conditions, `by` and `seed` all match derive the same id. Give such rules
-explicit ids, or a breakdown carries two entries under one name.
+If you define your `@evanion/feature` configuration as an array literal, TypeScript infers the keys and variant names automatically.
 
-A rule with neither `when` nor `rollout` matches unconditionally.
+If your configuration comes from a JSON file or variable, you can provide a schema interface to maintain type safety:
 
-A rule on a feature that declares variants can carry `variant`, naming one of
-them. A matching rule with `variant` set pins that variant on the decision,
-overriding the weights entirely. See [Variants](/feature/variants).
+```ts twoslash file=libs/feature/README.md region=typed-schema
 
-## Conditions
-
-```ts
-{ field: 'now', op: 'before' | 'after', value: '2026-10-01T00:00:00Z' }
-{ field: 'now', op: 'day-of-week', zone: 'Europe/Stockholm', value: ['mon', 'fri'] }
-{ field: 'role', op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains', value: 'bookseller' }
 ```
 
-| `op`          | Holds when                                                  |
-| ------------- | ----------------------------------------------------------- |
-| `before`      | `now` is strictly before the instant                        |
-| `after`       | `now` is strictly after the instant                         |
-| `day-of-week` | `now` falls on one of the named weekdays, in the named zone |
-| `eq`          | the field is strictly equal to `value`                      |
-| `ne`          | the field is present and not strictly equal to `value`      |
-| `in`          | `value` is an array containing the field                    |
-| `not-in`      | `value` is an array not containing the field                |
-| `contains`    | the field is an array containing `value`                    |
+This ensures that calling `features.isEnabled('express-delivery')` is a compile error, and `features.variantOf('express-pickup')` returns `'control' | 'blue' | undefined`. `createFeatures<Flags>(config)` also checks every definition's key against `keyof Flags`.
 
-A window's `value` is an ISO 8601 string, epoch milliseconds, or a `Date`.
-
-### A window's string must name one instant
-
-| Instant string              | Read as                              |
-| --------------------------- | ------------------------------------ |
-| `2026-01-01T00:00:00Z`      | that instant                         |
-| `2026-01-01T09:00:00+09:00` | the same instant                     |
-| `2026-01-01T09:00:00+0900`  | the same instant                     |
-| `2026-01-01`                | UTC midnight                         |
-| `2026-01-01T00:00:00`       | `FeatureConfigError` at construction |
-| `2026-13-01`                | `FeatureConfigError` at construction |
-| `2026-01-01t00:00:00z`      | `FeatureConfigError` at construction |
-| `2026-04-31`                | `FeatureConfigError` at construction |
-
-ECMA-262 reads a date-time carrying no offset as local time and fixes a date
-with no time to UTC. A rule derives one id on every host, so an offsetless
-date-time gives a browser in Los Angeles and a service in Stockholm two answers
-under one name in both logs, with nothing in either decision naming the zone
-that decided it. `createFeatures` refuses such a string.
-
-`2026-13-01` and `2026-01-01t00:00:00z` carry the same hazard by another route:
-a string ECMA-262's format does not cover falls to whatever parser the engine
-keeps for the rest, and V8's reads `2026-13-01` in the host's zone.
-
-`2026-04-31` names a day April does not have, and every engine carries it into
-1 May, so the hosts agree on an instant the author did not write, under the one
-rule id `2026-05-01` also derives.
-
-The offset itself takes either spelling ISO 8601 gives it, `+09:00` or `+0900`,
-which is what a document written by Python's `strftime('%z')` or Java's
-`SimpleDateFormat("Z")` carries.
-
-### A window's number or Date must hold an instant
-
-| Instant value              | Read as                              |
-| -------------------------- | ------------------------------------ |
-| `1767225600000`            | that instant                         |
-| `new Date(1767225600000)`  | that instant                         |
-| `Number.NaN`               | `FeatureConfigError` at construction |
-| `Number.POSITIVE_INFINITY` | `FeatureConfigError` at construction |
-| `8640000000000001`         | `FeatureConfigError` at construction |
-| `new Date('nonsense')`     | `FeatureConfigError` at construction |
-
-A number has to be an epoch a `Date` holds, and a `Date` has to hold an
-instant. `createFeatures` refuses `Number.NaN`, which is what `Date.parse` and
-`new Date` answer for a string naming none, so a boundary computed from an
-unset environment variable is refused where it is written. It refuses a number
-past either end of the range a `Date` holds, -8640000000000000 to
-8640000000000000, since a `before` boundary above that range holds at every
-instant and an `after` boundary at none.
-
-A `Date` is taken as the instant it holds and is read no further, so
-`new Date('2026-01-01T00:00:00')` carries the constructing host's zone past
-every check. Build one from epoch milliseconds, or from a string the table
-accepts.
-
-### `now` is injected
-
-`now` comes from the evaluation context and defaults to `new Date()` at the
-call. It is never read from an ambient clock, so a build-time evaluation and a
-test can both pass the instant they mean:
-
-```ts
-features.resolve({ now: new Date('2026-11-01T00:00:00Z') });
-```
-
-### A day-of-week condition must name an IANA zone
-
-```ts
-{ field: 'now', op: 'day-of-week', zone: 'Europe/Stockholm', value: ['sat'] }
-```
-
-There is no default. UTC day-of-week is wrong for every business rule anyone
-writes, and a rule that quietly used it would be wrong for eight hours a day.
-The weekday is derived through `Intl`, so the zone's rules — DST transitions
-included — are the runtime's to know rather than this library's to model.
-
-### An absent field never holds
-
-A condition over a field the context does not carry never holds, including the
-negative operators:
-
-```ts
-features.resolve({}); // context carries no `role`
-// { reason: 'no-rule-matched', rules: [{ rule: 'r', matched: false,
-//   failed: { field: 'role', op: 'ne', value: 'customer' } }] }
-```
-
-`ne` on an absent field is not "true because it is not equal"; it is
-unevaluable. Treating it as true would switch features on for exactly the
-contexts that carry the least information.
-
-Field lookup uses `Object.prototype.hasOwnProperty` rather than `in`, so a
-condition over `constructor` or `toString` does not read a function off
-`Object.prototype` and evaluate against it. A context is caller data and a field
-name is configuration; neither is trusted with the prototype chain.
-
-## Typing the keys and the variants
-
-A store built from an array literal needs no type argument. `createFeatures`
-reads the keys, the variant names and each variant's value off the literal, and
-the decision record is exact, so a typo is a compile error and not an
-`undefined` at runtime.
-
-Name a schema when the configuration arrives from elsewhere, as JSON or as a
-variable typed `FeatureDefinition<Flag>[]`. A value with no literals in it
-carries nothing for the compiler to read.
-
-```ts
-interface Flags {
-  'new-checkout': never;
-  'express-pickup': { variant: 'control' | 'blue'; value: never };
-}
-
-const features = createFeatures<Flags>(config);
-
-features.resolve()['express-pickup'].enabled; // Decision, not Decision | undefined
-features.variantOf('express-pickup'); // 'control' | 'blue' | undefined
-features.isEnabled('express-delivery'); // compile error: not a key of Flags
-```
-
-A schema is a record with one entry per feature. An entry is `never` for a
-feature that declares no variants, and that feature's decision then carries no
-`variant` key and no `value` key. An entry for a feature with variants names them
-as `{ variant: <the names>; value: <the value type> }`, and `never` in the
-`value` position says that no variant of that feature declares one. An
-`interface` works
-here: the constraint `createFeatures` applies is self-referential and accepts
-one, which an index signature would refuse.
-
-`createFeatures<Flags>(config)` checks every definition's key against
-`keyof Flags`, so a definition naming a feature `Flags` does not declare is a
-compile error at the call.
+[Decisions](../decisions) resolves this store and reads what each decision says about the rule that decided it.

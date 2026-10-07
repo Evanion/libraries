@@ -1,75 +1,85 @@
 # @evanion/feature
 
-<WorkshopNotice slug="feature">
-  <Text as="div" size="sm">
-    The implementation is complete and covered by 83 passing tests, against the
-    approved spec at `docs/specs/2026-09-11-feature-toggles.md`. Inside this
-    repository it resolves from source like any other workspace package.
-  </Text>
-</WorkshopNotice>
+<WorkshopNotice slug="feature" />
 
-Feature toggles where one flag can depend on another. A parent that resolves off
-takes its dependants with it, transitively, and it does that without writing
-anything back into the configuration.
+**Independent feature flags let a child feature reach a customer its parent is off for.** `@evanion/feature` resolves a feature off whenever a feature it depends on resolves off.
 
-```ts twoslash file=libs/feature/README.md region=quick-start
+<PageSheet
+  difficulty={2}
+  read={5}
+  unlocks={[
+    ['Configuration', './configuration'],
+    ['Decisions', './decisions'],
+  ]}
+/>
 
-```
+## Why Independent Flags Diverge
 
-Express pickup is offered only to a customer the new checkout is already on
-for. `cust-0042` and `cust-0107` differ because the 25% rollout put them in
-different buckets. Without the cascade, a quarter of customers would get the
-new checkout and all of them would get its pickup option.
+Most feature flag systems, unlike `@evanion/feature`, treat every flag as an independent switch. Express pickup only exists inside the new checkout, so a flag that turns express pickup on for a customer who is not on the new checkout shows that customer a broken page.
 
-## Two entry points
+To prevent this, you would either have to:
 
-```ts
-import { createFeatures } from '@evanion/feature';
-import { FeatureProvider, useFeature } from '@evanion/feature/react';
-```
+- **Write manual checks** in every component: `if (features.newCheckout && features.expressPickup)`.
+- **Manage state manually**: Update every child flag whenever a parent changes.
 
-The core imports no framework, so it runs in an API, in a script, or at build
-time. The React adapter is a provider and three hooks over an already-built
-store, and is client code. Nothing in it decides anything.
+With either approach, every component repeats the parent check, and the one that leaves it out ships the broken page.
 
-`'use client'` is a per-module directive and a bundle is one module, so the
-package is emitted file by file and the core entry stays free of both the
-directive and any React import.
+## Dependency-Aware Resolution
 
-## The shape of a decision
+`@evanion/feature` moves the dependency logic into a hierarchical decision engine, so asking whether a feature is enabled checks the entire dependency chain, transitively, with no manual updates to any child flag.
 
-`resolve` returns one decision per feature. `enabled` is the answer; everything
-else explains it. Here the new checkout is on for booksellers first, so a
-customer's express pickup is off with the parent named:
-
-```ts twoslash file=libs/feature/README.md region=dependency-off
+```ts twoslash file=libs/feature/README.md region=cascade
 
 ```
 
-`reason` is output only. Nothing in this library reads it back to decide
-anything, so deleting it would change no decision. It exists for the operator
-looking at a flag that is off and asking why.
+A feature's definition holds its intent, `enabled`, and its `rules`. A rule matches fields of the context you pass, such as a customer's `role`. A feature resolves on when it is enabled, every feature in its `dependsOn` resolves on, and one of its rules matches or it has none.
 
-## The store never writes
+In this example, express pickup is offered only to customers who are already on the new checkout. The new checkout's one rule matches a bookseller and nobody else, so for a customer it resolves to `false`, and express pickup resolves to `false` with it, even though its own definition has no rules and would resolve on alone.
 
-The only writers are `toggle()` and editing the configuration. `resolve()` and
-`plan()` are pure functions of `(config, context, now)`.
+## Two Entry Points
 
-When a parent's time window expires, nothing changes in the store; `resolve()`
-starts returning false for the dependant. When the window reopens it returns
-true again. The dependant's `enabled` was `true` throughout, because that field
-means "the maintainer wants this on", which stayed true.
+`@evanion/feature` is split into two entry points:
 
-Writing resolved values back would put entries in an audit log that nobody
-performed, make a process that slept through a window boundary disagree with one
-that was awake, and erase the difference between "someone turned this off" and
-"the system turned it off".
+- **The core, `@evanion/feature`**, imports no framework. It runs in a Node.js API, a build script or a serverless function, and it resolves flags and plans which of them a build can settle.
+- **The React adapter, `@evanion/feature/react`**, carries a `FeatureProvider` and the hooks (`useFeature` and three more) that read its decisions anywhere in a React tree.
 
-## Pages
+## What a Decision Carries
 
-- [Configuration](/feature/configuration) — definitions, precedence, conditions
-- [Rollouts](/feature/rollouts) — bucketing, seeds, and why raising a percentage is additive
-- [Decisions](/feature/decisions) — resolving, toggling, and reading a reason
-- [Build-time planning](/feature/build-time) — `plan()` for static sites
-- [React](/feature/react) — the provider and the three hooks
-- [API reference](/feature/api)
+When you resolve features with `@evanion/feature`'s `resolve()`, the library returns more than just a boolean. It returns a **decision** object for every feature:
+
+- **`enabled`**: The final answer (true/false).
+- **`reason`**: A code naming _why_ the feature is on or off: `default-on`, `rule-match`, `explicitly-off`, `no-rule-matched` or `dependency-off`.
+- **`blockedBy`**: On a `dependency-off` decision, the parent that blocked it.
+
+The `reason` field is for the person debugging a flag. If a feature is unexpectedly off because of a parent, its reason is `dependency-off` and `blockedBy` names the parent to look at. Nothing in the library reads `reason` back, so it explains a decision and never changes one.
+
+## The Store Never Writes
+
+In `@evanion/feature`, resolving is a pure function of the configuration, the context you pass and the current time. The only writer is `toggle()`, which sets a feature's `enabled` intent.
+
+The engine never writes resolved values back into the configuration. This ensures:
+
+- **Audit Integrity**: Your configuration remains a record of _intent_, not a log of results.
+- **Temporal Consistency**: A rule can close at an instant. Once it closes, `resolve()` returns `false` for the feature and every dependant without a database update.
+- **Statelessness**: Multiple processes resolving the same context against the same configuration will always agree.
+
+## What It Leaves to You
+
+`@evanion/feature` evaluates flags in your process and stops there:
+
+- It fetches no configuration. `createFeatures` takes the definitions your application loaded.
+- It stores no variant assignment. A context can hand back one your application saved.
+- It records no exposure. A component records it where it renders.
+- It declares no `drain()`. An observer's own transport flushes what it buffered.
+
+## What It Covers
+
+- [Configuration](./configuration): definitions, precedence and conditions.
+- [Decisions](./decisions): resolving, toggling and reading a reason.
+- [Rollouts](./rollouts): bucketing, seeds and percentages that only add members.
+- [Variants](./variants): weighted splits, pins and sticky assignments.
+- [React](./react): the provider and the hooks.
+- [Build-time planning](./build-time): `plan()` for a static build.
+- [Observing](./observing): an observer on every decision.
+
+You now know what a dependency-aware flag decides and why the store never writes. [Getting Started](./getting-started) installs `@evanion/feature` and resolves the new checkout and express pickup for a customer.

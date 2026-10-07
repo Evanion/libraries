@@ -52,15 +52,16 @@ the bucket behind it and what happens when the percentage moves.
 
 `isEnabled` answers with a boolean. `resolve` answers with one decision per
 flag, and the decision explains itself: `reason` says which of the five cases
-this is, and `dependency-off` carries the parent that blocked it.
+this is, and `dependency-off` carries the parent that blocked it. The store is
+the one above:
 
 ```ts twoslash file=libs/feature/README.md region=dependency-off
 
 ```
 
-Here the new checkout is on for booksellers first, so for a customer it never
-matched a rule — and express pickup is off with `blockedBy` naming the flag to
-look at. [Decisions](/feature/decisions) has the other four reasons.
+`cust-0107` is outside the new checkout's 25%, so the `after-launch` rule never
+matched, and express pickup is off with `blockedBy` naming the flag to look at.
+[Decisions](/feature/decisions) has the other four reasons.
 
 ## Turn the parent off
 
@@ -79,10 +80,9 @@ Nothing else writes. `resolve` and `plan` are pure functions of the
 configuration, the context and the clock, so a window closing changes an answer
 without changing anything stored.
 
-## Where to go next
+## Your own definitions
 
-- [Configuration](/feature/configuration) — every field of a definition, and the precedence between them
-- [Rollouts](/feature/rollouts) — the bucket, the seed, and why raising a percentage only adds members
-- [Decisions](/feature/decisions) — the five reasons, and `resolve` over the whole set
-- [React](/feature/react) — the provider and the three hooks
-- [Build-time planning](/feature/build-time) — `plan()` for a static build
+You have two dependent flags resolving for a customer and a toggle that reports
+what it turned off. [Configuration](/feature/configuration) writes your own
+definitions: every field, the precedence between them, and the conditions a rule
+can match on.
