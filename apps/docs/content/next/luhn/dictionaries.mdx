@@ -68,7 +68,13 @@ If you want your custom instance to ignore case, set `caseInsensitive: true`. Th
 
 ```
 
-The pickup instance refuses `A4KP-9MXA` because `A`, `K`, `P`, `M` and `X` are not in its dictionary: `validate` drops them and checks what is left. Asking for `caseInsensitive: true` over `ALTERNATING_CASE_DICTIONARY` throws `InvalidDictionaryError` with `reason: 'case-pairs'`.
+The pickup instance refuses `A4KP-9MXA` because `A`, `K`, `P`, `M` and `X` are not in its dictionary: `validate` drops them and checks what is left.
+
+Asking for `caseInsensitive: true` over `ALTERNATING_CASE_DICTIONARY` would send both `A` and `a` to the index of `a`, so `createLuhn` refuses it rather than quietly downgrading:
+
+```ts twoslash file=libs/luhn/README.md region=case-pairs
+
+```
 
 ## Advanced Considerations
 
