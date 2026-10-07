@@ -3552,6 +3552,37 @@ describe('the envelope', () => {
     );
   });
 
+  it('asks for no digest of a document that states none', () => {
+    let value: unknown = 1;
+    for (let at = 0; at < 27; at += 1) value = [value, value];
+    const body = {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          ...TRAVELS,
+          variants: [{ name: 'blue', weight: 1, order: 0, value }],
+        },
+      ],
+    } as unknown as FeatureConfig;
+
+    // 2^27 leaves, because neither a canonical text nor JSON carries the
+    // sharing, so `configDigest` over this document meets `RangeError: Invalid
+    // string length`. `structuredClone` keeps the sharing, so `cloneIssues`
+    // copies the definition and the store serves the value.
+    //
+    // Decision 4 has a holder verify the digest it finds, and this document
+    // states none to verify. Whether the content digests at all is a question
+    // no entry point in this library asks of an installed document:
+    // `serializeConfig` writes no digest and `configDigest` is the one writer
+    // of the member. A publisher that calls it reads the raise where it chose
+    // the value.
+    expect([
+      validateConfig(body).ok,
+      validateConfig({ ...body, digest: '0'.repeat(32) }).ok,
+    ]).toEqual([true, false]);
+  });
+
   it('reports the hole a nested array leaves at the position it leaves it', () => {
     const paths = [
       { ...TRAVELS, variants: hole({ name: 'blue', weight: 1, order: 0 }) },
