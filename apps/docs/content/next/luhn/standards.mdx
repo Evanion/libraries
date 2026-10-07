@@ -13,7 +13,7 @@
 
 When you use the dictionary `'0123456789'`, `@evanion/luhn` implements **Luhn mod-10**. This is the standardized check digit used worldwide for credit card numbers, payment cards, and various government identifiers.
 
-`createLuhn({ dictionary: '0123456789' })` reproduces the published mod-10 test vectors:
+`createLuhn({ dictionary: '0123456789' })` gives `7992739871` the mod-10 check digit `3` and accepts a card number, then computes a check digit for the shop's order number `20260042`:
 
 ```ts twoslash file=libs/luhn/README.md region=mod-10
 
