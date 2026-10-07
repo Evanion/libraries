@@ -1,6 +1,6 @@
 # Migrating from 2.x
 
-`@evanion/luhn` 3.x introduces breaking changes to the default dictionary and the configuration API. Most notably, the default dictionary has shrunk from 62 characters to 36, so a code produced by 2.x validates under 3.x only by coincidence.
+`@evanion/luhn` 3.x introduces breaking changes to the default dictionary and the configuration API. The default dictionary has shrunk from 62 characters to 36, so a code produced by 2.x validates under 3.x only by coincidence.
 
 <PageSheet
   difficulty={4}
@@ -34,8 +34,8 @@ The `@evanion/luhn` 2.x API relied on mutable static properties on a class. 3.x 
 | :---------------------------------------------------- | :-------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Luhn.generate(input)`                                | `Luhn.generate(input)`                                    | Call is the same; output value is different.                                                                                                                |
 | `Luhn.validate(input)`                                | `Luhn.validate(input)`                                    | Call is the same; now accepts every code `generate` produces.                                                                                               |
-| `Luhn.generate(input, true)`                          | `createLuhn({ caseInsensitive: false }).generate(input)`  | Disables input folding.                                                                                                                                     |
-| `Luhn.validate(input, true)`                          | `createLuhn({ caseInsensitive: false }).validate(input)`  | Disables input folding.                                                                                                                                     |
+| `Luhn.generate(input, true)`                          | `createLuhn({ caseInsensitive: false }).generate(input)`  | 2.x's `true` dropped the uppercase letters from the dictionary and stopped folding input; the 3.x default dictionary is already lowercase.                  |
+| `Luhn.validate(input, true)`                          | `createLuhn({ caseInsensitive: false }).validate(input)`  | As for `generate`.                                                                                                                                          |
 | `class X extends Luhn { static dictionary = d }`      | `createLuhn({ dictionary: d, caseInsensitive: true })`    | Same values as the legacy subclass. When `d` holds both cases of a letter, use `createLuhn({ dictionary: d })` over lowercased input, as `issuedBy2x` does. |
 | `class X extends Luhn { static sensitive = true }`    | `createLuhn({ dictionary: ALTERNATING_CASE_DICTIONARY })` | Reproduces case-sensitive 2.x behavior.                                                                                                                     |
 | `Luhn.dictionary = d`                                 | throws `TypeError`                                        | The default instance is now frozen.                                                                                                                         |
