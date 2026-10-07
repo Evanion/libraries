@@ -318,6 +318,94 @@ describe('reload', () => {
   });
 });
 
+describe('reload, the candidate it reads as a served document', () => {
+  it('refuses a variant set that declares no order', () => {
+    const features = createFeatures([
+      { key: 'cta', enabled: true, variants: [{ name: 'a', weight: 1 }] },
+    ]);
+
+    const result = features.reload({
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variantBy: 'targetingKey',
+          variantSeed: 'cta:variant',
+          variants: [{ name: 'a', weight: 1 }],
+        },
+      ],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // `createFeatures` passes `arrayIsOrder` because its definitions are a
+    // literal an author wrote, and `reload` omits it because a publisher
+    // either states the order or states none. A holder defaulting the member
+    // off the array position assigns variants differently from the publisher.
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'invalid-variant-order',
+    );
+  });
+
+  it('refuses a definition that declares variants and no bucketing members', () => {
+    const features = createFeatures([
+      { key: 'cta', enabled: true, variants: [{ name: 'a', weight: 1 }] },
+    ]);
+
+    const result = features.reload({
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [{ name: 'a', weight: 1, order: 0 }],
+        },
+      ],
+    } as unknown as FeatureConfig<'cta'>);
+
+    expect(
+      result.ok === false && result.issues.map((issue) => issue.path),
+    ).toEqual(['/features/0/variantBy', '/features/0/variantSeed']);
+  });
+
+  it('refuses a window boundary that names no instant', () => {
+    const features = createFeatures([{ key: 'sale', enabled: true }]);
+
+    const result = features.reload({
+      features: [
+        {
+          key: 'sale',
+          enabled: true,
+          rules: [
+            {
+              when: [{ field: 'now', op: 'before', value: 'the first of May' }],
+            },
+          ],
+        },
+      ],
+    } as unknown as FeatureConfig<'sale'>);
+
+    // The whole `whenIssues` walk runs for a served document alone, and this
+    // is the code that pins it to the reload path.
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'invalid-instant',
+    );
+  });
+
+  it('keeps deciding from the installed document after it refuses one', () => {
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+
+    features.reload({
+      features: [
+        {
+          key: 'checkout',
+          enabled: false,
+          variants: [{ name: 'a', weight: 1 }],
+        },
+      ],
+    } as unknown as FeatureConfig<'checkout'>);
+
+    expect(features.isEnabled('checkout')).toBe(true);
+  });
+});
+
 describe('reload, the envelope it installs', () => {
   it('installs every envelope member the candidate declared', () => {
     const features = createFeatures([{ key: 'checkout', enabled: true }]);
