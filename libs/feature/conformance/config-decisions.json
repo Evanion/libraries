@@ -2,7 +2,7 @@
   "note": "One document, one context, and the decisions any implementation must produce. See docs/specs/2026-09-23-feature-config-distribution.md § 9.",
   "config": {
     "version": 1,
-    "digest": "06b02649d9303bf164085f1776868a71",
+    "digest": "0ddc464c171b4d3fa0ab895c7a58e38c",
     "features": [
       {
         "key": "checkout",
@@ -79,7 +79,7 @@
             "rollout": {
               "percent": 50,
               "by": "targetingKey",
-              "seed": "new-nav"
+              "seed": "nav-v3"
             }
           }
         ]
@@ -103,7 +103,7 @@
         "enabled": true,
         "dependsOn": ["checkout"],
         "variantBy": "targetingKey",
-        "variantSeed": "cta:variant",
+        "variantSeed": "cta-copy",
         "variants": [
           {
             "name": "blue",
@@ -195,7 +195,7 @@
           "rollout": {
             "percent": 50,
             "by": "targetingKey",
-            "bucket": 0.885186268016696,
+            "bucket": 0.5767441703937948,
             "member": false
           }
         }
@@ -211,14 +211,14 @@
       "key": "cta",
       "enabled": true,
       "reason": "default-on",
-      "variant": "control",
+      "variant": "blue",
       "assignment": {
         "source": "weighted",
         "by": "targetingKey",
-        "bucket": 0.44809214142151177
+        "bucket": 0.9129990567453206
       },
       "value": {
-        "label": "Buy"
+        "label": "Get it"
       }
     }
   }
