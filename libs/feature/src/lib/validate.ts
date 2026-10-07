@@ -1359,8 +1359,8 @@ function digestIssues(config: Checkable): readonly Found[] {
     derived = configDigest(config as FeatureConfig);
   } catch (raise) {
     // `canonical` recurses at `canonical.ts:128`, so a value nested deeper
-    // than the stack holds raises here rather than at a walk that reads a
-    // member. Nothing about the document is trusted, and a holder that cannot
+    // than the stack holds raises here, where no walk that reads a member
+    // meets it. Nothing about the document is trusted, and a holder that cannot
     // digest the content cannot verify the digest it states, so the document is
     // refused with the raise as the member it could not read. No pointer names
     // the value: the canonicaliser walks the document whole and reports no
