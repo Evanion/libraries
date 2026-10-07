@@ -316,6 +316,25 @@ describe('the documents parseFeatureConfig refuses', () => {
     });
   });
 
+  it('carries the message and the key of the issue it refuses a document for', () => {
+    const config: FeatureConfig = {
+      features: [
+        { key: 'a', enabled: true },
+        { key: 'a', enabled: true },
+      ],
+    };
+
+    const result = parseFeatureConfig(config);
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'duplicate-feature',
+        message: 'duplicate feature key "a"',
+        key: 'a',
+      },
+    ]);
+  });
+
   it('names the member no holder can read', () => {
     const config = {
       features: [{ key: 'a', enabled: true }],
