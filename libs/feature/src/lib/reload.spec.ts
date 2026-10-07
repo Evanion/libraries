@@ -1269,6 +1269,19 @@ describe('reload, the diff it reports', () => {
     expect(result.ok && result.changed).toEqual(['cta']);
   });
 
+  it('names nothing when a variant value holds the same pattern twice', () => {
+    const features = createFeatures([valued(/gold/u)]);
+
+    const result = features.reload({
+      features: [valued(/gold/u)],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // The counterpart of the pair of patterns that differ. `structuredClone`
+    // makes the two objects, so a diff with no reading for the source and the
+    // flags names the key on every poll of a document nothing changed about.
+    expect(result.ok && result.changed).toEqual([]);
+  });
+
   it('names a key whose attribute condition holds a Date against its string', () => {
     const features = createFeatures([
       {
