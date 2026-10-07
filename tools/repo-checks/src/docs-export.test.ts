@@ -1,8 +1,16 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { gunzipSync } from 'node:zlib';
+import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
-import { CONTENT, DOCS, servedSections } from './docs-content';
+import {
+  authoredPages,
+  CONTENT,
+  DOCS,
+  servedSections,
+  urlOf,
+} from './docs-content';
 
 /**
  * The invariant: the static export serves every version it links, is searchable
@@ -103,6 +111,68 @@ function readFilter(path: string): { name: string; values: string[] } {
       : (values as unknown[]).map((pair) => (pair as unknown[])[0]);
 
   return { name, values: (keys as string[]).sort() };
+}
+
+/** The workspace's answer to a git question, or `null` when git refuses it. */
+function git(...args: string[]): string | null {
+  try {
+    return execFileSync('git', args, {
+      cwd: workspaceRoot,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every exported page with the file it was written from: a written page is its
+ * own source at `HEAD`, a cut page is the file of the same name in the line's
+ * `dir` at the line's `sha`, and a bare section copied from `content/next/` is
+ * the copy's original at `HEAD`.
+ */
+function pageSources(): { path: string; commit: string; source: string }[] {
+  const pages = authoredPages().map((page) => ({
+    path: urlOf(page),
+    commit: 'HEAD',
+    source: relative(workspaceRoot, page),
+  }));
+
+  const inTree = (commit: string, dir: string, page: string) =>
+    [page === '' ? 'index.mdx' : `${page}.mdx`, `${page}/index.mdx`]
+      .map((file) => `${dir}/${file}`)
+      .find((file) => git('cat-file', '-e', `${commit}:${file}`) !== null);
+
+  for (const [slug, section] of Object.entries(servedSections())) {
+    const versions = [
+      { base: slug, version: section.current },
+      ...section.lines.map((line) => ({
+        base: `${slug}/${line.segment}`,
+        version: line,
+      })),
+    ];
+
+    for (const { base, version } of versions) {
+      const cut = version.from === 'cut';
+      const commit = cut ? (version.sha as string) : 'HEAD';
+      const dir = cut
+        ? (version.dir as string)
+        : relative(workspaceRoot, join(CONTENT, 'next', slug));
+
+      for (const page of version.pages) {
+        const source = inTree(commit, dir, page);
+        if (source)
+          pages.push({
+            path: `/${page === '' ? base : `${base}/${page}`}/`,
+            commit,
+            source,
+          });
+      }
+    }
+  }
+
+  return pages;
 }
 
 describe.runIf(required)('the static export', () => {
@@ -338,5 +408,44 @@ describe.runIf(required)('the static export', () => {
     );
 
     expect(empty).toEqual([]);
+  });
+
+  /**
+   * The "Last updated" date on a page is the committer date of the last commit
+   * that changed the file the page was written from. Nextra caches one MDX
+   * compiler per loader worker with the first page's date inside it, and a
+   * generated page at a path a commit once held carries that path's history,
+   * so either puts one page's date on another.
+   */
+  it("dates every page by its own source's last commit", () => {
+    const pages = pageSources()
+      .filter(({ path }) => existsSync(join(OUT, path, 'index.html')))
+      .map(({ path, commit, source }) => {
+        const seconds = git('log', '-1', '--format=%ct', commit, '--', source);
+        const shown = readFileSync(
+          join(OUT, path, 'index.html'),
+          'utf-8',
+        ).match(/<time dateTime="([^"]+)"/)?.[1];
+
+        return {
+          path,
+          expected: seconds
+            ? new Date(Number(seconds) * 1000).toISOString()
+            : '',
+          shown: shown ?? '',
+        };
+      });
+
+    expect(new Set(pages.map(({ expected }) => expected)).size).toBeGreaterThan(
+      1,
+    );
+    expect(
+      pages
+        .filter(({ expected, shown }) => expected !== shown)
+        .map(
+          ({ path, expected, shown }) =>
+            `${path}: shows ${shown || 'no date'}, last changed ${expected}`,
+        ),
+    ).toEqual([]);
   });
 });
