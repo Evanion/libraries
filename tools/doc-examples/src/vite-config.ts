@@ -1,6 +1,7 @@
 import { defaultServerConditions } from 'vite';
 import { doctest } from 'vite-plugin-doctest';
 
+import { MARKDOWN_SOURCES } from './examples-file.mjs';
 import { expectComments } from './vite-plugin.ts';
 
 /**
@@ -46,11 +47,12 @@ export function docExamples(options: { preamble?: string } = {}) {
 }
 
 /**
- * The files doc examples are collected from.
+ * The files doc examples are collected from: the sources' JSDoc examples, the
+ * README's landing example, and the examples under `docs/` the docs site cites.
  *
  * Specs are excluded: a file matching both `include` and `includeSource` is
  * collected twice.
  */
 export function docExampleSources(extension = 'ts'): string[] {
-  return [`src/**/!(*.spec|*.test|*.test-d).${extension}`, 'README.md'];
+  return [`src/**/!(*.spec|*.test|*.test-d).${extension}`, ...MARKDOWN_SOURCES];
 }

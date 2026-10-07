@@ -35,13 +35,13 @@ This approach provides these guarantees:
 
 `cust-0101` sits in the lowest 5% of the new checkout's range, so it is in at 10% and still in at 25%:
 
-```ts twoslash file=libs/feature/README.md region=bucket-stable
+```ts twoslash file=libs/feature/docs/examples.md region=bucket-stable
 
 ```
 
 `cust-0007` below sits near the top of the new checkout's range and near the bottom of express pickup's:
 
-```ts twoslash file=libs/feature/README.md region=bucket-decorrelated
+```ts twoslash file=libs/feature/docs/examples.md region=bucket-decorrelated
 
 ```
 
@@ -49,7 +49,7 @@ This approach provides these guarantees:
 
 An `@evanion/feature` rollout is one more condition of the rule that carries it. A rule that has both a `when` list and a `rollout` matches only if the customer satisfies the conditions AND falls within the bucket range.
 
-```ts twoslash file=libs/feature/README.md region=rollout-spec
+```ts twoslash file=libs/feature/docs/examples.md region=rollout-spec
 
 ```
 
@@ -67,7 +67,7 @@ A feature-level `seed` on the definition replaces the key for every rollout in t
 - **Data Types**: Only `string` and `number` are usable as bucketing values. Objects, booleans, or nulls are treated as absent.
 - **Exact Bounds**: A `percent` of `0` includes nobody; `100` includes every context that carries the bucketing field.
 
-```ts twoslash file=libs/feature/README.md region=rollout-edges
+```ts twoslash file=libs/feature/docs/examples.md region=rollout-edges
 
 ```
 
@@ -81,7 +81,7 @@ Many libraries use a simple modulus (e.g., `hash % 100`). This is problematic be
 
 For snapshot testing or predictive analysis (e.g., "Which 1,000 customers will see this rollout?"), `@evanion/feature` exports the underlying primitives `bucketOf`, `inRollout` and `murmur3`:
 
-```ts twoslash file=libs/feature/README.md region=primitives
+```ts twoslash file=libs/feature/docs/examples.md region=primitives
 
 ```
 

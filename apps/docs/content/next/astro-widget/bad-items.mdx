@@ -19,7 +19,7 @@
 
 Alongside checking for a specific widget type, `validateItems` checks if an item is structurally sound. If a CMS save contains broken entries, the engine identifies the faults based on six structural rules.
 
-```ts twoslash file=libs/astro-widget/README.md region=structural-rules
+```ts twoslash file=libs/astro-widget/docs/examples.md region=structural-rules
 
 ```
 
@@ -35,7 +35,7 @@ Alongside checking for a specific widget type, `validateItems` checks if an item
 
 If the entire payload is not an array (e.g., it's an object `{ items: [] }`), `validateItems` returns a single problem with an index of `-1` and a message of `items is not a list`.
 
-```ts twoslash file=libs/astro-widget/README.md region=not-a-list
+```ts twoslash file=libs/astro-widget/docs/examples.md region=not-a-list
 
 ```
 
@@ -43,7 +43,7 @@ If the entire payload is not an array (e.g., it's an object `{ items: [] }`), `v
 
 Because `validateItems` performs a depth-first walk, it reports problems for nested children using an index relative to their own siblings. A top-level item and its first child can both report `index: 0`. Use the `id` field to identify the faulty item; it tells the two apart only when your CMS keeps ids unique across the whole tree.
 
-```ts twoslash file=libs/astro-widget/README.md region=nested-index
+```ts twoslash file=libs/astro-widget/docs/examples.md region=nested-index
 
 ```
 
@@ -69,7 +69,7 @@ A common point of confusion is when an item passes the global `validateItems` ch
 
 Imagine a `GameGrid` widget that only renders `game-card` types. If the global build gate checks the page with one `known` list, it might pass a `listing-header` inside a grid. However, when `GameGrid` tries to render its children using its own `cardRegistry`, the `listing-header` is unknown and will be skipped.
 
-```ts twoslash file=libs/astro-widget/README.md region=nested-registry
+```ts twoslash file=libs/astro-widget/docs/examples.md region=nested-registry
 
 ```
 

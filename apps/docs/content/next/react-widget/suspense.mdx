@@ -19,7 +19,7 @@ By default, the `Widgets` component wraps every individual widget in its own `<S
 
 This is controlled via `chrome.suspense`, which defaults to `'per-item'`. You can also specify a `chrome.suspenseFallback` to render a custom loading state while a widget suspends.
 
-```tsx twoslash file=libs/react-widget/README.md region=suspense-fallback
+```tsx twoslash file=libs/react-widget/docs/examples.md region=suspense-fallback
 
 ```
 
@@ -36,7 +36,7 @@ This can be problematic if:
 
 If you know your widgets are all synchronous (they don't use `use(promise)` or `async` components), set `chrome.suspense: 'none'`. This removes the boundaries entirely, ensuring all widgets are in the initial HTML shell.
 
-```tsx twoslash file=libs/react-widget/README.md region=suspense-none
+```tsx twoslash file=libs/react-widget/docs/examples.md region=suspense-none
 
 ```
 
@@ -48,7 +48,7 @@ If you know your widgets are all synchronous (they don't use `use(promise)` or `
 
 Instead, you should write your own error boundary in a separate file marked with `'use client'`.
 
-```tsx twoslash file=libs/react-widget/README.md region=error-boundary
+```tsx twoslash file=libs/react-widget/docs/examples.md region=error-boundary
 
 ```
 

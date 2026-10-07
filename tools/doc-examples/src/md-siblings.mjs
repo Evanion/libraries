@@ -33,7 +33,7 @@ import { expandRegions } from './mdx-region-loader.mjs';
  * A Twoslash fence loses everything above its last `// ---cut---`. Twoslash
  * compiles those lines and renders none of them, so the browser shows the code
  * below the cut, and the sibling shows the same code. Most of those lines are a
- * README's preamble, which the region expansion put there for the compiler.
+ * package's preamble, which the region expansion put there for the compiler.
  *
  * Nothing else is rewritten. A ```mermaid fence stays a fence, because the
  * `<Diagram>` the browser gets is markup around this same source and the fence
@@ -110,7 +110,7 @@ export function absoluteLinks(markdown, route) {
  *
  * The last, because Twoslash renders from the last one: a region that hides
  * setup behind a cut of its own gets a second cut when the region expansion
- * puts the README's preamble in front of it.
+ * puts the package's preamble in front of it.
  */
 function cutFences(markdown) {
   const out = [];

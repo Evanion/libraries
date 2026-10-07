@@ -28,7 +28,7 @@ permission. Each rule holds a `when` list of conditions, and a condition is
 `{ field, op, value }` against a literal or `{ field, op, path }` against
 another path, as [the matrix reference](../matrix) sets out:
 
-```ts twoslash file=libs/acl/README.md region=diff-matrix
+```ts twoslash file=libs/acl/docs/examples.md region=diff-matrix
 
 ```
 
@@ -110,7 +110,7 @@ breaks anyway: `can` answered `allowed: true` for a bookseller who passed no
 listing, and after the edit it answers `unevaluable` and names `object.locked`
 in `missing`.
 
-```ts twoslash file=libs/acl/README.md region=diff-reads-object
+```ts twoslash file=libs/acl/docs/examples.md region=diff-reads-object
 
 ```
 

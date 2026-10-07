@@ -24,7 +24,7 @@ change. `AclConfigError` is the base of every class construction raises, so one
 this page are cast `as never`, because each one is malformed on purpose and
 would not type-check as a document:
 
-```ts twoslash file=libs/acl/README.md region=errors-catching
+```ts twoslash file=libs/acl/docs/examples.md region=errors-catching
 
 ```
 
@@ -35,7 +35,7 @@ from a decision `canFields` returned. It throws `ActionNotAllowedError` at
 request time, on a document that is entirely valid, when the subject may not
 take the action at all:
 
-```ts twoslash file=libs/acl/README.md region=errors-action-refused
+```ts twoslash file=libs/acl/docs/examples.md region=errors-action-refused
 
 ```
 
@@ -59,7 +59,7 @@ Where the document came from decides which one a query meets:
   The owner's next release can remove a key this consumer still asks about, so
   a query naming one answers `unknown-action`.
 
-```ts twoslash file=libs/acl/README.md region=errors-query
+```ts twoslash file=libs/acl/docs/examples.md region=errors-query
 
 ```
 
@@ -78,7 +78,7 @@ The fixtures below are matrix JSON. Each permission has `key`, `object`,
 [The matrix: your rules as JSON](../matrix) has the full form. Each case names
 its input first, and `raised` reports the class, so one case reads as one line:
 
-```ts twoslash file=libs/acl/README.md region=errors-document
+```ts twoslash file=libs/acl/docs/examples.md region=errors-document
 
 ```
 
@@ -95,7 +95,7 @@ its input first, and `raised` reports the class, so one case reads as one line:
 path to the condition inside the permission, so a document with forty rules
 names the one to fix:
 
-```ts twoslash file=libs/acl/README.md region=errors-condition-where
+```ts twoslash file=libs/acl/docs/examples.md region=errors-condition-where
 
 ```
 
@@ -105,7 +105,7 @@ A schema is checked for its own shape first, and then every condition naming a
 declared kind is checked against it. Field rules are checked whether a schema is
 present or not.
 
-```ts twoslash file=libs/acl/README.md region=errors-schema-fields
+```ts twoslash file=libs/acl/docs/examples.md region=errors-schema-fields
 
 ```
 
@@ -131,7 +131,7 @@ instant it last fetched its copy. The document's `maxStale` then bounds how long
 that copy stays good, the freshness budget. The check runs where the evaluator
 is built, so a misconfigured consumer fails at startup:
 
-```ts twoslash file=libs/acl/README.md region=errors-freshness
+```ts twoslash file=libs/acl/docs/examples.md region=errors-freshness
 
 ```
 
@@ -151,7 +151,7 @@ into your document with `applyDenyOverlay`, limited to the keys you list as
 `vetoable`. Both are checked when they are built, and each refusal names the key
 it refused:
 
-```ts twoslash file=libs/acl/README.md region=errors-composition
+```ts twoslash file=libs/acl/docs/examples.md region=errors-composition
 
 ```
 

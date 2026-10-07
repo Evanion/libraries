@@ -46,7 +46,7 @@ function read(_root: string, specifier: string, name: string) {
     rest: 'The second paragraph.',
     tags: [{ name: 'param', text: 'value the thing to widen' }],
     declaration: '/nowhere/index.d.ts',
-    readme: 'libs/acl/README.md',
+    examples: 'libs/acl/docs/examples.md',
   };
 }
 

@@ -67,7 +67,8 @@
         "inputs": [
           "{projectRoot}/tools/widget-renders.mjs",
           "{workspaceRoot}/tools/doc-examples/src/regions.mjs",
-          "{workspaceRoot}/libs/astro-widget/README.md",
+          "{workspaceRoot}/tools/doc-examples/src/examples-file.mjs",
+          "{workspaceRoot}/libs/astro-widget/docs/examples.md",
           "{workspaceRoot}/libs/astro-widget/src/**/*",
           "{workspaceRoot}/libs/astro-widget/examples/**/*",
           "{workspaceRoot}/libs/widget/src/**/*",

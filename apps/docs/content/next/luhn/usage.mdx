@@ -14,7 +14,7 @@
 
 `Luhn.generate` takes an identifier (without a check character) and returns the necessary data to build a valid code.
 
-```ts twoslash file=libs/luhn/README.md region=generate
+```ts twoslash file=libs/luhn/docs/examples.md region=generate
 
 ```
 
@@ -36,7 +36,7 @@ Because `generate` reads the **phrase**, inputs like `order-2026-0042` and `ORDE
 
 If every character is dropped, the resulting phrase is empty. Since every empty phrase would produce the same check character, a blank form field or a string of hyphens (`'--'`) would be "valid." To prevent this, the library requires at least one valid character.
 
-```ts twoslash file=libs/luhn/README.md region=empty-input
+```ts twoslash file=libs/luhn/docs/examples.md region=empty-input
 
 ```
 
@@ -44,7 +44,7 @@ If every character is dropped, the resulting phrase is empty. Since every empty 
 
 `Luhn.validate` treats the last character of the input that belongs to the dictionary as the check character.
 
-```ts twoslash file=libs/luhn/README.md region=validate
+```ts twoslash file=libs/luhn/docs/examples.md region=validate
 
 ```
 
@@ -64,7 +64,7 @@ To look up an order using a customer's input, you should store the **phrase** ge
 
 When a code comes back, use `validate` to verify it, then slice off the last character (the check character) to get the original phrase.
 
-```ts twoslash file=libs/luhn/README.md region=look-up
+```ts twoslash file=libs/luhn/docs/examples.md region=look-up
 
 ```
 
@@ -76,7 +76,7 @@ While allowing separators is great for humans, it can be a problem for automated
 
 You can use the `filtered` count to enforce strict input. If `filtered` is greater than 0, you know the input contains characters that weren't part of the original identifier.
 
-```ts twoslash file=libs/luhn/README.md region=strict-input
+```ts twoslash file=libs/luhn/docs/examples.md region=strict-input
 
 ```
 

@@ -728,6 +728,25 @@ describe('the directories the generator writes', () => {
     expect(cut).not.toContain('region=');
   });
 
+  it('fills a region from docs/examples.md as it was at the tag', () => {
+    const { read } = generated([
+      {
+        files: {
+          'libs/luhn/docs/examples.md': readme('Q'),
+          'apps/docs/content/next/luhn/index.mdx': page(
+            '```ts file=libs/luhn/docs/examples.md region=generate\n```',
+          ),
+        },
+        tag: '@evanion/luhn@3.0.0',
+      },
+      { files: { 'libs/luhn/docs/examples.md': readme('Z') } },
+    ]);
+
+    expect(read('luhn/index.mdx')).toContain(
+      "Luhn.generate('gloomhaven'); // -> 'Q'",
+    );
+  });
+
   it('writes the notice naming the release and the commit under the title', () => {
     const { root, read } = generated([
       {

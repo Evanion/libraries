@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 // @ts-expect-error -- plain ESM, imported by next.config.ts under Turbopack.
 import { expandRegions } from '@evanion/doc-examples/mdx-region-loader';
+import { examplesFileIn } from '@evanion/doc-examples/examples-file';
 import { readRegion } from '@evanion/doc-examples/regions';
 
 import {
@@ -49,8 +50,8 @@ import { authoredPages, sectionOf } from './docs-content';
  * run. Those two are the fences the repository already guarantees; a plain
  * ```ts fence is text, and a symbol named only there is a symbol nothing
  * checks. A `<!-- reference … example=… -->` directive counts as well: the
- * reference loader emits its example as a `twoslash` fence holding that README
- * region, so the page renders the same executed code a `file=` fence would.
+ * reference loader emits its example as a `twoslash` fence holding that
+ * region of the package's examples file, so the page renders the same executed code a `file=` fence would.
  * Only the lines a reader sees count, so a name the package's preamble imports
  * above a `// ---cut---` line is not exercised by being imported.
  *
@@ -67,7 +68,7 @@ const ALLOWANCE = join(HERE, 'doc-export-coverage-allowance.json');
 
 const FENCE = /^(\s*)(`{3,})(.*)$/;
 const HEADING = /^##\s+`([^`]+)`/gm;
-/** The reference loader's directive, with the README region it names. */
+/** The reference loader's directive, with the example region it names. */
 const REFERENCE_EXAMPLE =
   /^<!--\s*reference\s+(@?[\w./-]+)#[\w$]+\s+example=([\w-]+)\s*-->\s*$/gm;
 
@@ -179,7 +180,7 @@ function shown(body: readonly string[]): readonly string[] {
 }
 
 /**
- * The code of every README region a reference directive names as its example.
+ * The code of every region a reference directive names as its example.
  *
  * The directive is an HTML comment in the page as written, so neither fence
  * list above sees it. `mdx-reference-loader.mjs` reads the region through the
@@ -196,10 +197,13 @@ function referenceExamples(
       const owner = documented.find((each) => each.name === name);
       if (!owner) return [];
 
-      const readme = join(owner.root, 'README.md');
-      const source = readFileSync(join(workspaceRoot, readme), 'utf8');
+      // The file `readReference` gives the loader, so this counts the region
+      // the page renders.
+      const examples = examplesFileIn(join(workspaceRoot, owner.root));
+      const source = readFileSync(examples, 'utf8');
       return (
-        readRegion(source, readme, region as string).code as string
+        readRegion(source, relative(workspaceRoot, examples), region as string)
+          .code as string
       ).split('\n');
     },
   );

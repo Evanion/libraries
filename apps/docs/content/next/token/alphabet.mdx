@@ -23,7 +23,7 @@ Furthermore, the way random characters are drawn from a dictionary can introduce
 
 By default, `@evanion/token` uses `DEFAULT_DICTIONARY`, which consists of lowercase alphanumerics minus the **confusable characters**: `i`, `l`, `o`, and `w`.
 
-```ts twoslash file=libs/token/README.md region=default-alphabet
+```ts twoslash file=libs/token/docs/examples.md region=default-alphabet
 
 ```
 
@@ -48,7 +48,7 @@ When you provide a custom `dictionary` to `createToken`, the library validates i
 | **No Repeats**     | `@evanion/luhn`  | `duplicate`   | Each character must have a unique index for the checksum.                                |
 | **No Case Pairs**  | `@evanion/luhn`  | `case-pairs`  | Prevents a letter and its uppercase version from sharing an index.                       |
 
-```ts twoslash file=libs/token/README.md region=alphabet-errors
+```ts twoslash file=libs/token/docs/examples.md region=alphabet-errors
 
 ```
 
@@ -64,7 +64,7 @@ If `n` were 36, $256 / 36 = 7$ with a remainder of $4$. The first four character
 
 Because `@evanion/token` relies on `@evanion/luhn` for its checksum logic, you may encounter errors from both packages.
 
-```ts twoslash file=libs/token/README.md region=catch-both
+```ts twoslash file=libs/token/docs/examples.md region=catch-both
 
 ```
 
@@ -74,7 +74,7 @@ Because `@evanion/token` relies on `@evanion/luhn` for its checksum logic, you m
 
 Hexadecimal (`0123456789abcdef`) is a perfect alternative dictionary. It is even, lowercase, free of confusables, and 16 divides 256.
 
-```ts twoslash file=libs/token/README.md region=hex
+```ts twoslash file=libs/token/docs/examples.md region=hex
 
 ```
 

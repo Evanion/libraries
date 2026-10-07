@@ -45,7 +45,7 @@ If a decision remains `unevaluable` after a refetch, it indicates a mistyped fie
 
 When applying a write, do not manually filter the field map to remove only `denied` keys.
 
-```ts twoslash file=libs/acl/README.md region=hand-filter
+```ts twoslash file=libs/acl/docs/examples.md region=hand-filter
 
 ```
 
@@ -61,7 +61,7 @@ To maintain a "fail-closed" security posture, always rely on `pickAllowedFields`
 
 The `canFields` result contains two `allowed` booleans: one for the action itself and one for the overall field set.
 
-```ts twoslash file=libs/acl/README.md region=field-decision
+```ts twoslash file=libs/acl/docs/examples.md region=field-decision
 
 ```
 

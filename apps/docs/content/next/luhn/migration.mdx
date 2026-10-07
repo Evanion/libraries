@@ -20,7 +20,7 @@ If your system has already issued codes using version 2.x, you must decide how t
 
 The 2.x default lowercased input but used a 62-character dictionary that included both cases. You can reproduce 2.x check characters using `ALTERNATING_CASE_DICTIONARY` combined with lowercased input:
 
-```ts twoslash file=libs/luhn/README.md region=legacy-default
+```ts twoslash file=libs/luhn/docs/examples.md region=legacy-default
 
 ```
 
@@ -50,7 +50,7 @@ Version 2.x was configured through mutable statics, which meant dictionaries wer
 
 `createLuhn` now validates the dictionary immediately upon instance creation. Once built, the instance is frozen, ensuring that the checksum logic remains consistent.
 
-```ts twoslash file=libs/luhn/README.md region=frozen
+```ts twoslash file=libs/luhn/docs/examples.md region=frozen
 
 ```
 

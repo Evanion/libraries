@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { withPreamble, writesOwnImports } from '@evanion/doc-examples';
+import {
+  packageDirOf,
+  withPreamble,
+  writesOwnImports,
+} from '@evanion/doc-examples';
 
 /**
- * The preamble is what a README block stands on when it imports nothing, and
+ * The preamble is what a markdown block stands on when it imports nothing, and
  * the docs app's region loader has to put the same lines in front of a block
  * that the doctest run does, or a fence compiles against names it never ran
  * with.
@@ -51,5 +55,15 @@ describe('writesOwnImports', () => {
     ["const imported = 'import { URN }';", false],
   ])('reads %j as %s', (code, expected) => {
     expect(writesOwnImports(code)).toBe(expected);
+  });
+});
+
+describe('packageDirOf', () => {
+  it.each([
+    ['libs/urn/README.md', 'libs/urn'],
+    ['libs/urn/docs/examples.md', 'libs/urn'],
+    ['/w/libs/acl/docs/examples.md', '/w/libs/acl'],
+  ])('finds the preamble for %s in %s', (file, expected) => {
+    expect(packageDirOf(file)).toBe(expected);
   });
 });

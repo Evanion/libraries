@@ -25,7 +25,7 @@ The matrix is the JSON document a policy flattens to, which [the Overview](../)
 introduces. The owner serves it, and the storefront fetches it and hands it to
 `parseMatrix`:
 
-```ts twoslash file=libs/acl/README.md region=foreign-matrix
+```ts twoslash file=libs/acl/docs/examples.md region=foreign-matrix
 
 ```
 
@@ -93,7 +93,7 @@ network can fail for reasons your process cannot fix, so keep the last document
 that constructed. The `orders:` prefix on the object kind names the service that
 owns it:
 
-```ts twoslash file=libs/acl/README.md region=adopt-keep-last
+```ts twoslash file=libs/acl/docs/examples.md region=adopt-keep-last
 
 ```
 
@@ -120,7 +120,7 @@ merges another team's deny rules into the document, as
 covers. `hydratePolicy(matrix, { version })` names the revision this process
 runs, and `parseMatrix` takes the same option:
 
-```ts twoslash file=libs/acl/README.md region=version-override
+```ts twoslash file=libs/acl/docs/examples.md region=version-override
 
 ```
 

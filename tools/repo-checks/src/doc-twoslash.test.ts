@@ -1,11 +1,12 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, globSync, readFileSync, readdirSync } from 'node:fs';
+import { dirname, join, relative as relativeTo } from 'node:path';
 
 import { createProjectGraphAsync, parseJson, workspaceRoot } from '@nx/devkit';
 import { findMatchingProjects } from 'nx/src/devkit-internals';
 import { createTwoslasher } from 'twoslash';
 import { describe, expect, it } from 'vitest';
 
+import { MARKDOWN_SOURCES } from '@evanion/doc-examples/examples-file';
 import { expandReferences } from '@evanion/doc-examples/mdx-reference-loader';
 import { writesOwnImports } from '@evanion/doc-examples/preamble';
 // @ts-expect-error -- plain ESM, imported by next.config.ts under Turbopack.
@@ -32,15 +33,17 @@ import { authoredPages } from './docs-content';
  * its build emits. That is what a reader installing the package gets, and it
  * is why `nx.json` orders the libraries' builds ahead of the docs app's.
  *
- * The same compiler runs over the package READMEs. A README fence reaches the
- * test run through `includeSource`, which executes it and never type-checks it,
- * so a README could assert the result of a call its own package's types refuse
- * and CI stayed green over it. The second describe closes that.
+ * The same compiler runs over the packages' markdown: the README and the files
+ * under `docs/`. A markdown fence reaches the test run through `includeSource`,
+ * which executes it and never type-checks it, so a README could assert the
+ * result of a call its own package's types refuse and CI stayed green over it.
+ * The second describe closes that.
  *
- * A README fence compiles where its test run executes it: from the package's
- * directory, so a relative import reaches the same file the test run imports,
- * and with the package's own ambient declarations, which is how an `.astro`
- * import has a type in `@evanion/astro-widget`'s sources and in its README.
+ * A markdown fence compiles where its test run executes it: from the directory
+ * of the file holding it, so a relative import reaches the same file the test
+ * run imports, and with the package's own ambient declarations, which is how an
+ * `.astro` import has a type in `@evanion/astro-widget`'s sources and in its
+ * examples.
  */
 
 const FENCE = /^(\s*)(`{3,})(.*)$/;
@@ -55,10 +58,12 @@ interface Fence {
   code: string;
 }
 
-/** The README fences of one package, and the directory they compile from. */
-interface PackageFences {
-  /** Absolute path of the package root, where the README sits. */
+/** The fences of one markdown file, and the package they belong to. */
+interface FileFences {
+  /** Absolute path of the package root, where `src` sits. */
   root: string;
+  /** Absolute path of the directory holding the file, which they compile from. */
+  dir: string;
   fences: Fence[];
 }
 
@@ -153,7 +158,7 @@ async function releasedRoots(): Promise<string[]> {
 }
 
 /**
- * The README fences this compiles: doctested, so their claims already execute
+ * The markdown fences this compiles: doctested, so their claims already execute
  * and a compile error in one is a documented call the package refuses, and
  * self-contained, so the fence names what it uses.
  *
@@ -163,32 +168,44 @@ async function releasedRoots(): Promise<string[]> {
  * `writesOwnImports` gives. Those fences carry the documentation standard's
  * § 9 exemption and bringing them under a compiler is separate work.
  */
-async function readmeFences(): Promise<PackageFences[]> {
+async function markdownFences(): Promise<FileFences[]> {
   const roots = await releasedRoots();
 
   return roots.flatMap((root) => {
-    const readme = join(workspaceRoot, root, 'README.md');
-    if (!existsSync(readme)) return [];
+    const packageDir = join(workspaceRoot, root);
 
-    const fences = fencesIn(
-      readFileSync(readme, 'utf8'),
-      relative(readme),
-    ).filter(
-      ({ info, code }) =>
-        ['ts', 'tsx'].includes(info.split(/\s+/)[0] ?? '') &&
-        DOCTESTED.test(info) &&
-        writesOwnImports(code),
-    );
-
-    return [{ root: join(workspaceRoot, root), fences }];
+    return markdownFiles(packageDir).map((file) => ({
+      root: packageDir,
+      dir: dirname(file),
+      fences: fencesIn(readFileSync(file, 'utf8'), relative(file)).filter(
+        ({ info, code }) =>
+          ['ts', 'tsx'].includes(info.split(/\s+/)[0] ?? '') &&
+          DOCTESTED.test(info) &&
+          writesOwnImports(code),
+      ),
+    }));
   });
 }
 
 /**
- * The ambient declarations a package's sources compile with: every `.d.ts`
- * under its `src`, keyed by the path the compiler reads it at.
+ * The markdown files whose fences a package's test run executes, by the globs
+ * `docExampleSources` hands vitest.
  */
-function ambientDeclarations(root: string): Record<string, string> {
+function markdownFiles(packageDir: string): string[] {
+  return globSync([...MARKDOWN_SOURCES], { cwd: packageDir })
+    .sort()
+    .map((entry) => join(packageDir, entry));
+}
+
+/**
+ * The ambient declarations a package's sources compile with: every `.d.ts`
+ * under its `src`, keyed by its path from `dir`, the directory the compiler
+ * runs in.
+ */
+function ambientDeclarations(
+  root: string,
+  dir: string,
+): Record<string, string> {
   const src = join(root, 'src');
   if (!existsSync(src)) return {};
 
@@ -196,20 +213,20 @@ function ambientDeclarations(root: string): Record<string, string> {
     readdirSync(src, { recursive: true, encoding: 'utf8' })
       .filter((entry) => entry.endsWith('.d.ts'))
       .map((entry) => [
-        join('src', entry),
+        relativeTo(dir, join(src, entry)),
         readFileSync(join(src, entry), 'utf8'),
       ]),
   );
 }
 
-/** A package's README fences that did not compile from its own directory. */
-function readmeFailures(packages: readonly PackageFences[]): string[] {
-  return packages.flatMap(({ root, fences }) =>
+/** The markdown fences that did not compile from their file's directory. */
+function markdownFailures(files: readonly FileFences[]): string[] {
+  return files.flatMap(({ root, dir, fences }) =>
     compileFailures(
       fences,
       createTwoslasher({
-        vfsRoot: root,
-        extraFiles: ambientDeclarations(root),
+        vfsRoot: dir,
+        extraFiles: ambientDeclarations(root, dir),
       }),
     ),
   );
@@ -293,15 +310,25 @@ describe('twoslash fences', () => {
   });
 });
 
-describe('package README fences', () => {
+describe('package markdown fences', () => {
   it('finds a doctested fence in more than one package', async () => {
-    const packages = (await readmeFences()).filter(
-      ({ fences }) => fences.length > 0,
+    const packages = new Set(
+      (await markdownFences())
+        .filter(({ fences }) => fences.length > 0)
+        .map(({ root }) => root),
     );
-    expect(packages.length).toBeGreaterThan(1);
+    expect(packages.size).toBeGreaterThan(1);
+  });
+
+  it('finds a doctested fence under docs/', async () => {
+    expect(
+      (await markdownFences()).some(
+        ({ root, dir, fences }) => dir !== root && fences.length > 0,
+      ),
+    ).toBe(true);
   });
 
   it('compiles', async () => {
-    expect(readmeFailures(await readmeFences())).toEqual([]);
+    expect(markdownFailures(await markdownFences())).toEqual([]);
   });
 });

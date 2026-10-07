@@ -18,7 +18,7 @@ To prevent this, `@evanion/compose` moves the validation to compile time using a
 
 Depending on how you define your provider entries, the compiler checks the props at different times. Consider three providers: `CartProvider` (no props), `ThemeProvider` (requires `theme`), and `CurrencyProvider` (requires `currency`).
 
-```tsx twoslash file=libs/compose/README.md region=entries
+```tsx twoslash file=libs/compose/docs/examples.md region=entries
 
 ```
 
@@ -34,7 +34,7 @@ When you write your provider array inline within the `providers` prop, `ComposeP
 
 If you provide an incorrect prop for `ThemeProvider`, the compiler identifies exactly which entry in the array is failing.
 
-```tsx twoslash file=libs/compose/README.md region=checked-inline
+```tsx twoslash file=libs/compose/docs/examples.md region=checked-inline
 
 ```
 

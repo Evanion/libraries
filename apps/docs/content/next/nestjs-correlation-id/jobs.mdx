@@ -68,7 +68,7 @@ the id each call to `stock` runs under. It hands the job three messages: one
 carrying `storefront-4f1c9a`, one carrying no id, and one carrying
 `storefront 4f1c9a`, whose space fails `DEFAULT_CORRELATION_ID_VALIDATOR`:
 
-```ts file=libs/nestjs-correlation-id/README.md region=restock-by-hand
+```ts file=libs/nestjs-correlation-id/docs/examples.md region=restock-by-hand
 
 ```
 
@@ -89,7 +89,7 @@ The code below builds a queue worker, the process that runs such handlers, as a
 Nest application context, which starts no HTTP server. It calls `generate`,
 `run` and `setCorrelationId`:
 
-```ts twoslash file=libs/nestjs-correlation-id/README.md region=outside-a-request
+```ts twoslash file=libs/nestjs-correlation-id/docs/examples.md region=outside-a-request
 
 ```
 

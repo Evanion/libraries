@@ -19,7 +19,7 @@ A feature's `variants` split the customers it reaches across named versions, suc
 
 When an `@evanion/feature` feature is enabled and declares variants, the library assigns one of those variants to the customer from the same bucket [Rollouts](../rollouts) derives, under a separate seed. A customer who saw two variants would count in both arms of the test, so the assignment never moves between requests.
 
-```ts twoslash file=libs/feature/README.md region=variant-basics
+```ts twoslash file=libs/feature/docs/examples.md region=variant-basics
 
 ```
 
@@ -30,7 +30,7 @@ When an `@evanion/feature` feature is enabled and declares variants, the library
 - **Value**: You can attach a specific value to a variant (e.g., `blue: { label: 'Get it' }`). This allows your components to remain agnostic of the variant names. A variant that declares no value leaves `value` off the decision.
 - **Assignment Source**: The `assignment` field tells you how the variant was chosen: `weighted`, `pinned`, `sticky`, or `fallback`.
 
-```ts twoslash file=libs/feature/README.md region=variant-weights
+```ts twoslash file=libs/feature/docs/examples.md region=variant-weights
 
 ```
 
@@ -44,7 +44,7 @@ By default, the walk follows each variant's position in the `variants` array. If
 
 An explicit `order` on each variant fixes its position in the walk, so reordering the array moves nobody. It does not fix the bands: a weight change still moves the boundaries. A configuration document a store reads as JSON is refused unless every variant declares `order`.
 
-```ts twoslash file=libs/feature/README.md region=variant-order
+```ts twoslash file=libs/feature/docs/examples.md region=variant-order
 
 ```
 
@@ -52,7 +52,7 @@ An explicit `order` on each variant fixes its position in the walk, so reorderin
 
 `variantSeed` defaults to the feature's `seed` (or its key) followed by `:variant`, so the split is bucketed apart from the rollout. Setting it to the rollout's own seed correlates the two: every member of a 50% rollout sits below the same 0.5 boundary a 50/50 split uses, and all of them get the control.
 
-```ts twoslash file=libs/feature/README.md region=variant-seed-shared
+```ts twoslash file=libs/feature/docs/examples.md region=variant-seed-shared
 
 ```
 
@@ -62,7 +62,7 @@ An explicit `order` on each variant fixes its position in the walk, so reorderin
 
 You can override the weighted distribution of an `@evanion/feature` variant for specific customers. For example, you might want every bookseller to see the `blue` variant regardless of their bucket.
 
-```ts twoslash file=libs/feature/README.md region=variant-pin
+```ts twoslash file=libs/feature/docs/examples.md region=variant-pin
 
 ```
 
@@ -72,7 +72,7 @@ When a rule matches, the variant is "pinned." The `assignment.rule` field identi
 
 If you change the weights of a variant, some customers move to a different variant. To prevent this, your application hands back a customer's prior assignment in the context's `stickyVariants` field, keyed by feature, from wherever it keeps session state. The library reads it and writes no storage of its own.
 
-```ts twoslash file=libs/feature/README.md region=variant-sticky
+```ts twoslash file=libs/feature/docs/examples.md region=variant-sticky
 
 ```
 
@@ -84,7 +84,7 @@ A sticky entry wins over the weights, ensuring that a user who has already seen 
 
 If a customer's context is missing the field used for bucketing (e.g., they are not logged in), `@evanion/feature` assigns the control, and `assignment.source` reads `fallback`. This ensures the app still renders a valid version of the feature.
 
-```ts twoslash file=libs/feature/README.md region=variant-fallback
+```ts twoslash file=libs/feature/docs/examples.md region=variant-fallback
 
 ```
 
@@ -92,7 +92,7 @@ If a customer's context is missing the field used for bucketing (e.g., they are 
 
 If an `@evanion/feature` feature resolves off for any reason, it carries no variant, no value, and no assignment. Here no rule matched. A variant is assigned only for a feature that has resolved on.
 
-```ts twoslash file=libs/feature/README.md region=variant-off
+```ts twoslash file=libs/feature/docs/examples.md region=variant-off
 
 ```
 

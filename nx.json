@@ -17,7 +17,7 @@
     // What `@evanion/repo-checks` reads: the repository. Its tests hold the
     // docs content against `apps/docs/app/navigation.ts`, every project's
     // manifest and tsconfig against the project graph, the commitlint scope
-    // list against this file, and the package READMEs against a compiler. None
+    // list against this file, and the package markdown against a compiler. None
     // of that sits under `tools/repo-checks`, so the default `{projectRoot}/**/*`
     // hashes none of it and a docs edit replays a cached pass over content the
     // run never read.

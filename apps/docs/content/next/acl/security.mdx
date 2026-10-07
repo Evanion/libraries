@@ -72,7 +72,7 @@ The `now` parameter allows you to evaluate time-based boundaries (`before`/`afte
 | Browser Wall Clock    | Uses the client's clock.     | **Dangerous**: A user can set their system clock back to "re-open" a closed window.                          |
 | Unparseable / Invalid | Cannot determine time.       | Returns `{ allowed: false, reason: 'unusable-clock' }` from every permission that needs the clock to decide. |
 
-```ts twoslash file=libs/acl/README.md region=unusable-clock
+```ts twoslash file=libs/acl/docs/examples.md region=unusable-clock
 
 ```
 
@@ -86,7 +86,7 @@ For example, if a rule grants `admin` access to anyone where `object.is_admin ==
 
 **The Fix**: Ensure that no action a subject holds can write to a field that is used as a key for a read rule. Key your rules on immutable fields (e.g., `created_at`) or fields that only the server can modify.
 
-```ts twoslash file=libs/acl/README.md region=self-authorizing
+```ts twoslash file=libs/acl/docs/examples.md region=self-authorizing
 
 ```
 

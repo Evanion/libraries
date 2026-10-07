@@ -31,8 +31,8 @@ export function DocExamples() {
         label="documented examples run as tests"
       />
       <Stat
-        figure={count(statistics.docExamples.fromReadme)}
-        label="of them from a package README"
+        figure={count(statistics.docExamples.fromMarkdown)}
+        label="of them from a package's markdown"
       />
       <Stat
         figure={count(statistics.content.twoslash)}

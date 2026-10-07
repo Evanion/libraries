@@ -36,13 +36,13 @@ RFC 8141 §2.3 defines three components that can be appended to a URN. These all
 
 `parse` in `@evanion/urn` returns each component in its own field and never folds one into the `nss`. [`GameURN`](../getting-started) can read an edition and a section of the rules off a single URN:
 
-```ts twoslash file=libs/urn/README.md region=components
+```ts twoslash file=libs/urn/docs/examples.md region=components
 
 ```
 
 If a URN carries no component, the corresponding keys are simply absent from the returned object. The `URNComponents` type describes these three optional fields:
 
-```ts twoslash file=libs/urn/README.md region=components-type
+```ts twoslash file=libs/urn/docs/examples.md region=components-type
 
 ```
 
@@ -55,7 +55,7 @@ To write components, you must pass the parts to `stringify` as an object: `{ nss
 
 The library automatically ensures the introducers appear in the correct order (r, then q, then f), regardless of the order of keys in your object. An empty `fComponent` writes a bare `#`.
 
-```ts twoslash file=libs/urn/README.md region=components-write
+```ts twoslash file=libs/urn/docs/examples.md region=components-write
 
 ```
 
@@ -73,7 +73,7 @@ Crucially, components are **not part of the resource's identity**. RFC 8141 §3.
 
 `@evanion/urn`'s `equals` and `extractId` both ignore components. This means a URN with metadata is considered equivalent to the bare URN it describes.
 
-```ts twoslash file=libs/urn/README.md region=components-ignored
+```ts twoslash file=libs/urn/docs/examples.md region=components-ignored
 
 ```
 

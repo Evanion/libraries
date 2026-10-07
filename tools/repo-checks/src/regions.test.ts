@@ -5,7 +5,7 @@ import { RegionError, parseRegions, readRegion } from '@evanion/doc-examples';
 /**
  * Named regions are what the docs app renders instead of its own copy of an
  * example. Every malformed case throws, because the alternative is a docs page
- * quietly rendering something other than what the README ships.
+ * quietly rendering something other than what the package's tests run.
  */
 
 const fence = '```';

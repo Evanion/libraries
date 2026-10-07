@@ -21,7 +21,7 @@ If you handle this by manually stripping fields in your backend handler, you're 
 
 Instead of manually filtering the data sent by a form, you can use `canFields`. This function decides if an action is allowed and, if so, which specific fields of the proposed write are permitted.
 
-```ts twoslash file=libs/acl/README.md region=write-path
+```ts twoslash file=libs/acl/docs/examples.md region=write-path
 
 ```
 
@@ -64,7 +64,7 @@ For maximum control, you can provide a configuration object for specific fields.
 - **`targets`**: An allow-list of acceptable values. For example, `status: { targets: ['open', 'locked'] }` ensures the status can only be set to one of those two values.
 - **`transitions`**: A state machine that controls how a value can change. You define the current value as a key and an array of allowed next values. An empty array indicates a terminal state that can never be changed.
 
-```ts twoslash file=libs/acl/README.md region=field-configs
+```ts twoslash file=libs/acl/docs/examples.md region=field-configs
 
 ```
 

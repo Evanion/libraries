@@ -64,7 +64,7 @@ Per request it does five things, in order:
 Express and the Fastify adapters. Apply middleware that reads the id after this
 one.
 
-```ts twoslash file=libs/nestjs-correlation-id/README.md region=middleware-by-hand
+```ts twoslash file=libs/nestjs-correlation-id/docs/examples.md region=middleware-by-hand
 
 ```
 
@@ -99,7 +99,7 @@ handler in `run(generate(), …)` and reads the message's id afterwards. It leav
 the response header with the id the middleware wrote on arrival. The code below
 builds a worker with no HTTP server, whose generator returns `orders-7c41d2`:
 
-```ts twoslash file=libs/nestjs-correlation-id/README.md region=outside-a-request
+```ts twoslash file=libs/nestjs-correlation-id/docs/examples.md region=outside-a-request
 
 ```
 
@@ -159,7 +159,7 @@ object. `validate` is optional in the type because `CorrelationIdMiddleware`
 falls back to `DEFAULT_CORRELATION_ID_VALIDATOR` for a configuration built
 without `forRoot()`, as a unit test builds one, that has no `validate`.
 
-```ts twoslash file=libs/nestjs-correlation-id/README.md region=configure
+```ts twoslash file=libs/nestjs-correlation-id/docs/examples.md region=configure
 
 ```
 
@@ -176,7 +176,7 @@ No correlation header is registered with the Internet Assigned Numbers
 Authority (IANA). `X-Correlation-Id` and `X-Request-Id` are the two in common
 use.
 
-```ts twoslash file=libs/nestjs-correlation-id/README.md region=correlation-id-header
+```ts twoslash file=libs/nestjs-correlation-id/docs/examples.md region=correlation-id-header
 
 ```
 
@@ -196,7 +196,7 @@ that chose the same string. It is a string because a `Symbol()` is unique per
 copy of the module: two copies of the package would mint two tokens, and Nest
 would fail to resolve one of them.
 
-```ts twoslash file=libs/nestjs-correlation-id/README.md region=correlation-config-token
+```ts twoslash file=libs/nestjs-correlation-id/docs/examples.md region=correlation-config-token
 
 ```
 
@@ -224,7 +224,7 @@ const CORRELATION_AXIOS_INTERCEPTOR =
 Nothing injects it. The provider exists so that Nest runs the factory that
 registers the interceptor.
 
-```ts twoslash file=libs/nestjs-correlation-id/README.md region=correlation-axios-interceptor
+```ts twoslash file=libs/nestjs-correlation-id/docs/examples.md region=correlation-axios-interceptor
 
 ```
 
@@ -245,6 +245,6 @@ such as a queue message, that your code passes through it. The 128-character
 cap bounds what one request appends to every log line it touches. A universally
 unique identifier (UUID) from `randomUUID` is 36 characters.
 
-```ts twoslash file=libs/nestjs-correlation-id/README.md region=validator
+```ts twoslash file=libs/nestjs-correlation-id/docs/examples.md region=validator
 
 ```

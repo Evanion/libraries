@@ -19,7 +19,7 @@
 
 `@evanion/feature` uses a declarative configuration. You define the intent (is it enabled?) and the rules (when is it active?) in a single place. `createFeatures` validates the dependency graph, deep-clones and freezes your definitions, and returns the store.
 
-```ts twoslash file=libs/feature/README.md region=definition
+```ts twoslash file=libs/feature/docs/examples.md region=definition
 
 ```
 
@@ -58,7 +58,7 @@ The kill switch works in one direction only. Setting `enabled: true` on a featur
 
 `@evanion/feature` cascades dependencies transitively and one way. With demo night booking behind express pickup, and express pickup behind the new checkout, express pickup being off takes demo night booking off and leaves the new checkout on.
 
-```ts twoslash file=libs/feature/README.md region=cascade-chain
+```ts twoslash file=libs/feature/docs/examples.md region=cascade-chain
 
 ```
 
@@ -72,7 +72,7 @@ The kill switch works in one direction only. Setting `enabled: true` on a featur
 - **Unknown Dependencies**: `UnknownDependencyError`, when a feature depends on a key that isn't configured.
 - **Duplicates**: `DuplicateFeatureError`, when two features share the same key.
 
-```ts twoslash file=libs/feature/README.md region=config-errors
+```ts twoslash file=libs/feature/docs/examples.md region=config-errors
 
 ```
 
@@ -82,7 +82,7 @@ Variants are checked at the same point: `DuplicateVariantError` for two variants
 
 `@evanion/feature` rules let you activate features based on the user's context. Below, a bookseller matches the first rule, and every other customer is subject to the second rule's 10% rollout:
 
-```ts twoslash file=libs/feature/README.md region=rules
+```ts twoslash file=libs/feature/docs/examples.md region=rules
 
 ```
 
@@ -104,7 +104,7 @@ A `day-of-week` condition has no default zone: it names an IANA zone, because UT
 
 In `@evanion/feature`, a condition over a field the context does not carry never holds, and that includes `ne` and `not-in`. Treating `ne` on an absent field as true would switch features on for exactly the contexts that carry the least information.
 
-```ts twoslash file=libs/feature/README.md region=absent-field
+```ts twoslash file=libs/feature/docs/examples.md region=absent-field
 
 ```
 
@@ -112,7 +112,7 @@ In `@evanion/feature`, a condition over a field the context does not carry never
 
 To read the same on every host, a date-time string must include an offset (e.g., `+09:00`, `+0900` or `Z`). A date with no time is read as UTC midnight. `createFeatures` rejects a date-time without an offset, and a date the calendar does not have, at construction.
 
-```ts twoslash file=libs/feature/README.md region=instant-strings
+```ts twoslash file=libs/feature/docs/examples.md region=instant-strings
 
 ```
 
@@ -124,7 +124,7 @@ If you define your `@evanion/feature` configuration as an array literal, TypeScr
 
 If your configuration comes from a JSON file or variable, you can provide a schema interface to maintain type safety:
 
-```ts twoslash file=libs/feature/README.md region=typed-schema
+```ts twoslash file=libs/feature/docs/examples.md region=typed-schema
 
 ```
 

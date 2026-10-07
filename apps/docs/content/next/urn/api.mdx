@@ -33,7 +33,7 @@ is foreign to the base `URN` class. Under a separator other than `:`,
 separator, with no length bounds. `parse` accepts a one-character NID, which
 RFC 2141, the URN syntax RFC 8141 replaced, permitted and `nidGrammar` refuses:
 
-```ts twoslash file=libs/urn/README.md region=grammars
+```ts twoslash file=libs/urn/docs/examples.md region=grammars
 
 ```
 
@@ -43,7 +43,7 @@ catch it and return `false`. `belongsToNamespace` throws only when its scheme
 argument is left out, and returns `false` under `filter` or `map`, which pass
 a third argument:
 
-```ts twoslash file=libs/urn/README.md region=unbound
+```ts twoslash file=libs/urn/docs/examples.md region=unbound
 
 ```
 
@@ -53,7 +53,7 @@ a third argument:
 and `urn` default to the calling class's own statics. Both forms throw
 `InvalidError` when a part is empty or breaks its grammar:
 
-```ts twoslash file=libs/urn/README.md region=stringify-forms
+```ts twoslash file=libs/urn/docs/examples.md region=stringify-forms
 
 ```
 
@@ -63,7 +63,7 @@ order of `parse`'s return, so `stringify(...Object.values(parse(x)))` puts the
 scheme where the NSS belongs. `stringify` writes the NSS verbatim, so it neither
 deduplicates nor is idempotent:
 
-```ts twoslash file=libs/urn/README.md region=round-trip
+```ts twoslash file=libs/urn/docs/examples.md region=round-trip
 
 ```
 
@@ -74,7 +74,7 @@ written in and every percent-encoded character intact. A scheme or NID that
 differs from the class's own, compared without regard to case, stays in the
 `nss`:
 
-```ts twoslash file=libs/urn/README.md region=parse
+```ts twoslash file=libs/urn/docs/examples.md region=parse
 
 ```
 
@@ -86,7 +86,7 @@ differs from the class's own, compared without regard to case, stays in the
 `isValidFormat(urnString)` returns `true` when `parse` would succeed. It calls
 `parse`, so the two cannot disagree, and it never throws:
 
-```ts twoslash file=libs/urn/README.md region=screening
+```ts twoslash file=libs/urn/docs/examples.md region=screening
 
 ```
 
@@ -97,7 +97,7 @@ any r-, q- or f-component dropped. On a foreign namespace it differs from
 `parse(urnString).nss`, which keeps the NID. The base `URN` class's own NID is
 `'nid'`, so `game` is foreign to it:
 
-```ts twoslash file=libs/urn/README.md region=extract-id
+```ts twoslash file=libs/urn/docs/examples.md region=extract-id
 
 ```
 
@@ -108,7 +108,7 @@ any r-, q- or f-component dropped. On a foreign namespace it differs from
 `sameNamespace(a, b)` returns `true` when both URNs have the same scheme and
 the same NID, compared case-folded. Malformed input returns `false`:
 
-```ts twoslash file=libs/urn/README.md region=same-namespace
+```ts twoslash file=libs/urn/docs/examples.md region=same-namespace
 
 ```
 
@@ -118,7 +118,7 @@ the same NID, compared case-folded. Malformed input returns `false`:
 named namespace. `urn` defaults to the calling class's own scheme. Malformed
 input returns `false`:
 
-```ts twoslash file=libs/urn/README.md region=belongs-to-namespace
+```ts twoslash file=libs/urn/docs/examples.md region=belongs-to-namespace
 
 ```
 
@@ -129,7 +129,7 @@ The NSS compares character for character, except that the hex digits of a
 percent-triplet fold to uppercase. A percent-encoded octet is never decoded, and
 the r-, q- and f-components are ignored. Malformed input returns `false`:
 
-```ts twoslash file=libs/urn/README.md region=equality
+```ts twoslash file=libs/urn/docs/examples.md region=equality
 
 ```
 

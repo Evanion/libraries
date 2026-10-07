@@ -22,7 +22,7 @@ By overriding the `scheme` and `separator` properties in your namespace class, y
 
 For example, a `GameKey` class that sets the scheme to `baize` and the separator to `.` will produce identifiers like `baize.game.azul`.
 
-```ts twoslash file=libs/urn/README.md region=custom-separator
+```ts twoslash file=libs/urn/docs/examples.md region=custom-separator
 
 ```
 
@@ -40,7 +40,7 @@ The `belongsToNamespace` method defaults its scheme check to the calling class's
 
 Otherwise, a `GameURN` (which uses `urn`) will return `false` for `baize:game:azul`:
 
-```ts twoslash file=libs/urn/README.md region=belongs-to-namespace
+```ts twoslash file=libs/urn/docs/examples.md region=belongs-to-namespace
 
 ```
 

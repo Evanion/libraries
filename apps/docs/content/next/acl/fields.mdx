@@ -9,7 +9,7 @@ axes.
 one permission, declared per object kind and per action. A `.for('listing')`
 beside the policy below carries its own field rules in the same document.
 
-```ts twoslash file=libs/acl/README.md region=field-permissions
+```ts twoslash file=libs/acl/docs/examples.md region=field-permissions
 
 ```
 
@@ -19,7 +19,7 @@ beside the policy below carries its own field rules in the same document.
 the action-level `Decision` they hang off as `action`, and `allowed`, which is
 true when the action is allowed and every field is allowed.
 
-```ts twoslash file=libs/acl/README.md region=field-decision
+```ts twoslash file=libs/acl/docs/examples.md region=field-decision
 
 ```
 
@@ -49,7 +49,7 @@ gated on the action, and that flag composes both halves. A caller who reads the 
 `fields` takes either a name list or an object carrying one plus the per-field
 configs.
 
-```ts twoslash file=libs/acl/README.md region=field-lists
+```ts twoslash file=libs/acl/docs/examples.md region=field-lists
 
 ```
 
@@ -122,7 +122,7 @@ needs the row at all.
 
 Pass the proposed object to `canFields` on the `write` axis.
 
-```ts twoslash file=libs/acl/README.md region=write-path
+```ts twoslash file=libs/acl/docs/examples.md region=write-path
 
 ```
 
@@ -143,7 +143,7 @@ the narrowing. The narrowed result is safe to spread onto a row.
 
 The `read` axis answers which fields of an instance this subject may see.
 
-```ts twoslash file=libs/acl/README.md region=read-axis
+```ts twoslash file=libs/acl/docs/examples.md region=read-axis
 
 ```
 

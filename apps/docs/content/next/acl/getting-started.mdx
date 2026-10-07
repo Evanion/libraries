@@ -54,7 +54,7 @@ Within the `.for()` block, you use a helper (conventionally named `p`) to grant 
 
 Let's put this into practice. In our example shop, Baize, only staff members with the `bookseller` role should be allowed to delete questions. Save the following as `access.ts`:
 
-```ts twoslash file=libs/acl/README.md region=first-policy
+```ts twoslash file=libs/acl/docs/examples.md region=first-policy
 
 ```
 
@@ -70,7 +70,7 @@ The `access.matrix` property contains the policy as a plain JSON document. You c
 
 Update the first line of `access.ts` to include `hydratePolicy`, and add these lines to the end of the file:
 
-```ts twoslash file=libs/acl/README.md region=first-copy
+```ts twoslash file=libs/acl/docs/examples.md region=first-copy
 
 ```
 

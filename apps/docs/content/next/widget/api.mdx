@@ -12,7 +12,7 @@ function defineWidgets<R extends WidgetRegistry>(registry: R): R;
 
 Returns the registry it was handed, typed as the literal object passed in.
 
-```ts twoslash file=libs/widget/README.md region=registry
+```ts twoslash file=libs/widget/docs/examples.md region=registry
 
 ```
 
@@ -41,7 +41,7 @@ a whole payload.
 | `known`    | a registry, or a plain list of type names                              |
 | `required` | a widget type mapped to the props that must be present and non-blank   |
 
-```ts twoslash file=libs/widget/README.md region=unknown
+```ts twoslash file=libs/widget/docs/examples.md region=unknown
 
 ```
 
@@ -90,7 +90,7 @@ builds calls it before its first render.
 The text a renderer warns with. Held here so that a widget type the registry
 lacks reads the same way whether React or Astro drew the page.
 
-```ts twoslash file=libs/widget/README.md region=warning
+```ts twoslash file=libs/widget/docs/examples.md region=warning
 
 ```
 
@@ -134,7 +134,7 @@ each field. [`@evanion/react-widget`](/react-widget) also exports
 `WidgetItem<C>`, which checks an item's `props` against the component its
 registry `C` holds for the item's `type`.
 
-```ts twoslash file=libs/widget/README.md region=shape
+```ts twoslash file=libs/widget/docs/examples.md region=shape
 
 ```
 

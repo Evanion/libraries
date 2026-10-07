@@ -90,7 +90,7 @@ flowchart TD
 
 Even if the render hid a "Delete" button from the user, a malicious actor can post directly to the Server Action endpoint using `curl` or a script. Therefore, the Server Action must never trust the render's verdict; it must re-resolve the subject, re-read the row, and decide again.
 
-```ts twoslash file=libs/acl/README.md region=server-action
+```ts twoslash file=libs/acl/docs/examples.md region=server-action
 
 ```
 

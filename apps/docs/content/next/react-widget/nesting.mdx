@@ -14,7 +14,7 @@ A widget's `children` field allows you to nest items inside other widgets. For e
 
 The `defineItems` helper used in [Getting started](../getting-started) provides deep type checking. It validates nested items with the same rigor as top-level ones, ensuring that every child item matches a known widget type and has the correct props.
 
-```tsx twoslash file=libs/react-widget/README.md region=nesting
+```tsx twoslash file=libs/react-widget/docs/examples.md region=nesting
 
 ```
 
@@ -24,7 +24,7 @@ In this example, the `Showcase` component declares a `children` prop (`React.Rea
 
 TypeScript prevents you from nesting items where they don't belong. Since `ListingCard` does not declare a `children` prop, the compiler will reject any attempt to nest items under it.
 
-```tsx twoslash file=libs/react-widget/README.md region=nesting-rejected
+```tsx twoslash file=libs/react-widget/docs/examples.md region=nesting-rejected
 
 ```
 

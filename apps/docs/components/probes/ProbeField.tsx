@@ -42,7 +42,7 @@ function read(probe: Probe, text: string, last: string): Reading {
 
 interface ProbeFieldProps {
   probe: Probe;
-  /** The argument the README block makes the call with, read at build time. */
+  /** The argument the example block makes the call with, read at build time. */
   initial: string;
 }
 

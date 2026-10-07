@@ -9,7 +9,7 @@ import type { Probe } from './probe';
 /**
  * What ties a probe to the example the page renders above it.
  *
- * The README block is executed by Vitest, because it always was. The page
+ * The example block is executed by Vitest, because it always was. The page
  * renders that block, because the region loader fills it and a missing region
  * fails `next build`. This module supplies the third leg: the probe's opening
  * argument is read out of the same block at build time, and
@@ -24,7 +24,7 @@ import type { Probe } from './probe';
  * The repository root, found by walking up from the working directory.
  *
  * `next build` runs in the app directory and `vitest` runs where its config
- * is, so neither one's cwd is the root the READMEs are addressed from. The
+ * is, so neither one's cwd is the root the examples files are addressed from. The
  * marker is `nx.json`, which exists only at the root.
  */
 function workspaceRoot(): string {
@@ -42,7 +42,7 @@ function workspaceRoot(): string {
   }
 }
 
-/** The code of the README block a probe points at. */
+/** The code of the example block a probe points at. */
 export function regionOf(probe: Probe): string {
   const path = join(workspaceRoot(), probe.region.file);
 
@@ -55,9 +55,9 @@ export function regionOf(probe: Probe): string {
 
 /** A claim the probe reproduces: the argument it was called with, and the value. */
 export interface ProbeClaim {
-  /** The argument, read out of the call the README wrote. */
+  /** The argument, read out of the call the example wrote. */
   input: string;
-  /** The value the README claims, as source text. */
+  /** The value the example claims, as source text. */
   claimed: string;
 }
 
@@ -74,7 +74,7 @@ const UNESCAPED: Record<string, string> = {
 /**
  * The value of a string literal.
  *
- * Read character by character rather than evaluated: this runs over README
+ * Read character by character rather than evaluated: this runs over example
  * text during `next build`, and a scanner cannot be talked into running
  * something that is not a string.
  */
@@ -103,7 +103,7 @@ function valueOf(literal: string): string {
  * percentage and the flag key fixed and hands the reader the customer id. The
  * rest of the list is not parsed and does not need to be — `claimsOf` renders
  * the value it found back through `probe.source` and keeps the line only when
- * the result is the call the README wrote, character for character, so a probe
+ * the result is the call the example wrote, character for character, so a probe
  * pointed at a call the region does not make still finds nothing.
  */
 function leadingStringArgument(statement: string): string | null {
@@ -125,7 +125,7 @@ function leadingStringArgument(statement: string): string | null {
  * Every claim in `code` that the probe's own call reproduces.
  *
  * A line qualifies when rendering its argument back through `probe.source`
- * gives the expression the README wrote, character for character. That is the
+ * gives the expression the example wrote, character for character. That is the
  * tie: a probe pointed at a call the region does not make finds nothing, and
  * both callers below fail rather than seeding from, or checking against, an
  * example the page never shows.

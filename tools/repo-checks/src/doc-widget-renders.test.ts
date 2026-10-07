@@ -18,14 +18,14 @@ import { authoredPages } from './docs-content';
  * generator records a digest of every file the render read, and this test
  * recomputes them.
  *
- * It also holds the control to the page: every payload is a README region the
- * page that mounts the control renders, so the reader can read the code of any
+ * It also holds the control to the page: every payload is a region of
+ * `libs/astro-widget/docs/examples.md` that the page mounting the control renders, so the reader can read the code of any
  * payload they pick.
  */
 
 const DOCS = join(workspaceRoot, 'apps/docs');
 const RENDERS = join(DOCS, 'components/astro-widget/renders.json');
-const README = 'libs/astro-widget/README.md';
+const EXAMPLES = 'libs/astro-widget/docs/examples.md';
 
 interface Renders {
   sources: Record<string, string>;
@@ -48,10 +48,10 @@ function renders(): Renders {
 }
 
 describe('the astro-widget render the docs build writes', () => {
-  it('read Widgets.astro and the README the payloads came from', () => {
+  it('read Widgets.astro and the file the payloads came from', () => {
     const sources = Object.keys(renders().sources);
 
-    expect(sources).toContain(README);
+    expect(sources).toContain(EXAMPLES);
     expect(sources).toContain('libs/astro-widget/src/components/Widgets.astro');
   });
 
@@ -107,7 +107,7 @@ describe('the astro-widget render the docs build writes', () => {
           /^\s*`{3,}[^\n]*\bfile=(\S+)[^\n]*\bregion=([\w-]+)/gm,
         ),
       ]
-        .filter(([, file]) => file === README)
+        .filter(([, file]) => file === EXAMPLES)
         .map(([, , region]) => region),
     );
     const uncited = renders()
@@ -116,7 +116,7 @@ describe('the astro-widget render the docs build writes', () => {
 
     expect(
       uncited,
-      `The control offers these ${README} regions and the page renders none ` +
+      `The control offers these ${EXAMPLES} regions and the page renders none ` +
         'of them. Render the region on the page or drop the payload from ' +
         '`apps/docs/tools/widget-renders.mjs`.',
     ).toEqual([]);

@@ -20,7 +20,7 @@ export const rollout: Probe = {
   hint: 'Retype the id. The same customer always lands in the same place, and about one in ten is in.',
   call: (customerId) => inRollout(customerId, 10, 'new-checkout'),
   source: (customerId) => `inRollout(${quote(customerId)}, 10, 'new-checkout')`,
-  region: { file: 'libs/feature/README.md', name: 'rollout' },
+  region: { file: 'libs/feature/docs/examples.md', name: 'rollout' },
 };
 
 export const probes = { rollout };

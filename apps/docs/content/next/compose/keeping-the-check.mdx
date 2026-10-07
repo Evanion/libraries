@@ -19,7 +19,7 @@ When a type is widened, `ComposeProvider` can no longer correlate a specific com
 
 If you define your provider list as a constant, you **must** use `as const`. This tells TypeScript to treat the array as a read-only tuple with a fixed length and exact values, preserving the a-priori type information needed for validation.
 
-```tsx twoslash file=libs/compose/README.md region=named-array
+```tsx twoslash file=libs/compose/docs/examples.md region=named-array
 
 ```
 
@@ -41,7 +41,7 @@ It is common to create a custom wrapper component (e.g., `<AppProviders />`) to 
 
 To fix this, use a **const type parameter**. This forces TypeScript to infer the exact, fixed-length tuple of the caller's array.
 
-```tsx twoslash file=libs/compose/README.md region=wrapper
+```tsx twoslash file=libs/compose/docs/examples.md region=wrapper
 
 ```
 

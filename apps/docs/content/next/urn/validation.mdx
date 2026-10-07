@@ -28,7 +28,7 @@ Checking every input with a `try...catch` block is verbose and computationally e
 
 [`GameURN`](../getting-started) screens a URN from outside the shop before reading it:
 
-```ts twoslash file=libs/urn/README.md region=screening
+```ts twoslash file=libs/urn/docs/examples.md region=screening
 
 ```
 
@@ -40,7 +40,7 @@ A common JavaScript error occurs when passing static methods as callbacks. Every
 
 `stringify`, `parse` and `extractId` will throw a `TypeError` in this scenario. However, `isValidFormat`, `sameNamespace` and `equals` are designed to fail gracefully and return `false` instead.
 
-```ts twoslash file=libs/urn/README.md region=unbound
+```ts twoslash file=libs/urn/docs/examples.md region=unbound
 
 ```
 
@@ -53,7 +53,7 @@ A common JavaScript error occurs when passing static methods as callbacks. Every
 - **`ValidationError`**: The string is not a URN at all (e.g., it is missing the `urn:` scheme or the NID).
 - **`InvalidError`**: The string is a URN, but a specific part (like the NSS) broke its grammar.
 
-```ts twoslash file=libs/urn/README.md region=error-handling
+```ts twoslash file=libs/urn/docs/examples.md region=error-handling
 
 ```
 
@@ -70,7 +70,7 @@ Every `InvalidError` is also a `ValidationError`. An `InvalidError` carries deta
 
 Since `stringify` throws an `InvalidError` on a part that breaks its grammar, you should catch these errors when processing a batch of IDs. This ensures one bad slug doesn't stop the entire process:
 
-```ts twoslash file=libs/urn/README.md region=batch-mint
+```ts twoslash file=libs/urn/docs/examples.md region=batch-mint
 
 ```
 
@@ -84,7 +84,7 @@ Since `stringify` throws an `InvalidError` on a part that breaks its grammar, yo
 
 `schemeGrammar`, `nidGrammar` and `nssGrammar` hold the patterns `stringify` checks. Note that the NID is the only part read and written differently: `parse` accepts a one-character NID (per RFC 2141), while `stringify` refuses to write it.
 
-```ts twoslash file=libs/urn/README.md region=grammars
+```ts twoslash file=libs/urn/docs/examples.md region=grammars
 
 ```
 

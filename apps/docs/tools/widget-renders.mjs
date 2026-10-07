@@ -5,6 +5,7 @@ import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { getViteConfig } from 'astro/config';
 import { createServer, defaultServerConditions } from 'vite';
 
+import { EXAMPLES_FILE } from '@evanion/doc-examples/examples-file';
 import { readRegion } from '@evanion/doc-examples/regions';
 
 /**
@@ -17,7 +18,7 @@ import { readRegion } from '@evanion/doc-examples/regions';
  * produces the page. The control holds a fixed set of payloads because only a
  * payload rendered here has HTML to show.
  *
- * Each payload is a README region the page renders. The region runs as it
+ * Each payload is a region of the package's `docs/examples.md` the page renders. The region runs as it
  * does under doctest, with one change: `validateItems` records its arguments.
  * The first call's items, `known` and `required` are the payload, so the
  * control shows the call the page's fence makes and nothing written for it.
@@ -33,7 +34,8 @@ import { readRegion } from '@evanion/doc-examples/regions';
 const docsRoot = join(import.meta.dirname, '..');
 const workspaceRoot = join(docsRoot, '..', '..');
 const libraryRoot = join(workspaceRoot, 'libs', 'astro-widget');
-const README = join(libraryRoot, 'README.md');
+const EXAMPLES = join(libraryRoot, EXAMPLES_FILE);
+const examplesDir = dirname(EXAMPLES);
 const WIDGETS = join(libraryRoot, 'examples', 'src', 'widgets');
 const output = join(docsRoot, 'components', 'astro-widget', 'renders.json');
 
@@ -48,8 +50,11 @@ const PAYLOADS = [
   { region: 'nested-registry', label: 'A grid child the check passes' },
 ];
 
-/** The module id a region is served under, beside the README it came from. */
-const regionId = (name) => join(libraryRoot, `.region-${name}.ts`);
+/**
+ * The module id a region is served under, beside the file it came from, so a
+ * relative import in it resolves the way it does under doctest.
+ */
+const regionId = (name) => join(examplesDir, `.region-${name}.ts`);
 
 const RECORDER = '\0widget-renders:recorder';
 
@@ -61,10 +66,10 @@ const regions = {
   name: 'widget-renders:regions',
   enforce: 'pre',
   resolveId(source, importer) {
-    if (source.startsWith(join(libraryRoot, '.region-'))) return source;
+    if (source.startsWith(join(examplesDir, '.region-'))) return source;
     if (
       source === '@evanion/astro-widget' &&
-      importer?.startsWith(join(libraryRoot, '.region-'))
+      importer?.startsWith(join(examplesDir, '.region-'))
     ) {
       return RECORDER;
     }
@@ -83,11 +88,11 @@ const regions = {
         '}',
       ].join('\n');
     }
-    const name = id.startsWith(join(libraryRoot, '.region-'))
+    const name = id.startsWith(join(examplesDir, '.region-'))
       ? basename(id, '.ts').slice('.region-'.length)
       : undefined;
     if (name === undefined) return undefined;
-    return readRegion(readFileSync(README, 'utf8'), 'README.md', name).code;
+    return readRegion(readFileSync(EXAMPLES, 'utf8'), EXAMPLES_FILE, name).code;
   },
 };
 
@@ -155,7 +160,9 @@ try {
 
     const call = calls[0];
     if (call === undefined) {
-      throw new Error(`README region ${region} makes no validateItems call.`);
+      throw new Error(
+        `${EXAMPLES_FILE} region ${region} makes no validateItems call.`,
+      );
     }
     const [items, known, required] = call.args;
 
@@ -165,7 +172,7 @@ try {
             const widget = widgets.get(type);
             if (widget === undefined) {
               throw new Error(
-                `README region ${region} names ${type}, and examples/src/widgets has no widget for it.`,
+                `${EXAMPLES_FILE} region ${region} names ${type}, and examples/src/widgets has no widget for it.`,
               );
             }
             return [type, widget];
@@ -199,8 +206,8 @@ try {
     });
   }
 
-  // Every workspace file the render compiled, plus the README the regions
-  // came from and this script.
+  // Every workspace file the render compiled, plus the file the regions came
+  // from and this script.
   const read = [...server.environments.ssr.moduleGraph.idToModuleMap.values()]
     .map((module) => module.file)
     .filter(
@@ -211,7 +218,7 @@ try {
         !file.includes(`${sep}node_modules${sep}`) &&
         !basename(file).startsWith('.region-'),
     );
-  const files = [...new Set([...read, README, import.meta.filename])]
+  const files = [...new Set([...read, EXAMPLES, import.meta.filename])]
     .map((file) => relative(workspaceRoot, file).split(sep).join('/'))
     .sort();
 

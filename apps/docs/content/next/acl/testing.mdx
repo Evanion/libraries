@@ -32,7 +32,7 @@ JSON file beside its tests. CI fetches the current one from where `orders`
 serves it and hands both to `contractDrift` with the questions the storefront's
 screens ask:
 
-```ts twoslash file=libs/acl/README.md region=contract-drift
+```ts twoslash file=libs/acl/docs/examples.md region=contract-drift
 
 ```
 
@@ -67,7 +67,7 @@ documents, so no freshness bound applies and no case answers `stale-contract`.
 decision changed. An added key passes, so a producer that widened its surface
 leaves the consumer's build green:
 
-```ts twoslash file=libs/acl/README.md region=drift-assert
+```ts twoslash file=libs/acl/docs/examples.md region=drift-assert
 
 ```
 
@@ -85,7 +85,7 @@ which every assertion in `@evanion/acl/testing` throws, and both are plain
 `report.diff`, so passing `diffMatrix` types `report.diff` as the `MatrixDiff`
 that [What did editing my rules change about access?](../rule-changes) reads:
 
-```ts twoslash file=libs/acl/README.md region=drift-seam
+```ts twoslash file=libs/acl/docs/examples.md region=drift-seam
 
 ```
 
@@ -102,7 +102,7 @@ never in development, because a document authored in the same process reports no
 document's freshness budget the way the engine does and names the two instants
 that bracket it:
 
-```ts twoslash file=libs/acl/README.md region=fixture-clock
+```ts twoslash file=libs/acl/docs/examples.md region=fixture-clock
 
 ```
 
@@ -126,7 +126,7 @@ assertions below name the key, the reason, the rule and the missing paths:
 | `assertFieldState(decision, field, state, context?)` | asserts one field of a `canFields` decision                         |
 | `explainDecision`, `explainFieldDecision`            | the one-line renderings the three assertions throw                  |
 
-```ts twoslash file=libs/acl/README.md region=consumer-assertions
+```ts twoslash file=libs/acl/docs/examples.md region=consumer-assertions
 
 ```
 

@@ -27,7 +27,7 @@ conditions, and the engine ANDs them. A condition is `{ field, op, value }`
 against a literal or `{ field, op, path }` against another path, so
 `p.contains('subject.roles', 'bookseller')` becomes the one condition below:
 
-```ts twoslash file=libs/acl/README.md region=foreign-matrix
+```ts twoslash file=libs/acl/docs/examples.md region=foreign-matrix
 
 ```
 
@@ -50,7 +50,7 @@ Baize's `orders` service writes the question rules with `policy()` and serves it
 `access.matrix` to the storefront over HTTP. It passes `version` and `schema` to
 `policy()`, because both belong to the document and travel inside it:
 
-```ts twoslash file=libs/acl/README.md region=typed-document
+```ts twoslash file=libs/acl/docs/examples.md region=typed-document
 
 ```
 
@@ -75,7 +75,7 @@ route of its own, and the storefront fetches it.
 before they return an evaluator. This document declares `status` as a string and
 tests it with `contains`, which tests an array:
 
-```ts twoslash file=libs/acl/README.md region=schema-binding
+```ts twoslash file=libs/acl/docs/examples.md region=schema-binding
 
 ```
 
@@ -97,7 +97,7 @@ fetches the served document on a schedule it chooses and compares the served
 `version` with `access.version`. Below, `question.read` carries a rule with an
 empty `when`, which holds for every subject:
 
-```ts twoslash file=libs/acl/README.md region=revalidate
+```ts twoslash file=libs/acl/docs/examples.md region=revalidate
 
 ```
 

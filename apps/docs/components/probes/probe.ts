@@ -1,5 +1,5 @@
 /**
- * One call from a package's README, with its argument opened up.
+ * One call from a package's examples, with its argument opened up.
  *
  * A probe is the tested example made typeable: the code is fixed, one argument
  * is an `<input>`, and the function behind it is the package's own export
@@ -7,7 +7,7 @@
  * nothing is evaluated -- the only thing that varies is the string handed to
  * `call`.
  *
- * `region` names the README block the page quotes above the probe.
+ * `region` names the example block the page quotes above the probe.
  * `claims.ts` reads the block's own argument out of it at build time and holds
  * the probe to every value that block claims, so the probe opens on the tested
  * example rather than on a copy of it.
@@ -22,9 +22,9 @@ export interface Probe {
   hint: string;
   /** The call, run on every keystroke. */
   call: (input: string) => unknown;
-  /** The call as the README writes it, character for character. */
+  /** The call as the example writes it, character for character. */
   source: (input: string) => string;
-  /** The README block the page quotes above the probe. */
+  /** The example block the page quotes above the probe. */
   region: { file: string; name: string };
 }
 
@@ -41,7 +41,7 @@ export const INPUT_LIMIT = 200;
  * A string as a JavaScript literal, quoted the way prettier quotes it.
  *
  * Single quotes, and double quotes for a string that holds more single quotes
- * than double ones. The README is prettier-formatted, so this is what makes a
+ * than double ones. The examples file is prettier-formatted, so this is what makes a
  * probe's rendered call the same text as the claim it was seeded from.
  */
 export function quote(value: string): string {
@@ -66,7 +66,7 @@ export function quote(value: string): string {
 const isBareKey = (key: string) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key);
 
 /**
- * A value as the README would write it: one line, prettier's spacing.
+ * A value as the example would write it: one line, prettier's spacing.
  *
  * A printer rather than `JSON.stringify` because a claim is JavaScript source,
  * not JSON -- single quotes, unquoted keys, `undefined`. The probe's output
