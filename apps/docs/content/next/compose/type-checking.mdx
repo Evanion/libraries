@@ -1,6 +1,6 @@
 # Where the check happens
 
-In a long provider list, it's easy to pass the wrong props to a provider. `ComposeProvider` renders a missing or wrong prop without complaint, so `@evanion/compose` moves the validation to compile time using TypeScript generics.
+`ComposeProvider` and `provider()` check each entry's props against its component at compile time, because `ComposeProvider` renders a missing or wrong prop without complaint. Where the check runs depends on how you write the entry.
 
 <PageSheet
   difficulty={3}
