@@ -539,18 +539,35 @@ describe('the options parseFeatureConfig forwards', () => {
 });
 
 describe('the store a document builds', () => {
-  it('holds the definitions the document carried when the caller edits it', () => {
+  /**
+   * The store holds a copy of each definition, and the document keeps its own.
+   *
+   * `createFeatures` copies every definition with `structuredClone` and freezes
+   * the copy, so an edit the caller makes to the object it handed over reaches
+   * nothing the store decides from, and the caller's own object stays writable.
+   * A store built over the caller's objects answers both halves the other way:
+   * the freeze seals the document, and the edit below raises instead of
+   * landing.
+   */
+  it('decides on a copy of the definition the document carried', () => {
+    const row = { key: 'a', enabled: true };
+    const config: FeatureConfig = { features: [row] };
+
+    const result = parseFeatureConfig(config);
+    row.enabled = false;
+
+    expect(result.ok && result.features.isEnabled('a')).toBe(true);
+    expect(row.enabled).toBe(false);
+  });
+
+  it('keys on the array it built and not on the one the document carried', () => {
     const rows = [{ key: 'a', enabled: true }];
     const config: FeatureConfig = { features: rows };
 
     const result = parseFeatureConfig(config);
     rows.push({ key: 'b', enabled: true });
-    rows[0] = { key: 'a', enabled: false };
-    const held = result.ok
-      ? [result.features.keys, result.features.isEnabled('a')]
-      : [];
 
-    expect(held).toEqual([['a'], true]);
+    expect(result.ok && result.features.keys).toEqual(['a']);
   });
 });
 
