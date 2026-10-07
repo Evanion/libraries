@@ -452,7 +452,7 @@ Check `duplicate sibling id` first. A CMS that emits a constant id per widget ty
 
 ### Moving the Data
 
-The item's own props move under `props`, and `id` becomes required:
+The item's own props move under `props`, and `id` becomes required. `blocks` below is the list a 0.2.x CMS saved, with each block's props beside its `type`:
 
 ```ts
 const toWidgetItem =
@@ -482,7 +482,6 @@ Static rendering doesn't mean static logic. Our documentation covers how to hand
 - **Nested Regions**: How to build widgets that render their own nested `<Widgets />` regions.
 - **Build-Time Validation**: Setting up a CI script to fail the build if a CMS payload contains unknown types or missing fields.
 - **Page Data and Chrome**: Passing page-level data to every widget through `ctx`, and wrapping every widget with `chrome.item`.
-- **Comparison with React**: Understanding where an Astro component and a React component make the two renderers differ.
 
 For the full API reference and worked examples, visit our documentation site:
 
