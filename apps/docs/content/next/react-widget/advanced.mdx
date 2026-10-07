@@ -22,6 +22,7 @@ A common mistake is to bake layout logic (like grid spans or aria-labels) direct
 ## Customizing the Region and Item Shells
 
 The "Chrome" consists of two components:
+
 - **`chrome.wrapper`**: The outermost element of the region (e.g., a `<section>`). It receives the `children` and the full list of `items`.
 - **`chrome.item`**: The element that wraps every individual widget. It receives the `children` (the widget itself), the item's `id`, `type`, and its `meta` object.
 
@@ -39,7 +40,7 @@ While a widget's `props` contain the data, the `meta` property is used for place
 
 You can use the `WidgetItemComponent` type to annotate your chrome and ensure that `defineItems` validates the `meta` fields for every item.
 
-```tsx twoslash la=libs/react-widget/README.md region=meta-grid
+```tsx twoslash file=libs/react-widget/README.md region=meta-grid
 
 ```
 
@@ -53,7 +54,7 @@ Sometimes every widget in a region needs the same data—such as the current cur
 
 ```
 
-`Widgets` injects this `ctx` object into every widget's props. Because `ctx` is added *after* the item's own props, a CMS payload cannot accidentally override this global context.
+`Widgets` injects this `ctx` object into every widget's props. Because `ctx` is added _after_ the item's own props, a CMS payload cannot accidentally override this global context.
 
 ## Optimizing Long Regions
 

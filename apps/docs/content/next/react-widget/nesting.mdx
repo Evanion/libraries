@@ -21,18 +21,11 @@ The `defineItems` helper used in [Getting started](../getting-started) provides 
 In this example, the `Showcase` component declares a `children` prop (`React.ReactNode`). Because `Widgets` renders the nested items as children, the `tonight` item (a `Showcase`) effectively wraps the Hive listing. In the resulting HTML, the child's chrome sits inside the parent's chrome.
 
 ### Type Safety and Nested Items
+
 TypeScript prevents you from nesting items where they don't belong. Since `ListingCard` does not declare a `children` prop, the compiler will reject any attempt to nest items under it.
 
-```tsx
-// ❌ Compiler Error: 'ListingCard' does not accept children
-defineItems(widgets, [
-  {
-    id: 'azul',
-    type: 'listing',
-    props: { title: 'Azul' },
-    children: [{ id: 'nested', type: 'something', props: {} }] 
-  }
-]);
+```tsx twoslash file=libs/react-widget/README.md region=nesting-rejected
+
 ```
 
 ## Where Nested Items are Rendered
@@ -43,6 +36,6 @@ In the `Showcase` component, the children are rendered under an `<h2>` heading. 
 
 ## The limits of compile-time checks
 
-It's important to remember that `defineItems` only checks the code *you* write. 
+It's important to remember that `defineItems` only checks the code _you_ write.
 
 A CMS payload is just JSON; it never meets the TypeScript compiler. A CMS could send nested items under a `ListingCard`, and `Widgets` would simply ignore them during render. To catch these structural errors in your data, you must use `validateItems` at runtime. [Checking a CMS payload](../validation) shows how to implement this.
