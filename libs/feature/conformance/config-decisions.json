@@ -1,5 +1,5 @@
 {
-  "note": "One document, one context, the decisions any implementation must produce, and the buckets those decisions turn on. See docs/specs/2026-09-23-feature-config-distribution.md § 9.",
+  "note": "One document, one context, and the decisions any implementation must produce. See docs/specs/2026-09-23-feature-config-distribution.md § 9.",
   "config": {
     "version": 1,
     "digest": "c10bf292fd675a85dc4f4c707d2f2f96",
@@ -189,22 +189,5 @@
         "label": "Buy"
       }
     }
-  },
-  "buckets": [
-    {
-      "value": "u-4711",
-      "seed": "new-nav",
-      "bucket": 0.885186268016696
-    },
-    {
-      "value": "u-4711",
-      "seed": "gift-wrap",
-      "bucket": 0.8510021602269262
-    },
-    {
-      "value": "u-4711",
-      "seed": "cta:variant",
-      "bucket": 0.44809214142151177
-    }
-  ]
+  }
 }
