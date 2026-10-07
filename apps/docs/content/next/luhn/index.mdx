@@ -27,7 +27,7 @@ This leads to:
 
 ## The Solution: The Luhn Algorithm
 
-`@evanion/luhn` implements the Luhn algorithm—the same system used by credit cards globally—to detect transcription errors. It computes a single character based on the rest of the code; if any character is changed or swapped, the checksum will no longer match.
+`@evanion/luhn` implements the Luhn algorithm—the same system used by credit cards globally—to detect transcription errors. It computes a single character based on the rest of the code; if any character is changed or almost any two neighbours are swapped, the checksum will no longer match.
 
 For example, the order number `order-2026-0042` results in a check character of `l`. The final code becomes `order-2026-0042-l`.
 
@@ -43,7 +43,7 @@ The check character is calculated through a process called the Luhn sum:
 
 1. **Phrase Extraction**: Every character outside the chosen dictionary is dropped, and uppercase is folded to lowercase. `ORDER 2026 0042` becomes `order20260042`.
 2. **Index Mapping**: Each character is replaced by its index in the dictionary (e.g., `o` $\rightarrow$ 24).
-3. **The Doubling Step**: Starting from the right, every second index is doubled. If the result exceeds the dictionary size, its digits (in the dictionary's base) are added together.
+3. **The Doubling Step**: Starting with the rightmost character, every other index is doubled. If the result exceeds the dictionary size, its digits (in the dictionary's base) are added together.
 4. **Summation**: All values are added together to create the Luhn sum.
 5. **Final Character**: The check character is the one whose index brings the total sum to the nearest multiple of the dictionary size.
 

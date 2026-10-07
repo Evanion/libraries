@@ -66,7 +66,7 @@ If you want your custom instance to ignore case, set `caseInsensitive: true`. Th
 
 ### Unicode and Code Points
 
-`createLuhn` counts **code points**, not UTF-16 units. This means you can safely use emojis or other multi-byte symbols in your dictionary without breaking the index mapping.
+`createLuhn` counts **code points**, not UTF-16 units. This means you can safely use astral symbols such as 🂡 in your dictionary without breaking the index mapping. An emoji built from several code points, such as ❤️ or a flag, takes several entries.
 
 ```ts twoslash file=libs/luhn/README.md region=code-points
 
