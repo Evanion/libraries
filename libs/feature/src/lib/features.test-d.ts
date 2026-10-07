@@ -1,5 +1,11 @@
 import { describe, expectTypeOf, it } from 'vitest';
-import { createFeatures, type Definitions } from './features.js';
+import {
+  createFeatures,
+  type Definitions,
+  type DefinitionsOrConfig,
+  type Features,
+} from './features.js';
+import type { FeatureConfig } from './config.js';
 import type { FeatureDefinition } from './types.js';
 
 describe('createFeatures, inferring', () => {
@@ -244,6 +250,133 @@ describe('createFeatures over a document', () => {
 
     expectTypeOf(features.variantOf('cta')).toEqualTypeOf<
       'control' | 'blue' | undefined
+    >();
+  });
+});
+
+describe('the document and the array createFeatures accepts', () => {
+  interface MyFlags {
+    cta: { variant: 'control' | 'blue'; value: { label: string } };
+  }
+
+  const rows = [
+    { key: 'cta', enabled: true, variants: [{ name: 'only', weight: 1 }] },
+  ] as const;
+
+  it('infers the variant union off a document carrying no as const', () => {
+    // A consumer who must remember `as const` will forget, and the const type
+    // parameter is what carries the names off a document as well as an array.
+    const features = createFeatures({
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [
+            { name: 'control', weight: 50 },
+            { name: 'blue', weight: 50 },
+          ],
+        },
+      ],
+    });
+
+    expectTypeOf(features.variantOf('cta')).toEqualTypeOf<
+      'control' | 'blue' | undefined
+    >();
+  });
+
+  it('infers the variant union off a document a satisfies clause checks', () => {
+    const document = {
+      version: 1,
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variantBy: 'targetingKey',
+          variantSeed: 'cta',
+          variants: [
+            { name: 'control', weight: 50, order: 0 },
+            { name: 'blue', weight: 50, order: 1 },
+          ],
+        },
+      ],
+    } as const satisfies FeatureConfig<'cta'>;
+
+    const features = createFeatures(document);
+
+    expectTypeOf(features.variantOf('cta')).toEqualTypeOf<
+      'control' | 'blue' | undefined
+    >();
+  });
+
+  it('builds the store a bare array of the same definitions builds', () => {
+    const fromArray = createFeatures(rows);
+    const fromDocument = createFeatures({ features: rows });
+
+    expectTypeOf(fromDocument).toEqualTypeOf<typeof fromArray>();
+  });
+
+  it('builds the frozen store an observer asks a bare array for', () => {
+    const fromArray = createFeatures(rows, { observe: () => undefined });
+    const fromDocument = createFeatures(
+      { features: rows },
+      { observe: () => undefined },
+    );
+
+    expectTypeOf(fromDocument).toEqualTypeOf<typeof fromArray>();
+  });
+
+  it('selects the named schema over a document and sees no observer', () => {
+    const features = createFeatures<MyFlags>({
+      features: [{ key: 'cta', enabled: true }],
+    });
+
+    expectTypeOf(features).toEqualTypeOf<Features<MyFlags, false>>();
+  });
+
+  it('selects the named schema over a document carrying an observer', () => {
+    const features = createFeatures<MyFlags>(
+      { features: [{ key: 'cta', enabled: true }] },
+      { observe: () => undefined },
+    );
+
+    expectTypeOf(features).toEqualTypeOf<Features<MyFlags, true>>();
+  });
+
+  it('refuses a key the named schema does not declare', () => {
+    createFeatures<MyFlags>({
+      // @ts-expect-error the schema declares no such key
+      features: [{ key: 'nope', enabled: true }],
+    });
+  });
+
+  it('refuses an option no document call declares', () => {
+    // @ts-expect-error no such option
+    createFeatures(
+      { features: [{ key: 'cta', enabled: true }] },
+      {
+        observer: () => undefined,
+      },
+    );
+  });
+
+  it('keys the observation event off the definitions the document carries', () => {
+    createFeatures(
+      { features: [{ key: 'cta', enabled: true }] },
+      {
+        observe: (event) => {
+          if (event.type !== 'is-enabled') return;
+
+          expectTypeOf(event.key).toEqualTypeOf<'cta'>();
+        },
+      },
+    );
+  });
+
+  it('admits both forms and refuses a record carrying no definitions', () => {
+    expectTypeOf<Definitions<'cta'>>().toExtend<DefinitionsOrConfig<'cta'>>();
+    expectTypeOf<FeatureConfig<'cta'>>().toExtend<DefinitionsOrConfig<'cta'>>();
+    expectTypeOf<{ readonly version: 1 }>().not.toExtend<
+      DefinitionsOrConfig<'cta'>
     >();
   });
 });

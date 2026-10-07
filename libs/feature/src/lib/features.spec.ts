@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
+import { configDigest } from './digest.js';
 import {
   DuplicateFeatureError,
   DuplicateVariantError,
   FeatureConfigError,
   FeatureCycleError,
+  UnknownDependencyError,
+  UnknownVariantError,
 } from './errors.js';
 import { createFeatures, type Definitions } from './features.js';
+import { serializeConfig } from './serialize.js';
+import { validateConfig } from './validate.js';
 import type { FeatureConfig } from './config.js';
 import type {
   Decision,
@@ -2787,5 +2792,440 @@ describe('createFeatures over a document', () => {
         hashVersion: 2,
       } as unknown as FeatureConfig),
     ).toThrow(/hashVersion/);
+  });
+});
+
+describe('the version a document states', () => {
+  it('lifts no version off a document that states none', () => {
+    const features = createFeatures({
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig);
+
+    expect(features.version).toBeUndefined();
+  });
+
+  it('lifts the string a document states', () => {
+    const features = createFeatures({
+      version: '2026-09-29T00:00:00.000Z',
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig);
+
+    expect(features.version).toBe('2026-09-29T00:00:00.000Z');
+  });
+
+  /**
+   * A version is opaque, so the two falsy values a `string | number` holds are
+   * versions a publisher may serve. A member read through a `||` or a `??` with
+   * a fallback answers the fallback for both, and the store then reports a
+   * document it does not hold.
+   */
+  it('lifts the two versions no truth test reads', () => {
+    const lifted = [0, ''].map(
+      (version) =>
+        createFeatures({
+          version,
+          features: [{ key: 'checkout', enabled: true }],
+        } as FeatureConfig).version,
+    );
+
+    expect(lifted).toEqual([0, '']);
+  });
+
+  it('lifts a version at either end of the safe integer range', () => {
+    const lifted = [Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER].map(
+      (version) =>
+        createFeatures({
+          version,
+          features: [{ key: 'checkout', enabled: true }],
+        } as FeatureConfig).version,
+    );
+
+    expect(lifted).toEqual([Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]);
+  });
+
+  it('lifts no version off a bare array', () => {
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+
+    expect(features.version).toBeUndefined();
+  });
+
+  it('keeps the document version through a local toggle', () => {
+    const features = createFeatures({
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig);
+
+    features.toggle('checkout', false);
+
+    expect(features.version).toBe(41);
+  });
+
+  it('names the document it was built from as a reload previous version', () => {
+    const features = createFeatures({
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig);
+
+    const result = features.reload({
+      version: 42,
+      features: [{ key: 'checkout', enabled: false }],
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      version: 42,
+      previousVersion: 41,
+      changed: ['checkout'],
+    });
+  });
+
+  it('names the document that stayed when it refuses a reload', () => {
+    const features = createFeatures({
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig);
+
+    const result = features.reload({
+      version: 42,
+      features: [
+        { key: 'checkout', enabled: true },
+        { key: 'checkout', enabled: false },
+      ],
+    });
+
+    expect(result.ok === false && [result.version, result.rejected]).toEqual([
+      41, 42,
+    ]);
+  });
+
+  /**
+   * `FeatureOptions.version` labels an audit stream and the envelope's `version`
+   * names a document, and neither one defaults from the other. An observer whose
+   * stream version changed because a publisher shipped a document reports a
+   * change the application never asked for.
+   */
+  it('labels no observation with the version the document states', () => {
+    const seen: (string | undefined)[] = [];
+    const features = createFeatures(
+      {
+        version: 'v5',
+        features: [{ key: 'checkout', enabled: true }],
+      } as FeatureConfig,
+      {
+        observe: (event) => {
+          seen.push(event.version);
+        },
+      },
+    );
+
+    features.resolve();
+
+    expect(seen).toEqual([undefined]);
+  });
+});
+
+describe('the envelope a document installs', () => {
+  it('installs every member a document carries and no payload', () => {
+    const features = createFeatures({
+      version: 'v9',
+      schema: { context: { fields: { region: 'string' } } },
+      schemaVersion: 's1',
+      maxStale: 30_000,
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig);
+
+    expect(features.envelope).toEqual({
+      version: 'v9',
+      schema: { context: { fields: { region: 'string' } } },
+      schemaVersion: 's1',
+      maxStale: 30_000,
+    });
+  });
+
+  it('installs an empty envelope for a bare array', () => {
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+
+    expect(features.envelope).toEqual({});
+  });
+
+  it('installs an advisory duration at either end of the range', () => {
+    const installed = [0, Number.MAX_SAFE_INTEGER].map(
+      (maxStale) =>
+        createFeatures({
+          maxStale,
+          features: [{ key: 'checkout', enabled: true }],
+        } as FeatureConfig).envelope.maxStale,
+    );
+
+    expect(installed).toEqual([0, Number.MAX_SAFE_INTEGER]);
+  });
+
+  it('decides the same answer at either end of the advisory range', () => {
+    const answers = [0, Number.MAX_SAFE_INTEGER].map((maxStale) =>
+      createFeatures({
+        maxStale,
+        features: [{ key: 'checkout', enabled: true }],
+      } as FeatureConfig).isEnabled('checkout'),
+    );
+
+    expect(answers).toEqual([true, true]);
+  });
+
+  /**
+   * `configDigest` is the one writer of `digest`, which `ConfigEnvelope` fences
+   * to `never` and `reload` deletes off a candidate it installs. A store that
+   * kept the member hands `serializeConfig` a digest covering the bytes the
+   * publisher served, and the next holder refuses the document.
+   */
+  it('installs no digest the way a reload installs none', () => {
+    const content = {
+      version: 7,
+      features: [{ key: 'checkout', enabled: true }],
+    } satisfies FeatureConfig;
+
+    const features = createFeatures({
+      ...content,
+      digest: configDigest(content),
+    } as FeatureConfig);
+
+    expect('digest' in features.envelope).toBe(false);
+  });
+
+  it('serializes a document every holder verifies after a toggle', () => {
+    const content = {
+      version: 7,
+      features: [{ key: 'checkout', enabled: true }],
+    } satisfies FeatureConfig;
+    const features = createFeatures({
+      ...content,
+      digest: configDigest(content),
+    } as FeatureConfig);
+
+    features.toggle('checkout', false);
+
+    expect(validateConfig(serializeConfig(features))).toEqual({ ok: true });
+  });
+});
+
+describe('the definitions a document carries', () => {
+  it('builds a store with no keys from a document carrying no features', () => {
+    const features = createFeatures({
+      version: 3,
+      features: [],
+    } as FeatureConfig);
+
+    expect([features.keys, features.resolve(), features.version]).toEqual([
+      [],
+      {},
+      3,
+    ]);
+  });
+
+  it('builds a store from the one definition a document carries', () => {
+    const features = createFeatures({
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig);
+
+    expect([features.keys, features.isEnabled('checkout')]).toEqual([
+      ['checkout'],
+      true,
+    ]);
+  });
+
+  it('holds the intent a bare array of the same definitions holds', () => {
+    const rows = [
+      { key: 'checkout', enabled: true },
+      { key: 'express', enabled: true, dependsOn: ['checkout'] },
+    ];
+
+    const document = createFeatures({ version: 1, features: rows });
+    const array = createFeatures(rows);
+
+    expect(document.config).toEqual(array.config);
+  });
+
+  it('decides what a bare array of the same definitions decides', () => {
+    const rows = [
+      { key: 'checkout', enabled: false },
+      { key: 'express', enabled: true, dependsOn: ['checkout'] },
+      {
+        key: 'cta',
+        enabled: true,
+        variantBy: 'targetingKey',
+        variantSeed: 'cta',
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ];
+    const context = { targetingKey: 'u-1' };
+
+    const document = createFeatures({ version: 1, features: rows });
+    const array = createFeatures(rows);
+
+    expect([
+      document.isEnabled('express', context),
+      document.variantOf('cta', context),
+    ]).toEqual([
+      array.isEnabled('express', context),
+      array.variantOf('cta', context),
+    ]);
+  });
+
+  it('decides on a copy of the definition the document carried', () => {
+    const row = { key: 'checkout', enabled: true };
+    const document: FeatureConfig = { features: [row] };
+
+    const features = createFeatures(document);
+    row.enabled = false;
+
+    expect([features.isEnabled('checkout'), row.enabled]).toEqual([
+      true,
+      false,
+    ]);
+  });
+
+  it('keys on the array it built and not on the one the document carried', () => {
+    const rows = [{ key: 'checkout', enabled: true }];
+    const document: FeatureConfig = { features: rows };
+
+    const features = createFeatures(document);
+    rows.push({ key: 'express', enabled: true });
+
+    expect(features.keys).toEqual(['checkout']);
+  });
+});
+
+describe('the documents createFeatures refuses', () => {
+  it('throws the variant a document declares twice', () => {
+    expect(() =>
+      createFeatures({
+        features: [
+          {
+            key: 'cta',
+            enabled: true,
+            variants: [
+              { name: 'blue', weight: 50 },
+              { name: 'blue', weight: 50 },
+            ],
+          },
+        ],
+      } as FeatureConfig),
+    ).toThrow(DuplicateVariantError);
+  });
+
+  it('throws the dependency a document names and does not carry', () => {
+    expect(() =>
+      createFeatures({
+        features: [{ key: 'express', enabled: true, dependsOn: ['checkout'] }],
+      } as FeatureConfig),
+    ).toThrow(UnknownDependencyError);
+  });
+
+  it('throws the cycle two definitions of a document describe', () => {
+    expect(() =>
+      createFeatures({
+        features: [
+          { key: 'a', enabled: true, dependsOn: ['b'] },
+          { key: 'b', enabled: true, dependsOn: ['a'] },
+        ],
+      } as FeatureConfig),
+    ).toThrow(FeatureCycleError);
+  });
+
+  it('throws the variant a rule of a document pins and no variant declares', () => {
+    expect(() =>
+      createFeatures({
+        features: [
+          {
+            key: 'cta',
+            enabled: true,
+            variants: [{ name: 'blue', weight: 1 }],
+            rules: [{ variant: 'green' }],
+          },
+        ],
+      } as FeatureConfig),
+    ).toThrow(UnknownVariantError);
+  });
+
+  it('refuses a member a document states as undefined', () => {
+    expect(() =>
+      createFeatures({
+        features: [{ key: 'checkout', enabled: true }],
+        notes: undefined,
+      } as unknown as FeatureConfig),
+    ).toThrow(/"notes"/);
+  });
+
+  it('accepts a document carrying all six members', () => {
+    const content = {
+      version: 1,
+      schema: { context: { fields: { region: 'string' } } },
+      schemaVersion: 's1',
+      maxStale: 30_000,
+      features: [{ key: 'checkout', enabled: true }],
+    } satisfies FeatureConfig;
+
+    const features = createFeatures({
+      ...content,
+      digest: configDigest(content),
+    } as FeatureConfig);
+
+    expect(features.keys).toEqual(['checkout']);
+  });
+
+  it('refuses the digest a document states of other bytes', () => {
+    expect(() =>
+      createFeatures({
+        version: 7,
+        digest: '0'.repeat(32),
+        features: [{ key: 'checkout', enabled: true }],
+      } as FeatureConfig),
+    ).toThrow(FeatureConfigError);
+  });
+
+  it('accepts the digest a document states of itself', () => {
+    const content = {
+      version: 7,
+      features: [{ key: 'checkout', enabled: true }],
+    } satisfies FeatureConfig;
+
+    const features = createFeatures({
+      ...content,
+      digest: configDigest(content),
+    } as FeatureConfig);
+
+    expect(features.keys).toEqual(['checkout']);
+  });
+
+  it('refuses an inline schema a document states no version of', () => {
+    expect(() =>
+      createFeatures({
+        schema: { context: { fields: { region: 'string' } } },
+        features: [{ key: 'checkout', enabled: true }],
+      } as FeatureConfig),
+    ).toThrow(/schemaVersion/);
+  });
+
+  it('accepts a schema version a document states no inline schema with', () => {
+    const features = createFeatures({
+      schemaVersion: 's1',
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig);
+
+    expect(features.envelope.schemaVersion).toBe('s1');
+  });
+
+  it('leaves the document it refused exactly as it was handed it', () => {
+    const document = {
+      version: 9,
+      features: [{ key: 'checkout', enabled: true }],
+      hashVersion: 2,
+    } as unknown as FeatureConfig;
+    const before = structuredClone(document);
+
+    expect(() => createFeatures(document)).toThrow(FeatureConfigError);
+    expect(document).toEqual(before);
   });
 });
