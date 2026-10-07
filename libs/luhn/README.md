@@ -308,9 +308,6 @@ luhnFor(pickupAlphabet) === luhnFor(pickupAlphabet); // -> true
 <!-- #region case-sensitivity -->
 
 ```ts @import.meta.vitest
-import { ALTERNATING_CASE_DICTIONARY, createLuhn } from '@evanion/luhn';
-
-const pickup = createLuhn({ dictionary: '0123456789abcdefghjkmnpqrstuvxyz' });
 const folding = createLuhn({
   dictionary: '0123456789abcdefghjkmnpqrstuvxyz',
   caseInsensitive: true,
@@ -382,8 +379,6 @@ Drawing a random string over a dictionary with `byte % n` is uniform only when `
 <!-- #region modulo-bias -->
 
 ```ts @import.meta.vitest
-const pickup = createLuhn({ dictionary: '0123456789abcdefghjkmnpqrstuvxyz' });
-
 Luhn.uniformOverBytes; // -> false
 pickup.uniformOverBytes; // -> true
 ```
