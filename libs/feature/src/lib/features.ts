@@ -785,8 +785,16 @@ export function createFeatures(
     const changed = changedKeys(config, nextConfig);
     const previousVersion = installed.version;
 
+    // `ConfigEnvelope` fences `digest` to `never` and `configDigest` is the one
+    // writer of the member. `serializeConfig` defaults its envelope to this
+    // one, so a digest kept here covers the candidate's bytes and is emitted
+    // again over whatever the store holds after the next toggle, where every
+    // holder reports `digest-mismatch` and refuses the whole document. The
+    // candidate handed to `collectIssues` above keeps its digest, because that
+    // is the member a holder verifies.
     const envelopeOf: Record<string, unknown> = { ...candidate };
     delete envelopeOf['features'];
+    delete envelopeOf['digest'];
 
     config = nextConfig;
     graph = nextGraph;
