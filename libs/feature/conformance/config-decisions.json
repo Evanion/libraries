@@ -2,7 +2,7 @@
   "note": "One document, one context, and the decisions any implementation must produce. See docs/specs/2026-09-23-feature-config-distribution.md § 9.",
   "config": {
     "version": 1,
-    "digest": "47b37021eef192072b6f9883967c1c95",
+    "digest": "392615dec0e82adb204d4d410c4b9b53",
     "features": [
       {
         "key": "checkout",
@@ -65,6 +65,21 @@
                 "value": "enterprise"
               }
             ]
+          },
+          {
+            "id": "lapsed-window",
+            "when": [
+              {
+                "field": "plan",
+                "op": "eq",
+                "value": "pro"
+              },
+              {
+                "field": "now",
+                "op": "before",
+                "value": "2026-05-15T00:00:00+02:00"
+              }
+            ]
           }
         ]
       },
@@ -95,6 +110,13 @@
         "rules": [
           {
             "id": "half",
+            "when": [
+              {
+                "field": "plan",
+                "op": "eq",
+                "value": "pro"
+              }
+            ],
             "rollout": {
               "percent": 50,
               "by": "targetingKey",
@@ -195,6 +217,15 @@
             "field": "plan",
             "op": "eq",
             "value": "enterprise"
+          }
+        },
+        {
+          "rule": "lapsed-window",
+          "matched": false,
+          "failed": {
+            "field": "now",
+            "op": "before",
+            "value": "2026-05-15T00:00:00+02:00"
           }
         }
       ]
