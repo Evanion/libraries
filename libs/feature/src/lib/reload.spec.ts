@@ -567,6 +567,30 @@ describe('reload, the envelope it installs', () => {
     expect(result.ok === false && result.issues).toHaveLength(1);
   });
 
+  it('refuses a document whose digest covers other bytes', () => {
+    const other: FeatureConfig<'checkout'> = {
+      version: 2,
+      features: [{ key: 'checkout', enabled: true }],
+    };
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+
+    const result = features.reload({
+      version: 2,
+      digest: configDigest(other),
+      features: [{ key: 'checkout', enabled: false }],
+    });
+
+    // § 2 puts the verification on this path: a holder that finds a digest
+    // recomputes it. It holds only because `collectIssues` receives the
+    // candidate whole, and stripping the member before the check would drop
+    // the verification and keep every other case green.
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'digest-mismatch',
+    );
+    expect(features.isEnabled('checkout')).toBe(true);
+    expect(features.version).toBeUndefined();
+  });
+
   it('writes no digest into the envelope it installs', () => {
     const document = {
       version: 1,
