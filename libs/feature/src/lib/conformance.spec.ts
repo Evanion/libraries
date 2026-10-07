@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { bucketOf } from './bucketing.js';
 import { configDigest } from './digest.js';
+import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 import { createFeatures } from './features.js';
 import { parseFeatureConfig } from './parse.js';
 import { serializeConfig } from './serialize.js';
@@ -173,6 +174,34 @@ function weightsEven(config: FeatureConfig): FeatureConfig {
           }
         : definition,
     ),
+  };
+}
+
+/**
+ * The document a port that hashes `targetingKey` whatever the document says
+ * reads.
+ *
+ * `rolloutField` falls back to `DEFAULT_ROLLOUT_FIELD` for a rollout stating no
+ * `by`, and `assignVariant` falls back to it for a definition stating no
+ * `variantBy`, so those two defaults are what such a port buckets on.
+ */
+function fieldsDefaulted(config: FeatureConfig): FeatureConfig {
+  return {
+    ...config,
+    features: config.features.map((definition) => ({
+      ...definition,
+      rules: definition.rules?.map((rule) =>
+        rule.rollout
+          ? {
+              ...rule,
+              rollout: { ...rule.rollout, by: DEFAULT_ROLLOUT_FIELD },
+            }
+          : rule,
+      ),
+      variantBy: definition.variants
+        ? DEFAULT_ROLLOUT_FIELD
+        : definition.variantBy,
+    })),
   };
 }
 
@@ -380,20 +409,31 @@ describe('the document the fixture publishes', () => {
 
   it('prints, in each decision that buckets, the number the hash answers', () => {
     const subject = fixture.context['targetingKey'] as string;
+    const account = fixture.context['accountId'] as string;
     const ctaSeed = fixture.config.features.find(
       (definition) => definition.key === 'cta',
+    )?.variantSeed;
+    const heroSeed = fixture.config.features.find(
+      (definition) => definition.key === 'hero-copy',
     )?.variantSeed;
     const assigned = fixture.decisions['cta'] as {
       assignment?: { bucket?: number };
     };
+    const hero = fixture.decisions['hero-copy'] as {
+      assignment?: { bucket?: number };
+    };
 
-    // `bucketing.spec.ts` holds the hash itself. This holds the number the
-    // published decision prints against it, so a hand-edited fixture cannot
-    // publish a bucket the engine never computes.
+    // `bucketing.spec.ts` holds the hash itself. This holds the numbers the
+    // published decisions print against it, so a hand-edited fixture cannot
+    // publish a bucket the engine never computes. One of the two buckets on
+    // the subject and one on the account, which is what their `by` members
+    // say.
     expect(ctaSeed).toBeTypeOf('string');
+    expect(heroSeed).toBeTypeOf('string');
     expect(assigned.assignment?.bucket).toBe(
       bucketOf(subject, ctaSeed as string),
     );
+    expect(hero.assignment?.bucket).toBe(bucketOf(account, heroSeed as string));
   });
 
   it('enables a feature on a rule a rule before it did not match', () => {
@@ -534,6 +574,31 @@ describe('the document the fixture publishes', () => {
     expect(nav?.rules?.[0]?.rollout?.seed).not.toBe('new-nav');
     expect(cta?.variantSeed).not.toBe('cta:variant');
     expect(decisionsOver(seedsDefaulted(fixture.config))).not.toEqual(
+      fixture.decisions,
+    );
+  });
+
+  it('buckets a rollout and a split on a field that is not the default', () => {
+    const rollouts = fixture.config.features
+      .flatMap((definition) => definition.rules ?? [])
+      .flatMap((rule) => (rule.rollout ? [rule.rollout] : []));
+    const splits = fixture.config.features.filter(
+      (definition) => definition.variants,
+    );
+
+    // A document stating the default at every bucketing field is reproduced by
+    // a port that reads neither member and hashes `targetingKey`, and that
+    // port buckets every subject wrong on the first document that states a
+    // field of its own. The same hole `seed` had.
+    expect(
+      rollouts.filter((rollout) => rollout.by !== DEFAULT_ROLLOUT_FIELD),
+    ).not.toEqual([]);
+    expect(
+      splits.filter(
+        (definition) => definition.variantBy !== DEFAULT_ROLLOUT_FIELD,
+      ),
+    ).not.toEqual([]);
+    expect(decisionsOver(fieldsDefaulted(fixture.config))).not.toEqual(
       fixture.decisions,
     );
   });
