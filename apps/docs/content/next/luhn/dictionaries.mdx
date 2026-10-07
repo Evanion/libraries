@@ -40,7 +40,7 @@ The dictionary string is an **ordered list** of characters. The index of each ch
 
 ## Dictionary Constraints
 
-To ensure the Luhn algorithm works correctly, `createLuhn` validates your dictionary against five constraints, once, when it builds the instance. If any are broken, it throws an `InvalidDictionaryError`.
+To ensure the Luhn algorithm works correctly, `createLuhn` validates your dictionary against five constraints, once, when it builds the instance. If any is broken, it throws an `InvalidDictionaryError` whose `reason` names the constraint.
 
 | `reason`       | Constraint                                    | Why it matters                                                                                                   |
 | :------------- | :-------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
@@ -62,13 +62,13 @@ Because `createLuhn` refuses a dictionary it cannot use, an instance you hold ca
 
 By default, `createLuhn` sets `caseInsensitive` to `false` when you provide a custom dictionary, and to `true` when you provide none. The library cannot assume your own dictionary expects input folded to lowercase.
 
-If you want your custom instance to ignore case, set `caseInsensitive: true`. This is useful for dictionaries that only contain lowercase letters but need to accept uppercase input from users. `ALTERNATING_CASE_DICTIONARY`, 62 characters ordered `0-9` then `Aa Bb … Zz`, is the opposite case: an instance over it reads case.
+To make a custom instance ignore case, set `caseInsensitive: true`. A lowercase dictionary such as the pickup one needs it to accept uppercase input. `ALTERNATING_CASE_DICTIONARY` holds both cases, 62 characters ordered `0-9` then `Aa Bb … Zz`, so an instance over it leaves folding off and tells `A` from `a`.
 
 ```ts twoslash file=libs/luhn/README.md region=case-sensitivity
 
 ```
 
-The pickup instance refuses `A4KP-9MXA` because `A`, `K`, `P`, `M` and `X` are not in its dictionary: `validate` drops them and checks what is left.
+The pickup instance refuses `A4KP-9MXA` because it does not fold case, so `A`, `K`, `P`, `M` and `X` are not in its lowercase dictionary. `validate` drops them and checks `49`, which fails. `folding` accepts the same code.
 
 Asking for `caseInsensitive: true` over `ALTERNATING_CASE_DICTIONARY` would send both `A` and `a` to the index of `a`, so `createLuhn` refuses it rather than quietly downgrading:
 
