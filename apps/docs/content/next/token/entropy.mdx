@@ -63,9 +63,9 @@ Keep this probability below 1 in 1,000 for your expected volume over the next th
 
 **`@evanion/token` codes are not secure credentials**.
 
-A 35-bit code is designed to protect against _transcription errors_ (typos), not _adversarial guessing_. If a code grants high-value access (like a password reset or a gift card balance), it is susceptible to enumeration attacks.
+A 35-bit code is designed to protect against _transcription errors_ (typos), not _adversarial guessing_. An attacker can enumerate 35 bits, so a code that grants access by being known, such as a password reset link, needs a different tool.
 
-- **Wrong tool**: Do not use `@evanion/token` for session IDs or security tokens. Use a 128-bit random value for those, and do not make it readable, because nobody types it.
+- **Wrong tool**: Do not use `@evanion/token` for session IDs, password resets, or any code where knowing the string grants access. Use a 128-bit random value for those, and do not make it readable, because nobody types it.
 - **Right tool**: Use it for pickup codes, support tickets, or any identifier a human must handle.
 
 If a readable code _must_ gate a resource (like a gift card), you must implement additional security:
