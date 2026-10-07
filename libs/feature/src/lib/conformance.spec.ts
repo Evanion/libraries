@@ -82,6 +82,33 @@ function ordersByPosition(config: FeatureConfig): FeatureConfig {
   };
 }
 
+/**
+ * The document a port that never reads a stated seed reads.
+ *
+ * `bucketing.ts` defaults a rollout seed to the feature key and
+ * `variantSeedOf` defaults an assignment seed to the key with `:variant`
+ * appended, so those two values are what such a port hashes on.
+ */
+function seedsDefaulted(config: FeatureConfig): FeatureConfig {
+  return {
+    ...config,
+    features: config.features.map((definition) => ({
+      ...definition,
+      rules: definition.rules?.map((rule) =>
+        rule.rollout
+          ? {
+              ...rule,
+              rollout: { ...rule.rollout, seed: String(definition.key) },
+            }
+          : rule,
+      ),
+      variantSeed: definition.variants
+        ? `${String(definition.key)}:variant`
+        : definition.variantSeed,
+    })),
+  };
+}
+
 describe('the published cross-process fixture', () => {
   it('states the digest of the document it carries', () => {
     expect(fixture.config.digest).toBe(configDigest(fixture.config));
@@ -331,6 +358,24 @@ describe('the document the fixture publishes', () => {
       sorted.map((variant) => variant.name),
     );
     expect(decisionsOver(ordersByPosition(fixture.config))).not.toEqual(
+      fixture.decisions,
+    );
+  });
+
+  it('seeds a rollout and an assignment on something other than the key', () => {
+    const nav = fixture.config.features.find(
+      (definition) => definition.key === 'new-nav',
+    );
+    const cta = fixture.config.features.find(
+      (definition) => definition.key === 'cta',
+    );
+
+    // A fixture stating only the two defaults proves nothing about a port that
+    // never reads either member, and such a port buckets every subject wrong
+    // on the first production document that states a seed of its own.
+    expect(nav?.rules?.[0]?.rollout?.seed).not.toBe('new-nav');
+    expect(cta?.variantSeed).not.toBe('cta:variant');
+    expect(decisionsOver(seedsDefaulted(fixture.config))).not.toEqual(
       fixture.decisions,
     );
   });
