@@ -162,11 +162,11 @@ Testing the NestJS wiring requires the real ACL matrix to ensure that the guards
 
 ```
 
-By building a testing module with the real `ACL_ACCESS` provider, the specs verify the end-to-end flow from the guard to the service.
+By building a testing module with the real `ACL_ACCESS` provider, the specs verify the controller and the service against the real policy. `acl.guard.spec.ts` covers the guard, and `orders.e2e.spec.ts` boots the whole `AppModule`.
 
 ## Where to go next
 
 - [Express Integration](../express): See how to implement the same boundary without a built-in guard system.
-- [The Decision Object](../decision-object): Learn about the `unevaluable` state that triggers the Guard-to-Service deferral.
+- [Can this user do this?](../asking): Learn about `readsObject`, which triggers the Guard-to-Service deferral.
 - [Permission Resolution](../resolution): Understand the "Deny $\rightarrow$ Allow $\rightarrow$ Deny" logic.
 - [Security Contract](../security): Explore the principle of complete mediation.

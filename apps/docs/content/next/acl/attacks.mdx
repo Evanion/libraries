@@ -51,7 +51,7 @@ These defenses are baked into the engine and verified in `tier1-prevented.test.t
 | SEC-013 | Divergence between validation and evaluation | CWE-367            | The envelope is rebuilt from a single read, then frozen and validated as a single atomic unit.                         |
 | SEC-014 | Non-coercible object data                    | CWE-754, CWE-248   | Only primitives can name an edge; any object with a hostile `toString` method results in a denial.                     |
 | SEC-015 | Exhaustion via matrix depth                  | CWE-674, CWE-400   | The freeze walk is iterative; values nested beyond the maximum allowed depth are refused.                              |
-| SEC-016 | Linear growth of decision cost               | CWE-400            | Decisions only read their own specific permission; the total cost is bound by the number of subject reads.             |
+| SEC-016 | Linear growth of decision cost               | CWE-400            | Decisions only read their own specific permission; the test asserts that bound as a count of subject reads.            |
 | SEC-017 | Type confusion across JSON boundaries        | CWE-1287           | All comparisons use strict equality (e.g., `'1'` is not `1`, and `null` is not the same as an absent field).           |
 | SEC-018 | Unparseable clock or boundary                | CWE-754            | A clock that fails to parse is treated as a high-priority deny, ensuring timed windows fail closed.                    |
 | SEC-019 | Write escaping the decision                  | CWE-915            | Property tests verify that every key in the generated write was explicitly marked as `allowed` by the decision.        |
