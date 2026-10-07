@@ -737,8 +737,9 @@ export function createFeatures(
     const evaluationContext = withNow(context);
     // Bound after `withNow`, which this needs the settled context from. The
     // install below assigns the outer `config`, never `held`, so the store
-    // answers from the array this wrote and the `resolveAll` that runs after
-    // it takes a fresh binding and reads that same array.
+    // answers from the array this wrote and the `resolveAll` that runs after it
+    // takes a fresh binding and reads that same array. The two resolutions read
+    // this view, so each of them answers from one document.
     const { held, walk, positions } = boundView();
 
     // Reports the write and answers the caller with the same object. An
@@ -771,9 +772,21 @@ export function createFeatures(
     // still run.
     const before = resolveAll(evaluationContext);
 
-    const next = [...held];
-    next[at] = deepFreeze({ ...current, enabled });
-    config = Object.freeze(next);
+    // Read at the write, not from the bound view. The resolve above runs every
+    // getter the caller hung on the context, so a `reload` from one lands
+    // between the binding and this line and assigns all five references
+    // together. Writing the bound array back would put the pre-reload document
+    // under the candidate's graph, index and keys, and `definitionOf` would
+    // then index the previous array with the candidate's positions. A document
+    // that dropped the key gets no write at all, which is the reload
+    // discarding a local toggle that § 6 states.
+    const writeAt = index.get(key);
+    const target = writeAt === undefined ? undefined : config[writeAt];
+    if (writeAt !== undefined && target) {
+      const next = [...config];
+      next[writeAt] = deepFreeze({ ...target, enabled });
+      config = Object.freeze(next);
+    }
 
     const after = resolveAll(evaluationContext);
     const willDisable = walk

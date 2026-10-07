@@ -652,6 +652,79 @@ describe('reload, the references it swaps', () => {
   });
 });
 
+describe('reload, a toggle it lands inside', () => {
+  it('leaves every reference on the document it installed', () => {
+    const features = createFeatures([
+      {
+        key: 'parent',
+        enabled: true,
+        variants: [{ name: 'a', weight: 1 }],
+      },
+    ]);
+
+    let swapped = false;
+    // `assignVariant` reads `stickyVariants[key]` for every feature that
+    // declares variants, so this getter runs inside the resolve `toggle` runs
+    // before its write.
+    const stickyVariants = {
+      get parent(): string | undefined {
+        if (!swapped) {
+          swapped = true;
+          features.reload({
+            version: 9,
+            features: [{ key: 'zeta', enabled: true }],
+          } as unknown as FeatureConfig<'parent'>);
+        }
+        return undefined;
+      },
+    } as Readonly<Record<string, string>>;
+
+    features.toggle('parent', false, { targetingKey: 'u1', stickyVariants });
+
+    // The install swaps all five references together. A write built from the
+    // array `toggle` bound would put the pre-reload document back under the
+    // candidate's graph, index and keys, and `definition` would then answer a
+    // key the candidate declares with the definition the previous document
+    // held at that position.
+    expect(features.keys).toEqual(['zeta']);
+    expect(features.config.map((definition) => definition.key)).toEqual([
+      'zeta',
+    ]);
+    expect(features.definition('zeta' as 'parent')?.key).toBe('zeta');
+    expect(features.version).toBe(9);
+  });
+
+  it('writes the toggle into the document the reload installed', () => {
+    const features = createFeatures([
+      {
+        key: 'parent',
+        enabled: true,
+        variants: [{ name: 'a', weight: 1 }],
+      },
+    ]);
+
+    let swapped = false;
+    const stickyVariants = {
+      get parent(): string | undefined {
+        if (!swapped) {
+          swapped = true;
+          features.reload({
+            features: [{ key: 'parent', enabled: true }],
+          });
+        }
+        return undefined;
+      },
+    } as Readonly<Record<string, string>>;
+
+    features.toggle('parent', false, { targetingKey: 'u1', stickyVariants });
+
+    // The key survived the swap, so the write lands on the definition the
+    // candidate declares for it and not on the one the bound array held.
+    expect(features.isEnabled('parent')).toBe(false);
+    expect(features.config[0]?.variants).toBeUndefined();
+  });
+});
+
 describe('reload, the diff it reports', () => {
   it('names a key whose rule moved its window', () => {
     const features = createFeatures([
