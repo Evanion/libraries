@@ -1158,6 +1158,18 @@ describe('reload, the diff it reports', () => {
     // the pair, and a value this diff cannot compare belongs in `changed`.
     expect(result.ok && result.changed).toEqual(['cta']);
   });
+  it('names nothing when a variant value holds the same instant twice', () => {
+    const features = createFeatures([valued(new Date(0))]);
+
+    const result = features.reload({
+      features: [valued(new Date(0))],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // Two `Date`s of one instant are two objects, and `Object.keys` reads
+    // nothing off either. Without a reading for the instant they reach the
+    // prototype gate and compare equal to nothing.
+    expect(result.ok && result.changed).toEqual([]);
+  });
   it('names nothing when a variant value holds one Map twice', () => {
     const entries: readonly [string, number][] = [['gold', 1]];
     const features = createFeatures([valued(new Map(entries))]);
