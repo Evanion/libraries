@@ -4,7 +4,7 @@
 
 When a content management system (CMS) saves a page, it typically stores the content as a list of "items." Each item specifies a `type` (which component should be used) and `props` (the data for that component).
 
-The danger is a **Silent Failure**: if a CMS saves an item with a type that your frontend doesn't recognize—or if a required prop is missing—the renderer will often simply skip that item. In production, this leaves a mysterious gap in your page where a widget should have been, and since no error is thrown, you might not notice it until a user reports it.
+The danger is a **Silent Failure**: if a CMS saves an item with a type that your frontend doesn't recognize, the renderer will often simply skip that item, and if a required prop is missing, it draws the widget without it. In production, this leaves a mysterious gap in your page where a widget should have been, and since no error is thrown, you might not notice it until a user reports it.
 
 `@evanion/widget` is the core engine that identifies these "missing" or "broken" widgets before they ever hit the browser. It allows you to catch content errors during the save process, in a webhook, or as a blocking step in your CI pipeline.
 
@@ -23,7 +23,7 @@ In this system, a **widget** is a single structural block of a page—such as a 
 
 A **renderer** (such as `@evanion/react-widget` or `@evanion/astro-widget`) is the framework-specific package that actually turns these data items into UI components.
 
-Consider this listing page for the Baize board game shop. It contains a wide listing for _Brass: Birmingham_ and a shelf of other games. We can use `validateItems` to ensure that every item in this array can be rendered:
+Consider this listing page for the Baize board game shop. It contains a wide listing for _Brass: Birmingham_ and a shelf of other games. We can use `validateItems` to check that every item in this array names a known type and carries its `props`:
 
 ```ts twoslash file=libs/widget/README.md region=shape
 
@@ -38,7 +38,7 @@ Every item consists of a few key fields that standardize how your CMS talks to y
 - `id`: A unique string used for React keys and DOM attributes.
 - `type`: The name of the component used to render the widget.
 - `props`: The actual data passed to the component.
-- `meta`: Optional placement data (like `span: 2` for a grid). This is handled by the **wrapper** (the element that surrounds each widget) rather than the widget itself.
+- `meta`: Optional placement data (like `span: 2` for a grid). This is handled by the **item chrome** (`chrome.item`, the element that surrounds each widget) rather than the widget itself.
 - `children`: An optional array of nested items, allowing you to create complex layouts like shelves containing listings.
 
 ## The Widget Vocabulary
