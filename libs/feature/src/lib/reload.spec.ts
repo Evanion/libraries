@@ -1561,3 +1561,55 @@ describe('reload, a candidate it cannot copy', () => {
     expect(features.valueOf('cta', { targetingKey: 'u1' })).toBe(7);
   });
 });
+
+describe('reload, a document the store serialized', () => {
+  it('names no key over the bucketing members the serializer wrote out', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [
+          { name: 'a', weight: 1 },
+          { name: 'b', weight: 1 },
+        ],
+      },
+    ]);
+
+    // The held definition states its order by its array positions and leaves
+    // `variantBy` and `variantSeed` to their defaults. `serializeConfig` writes
+    // all three out, and § 6 names a key only where the stored intent differs.
+    const result = features.reload(serializeConfig(features));
+
+    expect(result.ok && result.changed).toEqual([]);
+  });
+
+  it('names no key over a window and a bucketing default at once', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'a', weight: 1 }],
+        rules: [
+          {
+            id: 'launch',
+            when: [
+              {
+                field: 'now' as const,
+                op: 'after' as const,
+                value: new Date('2026-01-01'),
+              },
+            ],
+            variant: 'a',
+          },
+        ],
+      },
+    ]);
+
+    // The boundary travels as an ISO string and the three bucketing members
+    // travel written out, so one definition states its intent through two
+    // shapes and both reads run over both sides.
+    const result = features.reload(serializeConfig(features));
+
+    expect(result.ok && result.changed).toEqual([]);
+  });
+});

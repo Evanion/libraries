@@ -469,6 +469,47 @@ export function assignWeighted(
 }
 
 /**
+ * One definition with the three bucketing members stated rather than implied.
+ *
+ * § 3 names four members that travel whole or the document is refused: a
+ * variant `weight`, which `VariantSpec` requires of every author, and
+ * `VariantSpec.order`, `variantBy` and `variantSeed`, which a definition may
+ * leave out. A store built from a literal leaves all three to their defaults,
+ * and `serializeConfig` writes them out, so a document and the store it came
+ * from state one bucketing through two shapes.
+ *
+ * This is the one writer of that materialization. `serializeConfig` calls it
+ * for the document it emits and the intent diff calls it for both sides it
+ * compares, so a reload of a serialized document names no key over a member the
+ * serializer made explicit.
+ *
+ * `validateVariants` refuses a partial order, so either every variant carries
+ * one or none does, and `bucketingPosition` supplies the walk position when
+ * none does. A control plane rebuilding this feature from rows with no
+ * `ORDER BY` then hands the variants back permuted and assigns identically,
+ * which is what decision 11 of the variants spec asks the envelope to carry.
+ *
+ * A definition declaring no variants is returned as it stands. It buckets no
+ * subject, so neither member decides anything for it.
+ */
+export function bucketingStated<F extends FeatureKey>(
+  definition: FeatureDefinition<F>,
+): FeatureDefinition<F> {
+  const variants = definition.variants;
+  if (!variants) return definition;
+
+  return {
+    ...definition,
+    variants: variants.map((variant, at) => ({
+      ...variant,
+      order: bucketingPosition(variant, at),
+    })),
+    variantBy: definition.variantBy ?? DEFAULT_ROLLOUT_FIELD,
+    variantSeed: variantSeedOf(definition),
+  };
+}
+
+/**
  * The seed a feature's variant assignment buckets on.
  *
  * The default appends to whatever the rollout seeds on, so the two buckets are

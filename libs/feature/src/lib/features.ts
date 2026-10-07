@@ -2,6 +2,7 @@ import { validateConditions } from './conditions.js';
 import { instantEpoch } from './instant.js';
 import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
+import { bucketingStated } from './variants.js';
 import type { FeatureGraph } from './graph.js';
 import { collectIssues } from './validate.js';
 import { unreadable } from './unreadable.js';
@@ -445,6 +446,30 @@ function windowsRead(
 }
 
 /**
+ * One definition read the way both sides of the diff state it.
+ *
+ * A document and the store it was serialized from state one intent through two
+ * shapes. `windowsRead` settles the boundary a `Date` and an ISO string state
+ * alike, and `bucketingStated` settles the three members `serializeConfig`
+ * writes out and a literal leaves implicit. Without the second one, the first
+ * reload of a serialized document names every key declaring variants, because
+ * the candidate carries a per-variant `order`, a `variantBy` and a
+ * `variantSeed` the held definition never wrote, and that is the poll-on-every-
+ * poll invalidation `windowsRead` exists to prevent.
+ *
+ * Making an implicit default explicit is not a difference in intent. The
+ * candidate could not omit the three in any case: `collectIssues` runs over a
+ * served document without `arrayIsOrder`, so a missing `order` is
+ * `invalid-variant-order` and the two absent bucketing members are two more
+ * issues.
+ */
+function intentRead(
+  definition: FeatureDefinition<FeatureKey>,
+): FeatureDefinition<FeatureKey> {
+  return bucketingStated(windowsRead(definition));
+}
+
+/**
  * The keys whose stored intent differs between two documents, in the order the
  * candidate declares them, with a key the candidate drops reported after them.
  *
@@ -467,7 +492,7 @@ function changedKeys(
     const held = previous.get(definition.key);
     if (
       held === undefined ||
-      !sameIntent(windowsRead(held), windowsRead(definition))
+      !sameIntent(intentRead(held), intentRead(definition))
     ) {
       changed.push(definition.key);
     }
