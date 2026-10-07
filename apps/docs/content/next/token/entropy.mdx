@@ -32,14 +32,14 @@ The default `length` of 8 and 32-character dictionary provide 35 bits. A `length
 
 ### Collision Probability
 
-The 50% collision point is roughly $1.18 \times \sqrt{2^{\text{bits}}}$. As you increase the length, the risk of collision drops exponentially:
+The 50% collision point is roughly $1.18 \times \sqrt{2^{\text{bits}}}$. The last column is the number of issued codes at which the next insert's chance of a conflict reaches 1 in 1,000, the figure the sizing rule below uses. Both grow fast with the length:
 
-| `length` | Bits | 50% Collision Point |
-| :------- | :--- | :------------------ |
-| 6        | 25   | 6,800               |
-| 8        | 35   | 218,000             |
-| 10       | 45   | 7,000,000           |
-| 13       | 60   | 1,300,000,000       |
+| `length` | Bits | 50% Collision Point | 1 in 1,000 per Insert |
+| :------- | :--- | :------------------ | :-------------------- |
+| 6        | 25   | 6,800               | 34,000                |
+| 8        | 35   | 218,000             | 34,000,000            |
+| 10       | 45   | 7,000,000           | 35,000,000,000        |
+| 13       | 60   | 1,300,000,000       | 1,200,000,000,000,000 |
 
 ## Handling Collisions with Unique Indexes
 
@@ -51,7 +51,7 @@ Put a `UNIQUE` index on the `body` column and redraw the code if the insert fail
 
 ```
 
-In this pattern, `issued` stands in for the unique index, and `insertPickupCode` returns `false` where a database raises a unique violation. In your code, catch that violation and nothing else, then call `generate()` again. `issuePickupCode` draws up to five times and then throws, so a table that has run out of codes raises an error. With each insert's chance of a conflict under 1 in 1,000, five consecutive collisions happen about once in $10^{15}$ inserts.
+In this pattern, `issued` stands in for the unique index, and `insertPickupCode` returns `false` where a database raises a unique violation. In your code, catch that violation and nothing else, then call `generate()` again. `issuePickupCode` draws up to five times and then throws, so a table that has run out of codes raises an error. Once `length` keeps each insert's chance of a conflict under 1 in 1,000, the sizing rule in the next section, five consecutive collisions happen about once in $10^{15}$ inserts.
 
 ## Sizing Your Code Length
 
