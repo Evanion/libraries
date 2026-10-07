@@ -780,10 +780,16 @@ export function createFeatures(
    *
    * Assigned before the accessors below close over it, and reassigned by
    * `reload` alone.
+   *
+   * The bare array's envelope is frozen as well. `envelope` hands `installed`
+   * out by reference, so a write through the getter would carry a `version`
+   * into a document no publisher served and `serializeConfig` would emit it.
    */
   let installed: ConfigEnvelope;
   try {
-    installed = isDocument(definitions) ? envelopeOf(definitions) : {};
+    installed = isDocument(definitions)
+      ? envelopeOf(definitions)
+      : Object.freeze({});
   } catch (raise) {
     // `envelopeOf` copies members the checker declares nothing about:
     // `memberIssues` names the six top-level members and `schemaIssues` fences

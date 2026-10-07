@@ -3015,6 +3015,26 @@ describe('the envelope a document installs', () => {
     expect(features.version).toBe(1);
   });
 
+  /**
+   * The bare array half of the pair above. A store built from a literal
+   * installs an envelope of its own, `envelope` hands it out by reference, and
+   * a write through the getter would carry a `version` into a document no
+   * publisher served and `serializeConfig` would emit it.
+   */
+  it('hands out the envelope of a bare array no holder writes through', () => {
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+
+    const written = () => {
+      (features.envelope as { version?: unknown }).version = 1234;
+    };
+
+    expect(written).toThrow(TypeError);
+    expect([features.version, 'version' in serializeConfig(features)]).toEqual([
+      undefined,
+      false,
+    ]);
+  });
+
   it('freezes the nested members of the envelope it installs', () => {
     const features = createFeatures({
       version: 1,
