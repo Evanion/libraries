@@ -70,17 +70,17 @@ The test below renders an `answer-wall` item and then the price through the Gett
 
 ```
 
-## The "Double-Validation" Gap
+## A Child the Grid's Registry Skips
 
 A `listing-header` saved inside a `game-grid` passes `validateItems` and renders nothing, because `GameGrid` renders its children through `cardRegistry`.
 
-`GameGrid`, the grid [Page data, wrappers and nested items](../layout#rendering-nested-items) built, renders only `game-card` children. A build gate that checks the page with one `known` list passes a `listing-header` inside the grid, and `GameGrid`'s own `cardRegistry` then skips it. Below, the first call checks the page with one `known` and passes it, and the second checks the children of every `game-grid` against the names in the grid's registry:
+`GameGrid`, the grid [Page data, wrappers and nested items](../layout#rendering-nested-items) built, renders only `game-card` children. Below, the first call checks the page with one `known` and passes it, and the second checks the children of every `game-grid` against the names in the grid's registry:
 
 ```ts twoslash file=libs/astro-widget/README.md region=nested-registry
 
 ```
 
-Check the children of each container widget against the names in that widget's own registry: run the second call in `scripts/check-content.ts`, and add its problems to the report.
+Check the children of each container widget against the names in that widget's own registry: run the second call in `scripts/check-content.ts`, and add its problems to the report. The filter reads the top level only, so a grid saved inside another widget needs the same call over that widget's `children`.
 
 The same grid has no `title` either, and renders an empty `<h2>`, because the first call's `required` names no prop for `game-grid`. The `'game-grid': ['title']` that [Page data, wrappers and nested items](../layout#syncing-the-build-gate) added to the build gate reports it.
 
