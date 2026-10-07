@@ -94,17 +94,71 @@ const TRAVELS = {
   variantSeed: 'cta:variant',
 } as const;
 
+/** A document whose one served variant carries `value`. */
+function carrying(value: unknown): FeatureConfig {
+  return {
+    features: [
+      {
+        key: 'cta',
+        enabled: true,
+        ...TRAVELS,
+        variants: [{ name: 'blue', weight: 1, order: 0, value }],
+      },
+    ],
+  } as unknown as FeatureConfig;
+}
+
 /**
- * A document whose variant value nests deeper than a recursive walk of it fits
- * on the stack.
+ * An array nested deeper than `recurse` walks on the runtime this runs on.
  *
- * `structuredClone` at `features.ts:409` and `canonical` at `canonical.ts:138`
- * both recurse through the value, so each raises `RangeError: Maximum call
- * stack size exceeded` over this one. The text is parsed per case, because
- * `JSON.parse` is the only reader here that builds the value without recursing
- * that far.
+ * `structuredClone` at `features.ts:409` recurses once per level, so the depth
+ * it gives up at is a property of the stack the runtime hands it and not of the
+ * document: `node --stack-size=4000` copies four times what the default copies.
+ * A fixture pinning one depth asserts a refusal that a flag turns off, and the
+ * case then reads an empty issue list with no hint that the stack moved.
+ *
+ * So the depth is the runtime's answer. The doubling stops at the first depth
+ * `recurse` raises on, and the throw below is what a case gets where none of
+ * them raises. The arrays are built with a loop, so nothing recurses on the way
+ * in and no reader's own ceiling caps what this reaches.
  */
-const DEEP = `{"features":[{"key":"cta","enabled":true,"variantBy":"targetingKey","variantSeed":"cta:variant","variants":[{"name":"blue","weight":1,"order":0,"value":${'['.repeat(5000)}1${']'.repeat(5000)}}]}]}`;
+function nestedPast(recurse: (value: unknown) => unknown): unknown {
+  for (let depth = 2_000; depth <= 512_000; depth *= 2) {
+    let value: unknown = 1;
+    for (let at = 0; at < depth; at += 1) value = [value];
+    try {
+      recurse(value);
+    } catch {
+      return value;
+    }
+  }
+  throw new Error(
+    'no array nested 512000 levels deep exhausted the stack this runtime hands the walk, so the cases over it name a refusal nothing produces',
+  );
+}
+
+/**
+ * A document whose variant value nests deeper than the construction path copies.
+ */
+const DEEP = carrying(nestedPast(structuredClone));
+
+/**
+ * A document whose variant value no canonical text names, at a depth every
+ * runtime walks.
+ *
+ * 27 doublings of a shared array is 2^27 leaves, because neither a canonical
+ * text nor JSON carries the sharing, so `canonical` meets `RangeError: Invalid
+ * string length` over it. `structuredClone` keeps the sharing, so the
+ * construction path copies this definition and the digest is the one walk that
+ * gives up on it.
+ */
+const WIDE = carrying(
+  (() => {
+    let value: unknown = 1;
+    for (let at = 0; at < 27; at += 1) value = [value, value];
+    return value;
+  })(),
+);
 
 /** The codes a document reports through this entry point, in checker order. */
 function codesOf(config: FeatureConfig): readonly ConfigIssueCode[] {
@@ -293,19 +347,11 @@ describe('the documents parseFeatureConfig refuses', () => {
   });
 
   it('reports a variant value nested past the stack a clone of it needs', () => {
-    const config = JSON.parse(DEEP) as FeatureConfig;
-
-    expect(codesOf(config)).toEqual(['unknown-member']);
+    expect(codesOf(DEEP)).toEqual(['unknown-member']);
   });
 
-  it('reports the digest it cannot take of a document nested that deep', () => {
-    const config = JSON.parse(DEEP) as FeatureConfig;
-
-    // Two refusals, and the document earns both. `digestIssues` cannot take the
-    // canonical text of the content, and `cloneIssues` cannot take a copy of
-    // the definition that carries the value.
-    expect(codesOf({ ...config, digest: '0'.repeat(32) })).toEqual([
-      'unknown-member',
+  it('reports the digest it cannot take of a document no text names', () => {
+    expect(codesOf({ ...WIDE, digest: '0'.repeat(32) })).toEqual([
       'unknown-member',
     ]);
   });
@@ -535,7 +581,7 @@ describe('the answer both entry points give one document', () => {
         },
       ],
     } as unknown as FeatureConfig,
-    JSON.parse(DEEP) as FeatureConfig,
+    DEEP,
   ];
 
   it('refuses through the checker what parseFeatureConfig refuses', () => {

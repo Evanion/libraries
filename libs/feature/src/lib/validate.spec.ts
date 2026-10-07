@@ -3514,6 +3514,33 @@ describe('validateConfig, on a rollout the assignment algorithm cannot read', ()
   });
 });
 
+/**
+ * A served document whose variant value no canonical text names, at a depth
+ * every runtime walks.
+ *
+ * 27 doublings of a shared array is 2^27 leaves, because neither a canonical
+ * text nor JSON carries the sharing, so `configDigest` over a document holding
+ * one meets `RangeError: Invalid string length`. The ceiling is the string's,
+ * not the stack's, so no runtime flag turns this fixture off.
+ *
+ * `structuredClone` keeps the sharing, so `cloneIssues` copies the definition
+ * and the digest is the one walk that gives up on the value.
+ */
+function wide(): FeatureConfig {
+  let value: unknown = 1;
+  for (let at = 0; at < 27; at += 1) value = [value, value];
+  return {
+    features: [
+      {
+        key: 'cta',
+        enabled: true,
+        ...TRAVELS,
+        variants: [{ name: 'blue', weight: 1, order: 0, value }],
+      },
+    ],
+  } as unknown as FeatureConfig;
+}
+
 describe('the envelope', () => {
   it('refuses a member it does not know', () => {
     const config = {
@@ -3543,9 +3570,7 @@ describe('the envelope', () => {
   });
 
   it('refuses a document whose content digests to nothing it can read', () => {
-    const deep = `{"features":[{"key":"a","enabled":true,"variantBy":"targetingKey","variantSeed":"s","variants":[{"name":"blue","weight":1,"order":0,"value":${'['.repeat(5000)}1${']'.repeat(5000)}}]}],"digest":"${'0'.repeat(32)}"}`;
-
-    const result = validateConfig(JSON.parse(deep) as FeatureConfig);
+    const result = validateConfig({ ...wide(), digest: '0'.repeat(32) });
 
     expect(result.ok === false && result.issues[0]?.code).toBe(
       'unknown-member',
@@ -3553,34 +3578,12 @@ describe('the envelope', () => {
   });
 
   it('asks for no digest of a document that states none', () => {
-    let value: unknown = 1;
-    for (let at = 0; at < 27; at += 1) value = [value, value];
-    const body = {
-      features: [
-        {
-          key: 'cta',
-          enabled: true,
-          ...TRAVELS,
-          variants: [{ name: 'blue', weight: 1, order: 0, value }],
-        },
-      ],
-    } as unknown as FeatureConfig;
-
-    // 2^27 leaves, because neither a canonical text nor JSON carries the
-    // sharing, so `configDigest` over this document meets `RangeError: Invalid
-    // string length`. `structuredClone` keeps the sharing, so `cloneIssues`
-    // copies the definition and the store serves the value.
-    //
     // Decision 4 has a holder verify the digest it finds, and this document
     // states none to verify. Whether the content digests at all is a question
-    // no entry point in this library asks of an installed document:
-    // `serializeConfig` writes no digest and `configDigest` is the one writer
-    // of the member. A publisher that calls it reads the raise where it chose
-    // the value.
-    expect([
-      validateConfig(body).ok,
-      validateConfig({ ...body, digest: '0'.repeat(32) }).ok,
-    ]).toEqual([true, false]);
+    // no entry point here asks of an installed document: `serializeConfig`
+    // writes no digest and `configDigest` is the one writer of the member, so a
+    // publisher that calls it reads the raise where it chose the value.
+    expect(validateConfig(wide()).ok).toBe(true);
   });
 
   it('reports the hole a nested array leaves at the position it leaves it', () => {
