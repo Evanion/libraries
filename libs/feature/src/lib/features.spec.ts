@@ -3512,6 +3512,24 @@ describe('the documents createFeatures refuses', () => {
     expect(document).toEqual(before);
   });
 
+  it('leaves the document it accepted exactly as it was handed it', () => {
+    const content = {
+      version: 4,
+      features: [{ key: 'checkout', enabled: true }],
+    } satisfies FeatureConfig;
+    const document = {
+      ...content,
+      digest: configDigest(content),
+    } as FeatureConfig;
+    const before = structuredClone(document);
+
+    const features = createFeatures(document);
+    const first = features.reload(document);
+    const second = features.reload(document);
+
+    expect([first.ok, second.ok, document]).toEqual([true, true, before]);
+  });
+
   it('throws a typed error for a value no copy of a definition holds', () => {
     const document = {
       version: 1,
