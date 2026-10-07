@@ -42,7 +42,7 @@ While the disabled button provides a better user experience, the actual enforcem
 ```mermaid caption="The unified authorization flow in Astro. Both the page view and a direct POST enter the same frontmatter, which resolves the permission once. This single verdict is then used to both render the UI and enforce the write path."
 flowchart TD
   V["Page View (GET)"] --> F["cart.astro frontmatter"]
-  C["Direct POST Request"] --> F
+  C["Direct Form Submission"] --> F
   F --> D["decide: order.create, once"]:::accent
   D --> R["Render UI: Checkout button<br>enabled or disabled"]
   D --> W["Enforce Write: Order placed<br>or 403 Forbidden"]

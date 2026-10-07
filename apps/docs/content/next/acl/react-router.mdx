@@ -35,17 +35,17 @@ A common mistake in framework integration is assuming that a decision made durin
 
 Therefore, every `action` must re-resolve the subject and re-evaluate the permission against the most recent version of the data.
 
-| Phase           | Runtime | Responsibility                                                                 |
-| ---------------- | ------- | ------------------------------------------------------------------------------------ |
-| `middleware`    | Server  | Resolves the identity (Who is asking?)                                            |
-| `loader`        | Server  | Decides if the subject may read the resource (Can they see this page?)              |
-| Route Component | Browser | Toggles UI elements based on the policy (Should I show this button?)               |
-| `action`        | Server  | Decides if the subject may write the resource (Can they change this data?)          |
+| Phase           | Runtime | Responsibility                                                             |
+| --------------- | ------- | -------------------------------------------------------------------------- |
+| `middleware`    | Server  | Resolves the identity (Who is asking?)                                     |
+| `loader`        | Server  | Decides if the subject may read the resource (Can they see this page?)     |
+| Route Component | Browser | Toggles UI elements based on the policy (Should I show this button?)       |
+| `action`        | Server  | Decides if the subject may write the resource (Can they change this data?) |
 
 ```mermaid caption="The dual-server boundary in React Router. Middleware identifies the user, the loader gates the read, and the action independently gates the write. The browser tree sits between them, merely reflecting the policy for a better user experience."
 flowchart TD
   N["Navigation (GET)"] --> M["Middleware: Identity Resolution"]
-  P["Write Request (POST/PUT)"] --> M
+  P["Write Request (Form or curl)"] --> M
   M -->|"Read Path"| L["Loader: Read Permission Check"]:::accent
   L --> T["Route Component: UI Toggles via useCan"]
   M -->|"Write Path"| A["Action: Write Permission Check"]
@@ -71,7 +71,11 @@ To ensure that a page view only triggers one network fetch for the policy docume
 
 <Panel heading="Security Note: Trusting the Subject">
   <Text as="div" size="sm">
-    In this demo, `demoSubject()` simply reads an environment variable or defaults to a specific user. In a production system, the middleware must resolve the actor identity from a verified session or JWT. Since `can` authorizes whichever subject it is handed, the middleware is the ultimate trust boundary.
+    In this demo, `demoSubject()` simply reads an environment variable or
+    defaults to a specific user. In a production system, the middleware must
+    resolve the actor identity from a verified session or JWT. Since `can`
+    authorizes whichever subject it is handed, the middleware is the ultimate
+    trust boundary.
   </Text>
 </Panel>
 
