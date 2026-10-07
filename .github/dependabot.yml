@@ -67,3 +67,14 @@ updates:
       # allow eslint 10 (see dependabot PR #43).
       - dependency-name: 'eslint'
         versions: ['^10.0.0']
+      # Shiki 4 runs outside Nextra's range: nextra@4.6.1 (the latest
+      # published version) depends on `shiki ^3.2.1` and
+      # `@shikijs/twoslash ^3.2.1`, and pins rehype-pretty-code 0.14.1, whose
+      # peer is `shiki ^1 || ^2 || ^3`. Moving ours installs a second shiki,
+      # so the site's fences and code-classes.mjs highlight with different
+      # majors. `versions` is scoped to the 4.x line. Remove once a nextra
+      # release depends on shiki 4 (see dependabot PR #386).
+      - dependency-name: 'shiki'
+        versions: ['^4.0.0']
+      - dependency-name: '@shikijs/*'
+        versions: ['^4.0.0']
