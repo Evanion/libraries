@@ -41,6 +41,7 @@ In our Baize shop example, the root needs to provide a cart, a theme, and a curr
 ```
 
 ### Breakdown of the Setup:
+
 - **Bare Components**: `CartProvider` is passed as a bare component because it doesn't require any initial props.
 - **Tuples**: `ThemeProvider` and `CurrencyProvider` are wrapped in the `provider()` helper. This creates a **tuple** `[Component, Props]`, which allows TypeScript to verify that you've provided the correct props for those specific providers.
 - **The Wrapper**: The `Shop` component now acts as a clean wrapper that passes these providers to `ComposeProvider`.
@@ -51,14 +52,15 @@ If you were to render this to HTML, you'd see a perfectly nested structure where
 
 The `Shop` component is where your provider logic now lives. You should place this component at the very root of your application, typically around your routes or main page layout.
 
-**Next.js App Router Tip**: 
-Any file calling `createContext` must be a Client Component. Mark your provider file with `'use client'`, define your providers and your `Shop` wrapper there, and then wrap your layout in `app/layout.tsx` with `<Shop>{children}</Shop>`. 
+**Next.js App Router Tip**:
+Any file calling `createContext` must be a Client Component. Mark your provider file with `'use client'`, define your providers and your `Shop` wrapper there, and then wrap your layout in `app/layout.tsx` with `<Shop>{children}</Shop>`.
 
 Note that `ComposeProvider` itself is a pure component that doesn't use hooks, so it doesn't require the `'use client'` directive.
 
 ## Visualizing the Nesting
 
-Imagine each provider as a box. 
+Imagine each provider as a box.
+
 - **Moving a provider up** in the array moves its "box" further outward, wrapping more of the application.
 - **Moving a provider down** moves it further inward, wrapping fewer components.
 

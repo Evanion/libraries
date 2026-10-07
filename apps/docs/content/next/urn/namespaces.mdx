@@ -1,6 +1,6 @@
 # URNs from several namespaces
 
-In a large system, you often deal with multiple types of identifiers. For example, an e-commerce shop needs to handle both **Game URNs** (identifying board games) and **Order URNs** (identifying customer orders). 
+In a large system, you often deal with multiple types of identifiers. For example, an e-commerce shop needs to handle both **Game URNs** (identifying board games) and **Order URNs** (identifying customer orders).
 
 While both are URNs, they belong to different namespaces. If you try to read an order URN as a game URN, your application should be able to identify it as "foreign" rather than simply failing or, worse, treating it as a game with a very strange ID.
 
@@ -17,9 +17,10 @@ While both are URNs, they belong to different namespaces. If you try to read an 
 
 ## The Problem: Namespace Collision and Confusion
 
-When your system handles multiple resource types, using a single generic parser can be dangerous. If you pass `urn:order:123` into a function that expects a `GameURN`, a naive implementation might just strip `urn:` and treat `order:123` as the game's ID. 
+When your system handles multiple resource types, using a single generic parser can be dangerous. If you pass `urn:order:123` into a function that expects a `GameURN`, a naive implementation might just strip `urn:` and treat `order:123` as the game's ID.
 
 This leads to:
+
 - **Database Pollutants**: Accidentally searching for a game with the ID `order:123`.
 - **Silent Failures**: Logic that assumes any valid URN is of the "correct" type.
 - **Brittle Logic**: Manual string slicing to check if an ID "looks like" an order.

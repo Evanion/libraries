@@ -18,7 +18,7 @@
 
 ## The Problem: Identifying Specific Versions or Sections
 
-A simple URN identifies a resource, but it doesn't identify a *specific version* or *subset* of that resource. For example, if you need to link to a specific edition of a board game, or a specific section of its rules, you can't do that with a bare identifier like `urn:game:brass-birmingham`.
+A simple URN identifies a resource, but it doesn't identify a _specific version_ or _subset_ of that resource. For example, if you need to link to a specific edition of a board game, or a specific section of its rules, you can't do that with a bare identifier like `urn:game:brass-birmingham`.
 
 Adding this information as part of the main ID (the NSS) would break the identity of the resource—you'd be treating the "2018 Edition" as a different game entirely rather than a version of the same game.
 
@@ -26,11 +26,11 @@ Adding this information as part of the main ID (the NSS) would break the identit
 
 RFC 8141 §2.3 defines three components that can be appended to a URN. These allow you to carry metadata and specific pointers without changing the identity of the resource. Each component starts with an **introducer**:
 
-| Component | Introducer | RFC 8141 | Purpose | Example Use Case |
-| :--- | :--- | :--- | :--- | :--- |
-| **r** | `?+` | §2.3.1 | Parameters for the resolution service | `?+lang=en` (Request English listing) |
-| **q** | `?=` | §2.3.2 | Parameters for the named resource | `?=edition=2018` (Specific edition) |
-| **f** | `#` | §2.3.3 | A fragment within the resource | `#setup` (The "Setup" section of the rules) |
+| Component | Introducer | RFC 8141 | Purpose                               | Example Use Case                            |
+| :-------- | :--------- | :------- | :------------------------------------ | :------------------------------------------ |
+| **r**     | `?+`       | §2.3.1   | Parameters for the resolution service | `?+lang=en` (Request English listing)       |
+| **q**     | `?=`       | §2.3.2   | Parameters for the named resource     | `?=edition=2018` (Specific edition)         |
+| **f**     | `#`        | §2.3.3   | A fragment within the resource        | `#setup` (The "Setup" section of the rules) |
 
 ## Extracting Components with `parse`
 
@@ -51,7 +51,7 @@ If a URN carries no component, the corresponding keys are simply absent from the
 
 ## Writing Components with `stringify`
 
-To write components, you must pass the parts to `stringify` as an object: `{ nss, rComponent?, qComponent?, fComponent? }`. 
+To write components, you must pass the parts to `stringify` as an object: `{ nss, rComponent?, qComponent?, fComponent? }`.
 
 The library automatically ensures the introducers appear in the correct order (r, then q, then f), regardless of the order of keys in your object. An empty `fComponent` writes a bare `#`.
 
@@ -69,7 +69,7 @@ Because the identifier itself (the NSS) cannot contain `?` or `#`, `@evanion/urn
 
 ## Components and URN Equivalence
 
-Crucially, components are **not part of the resource's identity**. RFC 8141 §3.1 excludes all three components from URN equivalence. 
+Crucially, components are **not part of the resource's identity**. RFC 8141 §3.1 excludes all three components from URN equivalence.
 
 `@evanion/urn`'s `equals` and `extractId` both ignore components. This means a URN with metadata is considered equivalent to the bare URN it describes.
 

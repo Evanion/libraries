@@ -12,7 +12,7 @@ To issue a pickup code as `ORD-a4kp-9mxa` and redeem it regardless of how a cust
 
 ## Minting a Pickup Code with a Prefix
 
-You can make your codes more recognizable by adding a prefix like `ORD-`. This helps both users and staff identify the code's purpose at a glance. 
+You can make your codes more recognizable by adding a prefix like `ORD-`. This helps both users and staff identify the code's purpose at a glance.
 
 When you pass a `prefix` to `generate`, it returns the code in four fields:
 
@@ -27,7 +27,7 @@ When you pass a `prefix` to `generate`, it returns the code in four fields:
 
 ## Redeeming a Prefixed Code
 
-The `validate` method is designed to work on the code's body and check character; it does not know about your custom prefixes. 
+The `validate` method is designed to work on the code's body and check character; it does not know about your custom prefixes.
 
 If you pass `ORD-a4kp-9mxa` directly to `validate`, it will treat `ORD` as part of the code and refuse it (often as `outside-alphabet`). You must strip the prefix before validating:
 
@@ -45,20 +45,21 @@ In the example above, `validatePickupCode` handles the stripping. Because the de
 
 ```
 
-| `reason` | Meaning |
-| :--- | :--- |
-| `outside-alphabet` | The code contains a character not found in the dictionary. |
-| `wrong-length` | The code does not match the required `length`. |
-| `check-failed` | The check character does not match the calculated value for the body. |
+| `reason`           | Meaning                                                               |
+| :----------------- | :-------------------------------------------------------------------- |
+| `outside-alphabet` | The code contains a character not found in the dictionary.            |
+| `wrong-length`     | The code does not match the required `length`.                        |
+| `check-failed`     | The check character does not match the calculated value for the body. |
 
 `validate` checks these conditions in order and reports the first failure. Since it has no side effects and never throws, you can run it on every request before performing a database lookup.
 
 <Probe package="token" probe="validate" />
-*Try typing a code above. Try changing the last character, typing an `o` for a `0`, or dropping a character.*
+*Try typing a code above. Try changing the last character, typing an `o` for a
+`0`, or dropping a character.*
 
 ## Flexible User Input
 
-Customers rarely type codes perfectly. They might omit hyphens, use different grouping, or type everything in capitals. 
+Customers rarely type codes perfectly. They might omit hyphens, use different grouping, or type everything in capitals.
 
 `validate` handles this by automatically stripping the separator and folding the case before performing its checks.
 
@@ -81,7 +82,7 @@ Because every variation of the spelling returns the same `body`, they all resolv
 
 ### The "Blind Spot"
 
-There is one rare exception: a swap of the first and last characters of the dictionary (by default, `0` and `z`). Because of the way the Luhn doubling step works, these two characters are mathematically interchangeable in the sum. 
+There is one rare exception: a swap of the first and last characters of the dictionary (by default, `0` and `z`). Because of the way the Luhn doubling step works, these two characters are mathematically interchangeable in the sum.
 
 While this is a technical limitation of the Luhn algorithm, it is an acceptable trade-off for the speed and simplicity of the check.
 

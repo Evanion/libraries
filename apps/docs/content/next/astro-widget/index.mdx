@@ -2,7 +2,7 @@
 
 **Render CMS-driven pages with zero-JS overhead using Astro.**
 
-A content management system (CMS) saves a page as a list of items. To render this page, you need to map each item's `type` to a specific `.astro` component and pass it the corresponding `props`. 
+A content management system (CMS) saves a page as a list of items. To render this page, you need to map each item's `type` to a specific `.astro` component and pass it the corresponding `props`.
 
 `@evanion/astro-widget` provides the `Widgets.astro` component, which automates this process during Astro's build phase. Because the rendering happens entirely on the server, it sends no JavaScript to the browser, ensuring maximum performance and an instant first paint.
 
@@ -17,7 +17,7 @@ A content management system (CMS) saves a page as a list of items. To render thi
 
 ## The Problem: The "Static Content" Bottleneck
 
-In many Astro projects, developers manually place components on a page. However, when a page is driven by a CMS, you don't know which components are needed until the data is fetched. 
+In many Astro projects, developers manually place components on a page. However, when a page is driven by a CMS, you don't know which components are needed until the data is fetched.
 
 Manually writing a `switch` statement to render components based on a `type` string is repetitive and error-prone. Furthermore, since `.astro` components don't have the same prop-inference capabilities as React components in a TypeScript environment, it's easy to miss a required prop in the CMS data, leading to broken pages.
 
@@ -46,14 +46,14 @@ These terms are used throughout the documentation:
 
 ## Core Capabilities
 
-| You want to... | Use this tool | Taught on |
-| :--- | :--- | :--- |
-| Render a page from CMS items | `Widgets.astro` | [Getting started](./getting-started) |
-| Get autocomplete for type names | `defineWidgets` | [Getting started](./getting-started) |
-| Fail the build on broken content | `validateItems` | [Check CMS items](./validation) |
-| Pass page-level data to widgets | The `ctx` prop | [Layout](./layout) |
-| Wrap widgets in shared markup | `chrome.item` | [Layout](./layout) |
-| Render nested widgets | Recursive `Widgets` usage | [Layout](./layout) |
+| You want to...                   | Use this tool             | Taught on                            |
+| :------------------------------- | :------------------------ | :----------------------------------- |
+| Render a page from CMS items     | `Widgets.astro`           | [Getting started](./getting-started) |
+| Get autocomplete for type names  | `defineWidgets`           | [Getting started](./getting-started) |
+| Fail the build on broken content | `validateItems`           | [Check CMS items](./validation)      |
+| Pass page-level data to widgets  | The `ctx` prop            | [Layout](./layout)                   |
+| Wrap widgets in shared markup    | `chrome.item`             | [Layout](./layout)                   |
+| Render nested widgets            | Recursive `Widgets` usage | [Layout](./layout)                   |
 
 ## When astro-widget is the Wrong Tool
 

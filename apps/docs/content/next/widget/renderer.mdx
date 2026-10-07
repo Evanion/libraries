@@ -38,6 +38,7 @@ A basic renderer iterates over the widget items, looks up the `type` in a regist
 ```
 
 ### Key implementation details:
+
 - **Registry Lookup**: Use `Object.prototype.hasOwnProperty` to check for the type. Avoiding `item.type in registry` prevents the renderer from accidentally trying to render inherited object properties (like `toString`).
 - **Warning Reset**: In your tests, call `resetWarnings` before each case to ensure that one test's warning doesn't silence the next.
 - **Production Silence**: In production, `warnOnce` prints nothing. This is why you must run `validateItems` as a separate quality gate (as shown in [Getting started](../getting-started)) to catch content errors before they hit production.
@@ -49,9 +50,9 @@ To build a production-ready renderer, you need to handle four additional respons
 1. **Children**: Decide how to handle nested items. You can either draw them inside the parent (like `@evanion/react-widget`) or pass them as data to the parent's component (like `@evanion/astro-widget`).
 2. **Meta**: Pass the `meta` property to the **wrapper** component, never to the widget's `props`.
 3. **Structural Warnings**: Use `warnOnce` to report structural failures:
-    - `MALFORMED_ITEMS`: The items provided are not an array.
-    - `MALFORMED_ITEM(id, type)`: An entry is not an object or lacks a string `type`.
-    - `MALFORMED_CHILDREN(id)`: The `children` field is present but is not an array.
+   - `MALFORMED_ITEMS`: The items provided are not an array.
+   - `MALFORMED_ITEM(id, type)`: An entry is not an object or lacks a string `type`.
+   - `MALFORMED_CHILDREN(id)`: The `children` field is present but is not an array.
 4. **Separation of Concerns**: Do not call `validateItems` inside the renderer. The renderer's job is to draw what it can and warn about what it can't. The validation check should run where the payload first enters your system.
 
 ## Every widget core export

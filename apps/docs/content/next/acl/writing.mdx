@@ -1,6 +1,6 @@
 # Which fields may they write?
 
-In a typical application, a "write" operation isn't all-or-nothing. You might allow a user to edit the body of a support ticket, but not its priority or its assigned agent. 
+In a typical application, a "write" operation isn't all-or-nothing. You might allow a user to edit the body of a support ticket, but not its priority or its assigned agent.
 
 If you handle this by manually stripping fields in your backend handler, you're essentially duplicating your authorization rules. If a new field is added to the database, you must remember to add it to every "strip list" in your code, or you risk allowing users to overwrite sensitive data—a vulnerability known as mass-assignment.
 
@@ -26,9 +26,10 @@ Instead of manually filtering the data sent by a form, you can use `canFields`. 
 ```
 
 Here is how the process works:
+
 1. **`canFields(...)`**: You pass the current object from the database and the proposed write from the user. The function returns a field decision (`fd`).
 2. **The Decision**: `fd.action` tells you if the overall action is allowed. `fd.fields` tells you the state of every field in the write (allowed, denied, or unevaluable).
-3. **`pickAllowedFields(fd, proposed)`**: This helper takes the decision and the proposed write, and returns a new object containing *only* the fields that were explicitly allowed.
+3. **`pickAllowedFields(fd, proposed)`**: This helper takes the decision and the proposed write, and returns a new object containing _only_ the fields that were explicitly allowed.
 
 By passing the result of `pickAllowedFields` directly to your ORM, you ensure that no unapproved fields ever reach your database.
 
@@ -49,12 +50,12 @@ You can control field permissions using the `.fields()` method. This method targ
 
 There are four ways to define these rules:
 
-| Strategy               | Syntax                                    | Result                                          |
-| --------------------- | ------------------------------------------ | ------------------------------------------------ |
-| **Baseline and Cuts** | `.fields(['*', '!status'])`               | Allow everything except `status`                  |
-| **Allow-list**         | `.fields(['body'])`                      | Allow only `body`; deny everything else            |
-| **Custom Config**      | `.fields({ fields: ['body'], status: {...} })` | Allow specific fields and apply a config to others |
-| **Open**              | (no `.fields()` call)                      | Allow all fields provided in the write            |
+| Strategy              | Syntax                                         | Result                                             |
+| --------------------- | ---------------------------------------------- | -------------------------------------------------- |
+| **Baseline and Cuts** | `.fields(['*', '!status'])`                    | Allow everything except `status`                   |
+| **Allow-list**        | `.fields(['body'])`                            | Allow only `body`; deny everything else            |
+| **Custom Config**     | `.fields({ fields: ['body'], status: {...} })` | Allow specific fields and apply a config to others |
+| **Open**              | (no `.fields()` call)                          | Allow all fields provided in the write             |
 
 ### Advanced Field Constraints
 
@@ -71,13 +72,13 @@ For maximum control, you can provide a configuration object for specific fields.
 
 Just as with object-level rules, field-level rules can be `unevaluable`. This happens if a field rule depends on a value that wasn't fetched from the database.
 
-For example, if a transition rule needs to know the current `status` to decide if a write is allowed, but the `status` field is missing from the row, the field decision is `unevaluable`. 
+For example, if a transition rule needs to know the current `status` to decide if a write is allowed, but the `status` field is missing from the row, the field decision is `unevaluable`.
 
 A crucial distinction: `pickAllowedFields` treats `unevaluable` fields the same as `denied` fields—it withholds them from the write. This ensures that if you can't prove a write is allowed, it is not performed.
 
 ## Next steps: Field permissions and refusals
 
-You now know how to protect your database from mass-assignment. 
+You now know how to protect your database from mass-assignment.
 
 - [Why was this refused?](../refusals) explains how to interpret field-level errors and provide feedback to users.
 - [Field permissions](../fields) covers how to use the `read` axis of `canFields` to implement a projection layer, ensuring users only see the fields they are allowed to see.

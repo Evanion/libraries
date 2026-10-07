@@ -19,6 +19,7 @@
 ## The Problem: "Messy" Titles and inconsistent Spelling
 
 A URN's Namespace Specific String (NSS) has a strict grammar. If you try to put a title like `Brass: Birmingham` directly into a URN, you run into two problems:
+
 1. **Grammar Violations**: Characters like spaces are prohibited in the NSS.
 2. **Equivalence Drift**: Different services might represent the same title differently (e.g., one uses `%3A` for a colon, another uses a literal `:`), making simple string equality (`===`) fail.
 
@@ -41,6 +42,7 @@ Note that `stringify` and `parse` do not perform encoding automatically:
 When URNs arrive from multiple services, you cannot rely on simple string equality. `equals` implements RFC 8141 §3.1 equivalence.
 
 It treats URNs as equal if:
+
 - The scheme and NID match (case-insensitively).
 - The NSS matches exactly (case-sensitively).
 - The hex digits in percent-encoded characters match (case-insensitively).
@@ -53,7 +55,7 @@ Use `equals` wherever you need to verify that two differently spelled URNs refer
 
 ## Carrying a URN in a URL Path
 
-To use a URN as a segment in a URL path (e.g., `/resources/urn:game:brass-birmingham`), you must handle two layers of encoding. 
+To use a URN as a segment in a URL path (e.g., `/resources/urn:game:brass-birmingham`), you must handle two layers of encoding.
 
 The NSS must be encoded first, and then the entire URN must be encoded to ensure that characters like `:` and `%` do not interfere with the browser or the router.
 

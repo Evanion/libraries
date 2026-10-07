@@ -39,15 +39,17 @@ The `chrome.item` component receives the item's `type`, `id`, and `meta`, but **
 ```
 
 ### Essential Rule: The `<slot />`
+
 A chrome component must render a `<slot />`. This is where Astro injects the actual widget. If you omit the `<slot />`, the widget inside the wrapper will simply disappear from the page.
 
 ## Rendering Nested Items
 
-In some cases, a widget is not a leaf node but a container for other widgets (e.g., a "Featured Shelf" containing "Game Cards"). 
+In some cases, a widget is not a leaf node but a container for other widgets (e.g., a "Featured Shelf" containing "Game Cards").
 
 Unlike `@evanion/react-widget`, which renders children automatically, `Widgets.astro` passes the `children` items to the parent component as raw data. To render them, the parent widget must render its own `<Widgets />` component using its own registry.
 
 ### Example: A Game Grid
+
 A `GameGrid` widget might render a title and then a grid of children:
 
 ```astro file=libs/astro-widget/examples/src/widgets/GameGrid.astro region=game-grid
@@ -57,6 +59,7 @@ A `GameGrid` widget might render a title and then a grid of children:
 To make this work, you define a separate registry for the children (e.g., `cardRegistry`) and pass it to the nested `<Widgets />` call.
 
 ### The Registry Hierarchy
+
 Because the nested `<Widgets />` uses its own registry, it only renders children that match that specific registry. If a child item's type is not in the `cardRegistry`, it will be skipped, even if that type is supported by the page's main root registry.
 
 ## Syncing the Build Gate

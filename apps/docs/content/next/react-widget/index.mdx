@@ -18,6 +18,7 @@ Content management systems (CMS) allow editors to build pages by selecting widge
 ## The Problem: The "Untyped JSON" Gap
 
 When you render CMS data in React, you usually end up with a large `switch` statement or a lookup object that maps a string `type` to a component. This approach has several weaknesses:
+
 - **Type Blindness**: TypeScript doesn't know which props are required for a `listing` widget versus a `hero` widget.
 - **Runtime Crashes**: A missing required prop in the JSON payload can cause a component to crash, taking down the entire page.
 - **Maintenance Burden**: Adding a new widget requires updating the map, the types, and the validation logic in multiple places.
@@ -48,6 +49,7 @@ To help you build your UI, we use these terms:
 ### Item Anatomy
 
 Every item consists of these five fields:
+
 - `id`: A stable string used for the React key and the `data-widget-id` attribute.
 - `type`: A key from the component map.
 - `props`: The data passed to the component (excluding `children` and `ctx`).
@@ -58,14 +60,14 @@ Every item consists of these five fields:
 
 `@evanion/react-widget` handles the heavy lifting of turning JSON data into a type-safe React tree:
 
-| Goal | Tool |
-| :--- | :--- |
-| Render a region from an item array | `createWidgets`, which returns the `Widgets` component |
-| Type-safe item arrays in variables | `defineItems`, which ensures items match the component map |
-| CMS payload validation | `validateItems`, which checks the JSON before rendering |
-| Server Component support | `Widgets` is RSC-compatible and supports `async` widgets |
-| Custom layouts for regions/items | `chrome.wrapper` and `chrome.item` |
-| Global data shared by all widgets | The `ctx` prop on `<Widgets>` |
+| Goal                                 | Tool                                                                 |
+| :----------------------------------- | :------------------------------------------------------------------- |
+| Render a region from an item array   | `createWidgets`, which returns the `Widgets` component               |
+| Type-safe item arrays in variables   | `defineItems`, which ensures items match the component map           |
+| CMS payload validation               | `validateItems`, which checks the JSON before rendering              |
+| Server Component support             | `Widgets` is RSC-compatible and supports `async` widgets             |
+| Custom layouts for regions/items     | `chrome.wrapper` and `chrome.item`                                   |
+| Global data shared by all widgets    | The `ctx` prop on `<Widgets>`                                        |
 | Independent loading for slow widgets | [`chrome.suspense`](./suspense), giving each widget its own boundary |
 
 ## Design Boundaries

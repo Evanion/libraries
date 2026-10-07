@@ -30,6 +30,7 @@ In this example, `StockLevel` is an async Server Component. When using a streami
 In a large streamed region, having hundreds of individual `<Suspense>` boundaries can lead to "outlined boundaries." React may send the shell of the page first and move the content of every boundary into trailing `<div hidden>` tags, which are then moved into place by an inline script.
 
 This can be problematic if:
+
 1. **Scripts are disabled**: Users with scripts turned off or a strict CSP will see placeholders instead of widgets.
 2. **SEO/Indexing**: Some text extractors or snapshot tests may struggle to find content moved to the end of the document.
 
@@ -39,7 +40,7 @@ If you know your widgets are all synchronous (they don't use `use(promise)` or `
 
 ```
 
-**Warning**: If you set `'none'` but a widget *does* suspend, it will suspend the nearest boundary *above* the `<Widgets>` region. To prevent a single widget from blocking the entire page, wrap the `<Widgets>` component in its own `<Suspense>` boundary.
+**Warning**: If you set `'none'` but a widget _does_ suspend, it will suspend the nearest boundary _above_ the `<Widgets>` region. To prevent a single widget from blocking the entire page, wrap the `<Widgets>` component in its own `<Suspense>` boundary.
 
 ## Catching Widget Errors with Error Boundaries
 

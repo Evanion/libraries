@@ -20,7 +20,8 @@ When a customer reads a pickup code over the phone or types it into a form, a si
 In traditional systems, a code is just a random string. If a user types `a4kp-9mx8` instead of `a4kp-9mxa`, the system performs a database lookup, finds nothing, and returns a generic `404 Not Found`.
 
 This creates a poor user experience:
-- **User Frustration**: The user knows they typed *something* and doesn't know where the error is.
+
+- **User Frustration**: The user knows they typed _something_ and doesn't know where the error is.
 - **Staff Blindness**: Support staff cannot tell the difference between a malicious probe and a simple typo.
 - **Database Waste**: Every mistyped code triggers an unnecessary database query.
 
@@ -34,7 +35,7 @@ For example, in the code `a4kp-9mxa`, the final `a` is the check character.
 
 ```
 
-When you call `validate`, the library recalculates the check character from the body. If a customer reads `a4kp-9mx8` (where the `a` was misheard as `8`), `validate` immediately returns `reason: 'check-failed'`. 
+When you call `validate`, the library recalculates the check character from the body. If a customer reads `a4kp-9mx8` (where the `a` was misheard as `8`), `validate` immediately returns `reason: 'check-failed'`.
 
 Your system can now refuse the code instantly, distinguishing a typo from a non-existent order without a single database call.
 
@@ -52,22 +53,22 @@ To help you use the API, here are the core terms:
 
 ## Core Capabilities
 
-| You want to... | Use this tool |
-| :--- | :--- |
-| Mint a human-readable code | `generate()`, using cryptographically strong random values |
-| Refuse a mistyped code instantly | `validate()`, which returns a specific reason for failure |
-| Support flexible user input | `validate()`, which cleans hyphens and case before checking |
-| Categorize codes (e.g., "ORD-") | `generate({ prefix: 'ORD' })` |
-| Customize length or chunks | `createToken({ length, chunkSize, separator })` |
-| Use a custom character set | `createToken({ dictionary })` |
-| Calculate collision risk | `entropyBits`, to match code length to your volume |
+| You want to...                   | Use this tool                                               |
+| :------------------------------- | :---------------------------------------------------------- |
+| Mint a human-readable code       | `generate()`, using cryptographically strong random values  |
+| Refuse a mistyped code instantly | `validate()`, which returns a specific reason for failure   |
+| Support flexible user input      | `validate()`, which cleans hyphens and case before checking |
+| Categorize codes (e.g., "ORD-")  | `generate({ prefix: 'ORD' })`                               |
+| Customize length or chunks       | `createToken({ length, chunkSize, separator })`             |
+| Use a custom character set       | `createToken({ dictionary })`                               |
+| Calculate collision risk         | `entropyBits`, to match code length to your volume          |
 
 ## Important Constraints
 
 `@evanion/token` is an error-detection library, not a full identity or security system:
 
 - **Uniqueness**: `generate` does not check your database. Use a `UNIQUE` index on your database column to ensure uniqueness.
-- **Existence**: A `valid: true` result only means the code is *well-formed*. It does not mean the code was actually issued.
+- **Existence**: A `valid: true` result only means the code is _well-formed_. It does not mean the code was actually issued.
 - **Security**: These codes are for convenience (like pickup codes), not high-security credentials. They are susceptible to enumeration.
 - **Prefixes**: The check character only covers the body. You must strip the prefix (e.g., `ORD-`) manually before calling `validate`.
 - **Retrofitting**: It cannot add check characters to existing IDs. For that, use the `@evanion/luhn` package directly.

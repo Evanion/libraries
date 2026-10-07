@@ -35,11 +35,11 @@ The default `length` of 8 and 32-character dictionary provide 35 bits. Increasin
 The 50% collision point is roughly $1.18 \times \sqrt{2^{\text{bits}}}$. As you increase the length, the risk of collision drops exponentially:
 
 | `length` | Bits | 50% Collision Point |
-| :--- | :--- | :--- |
-| 6 | 25 | 6,800 |
-| 8 | 35 | 218,000 |
-| 10 | 45 | 7,000,000 |
-| 13 | 60 | 1,300,000,000 |
+| :------- | :--- | :------------------ |
+| 6        | 25   | 6,800               |
+| 8        | 35   | 218,000             |
+| 10       | 45   | 7,000,000           |
+| 13       | 60   | 1,300,000,000       |
 
 ## Handling Collisions with Unique Indexes
 
@@ -55,20 +55,21 @@ In this pattern, you catch the unique violation error and call `generate()` agai
 
 ## Sizing Your Code Length
 
-To choose the right `length`, calculate the chance that the *next* insert will conflict: $\frac{\text{Codes Issued}}{2^{\text{bits}}}$.
+To choose the right `length`, calculate the chance that the _next_ insert will conflict: $\frac{\text{Codes Issued}}{2^{\text{bits}}}$.
 
 A good rule of thumb is to keep this probability below 1 in 1,000 for your expected volume over the next three years. For a default 35-bit token, this threshold is reached at about 34 million issued codes.
 
 ## Security Warning: Guessing vs. Typo-Detection
 
-It is critical to understand that **token codes are not secure credentials**. 
+It is critical to understand that **token codes are not secure credentials**.
 
-A 35-bit code is designed to protect against *transcription errors* (typos), not *adversarial guessing*. If a code grants high-value access (like a password reset or a gift card balance), it is susceptible to enumeration attacks.
+A 35-bit code is designed to protect against _transcription errors_ (typos), not _adversarial guessing_. If a code grants high-value access (like a password reset or a gift card balance), it is susceptible to enumeration attacks.
 
 - **Wrong tool**: Do not use `@evanion/token` for session IDs or security tokens. Use a 128-bit random value (UUID) for those.
 - **Right tool**: Use it for pickup codes, support tickets, or any identifier a human must handle.
 
-If a readable code *must* gate a resource (like a gift card), you must implement additional security:
+If a readable code _must_ gate a resource (like a gift card), you must implement additional security:
+
 1. **Rate-limiting**: Prevent attackers from guessing thousands of codes per second.
 2. **Second-factor binding**: Bind the code to a known identity, such as the customer's email address.
 
@@ -77,6 +78,6 @@ If a readable code *must* gate a resource (like a gift card), you must implement
 You might wonder why we don't just use a larger dictionary or drop the check character to save space.
 
 1. **Alphabet Limits**: Using a 64-character dictionary would require punctuation or non-ASCII characters. Even expanding to a full alphanumeric set (36 chars) would force us to include characters like `o` and `l`, which are easily confused with `0` and `1`. We prioritize a "clean" alphabet to ensure human readability and transcription accuracy over raw density.
-2. **The Value of the Check**: Dropping the check character would increase entropy (e.g., 40 bits instead of 35), but it would mean every mistyped code triggers a database lookup and a "Not Found" error. 
+2. **The Value of the Check**: Dropping the check character would increase entropy (e.g., 40 bits instead of 35), but it would mean every mistyped code triggers a database lookup and a "Not Found" error.
 
 The check character is the primary value proposition of the library; without it, you're just generating random strings.

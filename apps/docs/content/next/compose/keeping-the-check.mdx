@@ -25,13 +25,13 @@ If you define your provider list as a constant, you **must** use `as const`. Thi
 
 **Comparing Declaration Styles:**
 
-| Declaration | Validation Status | Result |
-| :--- | :--- | :--- |
-| `providers={[...]}`, inline | ✅ Fully Checked | Every entry is validated. |
-| `const providers = [...] as const` | ✅ Fully Checked | Every entry is validated. |
-| `const providers = [...]` | ❌ Widened | Prop checks are lost; hand-written tuples are rejected. |
-| `const providers: ProviderArray = [...]` | ❌ Silenced | Type is too general; reports no errors. |
-| `const providers = [...] satisfies ProviderArray` | ❌ Silenced | Type is too general; reports no errors. |
+| Declaration                                       | Validation Status | Result                                                  |
+| :------------------------------------------------ | :---------------- | :------------------------------------------------------ |
+| `providers={[...]}`, inline                       | ✅ Fully Checked  | Every entry is validated.                               |
+| `const providers = [...] as const`                | ✅ Fully Checked  | Every entry is validated.                               |
+| `const providers = [...]`                         | ❌ Widened        | Prop checks are lost; hand-written tuples are rejected. |
+| `const providers: ProviderArray = [...]`          | ❌ Silenced       | Type is too general; reports no errors.                 |
+| `const providers = [...] satisfies ProviderArray` | ❌ Silenced       | Type is too general; reports no errors.                 |
 
 **Pro Tip**: Using the `provider()` helper avoids this entire problem. Because `provider()` checks props at the call site, the check is preserved regardless of how the resulting tuple is stored.
 
@@ -46,6 +46,7 @@ To fix this, use a **const type parameter**. This forces TypeScript to infer the
 ```
 
 ### How it Works:
+
 1. **`<const T extends ProviderArray>`**: The `const` modifier tells TypeScript to infer `T` as the most specific literal type possible (a fixed-length tuple).
 2. **`ComposeProviderProps<T>`**: By typing the props as `ComposeProviderProps<T>`, the validation logic of `ComposeProvider` is passed through to the caller of your wrapper.
 

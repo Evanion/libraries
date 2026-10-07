@@ -37,11 +37,11 @@ The key for these permissions remains `${object}.${action}`. If a `.` is used in
 
 The unified view provides three primary members:
 
-| Member                        | Responsibility                                                                                                                             |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Member                        | Responsibility                                                                                                                          |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `can(subject, kind, action)`  | Routes the request to the single origin whose key set contains the target key. If no origin holds the key, it returns `unknown-action`. |
 | `capabilities(subject, now?)` | Captures a single point in time and evaluates capabilities across all origins, ensuring a consistent "snapshot" for the entire request. |
-| `get(origin)`                 | Returns the original `Access` evaluator for a specific origin, allowing access to advanced methods like `canFields` or `authorize`. |
+| `get(origin)`                 | Returns the original `Access` evaluator for a specific origin, allowing access to advanced methods like `canFields` or `authorize`.     |
 
 ```mermaid caption="The routing logic of a federated view. A request for a permission is routed to the specific service evaluator that owns that key. If the key is not found in any registered evaluator, the view returns a refusal."
 flowchart LR
@@ -76,7 +76,7 @@ flowchart LR
 
 ## Managing Unreachable Upstreams
 
-If a service is offline or unreachable, simply omit it from the object passed to `federatedPolicies`. The view will treat any keys owned by that missing service as `unknown-action`. 
+If a service is offline or unreachable, simply omit it from the object passed to `federatedPolicies`. The view will treat any keys owned by that missing service as `unknown-action`.
 
 Each member of the federation is built using `parseMatrix`, ensuring that if a service is dropped from the federation, its rules are not mistakenly treated as grants in "closed mode."
 
@@ -95,6 +95,7 @@ An overlay is a set of deny rules for permissions the service already owns. The 
 ### Validation of Overlays
 
 `applyDenyOverlay` validates the overlay against the target matrix's schema. It throws errors if:
+
 - The overlay refers to a permission key that doesn't exist in the target.
 - The object kind of a vetoable key lacks a corresponding entry in the target's `schema.objects`.
 - The overlay attempts to modify a permission not marked as `vetoable`.

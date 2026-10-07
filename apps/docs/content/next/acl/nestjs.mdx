@@ -1,6 +1,6 @@
 # NestJS Integration
 
-When using `@evanion/acl` in a NestJS application, you need a way to bridge the gap between Nest's request lifecycle and the ACL's subject-based evaluation. 
+When using `@evanion/acl` in a NestJS application, you need a way to bridge the gap between Nest's request lifecycle and the ACL's subject-based evaluation.
 
 In the Baize shop API (`apps/shop-api`), this is achieved by combining a global `AclGuard` for route-level gating and service-level checks for fine-grained object access.
 
@@ -24,15 +24,15 @@ Since `@evanion/acl` is framework-agnostic, it doesn't ship a dedicated NestJS m
 
 In `apps/shop-api`, the `ShopSubject` defines the identity of the user (id, roles, shop), while `ShopObjects` defines the shapes of the data being accessed.
 
-| Name                     | Role                                                                                                                 |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Name                     | Role                                                                                                      |
+| ------------------------ | --------------------------------------------------------------------------------------------------------- |
 | `ShopVerbs`              | The allowed actions for a resource, such as `create`, `read`, `update`, `delete`, `declare`, or `reprice` |
-| `SHOP_MATRIX_VERSION`    | Used by consumers to ensure they are using a compatible version of the policy                                                   |
-| `SHOP_SCHEMA`            | Defines the field types for subjects and objects, ensuring conditions are checked against valid data                              |
-| `p.always`               | A universal condition that every subject meets                                                                                            |
-| `p.contains(path, v)`    | Validates that an array at a specific path contains the value `v`                                                                                   |
-| `.fields`, `.visibility` | Refines the result of the last declared action in the chain                                                                                |
-| `AVAILABILITIES`         | The valid states a write operation may set for a resource's availability                                          |
+| `SHOP_MATRIX_VERSION`    | Used by consumers to ensure they are using a compatible version of the policy                             |
+| `SHOP_SCHEMA`            | Defines the field types for subjects and objects, ensuring conditions are checked against valid data      |
+| `p.always`               | A universal condition that every subject meets                                                            |
+| `p.contains(path, v)`    | Validates that an array at a specific path contains the value `v`                                         |
+| `.fields`, `.visibility` | Refines the result of the last declared action in the chain                                               |
+| `AVAILABILITIES`         | The valid states a write operation may set for a resource's availability                                  |
 
 ```ts file=apps/shop-api/src/acl/shop.policy.ts region=shop-matrix
 
@@ -80,7 +80,10 @@ The `SubjectMiddleware` is responsible for populating this service. It is applie
 
 <Panel heading="Security Note: Trusting Headers">
   <Text as="div" size="sm">
-    In this demo, the subject is read directly from a header for simplicity. In a production environment, this middleware should read the actor identity from a verified session layer. Because `can` only authorizes the subject it is given, it relies on the middleware to provide a trusted identity.
+    In this demo, the subject is read directly from a header for simplicity. In
+    a production environment, this middleware should read the actor identity
+    from a verified session layer. Because `can` only authorizes the subject it
+    is given, it relies on the middleware to provide a trusted identity.
   </Text>
 </Panel>
 
@@ -91,10 +94,10 @@ A typical write request in NestJS passes through two distinct "seats" where ACL 
 1. **The Guard (`AclGuard`)**: Runs before the controller. It only has access to the `Subject`. It can decide on permissions that depend solely on the user's identity (e.g., "Is this user an admin?").
 2. **The Service (`GamesService`)**: Runs after the resource has been loaded from the database. It has access to both the `Subject` and the `Object` (the row). It decides on permissions that depend on the data (e.g., "Does this operator belong to the same shop as this game?").
 
-| Seat           | Context               | Decision Capability                                                                                                |
-| -------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `AclGuard`     | Subject only          | Permissions whose rules only read `subject.*`                                                                     |
-| `GamesService` | Subject + Object row  | Permissions that read `object.*` (e.g., `game.declare` or `game.reprice`)                                              |
+| Seat           | Context              | Decision Capability                                                       |
+| -------------- | -------------------- | ------------------------------------------------------------------------- |
+| `AclGuard`     | Subject only         | Permissions whose rules only read `subject.*`                             |
+| `GamesService` | Subject + Object row | Permissions that read `object.*` (e.g., `game.declare` or `game.reprice`) |
 
 The `AclGuard` uses `access.readsObject(key, action)` to determine if a permission requires an object to be evaluated. If a permission is object-dependent, the guard allows the request to proceed to the controller, leaving the final decision to the service.
 

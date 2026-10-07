@@ -45,17 +45,17 @@ Every page in this section uses the following terms to describe the parts of a U
 
 ## Core capabilities
 
-| Goal | Tool |
-| :--- | :--- |
-| Create a URN from an ID | `stringify` (on a namespace class or `URN`) |
-| Split a URN into its parts | `parse` |
-| Verify if a URN is in a specific namespace | `belongsToNamespace` or `sameNamespace` |
-| Get the raw ID regardless of namespace | `extractId` |
-| Screen a string without throwing | `isValidFormat` |
-| Handle malformed input | `ValidationError` and `InvalidError` |
-| Attach metadata (editions, sections) | q- and f-components |
-| Safe encoding for titles | `encodeNss` and `decodeNss` |
-| Compare two URNs | `equals` (RFC 8141 §3.1 equivalence) |
+| Goal                                       | Tool                                        |
+| :----------------------------------------- | :------------------------------------------ |
+| Create a URN from an ID                    | `stringify` (on a namespace class or `URN`) |
+| Split a URN into its parts                 | `parse`                                     |
+| Verify if a URN is in a specific namespace | `belongsToNamespace` or `sameNamespace`     |
+| Get the raw ID regardless of namespace     | `extractId`                                 |
+| Screen a string without throwing           | `isValidFormat`                             |
+| Handle malformed input                     | `ValidationError` and `InvalidError`        |
+| Attach metadata (editions, sections)       | q- and f-components                         |
+| Safe encoding for titles                   | `encodeNss` and `decodeNss`                 |
+| Compare two URNs                           | `equals` (RFC 8141 §3.1 equivalence)        |
 
 ## Design constraints
 

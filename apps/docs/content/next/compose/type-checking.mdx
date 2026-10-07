@@ -23,7 +23,8 @@ Depending on how you define your provider entries, the compiler checks the props
 ```
 
 The checks differ by entry type:
-1. **`provider()` calls**: This helper checks props *at the call site*. You get autocomplete and immediate errors as you type, making it the preferred way to define tuples.
+
+1. **`provider()` calls**: This helper checks props _at the call site_. You get autocomplete and immediate errors as you type, making it the preferred way to define tuples.
 2. **Bare components**: Used for providers with all-optional props (like `CartProvider`). If a bare component is used but requires mandatory props, the compiler will flag it.
 3. **Hand-written tuples**: If you write `[Component, Props]` manually, the check is deferred until the array is passed to `ComposeProvider`.
 
@@ -39,12 +40,12 @@ If you provide an incorrect prop for `ThemeProvider`, the compiler identifies ex
 
 The compiler can detect multiple types of errors:
 
-| Entry | Compiler Report | Meaning |
-| :--- | :--- | :--- |
-| `ThemeProvider` | `this component requires props — …` | You used a bare component, but it has mandatory props. |
-| `[ThemeProvider, {}]` | `Property 'theme' is missing` | The props object is missing a required key. |
-| `[ThemeProvider, { theme: 'blue' }]` | `Type 'string' is not assignable to type 'never'` | The value provided is not among the allowed literals. |
-| `[ThemeProvider, { theme: 'dark', accent: 'green' }]` | `unknown prop 'accent'` | You provided a prop the component doesn't declare. |
+| Entry                                                 | Compiler Report                                   | Meaning                                                |
+| :---------------------------------------------------- | :------------------------------------------------ | :----------------------------------------------------- |
+| `ThemeProvider`                                       | `this component requires props — …`               | You used a bare component, but it has mandatory props. |
+| `[ThemeProvider, {}]`                                 | `Property 'theme' is missing`                     | The props object is missing a required key.            |
+| `[ThemeProvider, { theme: 'blue' }]`                  | `Type 'string' is not assignable to type 'never'` | The value provided is not among the allowed literals.  |
+| `[ThemeProvider, { theme: 'dark', accent: 'green' }]` | `unknown prop 'accent'`                           | You provided a prop the component doesn't declare.     |
 
 ## Debugging Compose Errors
 
@@ -52,19 +53,19 @@ To make these complex TypeScript failures readable, `@evanion/compose` wraps the
 
 Since no value can match this type, the entry fails to compile, and the message is displayed directly in the TypeScript output.
 
-| Message | Meaning |
-| :--- | :--- |
-| `unknown prop 'x'` | The props object contains a key the component does not declare. |
-| `this component requires props — ...` | A bare component was used, but it requires mandatory props. |
+| Message                                   | Meaning                                                                   |
+| :---------------------------------------- | :------------------------------------------------------------------------ |
+| `unknown prop 'x'`                        | The props object contains a key the component does not declare.           |
+| `this component requires props — ...`     | A bare component was used, but it requires mandatory props.               |
 | `first tuple element must be a component` | The tuple is ordered incorrectly or the first element is not a component. |
-| `second tuple element must be props...` | The tuple contains two components instead of a component and its props. |
-| `not a valid provider` | The entry is neither a component nor a valid two-element tuple. |
+| `second tuple element must be props...`   | The tuple contains two components instead of a component and its props.   |
+| `not a valid provider`                    | The entry is neither a component nor a valid two-element tuple.           |
 
 ## Solving the "Type 'string' is not assignable to type 'never'" Error
 
 You may encounter a confusing error like `Type 'string' is not assignable to type 'never'` when providing a value outside the allowed literals (e.g., `'blue'` when only `'light'` or `'dark'` are accepted).
 
-This happens because TypeScript intersects your provided type with the correct type; since they don't overlap, the result is `never`. 
+This happens because TypeScript intersects your provided type with the correct type; since they don't overlap, the result is `never`.
 
 **The Fix**: Use the `provider()` helper. It avoids this intersection and reports the error at the call site with a much clearer message: `Type '"blue"' is not assignable to type '"light" | "dark"'`.
 

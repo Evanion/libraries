@@ -15,7 +15,7 @@ In a Next.js application, authorization happens at the trust boundary. When a re
 
 ## Adopting a shared policy document
 
-In a microservices architecture, your frontend doesn't usually author the rules; it adopts a document published by a backend service. 
+In a microservices architecture, your frontend doesn't usually author the rules; it adopts a document published by a backend service.
 
 In the Baize storefront (`apps/storefront-rsc`), the app fetches a `PolicyDocument` (containing a version and the matrix) from the `shop-api`. It then uses `parseMatrix` to create an evaluator.
 
@@ -70,11 +70,11 @@ Conversely, if a rule depends on the object's data (like checking if a user owns
 
 A Next.js route has two independent trusted entry points: the **Render** (Server Component) and the **Server Action**.
 
-| Boundary              | Runtime | Role                                                                 |
-| -------------------- | ------- | -------------------------------------------------------------------- |
-| Server Component     | Trusted | Decides what is rendered; hides buttons or sections.                   |
-| Client Component     | Browser | Advisory only; toggles UI based on the render's verdict.                |
-| Server Action        | Trusted | Decides independently if a write is allowed before committing to DB.     |
+| Boundary         | Runtime | Role                                                                 |
+| ---------------- | ------- | -------------------------------------------------------------------- |
+| Server Component | Trusted | Decides what is rendered; hides buttons or sections.                 |
+| Client Component | Browser | Advisory only; toggles UI based on the render's verdict.             |
+| Server Action    | Trusted | Decides independently if a write is allowed before committing to DB. |
 
 ```mermaid caption="The dual-gate architecture. A page view runs the server component to decide what to render. A direct post to a Server Action skips the render entirely, requiring the action to re-resolve the subject and re-evaluate the rules."
 flowchart TD
@@ -105,4 +105,3 @@ The client rebuilds the evaluator using `parseMatrix` and wraps the tree in the 
 - [React Router 8](../react-router). Similar split between loaders and actions.
 - [The matrix: your rules as JSON](../matrix). Understanding the envelope and versioning.
 - [Security contract](../security). Why every layer must decide for itself.
-

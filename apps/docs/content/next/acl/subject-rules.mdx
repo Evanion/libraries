@@ -26,6 +26,7 @@ Consider the Baize shop's stock report. We want any staff member with the `books
 ```
 
 In this policy, the `report.read` permission is decided by two rules:
+
 1. An **allow rule** that grants access to anyone with the `bookseller` role.
 2. A **deny rule** that refuses access to anyone with the `suspended` role.
 
@@ -42,7 +43,7 @@ flowchart TD
 
 ### Identifying rules with `.id`
 
-By default, `@evanion/acl` generates an internal hash as the ID for every rule. While this works for the engine, it's useless for logging or debugging. 
+By default, `@evanion/acl` generates an internal hash as the ID for every rule. While this works for the engine, it's useless for logging or debugging.
 
 You can use `.id(name)` to give a rule a human-readable name. For example, naming a rule `suspended-reads-nothing` allows your application to log exactly why a user was blocked, making it much easier to provide helpful feedback to the user or support staff.
 
@@ -53,6 +54,6 @@ A subject-only rule is a powerful tool because it is completely decoupled from t
 1. **Instant Answers**: Because the server resolves the subject (the user) once per request, subject-only rules can be evaluated immediately without triggering additional database queries.
 2. **Pre-flight Checks**: You can ask about these permissions before you've even fetched a specific object. For example, a navigation menu can use subject-only rules to decide whether to show the "Admin Dashboard" link without needing to know which specific admin resource is being targeted.
 
-However, once you need to check a relationship—such as "Can this user edit *this specific* question?"—you have moved beyond the subject. You now need to read the object itself.
+However, once you need to check a relationship—such as "Can this user edit _this specific_ question?"—you have moved beyond the subject. You now need to read the object itself.
 
 [Rules about the thing being accessed](../object-rules) explains how to write conditions that compare the user to the resource.

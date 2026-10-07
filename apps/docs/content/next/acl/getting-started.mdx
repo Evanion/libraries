@@ -48,6 +48,7 @@ Defining an authorization policy in `@evanion/acl` is a straightforward three-st
 3. **Build the evaluator**: Call `.build()` to create the `access` object, which you will use to check permissions.
 
 Within the `.for()` block, you use a helper (conventionally named `p`) to grant or deny access:
+
 - `p.allow(action, ...conditions)`: Grants access if all provided conditions are true.
 - `p.contains(path, value)`: A condition that checks if an array (at a given path) contains a specific value (e.g., checking if `subject.roles` contains `'bookseller'`).
 
@@ -75,11 +76,10 @@ Update the first line of `access.ts` to include `hydratePolicy`, and add these l
 
 Run the file again. The results will match the server's answers exactly. In a real application, your server would send this JSON string in a page or API response, allowing the browser to make instant, local authorization decisions without calling the server.
 
-*Note: When using `hydratePolicy` without type arguments, the evaluator accepts any object kind or action string, meaning the TypeScript compiler can no longer verify them.*
+_Note: When using `hydratePolicy` without type arguments, the evaluator accepts any object kind or action string, meaning the TypeScript compiler can no longer verify them._
 
 ## Next steps: Refining your rules
 
-You now have a working policy that grants access by role and can be shared across processes. 
+You now have a working policy that grants access by role and can be shared across processes.
 
 In the next section, [Rules about who the user is](../subject-rules), we'll explore how to handle more complex scenarios—such as preventing a suspended bookseller from reading stock reports—and how to name your rules so that your application can explain exactly why a request was refused.
-

@@ -12,7 +12,7 @@
 
 ## The Problem: The "Untyped Payload" Gap
 
-While `defineItems` ensures your *code* is type-safe, the data coming from your CMS is just plain JSON. A content editor might accidentally use a widget type that no longer exists in your code, or leave a required field blank.
+While `defineItems` ensures your _code_ is type-safe, the data coming from your CMS is just plain JSON. A content editor might accidentally use a widget type that no longer exists in your code, or leave a required field blank.
 
 If you pass this raw JSON directly to `<Widgets>`, the renderer will simply skip the invalid items. In production, this results in a "silent failure"—a gap in your page that you only discover after the page is live.
 
@@ -25,6 +25,7 @@ If you pass this raw JSON directly to `<Widgets>`, the renderer will simply skip
 ```
 
 ### How the Validation Works:
+
 - **Payload**: The parsed JSON from your CMS, typed as `unknown`.
 - **Known Types**: The list of widget types your renderer actually supports.
 - **Required Props**: (Optional) A map that defines which props are mandatory for each widget type.
@@ -59,7 +60,7 @@ Once a payload has passed validation, you can safely cast it to the expected ite
 
 ```
 
-**Important**: `validateItems` checks for the *existence* of props, not their *type*. If a `title` is required and the CMS sends a number instead of a string, `validateItems` will pass it. If you need strict type validation for your JSON, consider using a schema validator like Zod alongside `validateItems`.
+**Important**: `validateItems` checks for the _existence_ of props, not their _type_. If a `title` is required and the CMS sends a number instead of a string, `validateItems` will pass it. If you need strict type validation for your JSON, consider using a schema validator like Zod alongside `validateItems`.
 
 ## What Happens to Unvalidated Items?
 
