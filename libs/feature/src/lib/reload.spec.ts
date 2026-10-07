@@ -835,6 +835,141 @@ describe('reload, a toggle it lands inside', () => {
     expect(features.isEnabled('parent')).toBe(false);
     expect(features.config[0]?.variants).toBeUndefined();
   });
+
+  it('refuses the write when the installed document dropped the key', () => {
+    const features = createFeatures([
+      {
+        key: 'parent',
+        enabled: true,
+        variants: [{ name: 'a', weight: 1 }],
+      },
+      { key: 'child', enabled: true, dependsOn: ['parent'] },
+    ]);
+
+    let swapped = false;
+    const stickyVariants = {
+      get parent(): string | undefined {
+        if (!swapped) {
+          swapped = true;
+          features.reload({
+            version: 9,
+            features: [{ key: 'zeta', enabled: true }],
+          } as unknown as FeatureConfig<'parent'>);
+        }
+        return undefined;
+      },
+    } as Readonly<Record<string, string>>;
+
+    const result = features.toggle('parent', false, {
+      targetingKey: 'u1',
+      stickyVariants,
+    });
+
+    // No document carries the key, so no write landed anywhere. An `ok: true`
+    // here reaches an auditor as a toggle the store accepted, and § 6 has the
+    // reload discard the toggle rather than hide it.
+    expect(result).toEqual({
+      ok: false,
+      key: 'parent',
+      error: 'unknown-feature',
+    });
+    expect(features.keys).toEqual(['zeta']);
+    expect(
+      features.config.some((definition) =>
+        Object.hasOwn(definition, 'undefined'),
+      ),
+    ).toBe(false);
+  });
+
+  it('names no dependant the installed document stopped declaring', () => {
+    const split = [{ name: 'a', weight: 1 }];
+    const features = createFeatures([
+      { key: 'parent', enabled: true, variants: split },
+      { key: 'child', enabled: true, dependsOn: ['parent'], variants: split },
+    ]);
+
+    let swapped = false;
+    const stickyVariants = {
+      get parent(): string | undefined {
+        if (!swapped) {
+          swapped = true;
+          features.reload({
+            features: [
+              {
+                key: 'parent',
+                enabled: true,
+                variantBy: 'targetingKey',
+                variantSeed: 'parent:variant',
+                variants: [{ name: 'a', weight: 1, order: 0 }],
+              },
+            ],
+          });
+        }
+        return undefined;
+      },
+    } as Readonly<Record<string, string>>;
+
+    const result = features.toggle('parent', false, {
+      targetingKey: 'u1',
+      stickyVariants,
+    });
+
+    // `willDisable` is the kill-switch preview an operator reads. A list taken
+    // off the pre-reload graph names a dependant the installed document does
+    // not declare, filtered on a decision set the installed document produced.
+    expect(result).toEqual({
+      ok: true,
+      key: 'parent',
+      enabled: false,
+      willDisable: [],
+    });
+    expect(features.keys).toEqual(['parent']);
+    expect(features.isEnabled('parent')).toBe(false);
+  });
+
+  it('names no dependant the reload disabled when the toggle enables', () => {
+    const split = [{ name: 'a', weight: 1 }];
+    const features = createFeatures([
+      { key: 'parent', enabled: true, variants: split },
+      { key: 'child', enabled: true, dependsOn: ['parent'], variants: split },
+    ]);
+
+    let swapped = false;
+    const stickyVariants = {
+      get parent(): string | undefined {
+        if (!swapped) {
+          swapped = true;
+          features.reload({
+            features: [
+              {
+                key: 'parent',
+                enabled: true,
+                variantBy: 'targetingKey',
+                variantSeed: 'parent:variant',
+                variants: [{ name: 'a', weight: 1, order: 0 }],
+              },
+              { key: 'child', enabled: false, dependsOn: ['parent'] },
+            ],
+          });
+        }
+        return undefined;
+      },
+    } as Readonly<Record<string, string>>;
+
+    const result = features.toggle('parent', true, {
+      targetingKey: 'u1',
+      stickyVariants,
+    });
+
+    // `ToggleResult.willDisable` is empty when enabling. A diff taken across
+    // two documents attributes every `enabled` the reload moved to the toggle.
+    expect(result).toEqual({
+      ok: true,
+      key: 'parent',
+      enabled: true,
+      willDisable: [],
+    });
+  });
 });
 
 /** One definition carrying `value` on its single variant. */

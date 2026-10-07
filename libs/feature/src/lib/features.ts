@@ -2,6 +2,7 @@ import { validateConditions } from './conditions.js';
 import { instantEpoch } from './instant.js';
 import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
+import type { FeatureGraph } from './graph.js';
 import { collectIssues } from './validate.js';
 import { createEmitter } from './observe.js';
 import type {
@@ -109,7 +110,10 @@ export interface Features<
    *
    * A reload discards this write. The store's truth is the configuration
    * source, and a toggle is a local write against it. An operator who wants a
-   * durable toggle writes the row and lets the poller bring it back.
+   * durable toggle writes the row and lets the poller bring it back. A reload a
+   * context getter runs inside this call is that same discard: the write goes
+   * onto the document the store holds when it lands, and `unknown-feature`
+   * answers a document that no longer declares the key.
    */
   toggle(
     key: keyof S & FeatureKey,
@@ -632,28 +636,39 @@ export function createFeatures(
   };
 
   /**
-   * The store's four references, read at one instant, with a lookup over them.
+   * One document, its graph and its index, with a lookup over the three.
    *
-   * `reload` and `toggle` assign those references, and a walk that read them
-   * through the closure would see an assignment that landed mid-walk.
+   * `reload` and `toggle` assign the store's references, and a walk that read
+   * them through the closure would see an assignment that landed mid-walk.
    * `resolveAll` evaluates the dependency order once and looks a definition up
    * on every iteration, so a reload from a synchronous hook would put half a
-   * decision set on one document and half on another. An entry point calls
-   * this once and reads only what it holds, which keeps every decision in one
+   * decision set on one document and half on another. A caller holds one of
+   * these and reads only what it holds, which keeps every decision in one
    * answer computed from one document.
+   *
+   * `toggle` names a document this way. It resolves the document it writes onto
+   * and the same document carrying the write, so `willDisable` diffs one
+   * document against itself and a reload that lands inside either resolution
+   * moves neither side.
    */
-  const boundView = () => {
-    const held = config;
-    const walk = graph;
-    const positions = index;
-    const definitionAt = (
+  const viewOf = (
+    held: readonly FeatureDefinition<FeatureKey>[],
+    walk: FeatureGraph<FeatureKey>,
+    positions: Map<FeatureKey, number>,
+  ) => ({
+    held,
+    walk,
+    positions,
+    definitionAt: (
       key: FeatureKey,
     ): FeatureDefinition<FeatureKey> | undefined => {
       const position = positions.get(key);
       return position === undefined ? undefined : held[position];
-    };
-    return { held, walk, positions, definitionAt };
-  };
+    },
+  });
+
+  /** The references the store holds now, read at one instant. */
+  const boundView = () => viewOf(config, graph, index);
 
   const emit = createEmitter(options);
   const observed = options.observe !== undefined;
@@ -717,14 +732,19 @@ export function createFeatures(
   // The body's own view of a resolved set: one loose `Decision` per key. The
   // public `resolve` casts this to the schema-mapped form once, and the two
   // readers take their fields off it, where every `Decision` field is present.
+  //
+  // `view` defaults to the references the store holds at the call, which is
+  // bound before the first statement and not in `resolve`. `resolve` calls
+  // `withNow(context)` first, and `withNow` spreads the caller's context, which
+  // runs every own enumerable getter on it. A binding after that call would
+  // already be too late for a hook the caller hung on a context field. A caller
+  // that has a document to name passes its own view, and `toggle` is the one
+  // that does.
   const resolveAll = (
     context: SettledContext,
+    view = boundView(),
   ): Record<FeatureKey, Decision<FeatureKey>> => {
-    // The first statement, and not a statement of `resolve`. `resolve` calls
-    // `withNow(context)` first, and `withNow` spreads the caller's context,
-    // which runs every own enumerable getter on it. A binding after that call
-    // would already be too late for a hook the caller hung on a context field.
-    const { walk, definitionAt } = boundView();
+    const { walk, definitionAt } = view;
     const resolved = new Map<FeatureKey, Decision<FeatureKey>>();
 
     // `walk.order`, not `keys`: see FeatureGraph.order for why the cascade
@@ -784,12 +804,8 @@ export function createFeatures(
     // artefact of the clock moving between the two evaluations. The refused
     // write reads its instant off the same context.
     const evaluationContext = withNow(context);
-    // Bound after `withNow`, which this needs the settled context from. The
-    // install below assigns the outer `config`, never `held`, so the store
-    // answers from the array this wrote and the `resolveAll` that runs after it
-    // takes a fresh binding and reads that same array. The two resolutions read
-    // this view, so each of them answers from one document.
-    const { held, walk, positions } = boundView();
+    // Bound after `withNow`, which this needs the settled context from.
+    const start = boundView();
 
     // Reports the write and answers the caller with the same object. An
     // auditor receives the refused write as well as the accepted one, so both
@@ -808,37 +824,58 @@ export function createFeatures(
       return answer;
     };
 
-    const at = positions.get(key);
-    const current = at === undefined ? undefined : held[at];
+    // The resolution that settles the caller's context. Every getter the caller
+    // hung on a context field runs here -- `assignVariant` reads
+    // `stickyVariants[key]` for every feature declaring variants -- so a
+    // `reload` from one of them lands before the lines below pick the document
+    // the write goes onto. It reports nothing, the way `resolveAll` reports
+    // nothing: an observer holding this set could write `enabled` to `false` on
+    // a dependant and `willDisable` would come back short, which is the list an
+    // operator reads before pulling a kill switch.
+    const settled = resolveAll(evaluationContext, start);
+
+    // The document the write goes onto, read after that resolution. A reload
+    // that landed inside it assigned all five references together, and the
+    // write belongs on the document the store holds now: writing the bound
+    // array back would put the pre-reload document under the candidate's graph,
+    // index and keys, and `definitionOf` would then index the previous array
+    // with the candidate's positions.
+    const view = config === start.held ? start : boundView();
+
+    const at = view.positions.get(key);
+    const current = at === undefined ? undefined : view.held[at];
     if (at === undefined || !current) {
+      // Either the store never held the key, or a reload inside the resolution
+      // above installed a document that no longer declares it. § 6 has a reload
+      // discard a local toggle, and nothing was written, so the result says so.
+      // An `ok: true` here would put a toggle an auditor can read in the
+      // observer's log for a write that landed on no document.
       return reported({ ok: false, key, error: 'unknown-feature' });
     }
 
-    // The two resolutions below go through `resolveAll`, which reports
-    // nothing. An observer holding `before` could write `enabled` to `false`
-    // on a dependant and `willDisable` would come back short, which is the
-    // list an operator reads before pulling a kill switch. Both resolutions
-    // still run.
-    const before = resolveAll(evaluationContext);
+    const next = [...view.held];
+    next[at] = deepFreeze({ ...current, enabled });
+    const written = Object.freeze(next);
+    // Installed before the two resolutions below, which run the caller's
+    // getters again. A write after them would overwrite a document a reload
+    // from one of those getters installed, and § 6 has the reload win.
+    // `graph`, `index` and `keys` carry over: a write moves `enabled` and
+    // touches neither the key nor `dependsOn`.
+    config = written;
 
-    // Read at the write, not from the bound view. The resolve above runs every
-    // getter the caller hung on the context, so a `reload` from one lands
-    // between the binding and this line and assigns all five references
-    // together. Writing the bound array back would put the pre-reload document
-    // under the candidate's graph, index and keys, and `definitionOf` would
-    // then index the previous array with the candidate's positions. A document
-    // that dropped the key gets no write at all, which is the reload
-    // discarding a local toggle that § 6 states.
-    const writeAt = index.get(key);
-    const target = writeAt === undefined ? undefined : config[writeAt];
-    if (writeAt !== undefined && target) {
-      const next = [...config];
-      next[writeAt] = deepFreeze({ ...target, enabled });
-      config = Object.freeze(next);
-    }
+    // Both sides read one document: the one the write went onto, and the same
+    // one carrying the write. `settled` resolved `view.held` already when no
+    // reload moved it. A reload landing inside either resolution below moves
+    // the store, not these two views, so `willDisable` never names a dependant
+    // from one document filtered on a decision from another.
+    const before =
+      view === start ? settled : resolveAll(evaluationContext, view);
+    const after = resolveAll(
+      evaluationContext,
+      viewOf(written, view.walk, view.positions),
+    );
 
-    const after = resolveAll(evaluationContext);
-    const willDisable = walk
+    const willDisable = view.walk
       .dependants(key)
       .filter(
         (dependant) =>
