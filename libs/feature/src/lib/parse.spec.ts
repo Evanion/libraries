@@ -467,6 +467,34 @@ describe('the documents parseFeatureConfig refuses', () => {
     ).not.toThrow();
   });
 
+  /**
+   * A member that answers a read with a raise.
+   *
+   * The checker reads each envelope member off the object the caller handed
+   * over, and nothing about that object is trusted. `JSON.parse` writes a data
+   * property, and a caller reaches an accessor by building the document in
+   * code or by parsing with a reviver that installs one. `validateConfig`
+   * hands such a document's raise back to its caller, and this entry point
+   * promises a report, so the report is what the raise becomes here.
+   */
+  it('reports the member a document answers a read with a raise', () => {
+    const config = {
+      features: [{ key: 'a', enabled: true }],
+      get digest(): string {
+        throw new RangeError('the body ended before the digest did');
+      },
+    } as unknown as FeatureConfig;
+
+    const result = parseFeatureConfig(config);
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        message: 'the body ended before the digest did',
+      },
+    ]);
+  });
+
   it('leaves the document it refused exactly as it was handed it', () => {
     const config = {
       hashVersion: 2,
@@ -546,8 +574,8 @@ describe('the store a document builds', () => {
    * the copy, so an edit the caller makes to the object it handed over reaches
    * nothing the store decides from, and the caller's own object stays writable.
    * A store built over the caller's objects answers both halves the other way:
-   * the freeze seals the document, and the edit below raises instead of
-   * landing.
+   * the freeze seals the document, so the edit below raises and lands
+   * nothing.
    */
   it('decides on a copy of the definition the document carried', () => {
     const row = { key: 'a', enabled: true };

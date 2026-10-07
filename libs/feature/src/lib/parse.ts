@@ -1,16 +1,13 @@
 import { createFeatures } from './features.js';
 import { collectIssues } from './validate.js';
 import type { Features } from './features.js';
-import type { ConfigIssue, FeatureConfig } from './config.js';
+import type {
+  ConfigIssue,
+  FeatureConfig,
+  SerializedDefinition,
+} from './config.js';
 import type { FeatureOptions } from './observe.js';
 import type { FeatureKey, VariantInfo } from './types.js';
-
-/** The key an issue names, for a definition whose key a document chose. */
-function keyOf(definition: unknown): FeatureKey | undefined {
-  if (typeof definition !== 'object' || definition === null) return undefined;
-  const key: unknown = (definition as Record<string, unknown>)['key'];
-  return typeof key === 'string' || typeof key === 'number' ? key : undefined;
-}
 
 /**
  * A raise out of the construction path, as the issue that reports it.
@@ -35,8 +32,9 @@ function keyOf(definition: unknown): FeatureKey | undefined {
  * The raise names the definition: the walk copies each one and reports the
  * first that answers the way the construction path did, which carries the key
  * and the pointer every other refusal at a definition carries. A raise no copy
- * reproduces is the freeze, and the issue then carries the raise's own text,
- * which is the only part of it that says anything about the value.
+ * reproduces is the freeze, or a member the checker read off the document, and
+ * the issue then carries the raise's own text, which is the only part of it
+ * that says anything about the value.
  *
  * `unknown-member` is the code. § 3 of
  * `docs/specs/2026-09-23-feature-config-distribution.md` gives it to a holder
@@ -58,16 +56,14 @@ function unreadable(
       structuredClone(definition);
       continue;
     } catch {
-      const key = keyOf(definition);
-      const named =
-        key === undefined
-          ? `the definition at /features/${String(at)}`
-          : `feature "${String(key)}"`;
+      // The checker passed before the construction path ran, so every
+      // definition it read is an object declaring a key.
+      const { key } = definition as SerializedDefinition<FeatureKey>;
       return [
         {
           code: 'unknown-member',
-          message: `${named} carries a value no copy of the definition holds: ${text}`,
-          ...(key === undefined ? {} : { key }),
+          message: `feature "${String(key)}" carries a value no copy of the definition holds: ${text}`,
+          key,
           path: `/features/${String(at)}`,
         },
       ];
@@ -134,10 +130,7 @@ export function parseFeatureConfig<
   } catch (raise) {
     return {
       ok: false,
-      issues: unreadable(
-        raise,
-        Array.isArray(config.features) ? config.features : [],
-      ),
+      issues: unreadable(raise, config.features),
     };
   }
 
