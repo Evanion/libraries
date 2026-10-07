@@ -15,9 +15,15 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { always, foreign, permission, readme, when } from './fixtures.js';
+import {
+  always,
+  foreign,
+  packageDocument,
+  permission,
+  when,
+} from './fixtures.js';
 
-const core = () => readme('acl');
+const core = () => packageDocument('acl', 'SECURITY.md');
 
 function hasSection(text: string, heading: string): boolean {
   return new RegExp(`^${heading}$`, 'm').test(text);
@@ -101,7 +107,7 @@ describe('SEC-204 a rule keyed on writable data authorizes its own writer (CWE-6
   // #region sec-204
   it('grants the subject that added itself to the field the rule reads', () => {
     // No defence. The engine cannot know which object fields the subject can
-    // write, so this is the grant the acl README warns about under "What a
+    // write, so this is the grant the acl contract warns about under "What a
     // condition may read", shown working.
     const access = foreign([
       permission('wishlist', 'read', {
@@ -161,8 +167,12 @@ describe('SEC-205 a decision counts where it is made (CWE-602)', () => {
     expect(core()).toContain('advisory');
   });
 
-  it('points the React package at the same contract', () => {
-    expect(readme('react-acl')).toContain('security contract');
+  it('points both READMEs at the same contract', () => {
+    expect(packageDocument('acl', 'README.md')).toContain('SECURITY.md');
+    expect(packageDocument('react-acl', 'README.md')).toContain(
+      'security contract',
+    );
+    expect(packageDocument('react-acl', 'README.md')).toContain('SECURITY.md');
   });
 
   // #region sec-205
