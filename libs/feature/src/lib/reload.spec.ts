@@ -725,6 +725,15 @@ describe('reload, a toggle it lands inside', () => {
   });
 });
 
+/** One definition carrying `value` on its single variant. */
+const valued = (value: unknown) => ({
+  key: 'cta' as const,
+  enabled: true,
+  variantBy: 'targetingKey',
+  variantSeed: 'cta:variant',
+  variants: [{ name: 'a', weight: 1, order: 0, value }],
+});
+
 describe('reload, the diff it reports', () => {
   it('names a key whose rule moved its window', () => {
     const features = createFeatures([
@@ -794,6 +803,52 @@ describe('reload, the diff it reports', () => {
     // `serializeConfig` writes the window `Date` as the ISO string, which
     // `toEpoch` reads to the same epoch, so the publisher and the holder decide
     // the window alike and the two documents state one intent.
+    expect(result.ok && result.changed).toEqual([]);
+  });
+
+  it('names a key whose variant value holds different Set members', () => {
+    const features = createFeatures([valued(new Set(['gold']))]);
+
+    const result = features.reload({
+      features: [valued(new Set(['silver']))],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // `Object.keys` reads nothing off a Set, so a walk over the keys alone
+    // calls any two of them equal and the candidate installs a value the diff
+    // never looked at.
+    expect(result.ok && result.changed).toEqual(['cta']);
+  });
+
+  it('names a key whose variant value holds a Date against a plain object', () => {
+    const features = createFeatures([valued(new Date(0))]);
+
+    const result = features.reload({
+      features: [valued({})],
+    } as unknown as FeatureConfig<'cta'>);
+
+    expect(result.ok && result.changed).toEqual(['cta']);
+  });
+
+  it('names a key whose variant value holds a different pattern', () => {
+    const features = createFeatures([valued(/gold/u)]);
+
+    const result = features.reload({
+      features: [valued(/silver/u)],
+    } as unknown as FeatureConfig<'cta'>);
+
+    expect(result.ok && result.changed).toEqual(['cta']);
+  });
+
+  it('names nothing when a variant value holds one Map twice', () => {
+    const entries: readonly [string, number][] = [['gold', 1]];
+    const features = createFeatures([valued(new Map(entries))]);
+
+    const result = features.reload({
+      features: [valued(new Map(entries))],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // The counterpart. A diff that answered `false` for every Map would pass
+    // the three cases above and name a key nothing changed about.
     expect(result.ok && result.changed).toEqual([]);
   });
 
