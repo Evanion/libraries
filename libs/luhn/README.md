@@ -56,6 +56,8 @@ Luhn.validate('order-2026-0024-l').isValid; // -> false
 
 The second code has one digit changed and the third has two adjacent digits swapped. Both are refused.
 
+A check character catches typing mistakes and nothing else. A random string passes one time in 36 under the default dictionary, and anyone can compute a valid check character, so a code that passes still needs your database to say whether it was issued.
+
 ## Key Features
 
 - 🌍 **Alphabet Agnostic**: Works over any even-sized alphabet you choose—numbers, letters, or custom symbols.
