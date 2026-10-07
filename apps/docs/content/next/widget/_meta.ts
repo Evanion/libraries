@@ -19,7 +19,7 @@ import type { MetaRecord } from 'nextra';
  * records as `demo: 'layout'`. Above five pages the role owes a page of its
  * own, and the control there moves the items of a page a renderer draws, which
  * is the order and nesting the item model defines. It also sets the two
- * published renderers' handling of children and the wrapper side by side, which
+ * published renderers' handling of children and item chrome side by side, which
  * `renderer` builds on.
  *
  * `renderer` is the warning text and printer the two published renderers
