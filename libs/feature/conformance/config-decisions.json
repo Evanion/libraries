@@ -2,7 +2,7 @@
   "note": "One document, one context, and the decisions any implementation must produce. See docs/specs/2026-09-23-feature-config-distribution.md § 9.",
   "config": {
     "version": 1,
-    "digest": "c12f04c957b6a146b1f1cdc3963fd999",
+    "digest": "47b37021eef192072b6f9883967c1c95",
     "features": [
       {
         "key": "checkout",
@@ -11,7 +11,9 @@
       {
         "key": "express-checkout",
         "enabled": true,
-        "dependsOn": ["checkout"]
+        "dependsOn": [
+          "checkout"
+        ]
       },
       {
         "key": "legacy-cart",
@@ -20,12 +22,24 @@
       {
         "key": "cart-badge",
         "enabled": true,
-        "dependsOn": ["legacy-cart"]
+        "dependsOn": [
+          "legacy-cart"
+        ]
       },
       {
         "key": "pro-perks",
         "enabled": true,
         "rules": [
+          {
+            "id": "free-plan",
+            "when": [
+              {
+                "field": "plan",
+                "op": "eq",
+                "value": "free"
+              }
+            ]
+          },
           {
             "id": "pro-plan",
             "when": [
@@ -106,7 +120,9 @@
       {
         "key": "cta",
         "enabled": true,
-        "dependsOn": ["checkout"],
+        "dependsOn": [
+          "checkout"
+        ],
         "variantBy": "targetingKey",
         "variantSeed": "cta-copy",
         "variants": [

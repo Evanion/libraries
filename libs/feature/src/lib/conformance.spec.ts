@@ -109,6 +109,25 @@ function seedsDefaulted(config: FeatureConfig): FeatureConfig {
   };
 }
 
+/**
+ * The document a port that decides a feature on its first rule reads.
+ *
+ * `decide` OR-s a feature's rules: it walks them in order and the first one
+ * that matches enables the feature, so a rule after a rule that did not match
+ * still decides. A port that reads `rules[0]` and stops answers for the
+ * document holding that rule alone.
+ */
+function firstRuleOnly(config: FeatureConfig): FeatureConfig {
+  return {
+    ...config,
+    features: config.features.map((definition) =>
+      definition.rules
+        ? { ...definition, rules: definition.rules.slice(0, 1) }
+        : definition,
+    ),
+  };
+}
+
 describe('the published cross-process fixture', () => {
   it('states the digest of the document it carries', () => {
     expect(fixture.config.digest).toBe(configDigest(fixture.config));
@@ -246,7 +265,7 @@ describe('the document the fixture publishes', () => {
     expect(definitions.filter((each) => each.dependsOn).length).toBeGreaterThan(
       0,
     );
-    expect(conditions.filter((each) => each.op === 'eq').length).toBe(2);
+    expect(conditions.filter((each) => each.op === 'eq').length).toBe(3);
     expect(conditions.filter((each) => each.op === 'after').length).toBe(1);
     expect(conditions.filter((each) => each.op === 'before').length).toBe(1);
     expect(rules.filter((each) => each.rollout).length).toBe(2);
@@ -317,6 +336,31 @@ describe('the document the fixture publishes', () => {
     expect(ctaSeed).toBeTypeOf('string');
     expect(assigned.assignment?.bucket).toBe(
       bucketOf(subject, ctaSeed as string),
+    );
+  });
+
+  it('enables a feature on a rule a rule before it did not match', () => {
+    const counts = fixture.config.features.map(
+      (definition) => definition.rules?.length ?? 0,
+    );
+    const matched = fixture.decisions['pro-perks'] as {
+      enabled: boolean;
+      reason: string;
+      rule: string;
+    };
+
+    // Point 4 of `decide`'s precedence OR-s the rules. A fixture whose
+    // features carry one rule each is reproduced by a port that returns on
+    // `rules[0]`, and that port ships every feature whose first rule is the
+    // narrow one off.
+    expect(Math.max(...counts)).toBeGreaterThan(1);
+    expect(matched).toMatchObject({
+      enabled: true,
+      reason: 'rule-match',
+      rule: 'pro-plan',
+    });
+    expect(decisionsOver(firstRuleOnly(fixture.config))).not.toEqual(
+      fixture.decisions,
     );
   });
 
