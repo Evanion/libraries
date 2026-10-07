@@ -1,39 +1,24 @@
-[![npm version](https://img.shields.io/npm/v/@evanion/nestjs-correlation-id)](https://www.npmjs.com/package/@evanion/nestjs-correlation-id)
-[![npm downloads](https://img.shields.io/npm/dm/@evanion/nestjs-correlation-id)](https://www.npmjs.com/package/@evanion/nestjs-correlation-id)
-[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
+# @evanion/nestjs-correlation-id
 
-<h1 align="center">Nest.js Correlation ID middleware</h1>
+**One correlation ID per request, across your NestJS microservices.**
 
-<h3 align="center">Transparently include correlation IDs in all requests</h3>
+Stop hunting through fragmented logs across multiple services to find a single request's path. `@evanion/nestjs-correlation-id` attaches a correlation ID to every incoming request and sends it on every call through an `HttpService` registered with `withCorrelation()`, so every service the request reaches can write the same ID into its log lines.
 
-<div align="center">
-  <a href="https://nestjs.com" target="_blank">
-    <img src="https://img.shields.io/badge/built%20with-NestJs-red.svg" alt="Built with NestJS">
-  </a>
-</div>
+## The Problem: Logs in Fragments
 
-One middleware opens an `AsyncLocalStorage` context per incoming request and
-puts a correlation id in it. Everything downstream — guards, interceptors,
-controllers, the promises they await — reads that id without it being threaded
-through a single signature, and outgoing `HttpService` calls carry it to the
-next service.
+In a microservices architecture, a single order might pass from `storefront` to `orders` to `stock`. When `stock` fails, you're forced to:
 
-## Why
+1. Search for a timestamp in `storefront`.
+2. Guess which request in `orders` matches that timestamp.
+3. Hope that the logs of `stock` haven't rotated yet.
 
-Following one request up and down a stack means finding its log lines in every
-service that touched it. A `correlation-id` header (also called `request-id`),
-generated at the edge and forwarded across every hop, is what makes that
-possible.
+Without a single, shared ID that travels with the request, nothing ties the log lines of those three services together.
 
-## Install
+## The Solution: Transparent Correlation Context
 
-```bash
-npm install @evanion/nestjs-correlation-id
-```
+`@evanion/nestjs-correlation-id` opens an `AsyncLocalStorage` context per request, and `CorrelationService` stays a singleton. Once the middleware is applied, the correlation ID is available anywhere in the request chain—guards, interceptors, controllers, and services—without ever having to pass it as a function argument.
 
-## Getting started
-
-Register the module and apply the middleware in your `AppModule`.
+### Core Concept: One ID per Request
 
 ```ts
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
@@ -52,11 +37,71 @@ export class AppModule implements NestModule {
 }
 ```
 
-`CorrelationIdMiddleware` opens an
-[`AsyncLocalStorage`](https://nodejs.org/api/async_context.html) context for the
-request. Everything downstream of it — guards, interceptors, controllers, and
-anything they await — sees that request's id, and concurrent requests stay
-isolated. Two handlers awaiting at the same time each read their own:
+The same module is `examples/app.module.ts` in this repository. Boot it and every response carries the ID back in the `X-Correlation-Id` header: the caller's own when it sent a valid one, and a fresh UUID when it sent none or one that fails `validate`.
+
+<!-- #region core-concept -->
+
+```ts @import.meta.vitest
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './examples/app.module.js';
+
+const app = await NestFactory.create(AppModule, { logger: false });
+await app.listen(0, '127.0.0.1');
+const url = await app.getUrl();
+
+const traced = await fetch(url, {
+  headers: { 'X-Correlation-Id': 'storefront-4f1c9a' },
+});
+const fresh = await fetch(url);
+await app.close();
+
+traced.headers.get('X-Correlation-Id'); // -> 'storefront-4f1c9a'
+fresh.headers.get('X-Correlation-Id')?.length; // -> 36
+```
+
+<!-- #endregion core-concept -->
+
+Now, any service in your app can read the current ID and add it to its logs. In an application Nest builds the service and injects the logger. Here both are built by hand, and the logger is a stand-in that keeps each line it is given:
+
+<!-- #region log-the-id -->
+
+```ts @import.meta.vitest
+import { CorrelationService } from '@evanion/nestjs-correlation-id';
+
+const lines: string[] = [];
+const logger = { log: (line: string) => lines.push(line) };
+
+class OrdersService {
+  constructor(
+    private readonly correlationService: CorrelationService,
+    private readonly logger: { log(line: string): void },
+  ) {}
+
+  place(order: string) {
+    const id = this.correlationService.getCorrelationId();
+    this.logger.log(`Placing ${order} for request ${id}`);
+  }
+}
+
+const correlation = new CorrelationService({
+  header: 'X-Correlation-Id',
+  generator: () => crypto.randomUUID(),
+});
+const orders = new OrdersService(correlation, logger);
+
+correlation.run('storefront-4f1c9a', () => orders.place('order-2026-0042'));
+orders.place('order-2026-0043');
+
+lines; // -> ['Placing order-2026-0042 for request storefront-4f1c9a', 'Placing order-2026-0043 for request undefined']
+```
+
+<!-- #endregion log-the-id -->
+
+The second call ran outside any correlation context, where `getCorrelationId()` returns `undefined`. `CorrelationIdMiddleware` opens the context, so read the ID in a handler, a guard, or a middleware applied after it.
+
+### Isolated Between Concurrent Requests
+
+Each request gets its own context, and the ID survives every `await` inside it. Two handlers awaiting at the same time each read their own:
 
 <!-- #region concurrent -->
 
@@ -89,9 +134,9 @@ correlation.getCorrelationId(); // -> undefined
 
 <!-- #endregion concurrent -->
 
-Nest builds the service and the middleware for you. Built by hand, this is what
-a handler reads for a request that carries an id, for one that carries none, and
-outside any request:
+### What the Middleware Does With a Request
+
+The middleware reuses the caller's ID when it passes `validate`, and asks the generator for a new one when the request carried none or one that failed. Built by hand, this is what a handler reads for a request that carries an ID, for one that carries none, and outside any request:
 
 <!-- #region middleware-by-hand -->
 
@@ -126,33 +171,33 @@ correlation.getCorrelationId(); // -> undefined
 
 <!-- #endregion middleware-by-hand -->
 
-The caller's header is the id the handler sees, because it passed `validate`. A
-request with no header gets the generator's id. The last line is the same
-service outside any context, where there is no correlation id.
+The ID also goes out on the response under the configured header, in the configured casing, unless something earlier already set that header.
 
-Then forward the id on outgoing HTTP calls by passing `withCorrelation()` to
-`HttpModule.registerAsync`.
+## Key Features
 
-```ts
-import { HttpModule } from '@nestjs/axios';
-import { Module } from '@nestjs/common';
-import { withCorrelation } from '@evanion/nestjs-correlation-id';
-import { StockClient } from './stock.client.js';
+- 🌐 **Transparent Forwarding**: Attaches the correlation ID to every outgoing call through an `HttpService` registered with `withCorrelation()`, using an Axios interceptor.
+- 🧵 **Context-Aware**: Powered by `AsyncLocalStorage`, so IDs remain isolated between concurrent requests and survive `await` boundaries.
+- 🛠️ **Express or Fastify**: The middleware reads and writes raw `node:http` headers, so it works under either Nest adapter.
+- ⚙️ **Fully Configurable**: Customize your header name (default `X-Correlation-Id`), ID generator (default `randomUUID` from `node:crypto`), and validation logic.
+- 🪶 **Zero-Weight**: No runtime dependencies beyond `tslib`.
 
-@Module({
-  imports: [HttpModule.registerAsync(withCorrelation())],
-  providers: [StockClient],
-  exports: [StockClient],
-})
-export class StockModule {}
+## Installation
+
+```bash
+npm install @evanion/nestjs-correlation-id
 ```
 
-`StockClient` is your own client for the `stock` service. Use `HttpService` as
-usual in it. It stays a singleton: the
-correlation header is attached by an axios request interceptor that reads the
-current context when the request is made. Below, the `orders` service calls a
-`stock` service that answers with the header it received, once inside a
-correlation context and once outside one:
+Requires NestJS 12 and Node 20+.
+
+The package ships ESM only, matching NestJS 12. A CommonJS project loads it through `require()` on Node 20.19, 22.12 or newer, the same way it loads NestJS 12.
+
+The middleware reads and writes raw `node:http` headers, so `express` is not a peer dependency. `@nestjs/axios` is an optional peer dependency, needed only for `withCorrelation()`, and it needs `axios` installed beside it.
+
+## Beyond the Basics
+
+### Forwarding the ID to Other Services
+
+Pass `withCorrelation()` to `HttpModule.registerAsync`, and every call through that module's `HttpService` carries the current ID to the next service. Below, the `orders` service calls a `stock` service that answers with the header it received, once inside a correlation context and once outside one:
 
 <!-- #region forward-hop -->
 
@@ -208,21 +253,13 @@ outside.data; // -> 'no id'
 
 <!-- #endregion forward-hop -->
 
-`withCorrelation()` needs `CorrelationModule.forRoot()` to have been called
-somewhere in the application — it is a global module, so once in the root module
-is enough. Without it, Nest fails at boot with
-`Nest can't resolve dependencies of the @evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR (AXIOS_INSTANCE_TOKEN, ?, @evanion/nestjs-correlation-id:CORRELATION_CONFIG)`.
+The interceptor reads the context when each request is made, so `HttpService` stays a singleton. Outside a context, a call carries no correlation header.
 
-## Working outside a request
+`withCorrelation()` needs `CorrelationModule.forRoot()` somewhere in the application. It is a global module, so once in the root module is enough. Without it, Nest fails at boot with `Nest can't resolve dependencies of the @evanion/nestjs-correlation-id:AXIOS_INTERCEPTOR (AXIOS_INSTANCE_TOKEN, ?, @evanion/nestjs-correlation-id:CORRELATION_CONFIG)`.
 
-`CorrelationService` is a singleton, so it is injected like any other provider
-and resolved with `module.get(CorrelationService)`. Outside a correlation
-context `getCorrelationId()` returns `undefined`, and outgoing calls carry no
-correlation header.
+### Manual Contexts for Background Jobs
 
-For work with no request behind it — queue consumers, cron jobs, scripts — open
-a context yourself with `run`, and replace the id inside one with
-`setCorrelationId`:
+Queue consumers, cron jobs and scripts have no request behind them, so no middleware opens a context. Open one yourself with `run`, and replace the ID inside one with `setCorrelationId`. Outside a context, `setCorrelationId` throws:
 
 <!-- #region outside-a-request -->
 
@@ -264,10 +301,7 @@ refused; // -> 'setCorrelationId() was called outside a correlation context. App
 
 <!-- #endregion outside-a-request -->
 
-`examples/restock.job.ts` is a queue consumer that runs its work in a context
-holding the id its message carried, or a generated one when the message carried
-none or one that fails `validate`. Built by hand around a stand-in for the
-client it calls, this is the id each of three messages runs under:
+`examples/restock.job.ts` is a queue consumer that runs its work under the ID its message carried, or a generated one when the message carried none or one that fails `validate`. Built by hand around a stand-in for the client it calls, this is the ID each of three messages runs under:
 
 <!-- #region restock-by-hand -->
 
@@ -306,11 +340,9 @@ sent; // -> ['storefront-4f1c9a', 'orders-7c41d2', 'orders-7c41d2']
 
 <!-- #endregion restock-by-hand -->
 
-## Configuration
+### Custom Validation and Configuration
 
-`CorrelationModule.forRoot()` accepts a `Partial<CorrelationConfig>` and fills
-in every field it is not given, so the configuration it provides under
-`CORRELATION_CONFIG_TOKEN` is always complete:
+`CorrelationModule.forRoot()` accepts a `Partial<CorrelationConfig>` and fills in every field it is not given, so the configuration it provides under `CORRELATION_CONFIG_TOKEN` is always complete. Call it once: a second `forRoot()` creates a second `CorrelationService`, and a provider holding the copy the middleware did not use reads `undefined` inside every request.
 
 <!-- #region configure -->
 
@@ -341,15 +373,7 @@ config.validate?.(config.generator()); // -> true
 
 <!-- #endregion configure -->
 
-An incoming id that `validate` accepts is reused as-is; `generator` runs only
-when the request carried none, or carried one that was rejected. The id also
-goes out on the response under the configured header, in the configured casing.
-
-`validate` defaults to `DEFAULT_CORRELATION_ID_VALIDATOR`: 1 to 128 characters
-of `[\w.:-]`. Node rejects a carriage return (CR) or line feed (LF) in a header
-in both directions, so over HTTP the CR and LF refusal never fires. It covers
-an id from another source, such as a queue message, that reaches your log lines,
-where a CR or LF forges a line. Widen it deliberately.
+An incoming ID that `validate` accepts is reused as-is, and it reaches every log line whose logger reads `getCorrelationId()`. `validate` defaults to `DEFAULT_CORRELATION_ID_VALIDATOR`: 1 to 128 characters of `[\w.:-]`. Node rejects a carriage return (CR) or line feed (LF) in a header in both directions, so over HTTP the CR and LF refusal never fires. It covers an ID from another source, such as a queue message, where a CR or LF forges a log line. Widen it deliberately.
 
 <!-- #region validator -->
 
@@ -401,96 +425,10 @@ CORRELATION_AXIOS_INTERCEPTOR; // -> '@evanion/nestjs-correlation-id:AXIOS_INTER
 
 <!-- #endregion correlation-axios-interceptor -->
 
-## Adding `correlationId` to logs
+For the full API reference and integration guides, visit our documentation site:
 
-Inject `CorrelationService` wherever you build log context and read the current
-id. It is a singleton, so nothing about injecting it changes the scope of the
-provider holding it.
-
-```ts
-import { CorrelationService } from '@evanion/nestjs-correlation-id';
-import { Injectable, NestMiddleware } from '@nestjs/common';
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import * as Sentry from '@sentry/node';
-
-@Injectable()
-export class SentryTagMiddleware implements NestMiddleware {
-  constructor(private readonly correlationService: CorrelationService) {}
-
-  use(_req: IncomingMessage, _res: ServerResponse, next: () => void) {
-    const correlationId = this.correlationService.getCorrelationId();
-    if (correlationId) Sentry.setTag('correlationId', correlationId);
-    next();
-  }
-}
-```
-
-`getCorrelationId()` is synchronous and gives `undefined` when there is no
-correlation context, so apply this after `CorrelationIdMiddleware`, which is
-what opens one.
-
-```ts
-@Module({
-  imports: [CorrelationModule.forRoot()],
-})
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(CorrelationIdMiddleware).forRoutes('*');
-    consumer.apply(SentryTagMiddleware).forRoutes('*');
-  }
-}
-```
-
-To replace the id of the current context:
-
-```ts
-this.correlationService.setCorrelationId('some_correlation_id');
-```
-
-It throws outside a correlation context, rather than writing somewhere nothing
-will read.
-
-See the [specs on GitHub](https://github.com/Evanion/libraries/tree/main/libs/nestjs-correlation-id/src)
-for fully worked examples, including an end-to-end one that stands up a real
-Nest application.
-
-## Requirements
-
-|            |             |
-| ---------- | ----------- |
-| **NestJS** | 12          |
-| **Node**   | 20 or newer |
-
-Ships ESM only, matching NestJS 12. There is no CommonJS build. A CommonJS
-project loads it through `require()` on Node 20.19, 22.12 or newer, the same way
-it loads NestJS 12.
-
-One build means one module graph and one `CorrelationService` class object, so
-injecting by class token always resolves the provider the module registered.
-
-The middleware is typed against `node:http`'s `IncomingMessage` and
-`ServerResponse` and reads and writes raw headers, so it works under
-`@nestjs/platform-express` and `@nestjs/platform-fastify` alike. `express` is
-not a peer dependency.
-
-`@nestjs/axios` is an optional peer dependency, needed only if you use
-[`withCorrelation`](#getting-started). It is a type-only import, so it is not
-pulled in at runtime.
-
-This package has no runtime dependencies beyond `tslib`.
-
-## Change Log
-
-See [Changelog](CHANGELOG.md) for more information.
-
-## Contributing
-
-Contributions welcome! See [Contributing](https://github.com/Evanion/libraries/blob/main/CONTRIBUTING.md).
-
-## Author
-
-**Mikael Pettersson (Evanion on [Discord](https://discord.gg/G7Qnnhy))**
+👉 **[docs.evanion.com/nestjs-correlation-id](https://docs.evanion.com/nestjs-correlation-id)**
 
 ## License
 
-Licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT
