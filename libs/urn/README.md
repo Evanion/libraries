@@ -1,46 +1,26 @@
-[![npm version](https://img.shields.io/npm/v/@evanion/urn)](https://www.npmjs.com/package/@evanion/urn)
-[![npm downloads](https://img.shields.io/npm/dm/@evanion/urn)](https://www.npmjs.com/package/@evanion/urn)
-[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
+# @evanion/urn
 
-# URN Library
+**Eliminate identifier ambiguity with RFC 8141 Uniform Resource Names.**
 
-A URN Library that makes it easier to work with more meaningful identifiers. The API is inspired by, and designed to be as simple as the JSON class.
+Stop passing raw IDs like `123` or `abc-789` across your system and wondering, "Is this a product ID, a category ID, or a user ID?" `@evanion/urn` allows you to create self-describing identifiers that carry their own context, ensuring that your IDs are meaningful, unique, and valid across any service.
 
-Full documentation: [docs.evanion.com/urn](https://docs.evanion.com/urn).
+## The Problem: The "Ambiguous ID" Trap
 
-## What is a URN?
+In large systems, raw identifiers are a liability. When you see a string like `order-2026-0042`, you _assume_ it's an order, but your code has to _guess_ or rely on the variable name. This leads to:
 
-URN stands for `Universal Resource Name` and is part of the URI spec in [RFC8141](https://datatracker.ietf.org/doc/html/rfc8141). You might have seen it in use at some major companies like AWS (strings that start with `ARN:...`). It's used to identify resources with a more descriptive string, than just a plain identifier, by also adding a namespace and schema.
+- **Type Confusion**: Passing a `productId` into a function that expects a `categoryId`.
+- **Collision Risks**: Two different entities in different databases sharing the same numeric ID.
+- **Fragile Parsing**: Using `.split('-')` to guess what a string represents, which breaks the moment your ID format changes.
 
-## Why should you use a URN?
+## The Solution: Uniform Resource Names (URNs)
 
-How many times have you seen a random DocumentID being thrown around in a conversation, and you wonder what type of DocumentID it is? Is it a `product` or `productCategory` ID?  
-A URN will help, by always include information about the namespace that the ID is referring to.
+A URN is a standardized way to identify a resource using a namespace. Instead of `order-2026-0042`, you use `urn:order:order-2026-0042`. Now, the ID itself tells you exactly what it is and where it comes from.
 
-## Installation
+`@evanion/urn` provides a simple, JSON-inspired API to mint, parse, and validate these identifiers according to the RFC 8141 specification.
 
-```bash
-npm install @evanion/urn
-```
+### Core Concept: Namespace-Specific IDs
 
-Or with yarn:
-
-```bash
-yarn add @evanion/urn
-```
-
-Or with pnpm:
-
-```bash
-pnpm add @evanion/urn
-```
-
-## Quick Start
-
-A subclass per namespace is the extension point. Override `nid`, and
-`stringify` reads it, so minting a URN takes only the identifier. `stringify`
-checks every part against its grammar and throws an `InvalidError` naming the
-part that fails:
+The best way to use URNs is to create a class for each of your namespaces. The class supplies its NID to every call, and `stringify` refuses an identifier that breaks the URN grammar. Each `// ->` comment gives the value of the expression on its line:
 
 <!-- #region basic-usage -->
 
@@ -65,24 +45,39 @@ refused; // -> "NSS contains invalid character ' ' in 'brass birmingham'"
 
 <!-- #endregion basic-usage -->
 
-## Features
+The `override` keyword is required under TypeScript's `noImplicitOverride`, and optional without it.
 
-- **A `JSON`-shaped API**: `parse` and `stringify`, which read the scheme and
-  the namespace off the subclass
-- **Custom schemes and namespaces**: extend the base class, override the
-  statics, and `parse` and `stringify` read the new values
-- **RFC 8141 grammar**: a role-scoped grammar for the scheme, the NID and the
-  NSS, rather than one flat character class
-- **Case-folded comparison**: `sameNamespace`, `belongsToNamespace` and
-  `equals` fold the scheme and the NID, per RFC 8141 §3.1
-- **r-, q- and f-components**: the optional `?+`, `?=` and `#` tails of
-  RFC 8141 §2.3, parsed into their own fields and excluded from equivalence
+## Key Features
 
-## A class per namespace
+- 📜 **RFC 8141 Grammars**: Under the default `:` separator, the NID, the NSS and the three optional components are checked against RFC 8141, and the scheme against RFC 3986, so a scheme other than `urn` parses.
+- 🔍 **Safe Parsing**: Convert URN strings into structured components (`urn`, `nid`, `nss`) without guessing.
+- ⚖️ **Case-Insensitive Equivalence**: Compare URNs correctly according to the spec (scheme and NID are case-insensitive).
+- 🛠️ **Customizable**: Override the scheme, separator, or namespace to support non-standard internal identifiers.
+- 🪶 **Zero Dependencies**: No runtime or peer dependencies, and the package ships its own types.
 
-`parse` hands back the three parts, and a class strips its own NID from the
-`nss`. From here on, a block repeats the class above a `// ---cut---` line, so
-it compiles alone:
+## Installation
+
+```bash
+npm install @evanion/urn
+```
+
+```bash
+yarn add @evanion/urn
+```
+
+```bash
+pnpm add @evanion/urn
+```
+
+The package needs Node 20 or newer and is ESM only. A CommonJS project loads it through `require()` on Node 20.19, 22.12 or newer.
+
+## Beyond the Basics
+
+URNs are more than just strings; they are a structural way to handle identity. The examples below run in this package's test suite, and the documentation site walks through each of them. From here on, a block that uses `GameURN` declares it again, in most blocks above a `// ---cut---` line, so it compiles on its own.
+
+### Namespace Validation
+
+`parse` hands back the three parts, and a class strips its own NID from the `nss`:
 
 <!-- #region namespace-class -->
 
@@ -96,10 +91,7 @@ GameURN.parse('urn:game:brass-birmingham'); // -> { urn: 'urn', nid: 'game', nss
 
 <!-- #endregion namespace-class -->
 
-A class keeps a foreign NID in the `nss`, so an identifier read from another
-namespace cannot be re-labelled as this one, and a foreign scheme keeps the
-whole identifier. The comparisons are case-folded, per RFC 8141 §3.1, and the
-parts come back in the case they were written in:
+A class keeps a foreign NID in the `nss`, so an identifier from another namespace is never re-labelled as this one, and a foreign scheme keeps the whole identifier. Both comparisons ignore case, per RFC 8141 §3.1, and the parts come back in the case they were written in:
 
 <!-- #region parse -->
 
@@ -116,9 +108,7 @@ GameURN.parse('baize:game:azul'); // -> { urn: 'baize', nid: 'game', nss: 'baize
 
 <!-- #endregion parse -->
 
-One subclass per namespace means no `stringify` call names a namespace.
-`belongsToNamespace` still takes the NID as an argument, and picks one kind out
-of a mixed message. It returns `false` for malformed input:
+`belongsToNamespace` picks one kind of URN out of a mixed list. It takes the NID as an argument even on a namespace class, and returns `false` for a string that is not a URN:
 
 <!-- #region class-per-namespace -->
 
@@ -140,7 +130,7 @@ ids.filter((id) => GameURN.belongsToNamespace(id, 'game')); // -> ['urn:game:spi
 
 <!-- #endregion class-per-namespace -->
 
-`sameNamespace` compares the scheme and the NID of two URNs, case-folded:
+`sameNamespace` compares the scheme and the NID of two URNs, ignoring case, and returns `false` for a string that is not a URN:
 
 <!-- #region same-namespace -->
 
@@ -152,7 +142,7 @@ URN.sameNamespace('azul', 'azul'); // -> false
 
 <!-- #endregion same-namespace -->
 
-`belongsToNamespace` defaults its scheme to the calling class's own:
+`belongsToNamespace` defaults its scheme to the calling class's own, and takes another scheme as its third argument:
 
 <!-- #region belongs-to-namespace -->
 
@@ -168,11 +158,7 @@ GameURN.belongsToNamespace('baize:game:azul', 'game', 'baize'); // -> true
 
 <!-- #endregion belongs-to-namespace -->
 
-### One class, the NID per call
-
-`stringify` takes the NSS first, then the NID and the scheme, each defaulting to
-the class's own. The object form keys the parts by name and matches `parse`'s
-return shape:
+The base `URN` class serves code whose namespaces are open-ended. Its `stringify` takes the NSS first, then the NID and the scheme, each defaulting to the class's own. The object form keys the parts by name and matches `parse`'s return shape:
 
 <!-- #region stringify-forms -->
 
@@ -190,8 +176,7 @@ GameURN.stringify(GameURN.parse('urn:game:azul')); // -> 'urn:game:azul'
 
 <!-- #endregion stringify-forms -->
 
-`parse(x).nss` keeps a foreign NID; `extractId` always drops it. The base
-class's NID is `nid`, so `game` is foreign to it:
+The base class's own NID is the placeholder `'nid'`, so `URN.parse(x).nss` keeps the NID of every real namespace. `extractId` always drops it:
 
 <!-- #region extract-id -->
 
@@ -203,13 +188,11 @@ URN.extractId('urn:game:azul'); // -> 'azul'
 
 <!-- #endregion extract-id -->
 
-## Validation and error handling
+### Validation and Errors
 
-The library validates the scheme, the NID **and** the NSS, each against its
-own grammar. There is no single character class: the three roles are different
-in the RFC and are different here.
+Each part has its own grammar:
 
-| Role            | Allowed                                                                                                                                   | Length                     |
+| Part            | Allowed                                                                                                                                   | Length                     |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
 | scheme (`urn`)  | a letter, then letters, digits, `+`, `-`, `.`                                                                                             | unbounded                  |
 | NID             | letters and digits, plus `-` in the interior                                                                                              | 2–32 writing, 1–32 reading |
@@ -217,10 +200,7 @@ in the RFC and are different here.
 | r-, q-component | the NSS set plus `?` after the first character                                                                                            | unbounded                  |
 | f-component     | the NSS set plus `?`, with no first-character rule                                                                                        | unbounded, may be empty    |
 
-Letters are case-insensitive everywhere. Every part must be non-empty, except
-the f-component. The grammars are readable off the class, and `parse` accepts a
-one-character NID that `stringify` refuses, because RFC 2141 permitted one and
-RFC 8141 keeps earlier-valid URNs valid:
+Every grammar accepts upper- and lower-case letters, and every part except the f-component must be non-empty. `parse` accepts a one-character NID that `stringify` refuses, because RFC 2141 permitted one and RFC 8141 keeps earlier-valid URNs valid:
 
 <!-- #region grammars -->
 
@@ -235,8 +215,7 @@ URN.nssGrammar.test('brass birmingham'); // -> false
 
 <!-- #endregion grammars -->
 
-`isValidFormat` delegates to `parse` and never throws, so it screens input
-before `parse` commits to it:
+`isValidFormat` calls `parse` and returns `false` where `parse` would throw, so it screens input before `parse` reads it. It checks the form, and a URN from another namespace passes:
 
 <!-- #region screening -->
 
@@ -245,20 +224,19 @@ class GameURN extends URN {
   static override readonly nid = 'game';
 }
 // ---cut---
-function gameOrNull(input: string) {
+function urnOrNull(input: string) {
   return GameURN.isValidFormat(input) ? GameURN.parse(input) : null;
 }
 
-gameOrNull('urn:game:hive'); // -> { urn: 'urn', nid: 'game', nss: 'hive' }
-gameOrNull('urn:game:spirit island'); // -> null
-gameOrNull('hive'); // -> null
+urnOrNull('urn:game:hive'); // -> { urn: 'urn', nid: 'game', nss: 'hive' }
+urnOrNull('urn:game:spirit island'); // -> null
+urnOrNull('hive'); // -> null
+urnOrNull('urn:order:order-2026-0042'); // -> { urn: 'urn', nid: 'order', nss: 'order:order-2026-0042' }
 ```
 
 <!-- #endregion screening -->
 
-`ValidationError` is the base of everything the library throws, and
-`InvalidError` extends it for a part that breaks its grammar. `parse` throws the
-base for a string that is not a URN at all:
+`ValidationError` is the base of both error classes the library exports. `parse` throws it for a string that is not a URN at all, and its subclass `InvalidError` for a part that breaks its grammar:
 
 <!-- #region error-handling -->
 
@@ -283,8 +261,7 @@ problemWith('azul'); // -> 'not a URN'
 
 <!-- #endregion error-handling -->
 
-An `InvalidError` names the part that failed, and either the first character at
-fault or the structural reason:
+An `InvalidError` names the part that failed, and either the first character at fault or the structural reason:
 
 <!-- #region invalid-error -->
 
@@ -313,8 +290,7 @@ short?.reason; // -> 'must be at least 2 characters long'
 
 <!-- #endregion invalid-error -->
 
-A job that mints many URNs catches per item, so one bad slug does not stop the
-rest:
+A job that mints many URNs catches per item, so one bad slug does not stop the rest:
 
 <!-- #region batch-mint -->
 
@@ -342,93 +318,9 @@ mint(['azul', 'spirit island', 'wingspan']); // -> { minted: ['urn:game:azul', '
 
 <!-- #endregion batch-mint -->
 
-### Percent-encoding
+### Component Parsing
 
-`stringify` does not encode and `parse` does not decode. Both work on the wire
-form, so a value can never be double-encoded by accident. `encodeNss` and
-`decodeNss` are the explicit step:
-
-<!-- #region nss-encoding -->
-
-```ts @import.meta.vitest
-import { URN, encodeNss, decodeNss } from '@evanion/urn';
-
-URN.isValidFormat('urn:game:Brass: Birmingham'); // -> false
-
-const nss = encodeNss('Brass: Birmingham');
-nss; // -> 'Brass%3A%20Birmingham'
-
-const id = URN.stringify(nss, 'game');
-id; // -> 'urn:game:Brass%3A%20Birmingham'
-decodeNss(URN.extractId(id)); // -> 'Brass: Birmingham'
-```
-
-<!-- #endregion nss-encoding -->
-
-`decodeNss` throws a `ValidationError` on a `%` that is not followed by two hex
-digits, or on triplets that are not UTF-8:
-
-<!-- #region decode-nss -->
-
-```ts @import.meta.vitest
-import { decodeNss, ValidationError } from '@evanion/urn';
-
-decodeNss('Brass%3A%20Birmingham'); // -> 'Brass: Birmingham'
-
-let refused = '';
-try {
-  decodeNss('Brass%3');
-} catch (error) {
-  if (error instanceof ValidationError) refused = error.message;
-}
-refused; // -> "Malformed percent-encoding in 'Brass%3': '%' must be followed by two hex digits."
-```
-
-<!-- #endregion decode-nss -->
-
-`encodeURIComponent` is a different step. It makes a whole URN safe as one
-segment of a URL path, where `:` and `%` mean something to a router:
-
-<!-- #region url-segment -->
-
-```ts @import.meta.vitest
-import { URN, encodeNss } from '@evanion/urn';
-
-const id = URN.stringify(encodeNss('Brass: Birmingham'), 'game');
-const path = `/games/${encodeURIComponent(id)}`;
-path; // -> '/games/urn%3Agame%3ABrass%253A%2520Birmingham'
-
-const received = decodeURIComponent(path.slice('/games/'.length));
-URN.equals(received, id); // -> true
-```
-
-<!-- #endregion url-segment -->
-
-### Equivalence
-
-`URN.equals` implements RFC 8141 §3.1: the scheme and the NID are compared
-case-insensitively, the NSS character for character, except that the hex digits
-of a percent-triplet canonicalise to uppercase. A percent-encoded octet is never
-decoded for comparison:
-
-<!-- #region equality -->
-
-```ts @import.meta.vitest
-URN.equals('URN:GAME:azul', 'urn:game:azul'); // -> true
-URN.equals('urn:game:Brass%3a%20Birmingham', 'urn:game:Brass%3A%20Birmingham'); // -> true
-URN.equals('urn:game:Brass%3A%20Birmingham', 'urn:game:Brass:%20Birmingham'); // -> false
-URN.equals('urn:game:Azul', 'urn:game:azul'); // -> false
-```
-
-<!-- #endregion equality -->
-
-## r-, q- and f-components
-
-RFC 8141 §2.3 allows three optional components after the NSS: the r-component
-(`?+`, parameters for the resolution service), the q-component (`?=`,
-parameters for the named resource) and the f-component (`#`, a secondary
-resource within the named one). `parse` returns each in its own field and never
-folds it into the `nss`:
+RFC 8141 §2.3 allows three optional components after the NSS: the r-component (`?+`, parameters for the resolution service), the q-component (`?=`, parameters for the named resource) and the f-component (`#`, a secondary resource within the named one). `parse` returns each in its own field and never folds it into the `nss`:
 
 <!-- #region components -->
 
@@ -442,9 +334,7 @@ GameURN.parse('urn:game:brass-birmingham?=edition=2018#setup'); // -> { urn: 'ur
 
 <!-- #endregion components -->
 
-The fields are optional and absent, not `undefined`, when the URN carries no
-components, so a consumer reading `{ urn, nid, nss }` sees exactly the shape it
-saw before:
+The component fields are absent, not `undefined`, when the URN carries none, so a URN with no components parses to exactly `{ urn, nid, nss }`:
 
 <!-- #region components-type -->
 
@@ -465,8 +355,7 @@ tail(GameURN.parse('urn:game:azul?=edition=2017#scoring')); // -> 'edition=2017 
 
 <!-- #endregion components-type -->
 
-Write them with the object form of `stringify`. The wire order is always r, q,
-f, whatever order the keys were written in:
+Only the object form of `stringify` writes components. The wire order is always r, q, f, whatever order the keys were written in:
 
 <!-- #region components-write -->
 
@@ -495,14 +384,7 @@ GameURN.stringify(GameURN.parse(written)) === written; // -> true
 
 <!-- #endregion components-write -->
 
-The splitting needs no change to the NSS grammar: `pchar` contains neither `?`
-nor `#`. The f-component comes off first, because `#` terminates the r- and
-q-components while both of those may themselves contain a bare `?`; then the
-first `?` of what remains introduces the r-component (`?+`) or the q-component
-(`?=`), and an r-component runs to the first following `?=`.
-
-The r- and q-components take the NSS set plus `?` after the first character. The
-f-component has no first-character rule and may be empty:
+The r- and q-components need at least one character and take `?` anywhere but the first. The f-component may be empty:
 
 <!-- #region component-grammars -->
 
@@ -516,8 +398,7 @@ URN.parse('urn:game:azul#').fComponent; // -> ''
 
 <!-- #endregion component-grammars -->
 
-RFC 8141 §3.1 excludes all three from equivalence, so `equals` ignores them,
-and `extractId` drops them:
+RFC 8141 §3.1 excludes all three components from equivalence, so `equals` checks their grammar but does not compare them, and `extractId` drops them:
 
 <!-- #region components-ignored -->
 
@@ -530,17 +411,80 @@ URN.extractId('urn:game:brass-birmingham?=edition=2018#setup'); // -> 'brass-bir
 
 <!-- #endregion components-ignored -->
 
-A subclass whose `separator` contains `?` or `#` cannot tell a separator from a
-component introducer. There, `parse` throws an `InvalidError` with
-`property: 'NSS'` for any `?` or `#` after the NID, and `stringify` throws one
-with `property: 'COMPONENT'` for any component.
+### Percent-Encoding
 
-### Custom separators are not RFC 8141
+`stringify` does not encode and `parse` does not decode. Both work on the wire form, so a value is never double-encoded by accident. `encodeNss` and `decodeNss` are the explicit step:
 
-A subclass that overrides `separator` gets a generic character class with the
-separator excluded, for the scheme and the NID, and no RFC length bounds. The
-NSS keeps the RFC grammar under every separator. Such a subclass is **not**
-claimed to be RFC 8141 conformant.
+<!-- #region nss-encoding -->
+
+```ts @import.meta.vitest
+import { URN, encodeNss, decodeNss } from '@evanion/urn';
+
+URN.isValidFormat('urn:game:Brass: Birmingham'); // -> false
+
+const nss = encodeNss('Brass: Birmingham');
+nss; // -> 'Brass%3A%20Birmingham'
+
+const id = URN.stringify(nss, 'game');
+id; // -> 'urn:game:Brass%3A%20Birmingham'
+decodeNss(URN.extractId(id)); // -> 'Brass: Birmingham'
+```
+
+<!-- #endregion nss-encoding -->
+
+`decodeNss` throws a `ValidationError` on a `%` that is not followed by two hex digits, or on triplets that are not UTF-8:
+
+<!-- #region decode-nss -->
+
+```ts @import.meta.vitest
+import { decodeNss, ValidationError } from '@evanion/urn';
+
+decodeNss('Brass%3A%20Birmingham'); // -> 'Brass: Birmingham'
+
+let refused = '';
+try {
+  decodeNss('Brass%3');
+} catch (error) {
+  if (error instanceof ValidationError) refused = error.message;
+}
+refused; // -> "Malformed percent-encoding in 'Brass%3': '%' must be followed by two hex digits."
+```
+
+<!-- #endregion decode-nss -->
+
+`encodeURIComponent` is a separate step. It makes a whole URN safe as one segment of a URL path, where `:` and `%` mean something to a router:
+
+<!-- #region url-segment -->
+
+```ts @import.meta.vitest
+import { URN, encodeNss } from '@evanion/urn';
+
+const id = URN.stringify(encodeNss('Brass: Birmingham'), 'game');
+const path = `/games/${encodeURIComponent(id)}`;
+path; // -> '/games/urn%3Agame%3ABrass%253A%2520Birmingham'
+
+const received = decodeURIComponent(path.slice('/games/'.length));
+URN.equals(received, id); // -> true
+```
+
+<!-- #endregion url-segment -->
+
+`URN.equals` implements RFC 8141 §3.1. The scheme and the NID are compared ignoring case, and the NSS character for character, except that the hex digits of a percent-triplet compare ignoring case. A percent-encoded octet is never decoded for comparison:
+
+<!-- #region equality -->
+
+```ts @import.meta.vitest
+URN.equals('URN:GAME:azul', 'urn:game:azul'); // -> true
+URN.equals('urn:game:Brass%3a%20Birmingham', 'urn:game:Brass%3A%20Birmingham'); // -> true
+URN.equals('urn:game:Brass%3A%20Birmingham', 'urn:game:Brass:%20Birmingham'); // -> false
+URN.equals('urn:game:Azul', 'urn:game:azul'); // -> false
+```
+
+<!-- #endregion equality -->
+
+### Custom Schemes and Separators
+
+A subclass that overrides `separator` checks the scheme and the NID against a character class that excludes the separator, with no RFC length bounds. The NSS keeps the RFC grammar under every separator. Such a subclass is outside RFC 8141:
 
 <!-- #region custom-separator -->
 
@@ -553,17 +497,18 @@ class GameKey extends URN {
 
 GameKey.stringify('azul'); // -> 'baize.game.azul'
 GameKey.parse('baize.game.azul'); // -> { urn: 'baize', nid: 'game', nss: 'azul' }
+GameKey.parse('baize.game.azul.2017').nss; // -> 'azul.2017'
 URN.schemeGrammar.test('baize.shop'); // -> true
 GameKey.schemeGrammar.test('baize.shop'); // -> false
 ```
 
 <!-- #endregion custom-separator -->
 
-## Types
+A separator that contains `?` or `#` cannot be told apart from a component introducer, so it switches components off. On such a class, `parse` throws an `InvalidError` with `property: 'NSS'` for any `?` or `#` after the NID, and `stringify` throws one with `property: 'COMPONENT'` for any component.
 
-`ParsedURN` is what `parse` returns and `URNParts` is what the object form of
-`stringify` takes. A `ParsedURN` is assignable to `URNParts`, whose scheme and
-NID fall back to the class's own:
+### Type-Safe Literals
+
+`ParsedURN` is what `parse` returns and `URNParts` is what the object form of `stringify` takes. A `ParsedURN` is assignable to `URNParts`, whose scheme and NID fall back to the class's own:
 
 <!-- #region parsed-types -->
 
@@ -605,9 +550,7 @@ URN.isValidFormat(order); // -> true
 
 ## Important Caveats
 
-`stringify` does not deduplicate and is not idempotent. Whatever you pass as the
-NSS is emitted verbatim after the scheme and the NID, which keeps a composite
-key imported from another system recoverable:
+`stringify` does not deduplicate and is not idempotent. Whatever you pass as the NSS is written verbatim after the scheme and the NID, which keeps a composite key from another system recoverable:
 
 <!-- #region round-trip -->
 
@@ -623,10 +566,7 @@ GameURN.stringify(GameURN.stringify('azul')); // -> 'urn:game:urn:game:azul'
 
 <!-- #endregion round-trip -->
 
-The statics are unbound. Every one of them reads `this`, so unlike
-`JSON.stringify` they cannot be destructured or passed as a bare callback. Most
-throw a `TypeError`, and `isValidFormat`, `equals` and `sameNamespace` catch it
-and return `false`:
+The statics are unbound. Every one of them reads `this`, so unlike `JSON.stringify` they cannot be destructured or passed as a bare callback. `stringify`, `parse` and `extractId` throw a `TypeError`, and `isValidFormat`, `equals` and `sameNamespace` catch it and return `false`. An arrow function keeps the class:
 
 <!-- #region unbound -->
 
@@ -647,84 +587,19 @@ try {
 failure; // -> 'TypeError'
 
 catalogue.filter(GameURN.isValidFormat); // -> []
+catalogue.filter((id) => GameURN.isValidFormat(id)); // -> ['urn:game:azul', 'urn:game:hive']
 ```
 
 <!-- #endregion unbound -->
 
-The positional arguments to `stringify` are in the reverse order of `parse`'s
-return shape, so `stringify(...Object.values(parse(x)))` writes the scheme where
-the NSS belongs. Hand `stringify` the object: the keys carry the meaning, and
-only that form can express the r-, q- and f-components.
+`belongsToNamespace` throws the `TypeError` only when its scheme argument is left out. `filter` and `map` pass a third argument, so under either it returns `false` for every URN.
 
-## API Reference
+The positional arguments to `stringify` are in the reverse order of `parse`'s return shape, so `stringify(...Object.values(parse(x)))` writes the scheme where the NSS belongs. Hand `stringify` the object: the keys carry the meaning, and only that form can write the r-, q- and f-components.
 
-### Static Methods
+For the full API reference and worked examples, visit our documentation site:
 
-- `URN.stringify(parts)`: creates a URN string from
-  `{ nss, nid?, urn?, rComponent?, qComponent?, fComponent? }`. The object form
-  is the one that can emit components, and its keys match `parse`'s return
-  shape.
-- `URN.stringify(nss, nid?, urn?)`: the positional form. Same validation, no
-  components, and its arguments are in the reverse order of `parse`'s return
-  shape. Both throw `InvalidError` if a part is empty or contains a disallowed
-  character.
-- `URN.parse(urnString)`: parses a URN string into `{ urn, nid, nss }`, plus
-  `rComponent`, `qComponent` and `fComponent` when the URN carries them.
-  Throws `ValidationError` if the string is not a well-formed URN.
-- `URN.isValidFormat(urnString)`: `true` if the string parses. Delegates to
-  `parse`, so the two can never disagree. Never throws.
-- `URN.extractId(urnString)`: returns everything after the scheme and the NID,
-  without any r-, q- or f-component. Throws `ValidationError` on malformed
-  input.
-- `URN.sameNamespace(a, b)`: `true` if both URNs share a scheme and NID.
-  Returns `false` for malformed input.
-- `URN.belongsToNamespace(urnString, nid, urn?)`: `true` if the URN is in the
-  given namespace, comparing case-insensitively. `urn` defaults to the calling
-  class's own scheme.
-- `URN.equals(a, b)`: RFC 8141 §3.1 equivalence. Returns `false` for malformed
-  input.
-
-### Functions
-
-- `encodeNss(raw)`: percent-encodes everything outside RFC 3986's `unreserved`
-  set, producing a valid NSS.
-- `decodeNss(encoded)`: the inverse. Throws `ValidationError` on a malformed or
-  truncated percent sequence.
-
-### Errors
-
-- `ValidationError`: base class for everything this library throws.
-- `InvalidError extends ValidationError`: a part was empty, contained a
-  disallowed character, or broke a structural rule of its grammar. Carries
-  `property` (`'URN'`, `'NID'`, `'NSS'`, or a component name), `value`,
-  `invalidChar` when a single character is at fault, and `reason` when none is.
-
-### Class Properties
-
-- `static urn: string`: the URN scheme (default: `'urn'`)
-- `static separator: string`: the separator between the parts (default: `':'`)
-- `static nid: string`: the namespace identifier (default: `'nid'`)
-- `static schemeGrammar: RegExp`: the grammar the scheme must match
-- `static nidGrammar: RegExp`: the grammar the NID must match when writing
-- `static nssGrammar: RegExp`: the grammar the NSS must match
-- `static rComponentGrammar: RegExp`: the grammar the r-component must match
-- `static qComponentGrammar: RegExp`: the grammar the q-component must match
-- `static fComponentGrammar: RegExp`: the grammar the f-component must match,
-  the only one that accepts the empty string
-
-When overriding these in a subclass, TypeScript's `noImplicitOverride` requires
-the `override` keyword.
-
-## Documentation
-
-Guides, worked examples and the full API reference:
-[docs.evanion.com/urn](https://docs.evanion.com/urn).
-
-## Contributing
-
-Contributions are welcome! See
-[Contributing](https://github.com/Evanion/libraries/blob/main/CONTRIBUTING.md).
+👉 **[docs.evanion.com/urn](https://docs.evanion.com/urn)**
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT

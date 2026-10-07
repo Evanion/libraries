@@ -1,8 +1,6 @@
 # URNs from several namespaces
 
-`belongsToNamespace` in `@evanion/urn` picks the game URNs out of a list the
-shop's `orders` service received, and `GameURN.parse` reads an order URN without
-taking it for a game.
+`belongsToNamespace` in `@evanion/urn` tells one kind of identifier from another, so a board game shop can handle both **Game URNs** (identifying board games) and **Order URNs** (identifying customer orders) in one list.
 
 <PageSheet
   difficulty={2}
@@ -15,75 +13,64 @@ taking it for a game.
   ]}
 />
 
-## One namespace class per namespace
+## Namespace Collision and Confusion
 
-The shop names games and orders, so it declares two `@evanion/urn` namespace
-classes: `GameURN`, the class [Getting started](../getting-started) mints with,
-and `OrderURN` beside it. Each example on this page runs appended to
-`game-urn.ts`. `stringify` on either class needs no NID, and
-`belongsToNamespace` picks the game URNs out of a list:
+`@evanion/urn` reports the NID of every URN it parses, so your application can tell an order URN from a game URN before it looks anything up. When your system handles multiple resource types, using a single generic parser can be dangerous. If you pass `urn:order:123` into a function that expects a `GameURN`, a naive implementation might just strip `urn:` and treat `order:123` as the game's ID.
+
+This leads to:
+
+- **Database Pollutants**: Accidentally searching for a game with the ID `order:123`.
+- **Silent Failures**: Logic that assumes any valid URN is of the "correct" type.
+- **Brittle Logic**: Manual string slicing to check if an ID "looks like" an order.
+
+## Namespace-Specific Classes
+
+The safest way to handle different identifier types in `@evanion/urn` is to declare a separate namespace class for each one. `GameURN.stringify('azul')` then needs no NID argument, and the class adds no TypeScript type: `stringify` returns a plain `string`, and `IFullURN` in the [API reference](../api) types a URN literal.
+
+With `GameURN`, the namespace class [Getting started](../getting-started) builds, and an `OrderURN` beside it, the static `belongsToNamespace` method filters a mixed list of identifiers:
 
 ```ts twoslash file=libs/urn/README.md region=class-per-namespace
 
 ```
 
-`belongsToNamespace` takes the NID as its second argument, even on `GameURN`.
-The class supplies only the scheme and the separator, so one class tests a URN
-against any namespace. It returns `false` for `'hive'`, which is not a URN, so a
-filter over untrusted input needs no `try` block. It compares the scheme and the
-NID without regard to case, so `URN:GAME:azul` is a game URN as well.
+`belongsToNamespace` takes the NID as its second argument, even on `GameURN`: the class supplies only the scheme and the separator. It compares the scheme and NID of the URN without regard to case. This means `URN:GAME:azul` is correctly recognized as a game URN. If a string is not a valid URN at all (like `'hive'`), the function returns `false` without throwing an error.
 
-## What parse returns for a foreign URN
+## Handling "Foreign" URNs Safely
 
-`GameURN.parse` from `@evanion/urn` strips only its own NID, compared without
-regard to case, and reads a foreign URN without throwing:
+What happens when you use an `@evanion/urn` namespace class such as `GameURN` to parse a URN that belongs to a different namespace?
+
+`GameURN.parse` strips its own NID if it finds it, compared without regard to case. A foreign NID comes back in `nid` and also stays at the front of the Namespace Specific String (NSS). A foreign scheme keeps the whole identifier in the NSS. Every part comes back in the case it was written in.
 
 ```ts twoslash file=libs/urn/README.md region=parse
 
 ```
 
-A foreign NID stays at the front of the `nss` field, and a foreign scheme keeps
-the whole identifier there. An order URN read by `GameURN` therefore never
-yields an `nss` that passes for a game slug. Every part comes back in the case
-it was written in, and `nid` holds the namespace a foreign URN came from.
+A game lookup by that `nss` still runs, and an NSS may itself contain a `:`, so `urn:game:order:123` is a game whose `nss` is also `order:123`. Check `nid`, or call `belongsToNamespace`, before you use `nss` as a game key.
 
-## One URN class for every namespace
+## Dynamic Namespaces with the Base URN Class
 
-The base `URN` class of `@evanion/urn`, which every namespace class extends,
-serves code whose namespaces are open-ended. Its `stringify` takes the NID, and
-then the scheme, as arguments after the NSS. The object form,
-`{ nss, nid?, urn? }`, names each part and matches what `parse` returns, so it
-is the form to prefer:
+If your application supports a dynamic or unknown number of namespaces (e.g., a gateway service), you can use the base `URN` class of `@evanion/urn` instead of creating subclasses.
+
+The base `URN` class provides a generic `stringify` method that takes the NSS, then the NID, then the scheme. The object form, `{ nss, nid?, urn? }`, names each part and matches what `parse` returns, so it is the form to prefer. The scheme `baize` in the third call puts that URN outside RFC 8141, which fixes the scheme at `urn`.
 
 ```ts twoslash file=libs/urn/README.md region=stringify-forms
 
 ```
 
-`baize:game:azul` is outside RFC 8141, which fixes the scheme at `urn`.
-`stringify` writes whatever NID it is given, but `parse` strips only the class's
-own, and the base class's own NID is the placeholder `'nid'`. So
-`URN.parse(x).nss` keeps the NID of every real namespace. `extractId` returns
-the id after the NID, whatever the namespace:
+The base class's own NID is the placeholder `'nid'`, so `URN.parse(x).nss` keeps the NID of every real namespace. To extract the actual ID from a URN regardless of its namespace, use `extractId`. It strips the NID and returns only the unique identifier:
 
 ```ts twoslash file=libs/urn/README.md region=extract-id
 
 ```
 
-## Check whether two URNs share a namespace
+## Comparing Namespaces Across URNs
 
-`sameNamespace` from `@evanion/urn` answers whether two URNs have the same
-scheme and the same NID, compared without regard to case. It reads no class's
-own NID, so the example calls it on the base `URN` class:
+Sometimes you just need to know if two URNs belong to the same category, regardless of what that category is. `sameNamespace` in `@evanion/urn` compares the scheme and NID of two URNs. If they match (case-insensitively), the URNs are in the same namespace. Like `belongsToNamespace`, it returns `false` for a string that is not a URN.
 
 ```ts twoslash file=libs/urn/README.md region=same-namespace
 
 ```
 
-`sameNamespace` returns `false` for a string that is not a URN, as
-`belongsToNamespace` does.
+## Validating input
 
-## Check a URN before reading it
-
-[Checking URN input](../validation) screens a URN from outside the shop with
-`@evanion/urn`'s `isValidFormat` before `parse` reads it, and tells a malformed
-URN from one with a bad part.
+A URN from outside the shop can be malformed as well as foreign, and `GameURN.parse` throws on a malformed one before `@evanion/urn` reports any NID. To screen such input with `isValidFormat`, and to tell a malformed URN from one with a single bad part, read [Checking URN input](../validation).
