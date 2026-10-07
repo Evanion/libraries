@@ -28,6 +28,10 @@ import * as reactEntry from './index.js';
  * to collect and reports as the whole vocabulary missing. The repository's
  * export tooling reads these clauses too, so neither entry may drop them.
  *
+ * The clause reader takes the type-only ones. A value the entry re-exports from
+ * a module of its own is the runtime cases' business, and the names cases below
+ * say nothing about it.
+ *
  * `config-types.test-d.tsx` holds the third half: each name on the react entry
  * is the core entry's declaration and not a redeclaration beside it.
  */
@@ -39,21 +43,25 @@ const CONFIG = join(import.meta.dirname, '../lib/config.ts');
 /** The module `config.ts` resolves as, from the react entry. */
 const CONFIG_SPECIFIER = '../lib/config.js';
 
-function parse(file: string): ts.SourceFile {
+function parse(file: string, text: string): ts.SourceFile {
   return ts.createSourceFile(
     file,
-    readFileSync(file, 'utf8'),
+    text,
     ts.ScriptTarget.ESNext,
     true,
     file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   );
 }
 
+function read(file: string): ts.SourceFile {
+  return parse(file, readFileSync(file, 'utf8'));
+}
+
 /** Every type a file declares with `export`, sorted. */
-function declaredTypes(file: string): string[] {
+function declaredTypes(source: ts.SourceFile): string[] {
   const names: string[] = [];
 
-  for (const statement of parse(file).statements) {
+  for (const statement of source.statements) {
     if (
       !ts.isTypeAliasDeclaration(statement) &&
       !ts.isInterfaceDeclaration(statement)
@@ -69,19 +77,27 @@ function declaredTypes(file: string): string[] {
   return names.sort();
 }
 
-/** Every name an entry re-exports, against the module it comes from. */
-function reExports(file: string): Map<string, string> {
+/**
+ * Every type an entry re-exports, against the module it comes from.
+ *
+ * Type-only clauses alone. `export type { … } from` marks the whole clause and
+ * `export { type A, b } from` marks the element, and a clause carrying neither
+ * mark re-exports a value, which no case here has an opinion about: the runtime
+ * cases above read those names off the module namespace instead.
+ */
+function typeReExports(source: ts.SourceFile): Map<string, string> {
   const found = new Map<string, string>();
 
-  for (const statement of parse(file).statements) {
+  for (const statement of source.statements) {
     if (!ts.isExportDeclaration(statement)) continue;
-    const { exportClause, moduleSpecifier } = statement;
+    const { exportClause, isTypeOnly, moduleSpecifier } = statement;
     if (moduleSpecifier === undefined) continue;
     if (!ts.isStringLiteral(moduleSpecifier)) continue;
     if (exportClause === undefined || !ts.isNamedExports(exportClause)) {
       continue;
     }
     for (const element of exportClause.elements) {
+      if (!isTypeOnly && !element.isTypeOnly) continue;
       found.set(element.name.text, moduleSpecifier.text);
     }
   }
@@ -90,7 +106,7 @@ function reExports(file: string): Map<string, string> {
 }
 
 /** The document vocabulary, which is what `config.ts` declares. */
-const DOCUMENT_TYPES = declaredTypes(CONFIG);
+const DOCUMENT_TYPES = declaredTypes(read(CONFIG));
 
 /** The document functions a component file reaches the core entry for. */
 const DOCUMENT_FUNCTIONS = [
@@ -143,13 +159,13 @@ describe('the react entry at runtime', () => {
 
 describe('the names the react entry re-exports', () => {
   it('spells every document type config.ts declares and re-exports nothing else', () => {
-    const named = [...reExports(REACT_ENTRY).keys()].sort();
+    const named = [...typeReExports(read(REACT_ENTRY)).keys()].sort();
 
     expect(named).toEqual(DOCUMENT_TYPES);
   });
 
   it('takes each of them from the module that declares them', () => {
-    const elsewhere = [...reExports(REACT_ENTRY)]
+    const elsewhere = [...typeReExports(read(REACT_ENTRY))]
       .filter(([, specifier]) => specifier !== CONFIG_SPECIFIER)
       .map(([name, specifier]) => `${name} from ${specifier}`)
       .sort();
@@ -158,9 +174,47 @@ describe('the names the react entry re-exports', () => {
   });
 
   it('names what the core entry names, so one specifier reaches either of them', () => {
-    const published = reExports(CORE_ENTRY);
+    const published = typeReExports(read(CORE_ENTRY));
     const absent = DOCUMENT_TYPES.filter((name) => !published.has(name));
 
     expect(absent).toEqual([]);
+  });
+});
+
+describe('the clause reader', () => {
+  it('reads a type-only clause', () => {
+    const named = typeReExports(
+      parse(
+        'entry.tsx',
+        "export type { FeatureConfig } from '../lib/config.js';",
+      ),
+    );
+
+    expect([...named]).toEqual([['FeatureConfig', '../lib/config.js']]);
+  });
+
+  it('leaves a value clause out, because a document type is never a value', () => {
+    const named = typeReExports(
+      parse(
+        'entry.tsx',
+        [
+          "export { useFeatureStore } from './hooks.js';",
+          "export type { FeatureConfig } from '../lib/config.js';",
+        ].join('\n'),
+      ),
+    );
+
+    expect([...named]).toEqual([['FeatureConfig', '../lib/config.js']]);
+  });
+
+  it('leaves the value half of a mixed clause out and keeps the type half', () => {
+    const named = typeReExports(
+      parse(
+        'entry.tsx',
+        "export { type FeatureConfig, useFeatureStore } from './hooks.js';",
+      ),
+    );
+
+    expect([...named]).toEqual([['FeatureConfig', './hooks.js']]);
   });
 });
