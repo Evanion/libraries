@@ -591,6 +591,45 @@ describe('reload, the envelope it installs', () => {
     expect(features.version).toBeUndefined();
   });
 
+  it('writes no version into a serialization a toggle changed', () => {
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+
+    features.reload({
+      version: 41,
+      maxStale: 30000,
+      features: [{ key: 'checkout', enabled: true }],
+    });
+    features.toggle('checkout', false);
+
+    // `version` is opaque and compared with `!==`, so a serialization carrying
+    // the installed version puts two documents on one label and a holder that
+    // already has version 41 never refetches. Version 41 as published has
+    // `checkout` enabled.
+    expect(serializeConfig(features)).toEqual({
+      maxStale: 30000,
+      features: [{ key: 'checkout', enabled: false }],
+    });
+    expect(features.version).toBeUndefined();
+  });
+
+  it('keeps the version a toggle that moved nothing left alone', () => {
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+
+    features.reload({
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    });
+    features.toggle('checkout', true);
+
+    // The counterpart. These bytes are the ones version 41 names, so the label
+    // still holds and a poller holding 41 has nothing to fetch.
+    expect(features.version).toBe(41);
+    expect(serializeConfig(features)).toEqual({
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    });
+  });
+
   it('writes no digest into the envelope it installs', () => {
     const document = {
       version: 1,
