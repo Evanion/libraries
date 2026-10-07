@@ -134,19 +134,25 @@ export function fromJson(text: string): Record<string, unknown> {
   return JSON.parse(text) as Record<string, unknown>;
 }
 
-const readmes = new Map<string, string>();
+const documents = new Map<string, string>();
 
 /**
- * A package README, read once.
+ * A markdown file at a package's root, read once.
  *
  * The tier 3 entries have no mechanism to assert, so they assert the contract
  * text instead: the section has to exist for the register entry to be honest.
+ * The acl contract sits in `SECURITY.md` beside the register, and each README
+ * summarises it and links there.
  */
-export function readme(pkg: 'acl' | 'react-acl'): string {
-  const cached = readmes.get(pkg);
+export function packageDocument(
+  pkg: 'acl' | 'react-acl',
+  file: 'README.md' | 'SECURITY.md',
+): string {
+  const key = `${pkg}/${file}`;
+  const cached = documents.get(key);
   if (cached !== undefined) return cached;
-  const path = new URL(`../../../${pkg}/README.md`, import.meta.url);
+  const path = new URL(`../../../${key}`, import.meta.url);
   const text = readFileSync(path, 'utf8');
-  readmes.set(pkg, text);
+  documents.set(key, text);
   return text;
 }
