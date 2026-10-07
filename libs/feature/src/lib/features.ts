@@ -385,6 +385,22 @@ export function createFeatures(
   // so this parameter declares none and the body reads the options at the
   // erased schema.
   const options = given as FeatureOptions<Record<FeatureKey, VariantInfo>>;
+  // One checker answers both paths. `validateConfig` reports what this throws,
+  // and the graph is checked before the variants, so a document carrying a
+  // duplicate key and an unusable weight names the key. These definitions are
+  // the literal an author wrote, so the array is the variant order and a variant
+  // declaring none takes its index.
+  //
+  // It runs on the argument, ahead of the copy below. `cloneIssues` in the
+  // checker asks whether `structuredClone` can take each definition, so a value
+  // it cannot take is the typed error this throws and the issue
+  // `validateConfig` reports. The copy raises a `DOMException` over such a
+  // value, and it would raise it before the checker read anything.
+  const refused = collectIssues(
+    { features: definitions },
+    { arrayIsOrder: true },
+  );
+  if (refused[0]) throw refused[0].error;
   // Cloned so the store cannot be edited behind its own back, then frozen so an
   // attempt to do so fails loudly instead of silently diverging from what was
   // resolved. The freeze covers the array as well as each definition in it, and
@@ -392,13 +408,6 @@ export function createFeatures(
   let config: readonly FeatureDefinition<FeatureKey>[] = Object.freeze(
     definitions.map((definition) => deepFreeze(structuredClone(definition))),
   );
-  // One checker answers both paths. `validateConfig` reports what this throws,
-  // and the graph is checked before the variants, so a document carrying a
-  // duplicate key and an unusable weight names the key. These definitions are
-  // the literal an author wrote, so the array is the variant order and a variant
-  // declaring none takes its index.
-  const refused = collectIssues({ features: config }, { arrayIsOrder: true });
-  if (refused[0]) throw refused[0].error;
   // The window contract is read here for the reason `whenIssues` gives: that
   // walk answers a served document, and these definitions are a literal.
   for (const definition of config) {

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { configDigest } from './digest.js';
+import { FeatureConfigError } from './errors.js';
 import { createFeatures } from './features.js';
 import { parseFeatureConfig } from './parse.js';
+import { validateConfig } from './validate.js';
 import type {
   ConfigIssueCode,
   FeatureConfig,
@@ -96,7 +98,7 @@ const TRAVELS = {
  * A document whose variant value nests deeper than a recursive walk of it fits
  * on the stack.
  *
- * `structuredClone` at `features.ts:393` and `canonical` at `canonical.ts:138`
+ * `structuredClone` at `features.ts:409` and `canonical` at `canonical.ts:138`
  * both recurse through the value, so each raises `RangeError: Maximum call
  * stack size exceeded` over this one. The text is parsed per case, because
  * `JSON.parse` is the only reader here that builds the value without recursing
@@ -299,7 +301,11 @@ describe('the documents parseFeatureConfig refuses', () => {
   it('reports the digest it cannot take of a document nested that deep', () => {
     const config = JSON.parse(DEEP) as FeatureConfig;
 
+    // Two refusals, and the document earns both. `digestIssues` cannot take the
+    // canonical text of the content, and `cloneIssues` cannot take a copy of
+    // the definition that carries the value.
     expect(codesOf({ ...config, digest: '0'.repeat(32) })).toEqual([
+      'unknown-member',
       'unknown-member',
     ]);
   });
@@ -499,5 +505,90 @@ describe('the store a document builds', () => {
       : [];
 
     expect(held).toEqual([['a'], true]);
+  });
+});
+
+/**
+ * Decision 11 puts both entry points behind one checker.
+ *
+ * A control plane that pre-flights a candidate with `validateConfig` and
+ * publishes what it answered `{ ok: true }` about publishes a document every
+ * holder builds a store from. A value the construction path cannot copy is the
+ * one class of defect that used to divide them: the checker read no member
+ * below a variant value, `structuredClone` at `features.ts:409` raised on it,
+ * and the catch in `parseFeatureConfig` manufactured an issue the checker had
+ * never reported.
+ *
+ * `cloneIssues` asks the question in the checker, so each case here holds the
+ * two answers to one document side by side.
+ */
+describe('the answer both entry points give one document', () => {
+  /** The documents whose variant value no copy of the definition holds. */
+  const UNCOPYABLE: readonly FeatureConfig[] = [
+    {
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          ...TRAVELS,
+          variants: [{ name: 'blue', weight: 1, order: 0, value: () => 1 }],
+        },
+      ],
+    } as unknown as FeatureConfig,
+    JSON.parse(DEEP) as FeatureConfig,
+  ];
+
+  it('refuses through the checker what parseFeatureConfig refuses', () => {
+    const answers = UNCOPYABLE.map((config) => [
+      validateConfig(config).ok,
+      parseFeatureConfig(config).ok,
+    ]);
+
+    expect(answers).toEqual([
+      [false, false],
+      [false, false],
+    ]);
+  });
+
+  it('reports the same issues from the checker and from the document reader', () => {
+    const answers = UNCOPYABLE.map((config) => {
+      const checked = validateConfig(config);
+      const parsed = parseFeatureConfig(config);
+      return [
+        checked.ok ? undefined : checked.issues,
+        parsed.ok ? undefined : parsed.issues,
+      ];
+    });
+
+    expect(answers.map(([checked]) => checked)).toEqual(
+      answers.map(([, parsed]) => parsed),
+    );
+  });
+
+  it('keys the refusal on the feature and points at the definition', () => {
+    const result = parseFeatureConfig(
+      UNCOPYABLE[0] as unknown as FeatureConfig,
+    );
+
+    expect(result.ok === false && result.issues[0]).toEqual({
+      code: 'unknown-member',
+      key: 'cta',
+      message:
+        'feature "cta" carries a value no copy of the definition holds: ' +
+        '() => 1 could not be cloned.',
+      path: '/features/0',
+    });
+  });
+
+  it('throws out of createFeatures the error the checker reports', () => {
+    const config = UNCOPYABLE[0] as unknown as FeatureConfig;
+    const checked = validateConfig(config);
+
+    const build = () => createFeatures(config.features);
+
+    expect(build).toThrow(FeatureConfigError);
+    expect(build).toThrow(
+      checked.ok ? 'nothing' : (checked.issues[0]?.message ?? 'nothing'),
+    );
   });
 });

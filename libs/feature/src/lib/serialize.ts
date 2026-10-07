@@ -80,7 +80,7 @@ function article(name: string): string {
  * would serve. `structuredClone` preserves the sharing and `deepFreeze`
  * memoizes the same way, so this pass agrees with the two beside it.
  *
- * `structuredClone` at `features.ts:391` carries every refused leaf into the
+ * `structuredClone` at `features.ts:409` carries every refused leaf into the
  * store and `deepFreeze` seals them, so every one of them reaches here. A
  * function and a symbol do not, because `structuredClone` raises
  * `DataCloneError` on both, and the branch that names a `bigint` names those
