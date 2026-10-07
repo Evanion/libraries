@@ -18,8 +18,8 @@ export const items = defineItems([
     id: 'hero',
     type: 'hero',
     props: {
-      title: 'Small TypeScript libraries, one problem each.',
-      line: 'Each one solves a problem you would otherwise solve by hand, and stops there. No framework to adopt, no configuration to learn. Install the one you need and it works on its own.',
+      title: 'Standard solutions for repeated infrastructure pains.',
+      line: 'Stop re-solving authorization, identifiers, and dynamic layouts from scratch in every project. Our small, focused libraries solve these specific problems once, so you can focus on your product.',
     },
     meta: { ground: 'felt' },
   },

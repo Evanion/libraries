@@ -67,22 +67,22 @@ export const groups: readonly PackageGroup[] = [
   {
     id: 'rendering',
     title: 'Rendering from data',
-    line: 'Describe a page as data: a list of items, each naming a component and the props it takes. The library resolves every item to its component by type and renders the page. React checks the props at compile time. In Astro you run validateItems over the items before the build. One item shape, held in a framework-free core, rendered by React and by Astro.',
+    line: 'Stop hard-coding complex layouts with conditional logic. Describe your UI as data and render it with React or Astro, with props checked at compile time in React and by validateItems before an Astro build.',
   },
   {
     id: 'acl',
     title: 'Authorization from one policy',
-    line: 'Write authorization down once: the objects, the actions, and the condition each one turns on. The policy builds to a frozen document that round-trips through JSON and is evaluated in place, so the rules guarding an endpoint are the same rules that decide which buttons a browser draws, with no round trip to ask and no per-subject snapshot to keep in step. One policy, held in a framework-free core, bound to React.',
+    line: 'Stop duplicating authorization logic between your frontend and backend. Define your policy once as a serializable document and evaluate it locally, on the server and in the browser.',
   },
   {
     id: 'identifiers',
     title: 'Identifiers and codes',
-    line: 'Name a thing with a URN, add a check character so a mistyped ID fails before it reaches the database, and mint a code a person can read back over the phone. Token is built on Luhn.',
+    line: 'Stop letting typos in identifiers reach your database. Add check characters to IDs and mint human-readable codes that catch errors at the edge.',
   },
   {
     id: 'standalone',
     title: 'On their own',
-    line: 'One problem each, sharing a domain with nothing else here.',
+    line: 'Focused solutions for specific infrastructure pains, from request tracing to feature rollouts.',
   },
 ];
 
