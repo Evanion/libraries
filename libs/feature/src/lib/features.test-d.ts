@@ -5,6 +5,7 @@ import {
   type DefinitionsOrConfig,
   type Features,
 } from './features.js';
+import type { DefinitionsOf as PublishedDefinitionsOf } from '../index.js';
 import type { FeatureConfig } from './config.js';
 import type { FeatureDefinition } from './types.js';
 
@@ -370,6 +371,22 @@ describe('the document and the array createFeatures accepts', () => {
         },
       },
     );
+  });
+
+  /**
+   * All three signatures name `DefinitionsOf` in the return type the emitter
+   * writes into the published declaration, and `package.json` publishes `.`,
+   * `./react` and `./package.json` only. A consumer writing a wrapper with an
+   * explicit return type has to spell the name, so the entry point exports it
+   * and not only the file that declares it.
+   */
+  it('publishes the name the return type is written with', () => {
+    expectTypeOf<PublishedDefinitionsOf<Definitions<'cta'>>>().toEqualTypeOf<
+      Definitions<'cta'>
+    >();
+    expectTypeOf<
+      PublishedDefinitionsOf<{ features: Definitions<'cta'> }>
+    >().toEqualTypeOf<Definitions<'cta'>>();
   });
 
   it('admits both forms and refuses a record carrying no definitions', () => {

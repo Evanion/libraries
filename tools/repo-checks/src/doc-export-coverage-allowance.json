@@ -19,6 +19,7 @@
       "Decisions",
       "DeepReadonly",
       "Definitions",
+      "DefinitionsOf",
       "DefinitionsOrConfig",
       "DuplicateFeatureError",
       "DuplicateVariantError",
