@@ -1485,3 +1485,79 @@ describe('reload, the diff it reports', () => {
     expect(features.keys).toEqual([0]);
   });
 });
+
+describe('reload, a candidate it cannot copy', () => {
+  it('reports the variant value the copy raised on', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'a', weight: 1, value: 1 }],
+      },
+    ]);
+
+    // `SerializedVariantSpec.value` is `unknown`, so the checker declares
+    // nothing about this member and the candidate reaches the clone.
+    // `structuredClone` has no serialization for a function, and decision 11
+    // answers a served document with a result.
+    const result = features.reload({
+      version: 42,
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variantBy: 'targetingKey',
+          variantSeed: 'cta:variant',
+          variants: [{ name: 'a', weight: 1, order: 0, value: () => 1 }],
+        },
+      ],
+    } as unknown as FeatureConfig<'cta'>);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.issues).toMatchObject([
+      { code: 'unknown-member', key: 'cta', path: '/features/0' },
+    ]);
+    expect(!result.ok && result.version).toBeUndefined();
+    expect(!result.ok && result.rejected).toBe(42);
+  });
+
+  it('keeps the installed document deciding after it reports', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        variants: [{ name: 'a', weight: 1, value: 1 }],
+      },
+    ]);
+    features.reload({
+      version: 41,
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variantBy: 'targetingKey',
+          variantSeed: 'cta:variant',
+          variants: [{ name: 'a', weight: 1, order: 0, value: 7 }],
+        },
+      ],
+    });
+
+    features.reload({
+      features: [
+        {
+          key: 'cta',
+          enabled: false,
+          variantBy: 'targetingKey',
+          variantSeed: 'cta:variant',
+          variants: [{ name: 'a', weight: 1, order: 0, value: Symbol('a') }],
+        },
+      ],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // The refusal arm touches no reference: every assignment the store reads
+    // sits after the copy.
+    expect(features.version).toBe(41);
+    expect(features.isEnabled('cta')).toBe(true);
+    expect(features.valueOf('cta', { targetingKey: 'u1' })).toBe(7);
+  });
+});

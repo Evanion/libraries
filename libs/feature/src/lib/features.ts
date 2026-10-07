@@ -4,6 +4,7 @@ import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
 import type { FeatureGraph } from './graph.js';
 import { collectIssues } from './validate.js';
+import { unreadable } from './unreadable.js';
 import { createEmitter } from './observe.js';
 import type {
   FeatureEvent,
@@ -934,31 +935,76 @@ export function createFeatures(
    * states a variant order or states none.
    */
   const reload = (candidate: FeatureConfig<FeatureKey>): ReloadResult => {
-    const refused = collectIssues(candidate);
+    // The version the refusal arms name. It is read before the checker, so a
+    // member that answers a read with a raise is reported under the version the
+    // document states rather than taking the read down with it.
+    let rejected: string | number | undefined;
+
+    // Nothing about the candidate is trusted. The checker reads its members off
+    // the object a publisher served, so a member that answers a read with a
+    // raise reports here, the way `parseFeatureConfig` reports it.
+    let refused: ReturnType<typeof collectIssues>;
+    try {
+      rejected = candidate.version;
+      refused = collectIssues(candidate);
+    } catch (raise) {
+      return {
+        ok: false,
+        version: installed.version,
+        rejected,
+        issues: unreadable(raise, []),
+      };
+    }
+
     if (refused[0]) {
       return {
         ok: false,
         version: installed.version,
-        rejected: candidate.version,
+        rejected,
         issues: refused.map((each) => each.issue),
       };
     }
 
-    const nextConfig = Object.freeze(
-      candidate.features.map((definition) =>
-        deepFreeze(
-          structuredClone(definition) as FeatureDefinition<FeatureKey>,
+    // The copy, the freeze and the diff, inside one catch. `collectIssues`
+    // declares nothing about a variant `value`, which `SerializedVariantSpec`
+    // types `unknown`, so a function, a symbol or a value nested deeper than
+    // the stack holds clears the checker and raises `DataCloneError` or
+    // `RangeError` out of the walk below. Decision 11 answers a candidate with
+    // a result, and every assignment the store reads sits after this block, so
+    // the report leaves the installed document deciding.
+    let next: {
+      config: readonly FeatureDefinition<FeatureKey>[];
+      graph: FeatureGraph<FeatureKey>;
+      index: Map<FeatureKey, number>;
+      keys: readonly FeatureKey[];
+      changed: readonly FeatureKey[];
+    };
+    try {
+      const nextConfig = Object.freeze(
+        candidate.features.map((definition) =>
+          deepFreeze(
+            structuredClone(definition) as FeatureDefinition<FeatureKey>,
+          ),
         ),
-      ),
-    );
-    const nextGraph = buildGraph(nextConfig);
-    const nextIndex = new Map<FeatureKey, number>(
-      nextConfig.map((definition, at) => [definition.key, at]),
-    );
-    const nextKeys = Object.freeze(
-      nextConfig.map((definition) => definition.key),
-    );
-    const changed = changedKeys(config, nextConfig);
+      );
+      next = {
+        config: nextConfig,
+        graph: buildGraph(nextConfig),
+        index: new Map<FeatureKey, number>(
+          nextConfig.map((definition, at) => [definition.key, at]),
+        ),
+        keys: Object.freeze(nextConfig.map((definition) => definition.key)),
+        changed: changedKeys(config, nextConfig),
+      };
+    } catch (raise) {
+      return {
+        ok: false,
+        version: installed.version,
+        rejected,
+        issues: unreadable(raise, candidate.features),
+      };
+    }
+
     const previousVersion = installed.version;
 
     // `ConfigEnvelope` fences `digest` to `never` and `configDigest` is the one
@@ -972,17 +1018,17 @@ export function createFeatures(
     delete envelopeOf['features'];
     delete envelopeOf['digest'];
 
-    config = nextConfig;
-    graph = nextGraph;
-    index = nextIndex;
-    keys = nextKeys;
+    config = next.config;
+    graph = next.graph;
+    index = next.index;
+    keys = next.keys;
     installed = envelopeOf as ConfigEnvelope;
 
     return {
       ok: true,
       version: candidate.version,
       previousVersion,
-      changed,
+      changed: next.changed,
     };
   };
 
