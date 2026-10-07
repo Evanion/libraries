@@ -58,6 +58,30 @@ function conditionsDropped(config: FeatureConfig): FeatureConfig {
   };
 }
 
+/**
+ * The document a port that reads variants in array order reads.
+ *
+ * `validateVariants` refuses a document that declares an order on none of a
+ * feature's variants, so the walk such a port performs is written here as the
+ * orders it amounts to: the array index of each variant.
+ */
+function ordersByPosition(config: FeatureConfig): FeatureConfig {
+  return {
+    ...config,
+    features: config.features.map((definition) =>
+      definition.variants
+        ? {
+            ...definition,
+            variants: definition.variants.map((variant, at) => ({
+              ...variant,
+              order: at,
+            })),
+          }
+        : definition,
+    ),
+  };
+}
+
 describe('the published cross-process fixture', () => {
   it('states the digest of the document it carries', () => {
     expect(fixture.config.digest).toBe(configDigest(fixture.config));
@@ -202,7 +226,7 @@ describe('the document the fixture publishes', () => {
       definitions
         .flatMap((each) => each.variants ?? [])
         .map((variant) => variant.order),
-    ).toEqual([0, 1]);
+    ).toEqual([1, 0]);
   });
 
   it('publishes an assignment, so a port proves its bucketing', () => {
@@ -288,6 +312,25 @@ describe('the document the fixture publishes', () => {
       rules: [{ matched: false, failed: { field: 'plan', op: 'eq' } }],
     });
     expect(decisionsOver(conditionsDropped(fixture.config))).not.toEqual(
+      fixture.decisions,
+    );
+  });
+
+  it('lists its variants in an order its own `order` values disagree with', () => {
+    const variants = fixture.config.features.flatMap(
+      (definition) => definition.variants ?? [],
+    );
+    const sorted = [...variants].sort(
+      (one, other) => (one.order ?? 0) - (other.order ?? 0),
+    );
+
+    // `bucketingPosition` falls back to the array index, so `order` decides
+    // nothing where the two agree, and a port reading array position passes a
+    // fixture whose arrays are already sorted.
+    expect(variants.map((variant) => variant.name)).not.toEqual(
+      sorted.map((variant) => variant.name),
+    );
+    expect(decisionsOver(ordersByPosition(fixture.config))).not.toEqual(
       fixture.decisions,
     );
   });
