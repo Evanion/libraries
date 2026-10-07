@@ -92,9 +92,10 @@ jobs:
       # line before its current one, and each of those fails quietly: a search
       # filter Pagefind did not index returns nothing for every query, a
       # switcher entry with no page is a 404, and a /next/ page without noindex
-      # competes with the release in search results. The checks read the export
-      # this job just built, which is why they run here and not with the other
-      # repo-checks.
+      # competes with the release in search results. A "Last updated" date read
+      # from the wrong file is wrong on every page at once. The checks read the
+      # export this job just built, which is why they run here and not with the
+      # other repo-checks.
       - name: Check the versions the export serves
         env:
           DOCS_EXPORT: required
