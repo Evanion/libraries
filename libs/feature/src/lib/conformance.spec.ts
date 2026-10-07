@@ -8,18 +8,10 @@ import { parseFeatureConfig } from './parse.js';
 import { serializeConfig } from './serialize.js';
 import type { FeatureConfig } from './config.js';
 
-/** One bucketing vector: the bucket `value` falls in under `seed`. */
-interface Vector {
-  value: string;
-  seed: string;
-  bucket: number;
-}
-
 interface Fixture {
   config: FeatureConfig;
   context: { now: string; [field: string]: unknown };
   decisions: Record<string, unknown>;
-  buckets: readonly Vector[];
 }
 
 const fixture = JSON.parse(
@@ -207,37 +199,46 @@ describe('the document the fixture publishes', () => {
     expect(admitted.reason).toBe('rule-match');
   });
 
-  it('states the bucket of every pair it buckets on', () => {
-    // The decisions above state which side of the threshold each subject fell
-    // on, which a port reproduces by accident about half the time whatever hash
-    // it uses. These are the numbers that say the hash agrees. `bucketing.spec
-    // .ts` holds the same obligation inside this package, and `package.json`
-    // keeps no `.spec.ts` in the tarball, so a port author reads it here.
-    for (const vector of fixture.buckets) {
-      expect(bucketOf(vector.value, vector.seed)).toBe(vector.bucket);
-    }
+  it('publishes the three members the spec names, and no fourth', () => {
+    // § 9 defines the artifact as one serialized document, one context and the
+    // expected decisions, beside the `bucketOf` vectors the variants spec
+    // commits to. Those vectors are a separate file, so a bucketing change is
+    // ratcheted in one place and a rollout rule can be added here without a
+    // hash being hand-computed for its seed.
+    expect(Object.keys(fixture).sort()).toEqual([
+      'config',
+      'context',
+      'decisions',
+      'note',
+    ]);
   });
 
-  it('states a bucket for every seed its own decisions turn on', () => {
-    const definitions = fixture.config.features;
-    const seeds = [
-      ...definitions.flatMap((definition) =>
-        (definition.rules ?? [])
-          .map((rule) => rule.rollout?.seed)
-          .filter((seed): seed is string => seed !== undefined),
-      ),
-      ...definitions
-        .map((definition) => definition.variantSeed)
-        .filter((seed): seed is string => seed !== undefined),
-    ];
+  it('prints, in each decision that buckets, the number the hash answers', () => {
+    const subject = fixture.context['targetingKey'] as string;
+    const navSeed = fixture.config.features.find(
+      (definition) => definition.key === 'new-nav',
+    )?.rules?.[0]?.rollout?.seed;
+    const ctaSeed = fixture.config.features.find(
+      (definition) => definition.key === 'cta',
+    )?.variantSeed;
+    const refused = fixture.decisions['new-nav'] as {
+      rules: readonly { rollout?: { bucket?: number } }[];
+    };
+    const assigned = fixture.decisions['cta'] as {
+      assignment?: { bucket?: number };
+    };
 
-    expect(seeds).not.toHaveLength(0);
-    expect(new Set(fixture.buckets.map((vector) => vector.seed))).toEqual(
-      new Set(seeds),
+    // `bucketing.spec.ts` holds the hash itself. This holds the numbers the
+    // published decisions print against it, so a hand-edited fixture cannot
+    // publish a bucket the engine never computes.
+    expect(navSeed).toBeTypeOf('string');
+    expect(ctaSeed).toBeTypeOf('string');
+    expect(refused.rules[0]?.rollout?.bucket).toBe(
+      bucketOf(subject, navSeed as string),
     );
-    for (const vector of fixture.buckets) {
-      expect(vector.value).toBe(fixture.context['targetingKey']);
-    }
+    expect(assigned.assignment?.bucket).toBe(
+      bucketOf(subject, ctaSeed as string),
+    );
   });
 
   it('answers one decision for every definition it carries', () => {
