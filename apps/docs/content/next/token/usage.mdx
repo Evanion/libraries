@@ -1,8 +1,6 @@
 # Generating and validating
 
-To print a pickup code as `ORD-a4kp-9mxa` and redeem it however a customer
-types it, pass `prefix` to the `generate` call of `@evanion/token`, and strip
-the prefix before `validate`.
+To issue a pickup code as `ORD-a4kp-9mxa` and redeem it regardless of how a customer types it, you combine `generate` with a custom prefix and use `validate` to screen the input.
 
 <PageSheet
   difficulty={2}
@@ -12,116 +10,85 @@ the prefix before `validate`.
   unlocks={[['Code shape', '../shape']]}
 />
 
-## Mint a pickup code with the ORD prefix
+## Minting a Pickup Code with a Prefix
 
-Token's `generate` takes an optional `prefix` and returns the code in four
-fields:
+You can make your `@evanion/token` codes more recognizable by adding a prefix like `ORD-`. This helps both users and staff identify the code's purpose at a glance.
+
+When you pass a `prefix` to `generate`, it returns the code in four fields:
 
 ```ts twoslash file=libs/token/README.md region=generate
 
 ```
 
-- `value` is the code as printed: `ORD`, the separator and the nine-character
-  code, 13 characters in all.
-- `body` is the seven random characters, the key
-  [Getting started](../getting-started) stores the order under.
-- `check` is the check character, the last character of `value`.
-- `prefix` is the prefix you passed.
+- **`value`**: The full code as printed (`ORD-a4kp-9mxa`), 13 characters in all.
+- **`body`**: The seven random characters used as the database key.
+- **`check`**: The final check character, the last character of `value`.
+- **`prefix`**: The prefix you provided.
 
-## Redeem a pickup code read back with its prefix
+## Redeeming a Prefixed Code
 
-Token's `validate` takes no `prefix` option. It strips the hyphen after `ORD`
-like any separator, then refuses the `o` as `outside-alphabet`, so strip the
-prefix before validating:
+The `@evanion/token` `validate` method works on the code's body and check character, and takes no prefix option.
+
+If you pass `ORD-a4kp-9mxa` directly to `validate`, it strips the hyphen like any separator, treats `ORD` as part of the code, and refuses it as `outside-alphabet`, because the default dictionary has no `o`. You must strip the prefix before validating:
 
 ```ts twoslash file=libs/token/README.md region=prefix
 
 ```
 
-`validatePickupCode` is the example's own function, not a token export. It
-strips `ord` in any case, with or without the hyphen after it, so
-`ORD-a4kp-9mxa`, `ord-a4kp-9mxa` and `ORDa4kp9mxa` all pass. The strip is safe
-because the dictionary has no `o`. No code starts with one, so a leading `ord`
-is always the prefix. A prefix typed wrong is left in place, and `validate`
-refuses the code.
+In the example above, `validatePickupCode` is a function of your own that handles the stripping. Because the default dictionary excludes the letter `o`, no valid code can start with `ord`. This makes it safe to strip any leading `ord` (case-insensitively, with or without its hyphen) without risk of accidentally removing part of the actual code.
 
-## Reasons validate refuses a pickup code
+## Understanding Validation Failures
 
-Token's `validate` returns `valid: true` and the `body`, or `valid: false` and a
-`reason`. `b0zg-7kqb` below is another well-formed default code, and its `0`
-shows what happens when a reader types `o`:
+The `@evanion/token` `validate` method returns `valid: true` and the `body` if the code is well-formed, or `valid: false` and a `reason` if it fails.
 
 ```ts twoslash file=libs/token/README.md region=validate
 
 ```
 
-| `reason`           | Meaning                                                          |
-| ------------------ | ---------------------------------------------------------------- |
-| `outside-alphabet` | a character not in the dictionary, after separators are stripped |
-| `wrong-length`     | the code is not `length` characters long                         |
-| `check-failed`     | the last character does not check out against the ones before it |
+| `reason`           | Meaning                                                                                   |
+| :----------------- | :---------------------------------------------------------------------------------------- |
+| `outside-alphabet` | The code contains a character not found in the dictionary, after separators are stripped. |
+| `wrong-length`     | The code does not match the required `length`.                                            |
+| `check-failed`     | The check character does not match the calculated value for the body.                     |
 
-`validate` checks in the table's order and reports the first failure. It never
-throws and has no side effects, so it can run on every request ahead of the
-lookup.
-
-The field below calls `validate` on what you type. It opens on `b0zg-7kqb`:
-change the last character, type an `o` for the `0`, or drop a character.
+`validate` checks these conditions in order and reports the first failure. Since it has no side effects and never throws, you can run it on every request before performing a database lookup.
 
 <Probe package="token" probe="validate" />
+*The field above calls `validate` on what you type, starting from `b0zg-7kqb`.
+Try changing the last character, typing an `o` for the `0`, or dropping a
+character.*
 
-## Pickup codes typed without hyphens or in capitals
+## Flexible User Input
 
-Token's `validate` strips the separator and folds case before it checks, so a
-code typed without the separator, grouped differently, or read off a card in
-capitals still validates:
+Customers rarely type an `@evanion/token` code exactly as it was printed. They might omit hyphens, use different grouping, or type everything in capitals.
+
+`validate` handles this by automatically stripping the separator and folding the case before performing its checks.
 
 ```ts twoslash file=libs/token/README.md region=separators
 
 ```
 
-Every spelling hands back the same `body`, so each one finds the same row.
+Because every variation of the spelling returns the same `body`, they all resolve to the same record in your database.
 
-## Mistakes a pickup code's check character catches
+## What the Check Character Catches
 
-`@evanion/luhn` computes token's check character with the Luhn algorithm,
-extended from ten digits to any dictionary with an even number of characters.
-It catches two kinds of mistake:
+`@evanion/token` uses the Luhn algorithm to compute the check character. This provides a high degree of confidence in detecting common human errors:
 
-- Every single-character substitution, at every position, including the check
-  character itself.
-- Every swap of two adjacent characters, except one pair: the first and last
-  entries of the dictionary, `0` and `z` by default.
+- **Single-Character Substitutions**: Any single character misread or mistyped at any position, including the check character itself, is always caught.
+- **Adjacent Swaps**: Almost every swap of two neighboring characters is caught.
 
 ```ts twoslash file=libs/token/README.md region=check-catches
 
 ```
 
-`a4kp-9mza` substitutes `z` for `x`, and `a4pk-9mxa` swaps `k` and `p`. Both
-fail. `b0zg-7kqb` and `bz0g-7kqb` differ by a swap of `0` and `z`, and both
-pass. Two mistakes in one code can also cancel each other and pass.
+`a4kp-9mza` substitutes `z` for `x`, and `a4pk-9mxa` swaps `k` and `p`, so both fail. `b0zg-7kqb` and `bz0g-7kqb` differ by a swap of `0` and `z`, and both pass.
 
-The blind spot comes from Luhn's doubling step. Luhn computes the check
-character from a code's other characters:
+### The "Blind Spot"
 
-1. It takes each character's index in the dictionary.
-2. It doubles every second index. A doubled index that reaches `n`, the
-   dictionary's size, counts as the sum of its two digits in base `n`. On a card
-   number, where `n` is 10, `8 × 2 = 16` counts as `1 + 6 = 7`.
-3. It adds up the results, and picks the check character that brings the sum to
-   a multiple of `n`.
+There is one rare exception: an adjacent swap of the first and last characters of the dictionary (by default, `0` and `z`). Because of the way the Luhn doubling step works, these two characters are mathematically interchangeable in the sum. Two mistakes in one code can also cancel each other out and pass.
 
-Over an even `n` every index doubles to a different value, which is why Luhn
-needs an even size. Two indexes double to themselves: `0` doubles to `0`, and
-the last index, `n - 1`, doubles back to `n - 1`. At `n = 32`, index 31 doubles
-to 62, which is `1` and `30` in base 32 and counts as 31. A swap of two
-neighbouring characters at those indexes, such as the default dictionary's `0`
-and `z`, leaves the sum unchanged, the way `0` and `9` swap undetected on a card
-number.
+While this is a technical limitation of the Luhn algorithm, it is an acceptable trade-off for the speed and simplicity of the check.
 
-## A longer code for gift cards
+## A Longer Code for Gift Cards
 
-Every token code on this page had the default shape, eight characters in two
-chunks. A Baize gift card needs a longer one. [Code shape](../shape) sets
-`length`, `chunkSize` and `separator`, and lists the shapes `createToken`
-refuses.
+Every `@evanion/token` example on this page uses the default shape: eight characters in two chunks. If you need a longer code for something like a gift card, you can customize the shape. [Code shape](../shape) shows how to set `length`, `chunkSize` and `separator`.

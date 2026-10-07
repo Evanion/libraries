@@ -1,8 +1,6 @@
 # The alphabet
 
-To mint codes from characters of your own, pass `dictionary` to `createToken`.
-`createToken` refuses a dictionary that holds a character people misread, or
-whose size does not divide 256.
+To mint codes from your own set of characters, pass a `dictionary` string to `createToken`. To prevent user frustration and mathematical bias, `@evanion/token` enforces strict rules on any custom alphabet.
 
 <PageSheet
   difficulty={3}
@@ -15,138 +13,81 @@ whose size does not divide 256.
   ]}
 />
 
-## Why the default dictionary leaves out `i`, `l`, `o` and `w`
+## The Problem: Confusable Characters and Mathematical Bias
 
-A token instance draws from `DEFAULT_DICTIONARY` unless `dictionary` names
-another:
+When an `@evanion/token` code is read aloud or typed from a printed receipt, certain characters are confused. A `1` can be mistaken for an `l` or an `i`, and a `0` for an `o`. If your token dictionary includes these, your error-detection system's effectiveness drops significantly because the user's "typo" might be a character that is actually valid in your dictionary.
+
+Furthermore, the way random characters are drawn from a dictionary can introduce "bias." If the dictionary size doesn't divide evenly into the range of the random number generator, some characters will appear more often than others, making the codes slightly more predictable.
+
+## The Default Dictionary
+
+By default, `@evanion/token` uses `DEFAULT_DICTIONARY`, which consists of lowercase alphanumerics minus the **confusable characters**, `CONFUSABLE_CHARACTERS`: `i`, `l`, `o`, and `w`.
 
 ```ts twoslash file=libs/token/README.md region=default-alphabet
 
 ```
 
-The default is the lowercase alphanumerics without `CONFUSABLE_CHARACTERS`,
-which are `i`, `l`, `o` and `w`. The first three go because they are read as
-`1`, `1` and `0`. The digits stay, because a code is as often typed as spoken,
-and a digit is unambiguous on a keypad.
+Why these four?
 
-Below, `n` is a dictionary's number of characters, which an instance also
-reports as its `n` property. Luhn needs an even `n`, and `generate` needs an `n`
-that divides 256, as
-[Why the dictionary size must divide 256](#why-the-dictionary-size-must-divide-256)
-shows.
+- `i`, `l`, and `o` are visually similar to `1` and `0`. The digits stay, because a digit is unambiguous on a keypad.
+- `w` is phonetically similar to `u` ("double-u"), which leads to transcription errors when codes are dictated over the phone. A fourth character had to go anyway: dropping only three leaves 33, which is odd and does not divide 256.
 
-Dropping `i`, `l` and `o` leaves 33 characters, which is odd and does not divide
-256, so a fourth has to go. `w` is the one with an argument attached: its name,
-"double-u", contains another letter's name, and a dictated `w` gets written down
-as `u`. That leaves 32, which is even and divides 256.
+This leaves exactly 32 characters. This is an ideal number because it is even (required for the Luhn algorithm) and it divides 256 evenly (preventing random bias).
 
-## What createToken checks in a dictionary
+## Dictionary Constraints
 
-Token's `createToken` refuses a `dictionary` that breaks any row below. Token
-checks the first three rows itself and throws `InvalidAlphabetError`.
-`@evanion/luhn` checks the last four and throws `InvalidDictionaryError`. Each
-error's `reason` is the value in the table:
+When you provide a custom `dictionary` to `createToken`, `@evanion/token` validates it against several constraints. If any are broken, it throws either an `InvalidAlphabetError` or an `InvalidDictionaryError`, with the `reason` in the table below.
 
-| Constraint               | Enforced by      | `reason`      | Why                                                                |
-| ------------------------ | ---------------- | ------------- | ------------------------------------------------------------------ |
-| no confusable characters | `@evanion/token` | `confusable`  | a reader confuses `1`, `l`, `i` and `0`, `o`, and hears `w` as `u` |
-| lowercase                | `@evanion/token` | `unfolded`    | `validate` folds input to lowercase before it reads it             |
-| `256 % n === 0`          | `@evanion/token` | `non-uniform` | otherwise `byte % n` draws some characters more often              |
-| at least two characters  | `@evanion/luhn`  | `too-short`   | with one character, every code checks out                          |
-| even size                | `@evanion/luhn`  | `odd-length`  | Luhn's doubling step needs an even size                            |
-| no repeats               | `@evanion/luhn`  | `duplicate`   | Luhn needs one index per character                                 |
-| no case pairs            | `@evanion/luhn`  | `case-pairs`  | Luhn needs one index per character                                 |
+| Constraint         | Enforced by      | `reason`      | Why it matters                                                                               |
+| :----------------- | :--------------- | :------------ | :------------------------------------------------------------------------------------------- |
+| **No Confusables** | `@evanion/token` | `confusable`  | Prevents `1/l/i` and `0/o` and `w/u` confusion.                                              |
+| **Lowercase Only** | `@evanion/token` | `unfolded`    | `validate` folds input to lowercase; uppercase in the dictionary could never be reached.     |
+| **Divides 256**    | `@evanion/token` | `non-uniform` | Ensures every character is equally likely to be drawn.                                       |
+| **Min Length 2**   | `@evanion/luhn`  | `too-short`   | A 1-character dictionary makes every code valid.                                             |
+| **Even Size**      | `@evanion/luhn`  | `odd-length`  | The Luhn doubling step requires an even-sized alphabet.                                      |
+| **No Repeats**     | `@evanion/luhn`  | `duplicate`   | Each character must have a unique index for the checksum.                                    |
+| **No Case Pairs**  | `@evanion/luhn`  | `case-pairs`  | Case folding would turn a letter and its uppercase form into one character with two indexes. |
 
-A case pair is a letter alongside its uppercase form, such as `a` and `A`, which
-case folding would turn into one character with two indexes.
-
-Luhn needs an even size because of its doubling step, which
-[Generating and validating](../usage) describes. Over an odd `n`, two indexes
-double to the same value. In a 31-character dictionary, index 15 doubles to 30,
-and index 30 doubles to 60, which is `1` and `29` in base 31 and counts as 30.
-A substitution between those two characters in a doubled position passes the
-check.
-
-`dictionaryRefusal` below returns the `InvalidAlphabetError` that token's own
-three constraints throw, or `undefined` when the dictionary is accepted:
+In the example below, `dictionaryRefusal` is a helper of your own that returns the `InvalidAlphabetError` for token's three constraints, or `undefined` when the dictionary is accepted:
 
 ```ts twoslash file=libs/token/README.md region=alphabet-errors
 
 ```
 
-`offending` lists the characters that broke the constraint, and is empty for
-`'non-uniform'`, which is about the size. `CONFUSABLE_CHARACTERS` is matched
-without regard to case, so an uppercase `I` is refused as confusable before the
-lowercase rule reads it. Hexadecimal, `'0123456789abcdef'`, passes every row.
+`offending` lists the characters that broke the constraint, and is empty for `non-uniform`, which is about the size. `CONFUSABLE_CHARACTERS` is matched without regard to case, so an uppercase `I` is refused as confusable before the lowercase rule reads it.
 
-## Why the dictionary size must divide 256
+## Why the Dictionary Size Must Divide 256
 
-Token's `generate` draws each character as `byte % n`, where the byte comes from
-`crypto.getRandomValues` and runs from 0 to 255. That remainder over-represents
-the first `256 % n` characters. At `n = 32` the division is exact and every
-character is equally likely.
+The `@evanion/token` `generate` method draws characters using the formula `byte % n`, where the byte is a random value from 0 to 255.
 
-`@evanion/luhn`'s own default dictionary, the 36 lowercase alphanumerics, is
-not uniform. `256 % 36` is 4, which over-represents its first four characters by
-14.3%, so token does not adopt it, even though a check character over it works.
+If `n` (the dictionary size) is 32, the division is exact: $256 / 32 = 8$. Every character appears exactly 8 times in the range.
 
-Rejection sampling is the alternative to constraining the dictionary: draw a
-byte, discard it if it lands in the biased tail, draw again. It is correct, and
-it makes generation take a variable time. The default dictionary shows the
-constraint is satisfiable, so token constrains the dictionary.
+If `n` were 36, $256 / 36 = 7$ with a remainder of $4$. The first four characters in the dictionary would appear 8 times, while the others appear only 7 times. This 14.3% bias makes the codes mathematically non-uniform. To avoid "rejection sampling" (which takes variable time), `@evanion/token` requires that `n` divides 256.
 
-## Catch TokenError and InvalidDictionaryError
+## Handling Alphabet Errors
 
-`TokenError` is the base class of both token errors, `InvalidAlphabetError` and
-`InvalidShapeError`. A dictionary that fails one of Luhn's constraints throws
-`InvalidDictionaryError` from `@evanion/luhn`, which does not extend
-`TokenError`.
-
-`@evanion/luhn` installs with token, but a strict package manager such as pnpm
-lets your code import only what your own `package.json` lists. Add
-`@evanion/luhn` to your own `package.json`, at the exact version that
-`node_modules/@evanion/token/package.json` pins in its `dependencies`. A copy at
-another version defines a second `InvalidDictionaryError` class, and
-`instanceof` against it misses the error token's copy throws.
-
-Catch each with `instanceof`:
+`TokenError` is the base class of both `@evanion/token` errors, `InvalidAlphabetError` and `InvalidShapeError`. A dictionary that fails one of Luhn's constraints throws `InvalidDictionaryError` from `@evanion/luhn`, which does not extend `TokenError`, so catch each with `instanceof`:
 
 ```ts twoslash file=libs/token/README.md region=catch-both
 
 ```
 
-The 36-character dictionary fails token's confusable rule. The 31-character one
-fails both Luhn's even-size rule and token's `256 % n` rule, and Luhn's error
-comes out, because `createToken` hands the dictionary to `@evanion/luhn` before
-it checks token's own three constraints.
+The 31-character dictionary breaks both Luhn's even-size rule and token's `256 % n` rule, and Luhn's error comes out, because `createToken` hands the dictionary to `@evanion/luhn` before it checks its own three constraints.
 
-## Reordering a token dictionary changes its check characters
+**Pro Tip**: If you use a strict package manager like `pnpm`, add `@evanion/luhn` to your own `package.json` at the exact version that `@evanion/token` pins in its `dependencies`. A copy at another version defines a second `InvalidDictionaryError` class, and `instanceof` against it misses the error token throws.
 
-The order of a token dictionary decides which index each character occupies,
-and therefore every check character it produces. Two dictionaries with the same
-characters in a different order give different check characters, and a code
-minted under one can fail the check under the other.
+## Reordering a Dictionary Changes Its Check Characters
 
-Store the dictionary as a constant string and do not sort it.
+The order of an `@evanion/token` dictionary decides which index each character occupies, and therefore every check character it produces. Two dictionaries with the same characters in a different order give different check characters, and a code minted under one can fail `validate` under the other.
 
-## A hexadecimal gift card code
+Store your dictionary as a constant string, and never sort it.
 
-Hexadecimal meets token's three dictionary constraints and Luhn's rules. It is
-even, lowercase, free of repeats and of `i`, `l`, `o` and `w`, and 16
-divides 256. The Baize gift card from [Code shape](../shape), 16 characters
-long, printed in hex:
+## Hexadecimal Gift Cards
+
+Hexadecimal (`0123456789abcdef`) is a perfect alternative `@evanion/token` dictionary. It is even, lowercase, free of confusables, and 16 divides 256.
 
 ```ts twoslash file=libs/token/README.md region=hex
 
 ```
 
-`hexCard.n` is 16, so a character carries four bits against five for the
-default. Its 16 characters hold 15 random ones and a check character, 60 bits,
-where the default dictionary's 16 carry 75. A hex code needs more characters to
-reach the same number of bits.
-
-Sizes that divide 256 and are large enough to use are 16, 32, 64 and 128. There
-are 36 lowercase alphanumerics and four are confusable, so 32 is the largest
-dictionary of lowercase letters and digits. `createToken` accepts 64 characters,
-but the 32 it adds to the default have to be punctuation or non-ASCII letters,
-which a person struggles to read aloud or type. The default sits at 32.
+A hex character carries only 4 bits of entropy (compared to 5 bits for the default 32-character set), so the 16-character `hexCard` carries 60 bits where the default dictionary's 16 characters carry 75. You will need a longer code to achieve the same level of collision resistance.
