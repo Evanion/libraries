@@ -7,6 +7,7 @@ import { createFeatures } from './features.js';
 import { parseFeatureConfig } from './parse.js';
 import { serializeConfig } from './serialize.js';
 import type { FeatureConfig } from './config.js';
+import type { EvaluationContext } from './types.js';
 
 interface Fixture {
   config: FeatureConfig;
@@ -20,6 +21,42 @@ const fixture = JSON.parse(
     'utf8',
   ),
 ) as Fixture;
+
+/** The context the fixture states, with its instant read as one. */
+function supplied(): EvaluationContext {
+  const { now, ...rest } = fixture.context;
+  return { ...rest, now: new Date(now) };
+}
+
+/**
+ * What an engine answers for the fixture's context over `config`.
+ *
+ * Each transform below drops one member a careless port might not read, so the
+ * decisions that port computes are the decisions this engine computes from a
+ * document without the member. A fixture every such port reproduces proves
+ * nothing about the member.
+ */
+function decisionsOver(config: FeatureConfig): unknown {
+  // A transform changes the document's content, and `createFeatures` refuses a
+  // document whose stated digest no longer covers it.
+  const engine = createFeatures({ ...config, digest: undefined });
+  return JSON.parse(JSON.stringify(engine.resolve(supplied())));
+}
+
+/** The document a port that never evaluates a condition reads. */
+function conditionsDropped(config: FeatureConfig): FeatureConfig {
+  return {
+    ...config,
+    features: config.features.map((definition) =>
+      definition.rules
+        ? {
+            ...definition,
+            rules: definition.rules.map(({ when, ...rule }) => rule),
+          }
+        : definition,
+    ),
+  };
+}
 
 describe('the published cross-process fixture', () => {
   it('states the digest of the document it carries', () => {
@@ -158,7 +195,7 @@ describe('the document the fixture publishes', () => {
     expect(definitions.filter((each) => each.dependsOn).length).toBeGreaterThan(
       0,
     );
-    expect(conditions.filter((each) => each.op === 'eq').length).toBe(1);
+    expect(conditions.filter((each) => each.op === 'eq').length).toBe(2);
     expect(conditions.filter((each) => each.op === 'after').length).toBe(1);
     expect(rules.filter((each) => each.rollout).length).toBe(2);
     expect(
@@ -238,6 +275,20 @@ describe('the document the fixture publishes', () => {
     );
     expect(assigned.assignment?.bucket).toBe(
       bucketOf(subject, ctaSeed as string),
+    );
+  });
+
+  it('publishes a decision a condition refused', () => {
+    // Every condition in the fixture once held, so an engine whose condition
+    // evaluator answers true for anything reproduced all of it. That engine is
+    // the one reading the document with every `when` removed.
+    expect(fixture.decisions['enterprise-only']).toMatchObject({
+      enabled: false,
+      reason: 'no-rule-matched',
+      rules: [{ matched: false, failed: { field: 'plan', op: 'eq' } }],
+    });
+    expect(decisionsOver(conditionsDropped(fixture.config))).not.toEqual(
+      fixture.decisions,
     );
   });
 
