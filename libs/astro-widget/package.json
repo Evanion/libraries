@@ -61,5 +61,8 @@
   },
   "peerDependencies": {
     "astro": "^7.3.4"
+  },
+  "devDependencies": {
+    "@evanion/doc-examples": "*"
   }
 }

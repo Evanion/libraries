@@ -183,6 +183,7 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@evanion/doc-examples": "*",
     "@shikijs/themes": "3.23.0",
     "@shikijs/transformers": "3.23.0",
     "@shikijs/twoslash": "3.23.0",
