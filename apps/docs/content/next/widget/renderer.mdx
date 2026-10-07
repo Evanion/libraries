@@ -17,7 +17,7 @@ If you are using a framework without a published renderer, you can implement you
 
 When a renderer encounters a widget `type` it doesn't have a component for, it must skip that item. If every renderer in your ecosystem has its own way of warning about this, your logs become a mess of inconsistent messages.
 
-Both `@evanion/react-widget` and `@evanion/astro-widget` solve this by using `ERROR_MESSAGES` from the core. This ensures that regardless of the framework, the same content error produces the same log line.
+Both `@evanion/react-widget` and `@evanion/astro-widget` solve this by using `ERROR_MESSAGES` from the core. This ensures that regardless of the framework, the same unknown type produces the same log line.
 
 ```ts twoslash file=libs/widget/README.md region=warning
 
@@ -48,7 +48,7 @@ A basic renderer iterates over the widget items, looks up the `type` in a regist
 To build a production-ready renderer, you need to handle four additional responsibilities:
 
 1. **Children**: Decide how to handle nested items. You can either draw them inside the parent (like `@evanion/react-widget`) or pass them as data to the parent's component (like `@evanion/astro-widget`).
-2. **Meta**: Pass the `meta` property to the **wrapper** component, never to the widget's `props`.
+2. **Meta**: Pass the `meta` property to the **item chrome** (`chrome.item`), never to the widget's `props`.
 3. **Structural Warnings**: Use `warnOnce` to report structural failures:
    - `MALFORMED_ITEMS`: The items provided are not an array.
    - `MALFORMED_ITEM(id, type)`: An entry is not an object or lacks a string `type`.

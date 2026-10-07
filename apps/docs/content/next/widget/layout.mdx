@@ -1,6 +1,6 @@
 # Order and nesting
 
-A renderer draws widget items in array order and draws each item's `children` inside it. This means that any edit made to the order of items in your content management system (CMS) is reflected immediately on the page—and everything nested within a widget moves with it.
+A renderer draws widget items in array order, and each item's `children` appear inside it. This means that any edit made to the order of items in your content management system (CMS) is reflected immediately on the page—and everything nested within a widget moves with it.
 
 <PageSheet
   difficulty={2}
@@ -37,13 +37,13 @@ In this structure:
 
 Because the children are nested _inside_ the parent item, moving the `week` item to the bottom of the array moves all three metrics with it, preserving the group's integrity.
 
-## Placement and the Wrapper
+## Placement and the Item Chrome
 
 While the widget's `props` contain the data, the widget's `meta` property contains **placement data**.
 
-A **wrapper** is the component that surrounds each widget. It uses the `meta` field to determine how the widget should be positioned (e.g., in a grid).
+The **item chrome** (`chrome.item`) is the component that surrounds each widget. It uses the `meta` field to determine how the widget should be positioned (e.g., in a grid).
 
-In the dashboard example, the `tables` widget has `meta: { span: 2 }`. The wrapper sees this and assigns the widget two grid columns. If you move the `tables` widget to a different position in the array, its `span: 2` metadata moves with it, ensuring the layout remains consistent regardless of where the widget sits on the page.
+In the dashboard example, the `tables` widget has `meta: { span: 2 }`. The item chrome sees this and assigns the widget two grid columns. If you move the `tables` widget to a different position in the array, its `span: 2` metadata moves with it, ensuring the layout remains consistent regardless of where the widget sits on the page.
 
 ## Renderer Differences: React vs. Astro
 
@@ -54,10 +54,10 @@ While `@evanion/react-widget` and `@evanion/astro-widget` both use the same core
 - **`@evanion/react-widget`**: Draws each child first and passes the resulting React elements as the `children` prop to the parent component.
 - **`@evanion/astro-widget`**: Passes the raw child items to the parent component. The parent is then responsible for rendering its own `<Widgets />` component over those items.
 
-### 2. The Wrapper
+### 2. The Item Chrome
 
-- **React**: Uses a default wrapper (a `div`) that ignores `meta` unless you provide a custom one.
-- **Astro**: Does not provide a default wrapper. You must pass one, and that wrapper must render a `<slot />`, or the widget inside will not appear on the page.
+- **React**: Uses a default item chrome (a `div`) that ignores `meta` unless you provide a custom one.
+- **Astro**: Does not provide a default item chrome. If you pass one, it must render a `<slot />`, or the widget inside will not appear on the page.
 
 ## Move a Widget Item and Watch the Page Follow
 

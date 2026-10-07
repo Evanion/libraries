@@ -23,7 +23,7 @@ CMS data is inherently untyped. When your frontend receives a JSON payload, a fe
 - **Malformed Structure**: An item is a string instead of an object, or `children` is not a list.
 - **Identity Collisions**: Two widgets in the same section share the same `id`.
 
-If these aren't caught, your renderer will simply skip the faulty items, leaving mysterious gaps in your page.
+If these aren't caught, your renderer will simply skip the items it cannot draw and draw the rest with whatever data they carry, leaving mysterious gaps in your page.
 
 ## Solution: Deep-Payload Scanning
 
@@ -78,7 +78,7 @@ You do this by passing a `required` map as the third argument to `validateItems`
 
 ```
 
-In the example above, even though `title` is a string, it is blank. `validateItems` rejects this, ensuring that your renderer never attempts to draw a listing without a name.
+In the example above, even though `title` is a string, it is blank. `validateItems` reports it as `missing field title`, so your gate can stop the page before your renderer draws a listing without a name.
 
 Note that `required` checks only happen for known types. If a widget's `type` is unknown, it is reported as an `UNKNOWN_TYPE` fault, and its required props are ignored.
 
