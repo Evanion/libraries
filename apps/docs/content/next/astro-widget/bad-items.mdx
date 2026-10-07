@@ -17,7 +17,7 @@
 
 ## Faults in an Item's Shape
 
-Even before checking for a specific widget type, `validateItems` checks if an item is structurally sound. If a CMS save contains broken entries, the engine identifies the faults based on six structural rules.
+Alongside checking for a specific widget type, `validateItems` checks if an item is structurally sound. If a CMS save contains broken entries, the engine identifies the faults based on six structural rules.
 
 ```ts twoslash file=libs/astro-widget/README.md region=structural-rules
 
@@ -41,7 +41,7 @@ If the entire payload is not an array (e.g., it's an object `{ items: [] }`), `v
 
 ### Nested Indexing
 
-Because `validateItems` performs a depth-first walk, it reports problems for nested children using an index relative to their own siblings. A top-level item and its first child can both report `index: 0`. You must use the `id` field to uniquely identify the faulty item.
+Because `validateItems` performs a depth-first walk, it reports problems for nested children using an index relative to their own siblings. A top-level item and its first child can both report `index: 0`. Use the `id` field to identify the faulty item; it tells the two apart only when your CMS keeps ids unique across the whole tree.
 
 ```ts twoslash file=libs/astro-widget/README.md region=nested-index
 
