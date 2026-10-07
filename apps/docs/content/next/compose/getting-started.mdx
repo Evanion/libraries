@@ -41,44 +41,36 @@ pnpm add @evanion/compose
 
 ## Flatten your provider tree
 
-With `@evanion/compose`, you pass your providers as an array to `ComposeProvider` and stop nesting them by hand. The first item in the array becomes the outermost wrapper, and the last item wraps your application's children.
+`ComposeProvider`, from `@evanion/compose`, nests context providers the way the [Overview](../#the-solution-flat-composition) nested `div`s, first entry outermost.
 
-In the Baize shop example, the root needs to provide a cart, a theme, and a currency, each built on `createContext`. `Shop` passes the three to `ComposeProvider`, and `Basket` reads each value with `useContext`. The file imports `ComposeProvider` and `provider` from `@evanion/compose` and `* as React` from `react`. `renderToStaticMarkup`, from `react-dom/server`, turns the tree into the HTML string `markup`:
+In the Baize shop example, the root needs to provide a cart, a theme, and a currency, each built on `createContext`. `Shop` passes the three to `ComposeProvider`, and `Basket` reads each value with `useContext`. The file imports `ComposeProvider` and `provider` from `@evanion/compose` and `* as React` from `react`. `renderToStaticMarkup` renders `markup`, as on the Overview:
 
 ```tsx twoslash file=libs/compose/README.md region=first-shop
 
 ```
 
-### Breakdown of the Setup:
+`CartProvider` is a [bare component](../#the-compose-vocabulary), and the other two are tuples from `provider()`. The last entry wraps `Shop`'s own children.
 
-- **Bare Components**: `CartProvider` is passed as a bare component because it doesn't require any props.
-- **Tuples**: `ThemeProvider` and `CurrencyProvider` are wrapped in the `provider()` helper. This creates a **tuple** `[Component, Props]`, which allows TypeScript to verify that you've provided the correct props for those specific providers.
-- **The Wrapper**: The `Shop` component now acts as a clean wrapper that passes these providers to `ComposeProvider`.
-
-`markup` is `Basket`'s paragraph and nothing else. A context provider renders no element of its own, so `dark` and `SEK` in the markup are the values the providers above `Basket` hold. In a browser, the Components tab of React DevTools shows the nesting: `CartProvider` on the outside and `CurrencyProvider` on the inside, wrapping your application.
+`markup` is `Basket`'s paragraph and nothing else. The Overview's providers each rendered a `div`, and these three render only a context provider, which has no element of its own. So `dark` and `SEK` in the markup are the values the providers above `Basket` hold. In a browser, the Components tab of React DevTools shows the nesting: `CartProvider` on the outside and `CurrencyProvider` on the inside, wrapping your application.
 
 ## Integrating into your App Root
 
-The `Shop` component is where your `@evanion/compose` provider logic now lives. Place it where your nested providers sit today, around your routes or main page layout.
+Render `Shop`, the component that composes the providers with `@evanion/compose`, where your nested providers sit today, around your routes or main page layout.
 
 **Next.js App Router Tip**:
-Any file calling `createContext` must be a Client Component. Mark your provider file with `'use client'`, define your providers and your `Shop` wrapper there, and then wrap your layout in `app/layout.tsx` with `<Shop>{children}</Shop>`.
-
-`ComposeProvider` itself is a pure component that doesn't use hooks, so it doesn't require the `'use client'` directive.
+Any file calling `createContext` must be a Client Component. Mark your provider file with `'use client'`, define your providers and your `Shop` wrapper there, and then wrap your layout in `app/layout.tsx` with `<Shop>{children}</Shop>`. `ComposeProvider` itself needs no directive.
 
 ## Visualizing the Nesting
 
-Imagine each `@evanion/compose` provider as a box. The boxes below are the elements `ComposeProvider` rendered for the array shown with them. They take no props, so the array lists all three as bare components.
+The boxes below are the elements `@evanion/compose` rendered for the array shown with them. They draw the shop's three providers without their props, so the array lists all three as bare components and leaves out `theme` and `currency`.
 
 - **Moving a provider up** in the array moves its "box" further outward, wrapping more of the application.
 - **Moving a provider down** moves it further inward, wrapping fewer components.
 
 <ComposeSpecimen />
 
-**Warning**: Changing the order of providers while the app is running makes React remount everything below the change, which resets any state held in that subtree.
+In a running app, the same reorder [remounts the subtree below the change](../#when-to-avoid-compose).
 
 ## Catching Prop Errors at Compile Time
 
-One of the biggest advantages of `@evanion/compose` is that it brings type safety to your provider list. Because the entries are tuples from the `provider()` helper, TypeScript can verify that the props you pass to a provider match its requirements. If you pass `'blue'` where `ThemeProvider` expects `'light' | 'dark'`, TypeScript will flag it.
-
-For a detailed look at how this verification works, see [Where the check happens](../type-checking).
+Baize's root now renders through `@evanion/compose`, and `Basket` reads the values of all three providers. TypeScript checks each entry's props as well: `provider(ThemeProvider, { theme: 'blue' })` fails to compile, because `ThemeProvider` takes `'light' | 'dark'`. [Where the check happens](../type-checking) shows where each kind of entry is checked and what each error means.
