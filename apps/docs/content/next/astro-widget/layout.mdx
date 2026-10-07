@@ -33,6 +33,7 @@ To try it on the listing page:
 1. Add `stock: Stock` to the registry in `src/registry.ts`, and import `Stock` from `./widgets/Stock.astro` there.
 2. In `src/pages/brass-birmingham.astro`, pass `ctx={{ store: 'Gothenburg' }}` to `<Widgets>`.
 3. Add a `stock` item to `src/data/brass-birmingham.json`, with `"id": "stock"`, `"type": "stock"` and `"props": { "copies": 3 }`.
+4. Add `'stock'` to `known` in `scripts/check-content.ts`, or the build gate stops on the new item as an unknown type.
 
 ## Wrapping Widgets with `chrome`
 
@@ -106,7 +107,7 @@ Because the nested `<Widgets />` uses its own registry, it only renders children
 
 If you add new widget types or nested containers, update `known` and `required` in the build gate [Check CMS items before Astro renders them](../validation#integrating-into-the-build-process) wrote. `validateItems` scans the entire tree, including all nested children, against the one `known` list it is handed.
 
-In your `scripts/check-content.ts` file, add your new types (`'stock'`, `'game-grid'` and `'game-card'`) to the `known` list, or the build stops on the new items as unknown types. Add `'game-grid': ['title']` to the `required` map as well, so the build stops on a grid with no `title`.
+In your `scripts/check-content.ts` file, add `'game-grid'` and `'game-card'` to the `known` list, or the build stops on the new items as unknown types. Add `'game-grid': ['title']` to the `required` map as well, so the build stops on a grid with no `title`.
 
 ## See What a Bad Save Renders
 
