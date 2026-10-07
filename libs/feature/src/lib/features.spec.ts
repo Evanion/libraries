@@ -3124,9 +3124,17 @@ describe('the definitions a document carries', () => {
     const document = createFeatures({ version: 1, features: rows });
     const array = createFeatures(rows);
 
-    expect(document.config).toEqual(array.config);
+    expect([document.config, array.config]).toEqual([rows, rows]);
   });
 
+  /**
+   * Both sides are written down rather than compared to each other. `express`
+   * depends on `checkout`, which is disabled, so the cascade decides it false,
+   * and the assignment `cta` makes for `u-1` under the seed `cta` is the one
+   * `bucketing.spec.ts` pins the band arithmetic for. An assertion that reads
+   * one store against the other holds for whatever constant the evaluator
+   * returns, including no variant at all.
+   */
   it('decides what a bare array of the same definitions decides', () => {
     const rows = [
       { key: 'checkout', enabled: false },
@@ -3150,10 +3158,9 @@ describe('the definitions a document carries', () => {
     expect([
       document.isEnabled('express', context),
       document.variantOf('cta', context),
-    ]).toEqual([
       array.isEnabled('express', context),
       array.variantOf('cta', context),
-    ]);
+    ]).toEqual([false, 'control', false, 'control']);
   });
 
   it('decides on a copy of the definition the document carried', () => {
