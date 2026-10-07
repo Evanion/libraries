@@ -76,7 +76,7 @@ This approach ensures that `ORDER 2026 0042 L` and `order-2026-0042-l` both reso
 
 `@evanion/luhn` drops every character outside the dictionary, which lets a person type separators. A barcode scanner sends exactly the characters the barcode holds.
 
-You can use the `filtered` count to enforce strict input. If `filtered` is greater than 0, you know the input contained characters outside the dictionary.
+Use the `filtered` count to enforce strict input. If `filtered` is greater than 0, the input held characters outside the dictionary.
 
 ```ts twoslash file=libs/luhn/README.md region=strict-input
 
@@ -86,4 +86,4 @@ By requiring `filtered === 0` on the scanner's input only, you keep accepting se
 
 ## Customizing the Alphabet
 
-By default, every call on `Luhn` from `@evanion/luhn` runs on a 36-character dictionary. If you need to use a different set of characters—such as the 32-character alphabet used by `@evanion/token`—you can build a custom instance. [Dictionaries](../dictionaries) shows how to use `createLuhn`.
+By default, every call on `Luhn` from `@evanion/luhn` runs on a 36-character dictionary. If you need a different set of characters, such as the 32-character alphabet `@evanion/token` uses, build a custom instance. [Dictionaries](../dictionaries) shows how to use `createLuhn`.
