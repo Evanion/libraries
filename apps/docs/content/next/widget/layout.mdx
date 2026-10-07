@@ -1,6 +1,6 @@
 # Order and nesting
 
-A renderer draws widget items in array order and draws each item's `children` inside it. This means that any edit made to the order of items in your content management system (CMS) is reflected immediately on the page—and everything nested within a widget moves with it.
+`@evanion/react-widget` draws widget items in array order with each item's `children` inside it; in `@evanion/astro-widget` each parent draws its own `children`. Reorder the items in your content management system (CMS), and the page follows on its next render.
 
 <PageSheet
   difficulty={2}
@@ -13,49 +13,57 @@ A renderer draws widget items in array order and draws each item's `children` in
   ]}
 />
 
-## The Problem: Complex, Nested Page Layouts
+## Nesting with `children`
 
-Modern pages aren't just flat lists of components. They often feature nested structures: a "Featured Shelf" that contains "Game Listings," or a "Dashboard Row" that contains "Metric Cards."
+`@evanion/widget` models the page as a tree. An item holds its nested items in its `children` property, so a parent and everything nested in it move as one entry.
 
-Manually managing these relationships in code is fragile. If you want to move a whole section of the page, you have to carefully move the parent and all its children, ensuring you don't break the nesting logic.
+Consider the dashboard Baize's staff read each week, written as seven items in four types:
 
-## Solution: Hierarchical Widget Items
-
-`@evanion/widget` models the page as a tree. By utilizing the `children` property on a widget item, you can create deeply nested layouts that are easy to move and reorganize.
-
-Consider a staff dashboard:
+- `columns` lays its children side by side in one row.
+- `metric` is one figure with a label and a change, such as `+6`.
+- `tables` and `reprints` are titled boards.
 
 ```ts twoslash file=libs/widget/README.md region=dashboard
 
 ```
 
-In this structure:
+`validateItems` returns `[]`, so every item names a [known type](../#the-widget-vocabulary). In this structure:
+
 - The root contains two main sections: `week` and `counter`.
 - The `week` item acts as a container, wrapping three `metric` widgets.
 - The `counter` item wraps two board widgets: `tables` and `reprints`.
 
-Because the children are nested *inside* the parent item, moving the `week` item to the bottom of the array moves all three metrics with it, preserving the group's integrity.
+Because the children are nested _inside_ the parent item, moving the `week` item to the bottom of the array moves all three metrics with it, preserving the group's integrity.
 
-## Placement and the Wrapper
+## Placement with `meta`
 
-While the widget's `props` contain the data, the widget's `meta` property contains **placement data**. 
+In an `@evanion/widget` item, `props` contains the widget's data and `meta` contains **placement data**. A renderer hands `meta` to the [item chrome](../#item-fields), which uses it to determine how the widget should be positioned (e.g., in a grid).
 
-A **wrapper** is the component that surrounds each widget. It uses the `meta` field to determine how the widget should be positioned (e.g., in a grid).
-
-In the dashboard example, the `tables` widget has `meta: { span: 2 }`. The wrapper sees this and assigns the widget two grid columns. If you move the `tables` widget to a different position in the array, its `span: 2` metadata moves with it, ensuring the layout remains consistent regardless of where the widget sits on the page.
+In the dashboard example, the `tables` widget has `meta: { span: 2 }`. The demo's item chrome below reads this and assigns the widget two grid columns; item chrome of yours decides what `span` means. If you move the `tables` widget to a different position in the array, its `span: 2` metadata moves with it, ensuring the layout remains consistent regardless of where the widget sits on the page.
 
 ## Renderer Differences: React vs. Astro
 
 While `@evanion/react-widget` and `@evanion/astro-widget` both use the same core widget items and follow the same order, they handle the rendering process differently:
 
 ### 1. Handling Children
-- **`@evanion/react-widget`**: Draws each child first and passes the resulting React elements as the `children` prop to the parent component.
-- **`@evanion/astro-widget`**: Passes the raw child items to the parent component. The parent is then responsible for rendering its own `<Widgets />` component over those items.
 
-### 2. The Wrapper
-- **React**: Uses a default wrapper (a `div`) that ignores `meta` unless you provide a custom one.
-- **Astro**: Does not provide a default wrapper. You must pass one, and that wrapper must render a `<slot />`, or the widget inside will not appear on the page.
+- **`@evanion/react-widget`**: Draws each child first and passes the resulting React elements as the `children` prop to the parent component.
+- **`@evanion/astro-widget`**: Passes the raw child items to the parent component as a `children` prop. The parent is then responsible for rendering its own `<Widgets />` component over those items.
+
+### 2. Item Chrome
+
+- **React**: Uses a default item chrome (a `div`) that drops `meta` unless you provide a custom `chrome.item`.
+- **Astro**: Draws no item chrome until you pass one as `chrome.item`. The component you pass must render a `<slot />`, or the widget inside will not appear on the page.
+
+## Move a Widget Item and Watch the Page Follow
+
+`@evanion/react-widget` draws the dashboard below from the seven items above, and draws it again after every move. The items are printed under the page, and each line that opens an item has two move controls beside it.
+
+- Move `counter` above `week`. The two rows swap, and each row keeps its own items, because an item's `children` move with it.
+- Move the board `tables` past the board `reprints`. The wide board changes sides, because `meta` belongs to the item it sits on, so the width moves with `tables`.
+
+<DataDemo />
 
 ## Build a Custom Renderer for Layout
 
-The dashboard on this page is powered by `@evanion/react-widget`. However, if you are using a framework without a published renderer, you can build your own. [Your own renderer](../renderer) shows how to implement the logic to draw items in order and handle nesting.
+You have now moved `@evanion/widget` items and watched `@evanion/react-widget` redraw the page, with each item's `children` and `meta` moving with it. If you are using a framework without a published renderer, you can build your own. [Your own renderer](../renderer) shows how to draw items in order, skip the ones you cannot draw, and print the same warning both published renderers print.

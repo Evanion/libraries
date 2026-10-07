@@ -45,8 +45,8 @@ a whole payload.
 
 ```
 
-A type is matched as an own key of `known`, so an item typed `constructor` or
-`__proto__` is unknown. Ids are checked for duplicates within one sibling list
+A type matches when it is an own key of a registry or an entry of a list, so an
+item typed `constructor` or `__proto__` is unknown. Ids are checked for duplicates within one sibling list
 only. [What it reports](../problems) lists every message and what produces
 it.
 
@@ -69,7 +69,7 @@ reported once, and a second bad item is still reported.
 
 A renderer calls `warnOnce`. A project that draws through a published renderer
 has no reason to call it, and neither renderer re-exports it.
-[Your own renderer](../renderer#draw-widget-items-and-warn-once) runs a minimal
+[Your own renderer](../renderer#implementing-the-render-loop) runs a minimal
 renderer that calls it.
 
 ## `resetWarnings`
@@ -82,7 +82,7 @@ Clears the set of messages `warnOnce` has already written. A set that lives as
 long as the process is what a dev server wants and what a test file cannot
 have, since one case's warning would silence the next case that produces the
 same message. Each renderer's test setup calls this before every test, and the
-renderer that [Your own renderer](../renderer#draw-widget-items-and-warn-once)
+renderer that [Your own renderer](../renderer#implementing-the-render-loop)
 builds calls it before its first render.
 
 ## `ERROR_MESSAGES`
@@ -129,7 +129,7 @@ interface AnyWidgetItem<Type extends string = string, Props = object> {
 One item, typed without a registry: a content management system payload, a
 fixture, a network response. This is the whole item model, and every renderer
 draws exactly this.
-[The Overview](../#how-a-widget-item-array-describes-a-page) walks through
+[The Overview](../#item-fields) walks through
 each field. [`@evanion/react-widget`](/react-widget) also exports
 `WidgetItem<C>`, which checks an item's `props` against the component its
 registry `C` holds for the item's `type`.
@@ -159,13 +159,13 @@ the check it has.
 type WidgetMeta = Record<string, unknown>;
 ```
 
-The type of an item's `meta` when the wrapper declares no narrower one. The
-[wrapper](../#how-a-widget-item-array-describes-a-page) is the element a
-renderer draws around each item, which the application supplies as
-`chrome.item`. In `@evanion/react-widget`, a wrapper typed
-`WidgetItemComponent<M>` narrows every item's `meta` to `M`. `WidgetMeta`
-accepts any object, so an item carries whatever placement data it likes and a
-wrapper that reads `meta` narrows it by hand.
+The type of an item's `meta` when the item chrome declares no narrower one. The
+[item chrome](../#item-fields) is the component a renderer draws around each
+item, which the application supplies as `chrome.item`. In
+`@evanion/react-widget`, item chrome typed `WidgetItemComponent<M>` narrows
+every item's `meta` to `M`. `WidgetMeta` accepts any object, so an item carries
+whatever placement data it likes and item chrome that reads `meta` narrows it by
+hand.
 
 ## `WidgetProblem`
 
