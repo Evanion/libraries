@@ -1,18 +1,93 @@
-[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
+# @evanion/feature
 
-# Feature Toggles
+**Dependency-aware feature flags: a feature whose parent resolves off resolves off with it.**
 
-> Not published yet. `package.json` carries `private: true`, so a release run
-> versions and tags the package without publishing it. npm cannot configure a
-> trusted publisher for a package that does not exist on the registry, so the
-> first version has to be published by hand — see
-> [RELEASING.md](../../RELEASING.md). Removing `private` before that bootstrap
-> makes a release run fail at the publish step with everything else already
-> tagged.
+> **Not on npm yet.** `package.json` carries `private: true`, so a release run
+> versions and tags the package without publishing it, and
+> `npm install @evanion/feature` does not resolve until the first version is
+> published by hand. See [RELEASING.md](../../RELEASING.md).
 
-Feature toggles where one flag can depend on another. A parent that resolves off
-takes its dependants with it, transitively, and it does that without writing
-anything back into the configuration.
+Express pickup only exists inside the new checkout, so a customer who gets express pickup without the new checkout sees a broken page. `@evanion/feature` resolves a feature off whenever a feature it depends on resolves off, so no feature is ever on without its prerequisites.
+
+## Flags that depend on other flags
+
+Baize offers express pickup inside the new checkout, and demo night booking inside express pickup. With independent flags, every component that renders the booking repeats the whole chain:
+
+```tsx
+if (flags.newCheckout && flags.expressPickup && flags.demoNightBooking) {
+  return <DemoNightBooking />;
+}
+```
+
+Turn the new checkout off, and every component that left one of those checks out still offers the booking.
+
+## The cascade
+
+`@evanion/feature` takes a dependency graph. If a parent feature resolves off, all of its dependants resolve off with it, transitively, on the same call. Nothing is written back into your configuration.
+
+<!-- #region cascade -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [
+      {
+        id: 'booksellers-first',
+        when: [{ field: 'role', op: 'eq', value: 'bookseller' }],
+      },
+    ],
+  },
+  {
+    key: 'express-pickup',
+    enabled: true,
+    dependsOn: ['new-checkout'],
+  },
+]);
+
+// A bookseller gets the new checkout AND the express pickup
+const bookseller = { role: 'bookseller' };
+features.isEnabled('express-pickup', bookseller); // -> true
+
+// A customer is denied the checkout, so they are automatically denied pickup
+const customer = { role: 'customer' };
+features.isEnabled('express-pickup', customer); // -> false
+```
+
+<!-- #endregion cascade -->
+
+## What it does
+
+- Dependencies are transitive. If express pickup depends on the new checkout, and demo night booking on express pickup, turning off the new checkout takes both off.
+- Rollouts hash the customer's id, so one customer gets the same answer in every session and every service.
+- Variants split customers across named versions of a feature by relative weight.
+- A rule can open or close a feature at an ISO 8601 instant, such as `2026-10-01T00:00:00Z`.
+- A rule can match any field of the context you pass, such as a role.
+- The core imports no framework, so the same store runs in an API, a build script, or under the `@evanion/feature/react` provider.
+
+## Installation
+
+```bash
+npm install @evanion/feature
+```
+
+The package needs Node 20 or later and ships ES modules. It has two entry points. `@evanion/feature` is the core and imports no framework. `@evanion/feature/react` carries the provider and hooks, is client code, and needs React 18 or 19, an optional peer dependency.
+
+## Beyond the basics
+
+A feature moves from booksellers only to every customer through rules, rollouts and variants. The sections below also cover:
+
+- `plan()`, which splits features into those a build can resolve and those deferred to the request.
+- Variant pinning, which overrides the weights for a matching rule, such as pinning booksellers to the `blue` variant.
+- Sticky assignments, which hand back an assignment your application stored, so a customer keeps a variant when you change the weights.
+- The `observe` callback, which reports each decision the store made for a request.
+
+## Rolling Out by Date and Share
+
+A rule can combine a time window with a percentage rollout. Express pickup below is offered only to a customer the new checkout is already on for:
 
 <!-- #region quick-start -->
 
@@ -42,103 +117,213 @@ features.isEnabled('express-pickup', { targetingKey: 'cust-0107', now }); // -> 
 
 <!-- #endregion quick-start -->
 
-Express pickup is offered only to a customer the new checkout is already on
-for. `cust-0042` and `cust-0107` differ because the 25% rollout put them in
-different buckets, and the answer for each is the same on every request.
-Without the cascade, a quarter of customers would get the new checkout and all
-of them would get its pickup option.
+`cust-0042` and `cust-0107` differ because the 25% rollout put them in different buckets, and the answer for each is the same on every request. Without the cascade, a quarter of customers would get the new checkout and all of them would get its pickup option.
 
-## Installation
+## Writing Definitions
 
-```bash
-npm install @evanion/feature
+A feature is stored intent. `createFeatures` validates the dependency graph, deep-clones and freezes your definitions, and returns the store. Your own array stays editable:
+
+<!-- #region definition -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const definitions = [{ key: 'gift-cards', enabled: true }];
+const features = createFeatures(definitions);
+
+features.isEnabled('gift-cards'); // -> true
+Object.isFrozen(definitions[0]); // -> false
+Object.isFrozen(features.definition('gift-cards')); // -> true
 ```
 
-Two entry points. `@evanion/feature` is the core and imports no framework, so it
-runs in an API, in a script, or at build time. `@evanion/feature/react` carries
-the provider and hooks and is client code.
+<!-- #endregion definition -->
 
-## Configuration
+Dependencies are transitive and one-way, and a definition may name a feature declared after it. A feature that is off takes every feature behind it along and leaves the feature it depends on alone:
 
-A feature is stored intent:
+<!-- #region cascade-chain -->
 
-| Field               | Meaning                                                                  |
-| ------------------- | ------------------------------------------------------------------------ |
-| `key`               | The identifier. `string` or `number`.                                    |
-| `enabled`           | The maintainer wants this on.                                            |
-| `dependsOn`         | Features that must resolve on for this one to.                           |
-| `rules`             | Activation rules. OR-ed.                                                 |
-| `seed`              | Bucketing seed for this feature's rollouts. Defaults to the key.         |
-| `freezeTimeAtBuild` | Let `plan()` resolve this feature's time windows at build.               |
-| `variants`          | Named variants this feature splits across.                               |
-| `variantBy`         | Context field variant assignment buckets on. Defaults to `targetingKey`. |
-| `variantSeed`       | Bucketing seed for this feature's variant split.                         |
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
 
-`enabled` is intent, not the answer. `rules` decide whether it resolves on for a
-given context.
+const features = createFeatures([
+  { key: 'demo-night-booking', enabled: true, dependsOn: ['express-pickup'] },
+  { key: 'express-pickup', enabled: false, dependsOn: ['new-checkout'] },
+  { key: 'new-checkout', enabled: true },
+]);
 
-## Precedence
-
-- `enabled === false` short-circuits. Rules never run.
-- A parent that resolved off short-circuits. Rules never run.
-- `enabled === true` with no rules means on.
-- Rules are OR-ed; the `when` conditions inside one rule are AND-ed. A rollout
-  is one more conjunct of the rule that carries it.
-
-Not first-match. Rule order never changes the outcome.
-
-Toggling `enabled` on for a feature whose rules do not match changes stored
-intent, and the feature still resolves off. It is a kill switch in one direction
-only; it is not a force-on.
-
-## Conditions
-
-```ts
-{ field: 'now', op: 'before' | 'after', value: '2026-10-01T00:00:00Z' }
-{ field: 'now', op: 'day-of-week', zone: 'Europe/Stockholm', value: ['mon', 'fri'] }
-{ field: 'role', op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains', value: 'bookseller' }
+features.isEnabled('demo-night-booking'); // -> false
+features.isEnabled('new-checkout'); // -> true
 ```
 
-`now` comes from the evaluation context and defaults to `new Date()` at the
-call. It is injected, never read from an ambient clock, which is what makes
-build-time evaluation honest and tests trivial.
+<!-- #endregion cascade-chain -->
 
-A window's `value` is an ISO 8601 string, epoch milliseconds, or a `Date`. The
-string has to name one instant on every host: a date-time carrying `Z` or an
-offset, written `+01:00` or `+0100`, or a date with no time, which ECMA-262
-fixes to UTC. `createFeatures` refuses `'2026-01-01T00:00:00'`, which ECMA-262
-reads as local time, because the rule would derive one id and resolve against a
-different boundary in every zone. It refuses `'2026-13-01'` and
-`'2026-01-01t00:00:00z'` for the same reason: ECMA-262's format does not cover
-them, so each engine reads them by rules of its own.
+### Configuration Errors
 
-Epoch milliseconds have to be a number a `Date` holds, and a `Date` has to hold
-an instant. `createFeatures` refuses `Number.NaN`, which is what `Date.parse`
-answers for a string naming no instant, and refuses a number past either end of
-the range a `Date` holds, which bounds a window every moment falls inside.
+`createFeatures` refuses a broken graph at construction. Every error it throws extends `FeatureConfigError`, and `resolve`, `plan` and `toggle` never throw:
 
-A `Date` holding an instant is taken as that instant and is read no further, so
-`new Date('2026-01-01T00:00:00')` carries the constructing host's zone past
-every check.
+<!-- #region config-errors -->
 
-A day-of-week condition must name an IANA zone. UTC day-of-week is wrong for
-every business rule anyone writes.
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+import type { FeatureDefinition } from '@evanion/feature';
 
-A condition over a field the context does not carry never holds -- including the
-negative operators. `ne` on an absent field is unevaluable, not true.
+const attempt = (definitions: FeatureDefinition[]) => {
+  try {
+    createFeatures(definitions);
+    return 'built';
+  } catch (error) {
+    return String(error);
+  }
+};
 
-## Results
+const cycle: FeatureDefinition[] = [
+  { key: 'a', enabled: true, dependsOn: ['c'] },
+  { key: 'b', enabled: true, dependsOn: ['a'] },
+  { key: 'c', enabled: true, dependsOn: ['b'] },
+];
+const duplicate: FeatureDefinition[] = [
+  { key: 'a', enabled: true },
+  { key: 'a', enabled: true },
+];
 
-`resolve(context)` returns one decision per feature. `enabled` is the decision;
-everything else explains it.
+attempt(cycle); // -> 'FeatureCycleError: feature dependency cycle: a -> c -> b -> a'
+attempt([{ key: 'a', enabled: true, dependsOn: ['b'] }]); // -> 'UnknownDependencyError: feature "a" depends on "b", which is not configured'
+attempt(duplicate); // -> 'DuplicateFeatureError: duplicate feature key "a"'
+```
 
-| `reason`          | meaning                                                           |
-| ----------------- | ----------------------------------------------------------------- |
-| `default-on`      | enabled, no rules                                                 |
-| `rule-match`      | enabled, a rule matched; carries `rule`                           |
-| `explicitly-off`  | `enabled === false`                                               |
-| `no-rule-matched` | enabled, rules present, none passed; carries a per-rule breakdown |
-| `dependency-off`  | a parent resolved off; carries `blockedBy` and `cause`            |
+<!-- #endregion config-errors -->
+
+### Rules and Conditions
+
+Rules are OR-ed, the conditions inside one rule are AND-ed, and a rollout is one more conjunct of the rule that carries it:
+
+<!-- #region rules -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'beta-banner',
+    enabled: true,
+    rules: [
+      {
+        id: 'internal',
+        when: [{ field: 'roles', op: 'contains', value: 'bookseller' }],
+      },
+      { id: 'ramp', rollout: { percent: 10 } },
+    ],
+  },
+]);
+
+features.isEnabled('beta-banner', { roles: ['bookseller'] }); // -> true
+const customer = (targetingKey: string) =>
+  features.isEnabled('beta-banner', { roles: ['customer'], targetingKey });
+
+customer('cust-0042'); // -> false
+customer('cust-0007'); // -> true
+```
+
+<!-- #endregion rules -->
+
+A condition over a field the context does not carry never holds, the negative operators included. `ne` on an absent field is unevaluable, so it is false:
+
+<!-- #region absent-field -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const preview = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [
+      {
+        id: 'not-customers',
+        when: [{ field: 'role', op: 'ne', value: 'customer' }],
+      },
+    ],
+  },
+]);
+
+preview.isEnabled('new-checkout', { role: 'bookseller' }); // -> true
+preview.isEnabled('new-checkout', {}); // -> false
+```
+
+<!-- #endregion absent-field -->
+
+A time window's string has to name one instant on every host: a date-time carrying `Z` or an offset, or a date with no time, which ECMA-262 fixes to UTC. `createFeatures` refuses the rest:
+
+<!-- #region instant-strings -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const opening = (value: string) => {
+  try {
+    createFeatures([
+      {
+        key: 'new-checkout',
+        enabled: true,
+        rules: [{ id: 'launch', when: [{ field: 'now', op: 'after', value }] }],
+      },
+    ]);
+    return 'built';
+  } catch (error) {
+    return (error as Error).name;
+  }
+};
+
+opening('2026-01-01T09:00:00+09:00'); // -> 'built'
+opening('2026-01-01T09:00:00+0900'); // -> 'built'
+opening('2026-01-01'); // -> 'built'
+opening('2026-01-01T00:00:00'); // -> 'FeatureConfigError'
+opening('2026-04-31'); // -> 'FeatureConfigError'
+```
+
+<!-- #endregion instant-strings -->
+
+### Typing the Keys and the Variants
+
+A store built from an array literal needs no type argument. When your configuration arrives as JSON, or from a variable typed `FeatureDefinition<Flag>[]`, name a schema:
+
+<!-- #region typed-schema -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+import type { FeatureDefinition } from '@evanion/feature';
+
+interface Flags {
+  'new-checkout': never;
+  'express-pickup': { variant: 'control' | 'blue'; value: never };
+}
+
+// Typed as definitions, so the compiler has no literals to read.
+const config: FeatureDefinition<keyof Flags>[] = [
+  { key: 'new-checkout', enabled: true },
+  {
+    key: 'express-pickup',
+    enabled: true,
+    dependsOn: ['new-checkout'],
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ],
+  },
+];
+
+const features = createFeatures<Flags>(config);
+
+features.variantOf('express-pickup', { targetingKey: 'cust-0042' }); // -> 'blue'
+// @ts-expect-error -- 'express-delivery' is not a key of Flags
+features.isEnabled('express-delivery'); // -> false
+```
+
+<!-- #endregion typed-schema -->
+
+## Reading a Decision
+
+`resolve` returns one decision per feature. `enabled` is the decision, and everything else explains it:
 
 <!-- #region dependency-off -->
 
@@ -151,64 +336,174 @@ const features = createFeatures([
     enabled: true,
     rules: [
       {
-        id: 'staff-first',
-        when: [{ field: 'role', op: 'eq', value: 'bookseller' }],
+        id: 'after-launch',
+        when: [{ field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' }],
+        rollout: { percent: 25, by: 'targetingKey' },
       },
     ],
   },
   { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
 ]);
-
-features.resolve({ role: 'customer' })['express-pickup']; // -> { key: 'express-pickup', enabled: false, reason: 'dependency-off', blockedBy: 'new-checkout', cause: { key: 'new-checkout', reason: 'no-rule-matched', rule: 'staff-first' } }
+const now = new Date('2026-11-01T00:00:00Z');
+// ---cut---
+features.resolve({ targetingKey: 'cust-0107', now })['express-pickup']; // -> { key: 'express-pickup', enabled: false, reason: 'dependency-off', blockedBy: 'new-checkout', cause: { key: 'new-checkout', reason: 'no-rule-matched', rule: 'after-launch' } }
 ```
 
 <!-- #endregion dependency-off -->
 
-`blockedBy` is the edge, for a graph view. `cause` is the first ancestor off for
-a reason of its own, for an operator who wants to know what to fix.
+| `reason`          | Meaning                                                           |
+| ----------------- | ----------------------------------------------------------------- |
+| `default-on`      | enabled, no rules                                                 |
+| `rule-match`      | enabled, a rule matched; carries `rule`                           |
+| `explicitly-off`  | `enabled === false`                                               |
+| `no-rule-matched` | enabled, rules present, none passed; carries a per-rule breakdown |
+| `dependency-off`  | a parent resolved off; carries `blockedBy` and `cause`            |
 
-`reason` is output only. Nothing in this library reads it back to decide
-anything, so deleting it changes no decision.
+`reason` is output only. Nothing in this library reads it back to decide anything.
 
-A feature that declares `variants` carries `variant` on a decision that
-resolves on, and `value` too when the assigned variant declares one.
-`assignment` says how: `source` is `'weighted'`, `'pinned'`, `'sticky'` or
-`'fallback'`.
+One `resolve` per request answers every flag on the page:
 
-<!-- #region variant-result -->
+<!-- #region resolve-request -->
 
 ```ts @import.meta.vitest
 import { createFeatures } from '@evanion/feature';
 
 const features = createFeatures([
   {
-    key: 'checkout-cta',
+    key: 'new-checkout',
     enabled: true,
-    variants: [
-      { name: 'control', weight: 50 },
-      { name: 'blue', weight: 50, value: { label: 'Get it' } },
+    rules: [
+      {
+        id: 'after-launch',
+        when: [{ field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' }],
+        rollout: { percent: 25, by: 'targetingKey' },
+      },
+    ],
+  },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+]);
+const now = new Date('2026-11-01T00:00:00Z');
+// ---cut---
+const decisions = features.resolve({ targetingKey: 'cust-0101', now });
+
+decisions['new-checkout']; // -> { key: 'new-checkout', enabled: true, reason: 'rule-match', rule: 'after-launch' }
+decisions['express-pickup']; // -> { key: 'express-pickup', enabled: true, reason: 'default-on' }
+```
+
+<!-- #endregion resolve-request -->
+
+`blockedBy` names the immediate parent and `cause` the first ancestor that is off for a reason of its own. Down a chain the two differ:
+
+<!-- #region cascade-reasons -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  { key: 'new-checkout', enabled: true },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  { key: 'demo-night-booking', enabled: true, dependsOn: ['express-pickup'] },
+]);
+// ---cut---
+features.toggle('new-checkout', false);
+const decisions = features.resolve();
+
+decisions['express-pickup']; // -> { key: 'express-pickup', enabled: false, reason: 'dependency-off', blockedBy: 'new-checkout', cause: { key: 'new-checkout', reason: 'explicitly-off' } }
+decisions['demo-night-booking']; // -> { key: 'demo-night-booking', enabled: false, reason: 'dependency-off', blockedBy: 'express-pickup', cause: { key: 'new-checkout', reason: 'explicitly-off' } }
+```
+
+<!-- #endregion cascade-reasons -->
+
+A `no-rule-matched` decision carries one outcome per rule. A condition that failed is named in `failed`, and a rollout that left the customer out reports its numbers in `rollout`:
+
+<!-- #region no-rule-matched -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [
+      { when: [{ field: 'role', op: 'eq', value: 'bookseller' }] },
+      { id: 'a-share', rollout: { percent: 10 } },
     ],
   },
 ]);
 
-features.resolve({ targetingKey: 'user-1' })['checkout-cta']; // -> { key: 'checkout-cta', enabled: true, reason: 'default-on', variant: 'control', assignment: { source: 'weighted', by: 'targetingKey', bucket: 0.17582221026532352 } }
+const customer = { role: 'customer', targetingKey: 'cust-0042' };
+
+features.resolve(customer)['new-checkout']; // -> { key: 'new-checkout', enabled: false, reason: 'no-rule-matched', rules: [{ rule: 'rule-d69c7f2b', matched: false, failed: { field: 'role', op: 'eq', value: 'bookseller' } }, { rule: 'a-share', matched: false, rollout: { percent: 10, by: 'targetingKey', member: false } }] }
 ```
 
-<!-- #endregion variant-result -->
+<!-- #endregion no-rule-matched -->
 
-`variant` and `value` are absent on a feature with no `variants` declared,
-and so is `assignment`. All three are absent on a feature that resolved off.
-See the Variants page in the docs for pinning, `stickyVariants` and what a
-context missing the bucketing field gets.
+## Toggling and Inspecting the Store
+
+`toggle` is the only writer. It sets `enabled` on the stored definition and reports which dependants went off with it:
+
+<!-- #region toggle -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  { key: 'new-checkout', enabled: true },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  { key: 'demo-night-booking', enabled: true, dependsOn: ['express-pickup'] },
+]);
+
+features.toggle('new-checkout', false); // -> { ok: true, key: 'new-checkout', enabled: false, willDisable: ['express-pickup', 'demo-night-booking'] }
+```
+
+<!-- #endregion toggle -->
+
+`willDisable` lists only the dependants that were on and are now off, and it is empty when enabling. A key the store was not built with returns a result and never throws:
+
+<!-- #region toggle-report -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  { key: 'new-checkout', enabled: true },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  { key: 'demo-night-booking', enabled: true, dependsOn: ['express-pickup'] },
+]);
+// ---cut---
+features.toggle('express-pickup', false); // -> { ok: true, key: 'express-pickup', enabled: false, willDisable: ['demo-night-booking'] }
+features.toggle('express-pickup', true); // -> { ok: true, key: 'express-pickup', enabled: true, willDisable: [] }
+// @ts-expect-error -- the store's keys are checked at compile time too
+features.toggle('express-delivery', false); // -> { ok: false, key: 'express-delivery', error: 'unknown-feature' }
+```
+
+<!-- #endregion toggle-report -->
+
+The store also answers what it holds:
+
+<!-- #region inspect -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  { key: 'new-checkout', enabled: true },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  { key: 'demo-night-booking', enabled: true, dependsOn: ['express-pickup'] },
+]);
+// ---cut---
+features.keys; // -> ['new-checkout', 'express-pickup', 'demo-night-booking']
+features.dependants('new-checkout'); // -> ['express-pickup', 'demo-night-booking']
+features.definition('express-pickup'); // -> { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] }
+Object.isFrozen(features.config); // -> true
+```
+
+<!-- #endregion inspect -->
 
 ## Rollouts
 
-```ts
-{ rollout: { percent: 25, by: 'targetingKey', seed: 'holiday-cohort' } }
-```
-
-The primitive under it is exported, and it is the whole of what a rollout
-decides:
+A rollout's answer is a pure hash of a seed and the customer's bucketing value, so the same customer gets the same answer in every process:
 
 <!-- #region rollout -->
 
@@ -221,9 +516,7 @@ inRollout('cust-0042', 10, 'new-checkout'); // -> false
 
 <!-- #endregion rollout -->
 
-The bucket behind it is a pure hash of the seed and the bucketing value. No
-randomness, no clock, no process state, so every process agrees and a customer
-who saw the new checkout at 10% still sees it at 25%:
+The bucket does not depend on the percentage, so raising a percentage only adds members:
 
 <!-- #region bucket-stable -->
 
@@ -237,8 +530,7 @@ inRollout('cust-0007', 25, 'new-checkout'); // -> false
 
 <!-- #endregion bucket-stable -->
 
-The seed defaults to the feature key, which is what puts one customer in
-different places in two rollouts:
+The seed defaults to the feature key, which puts one customer in unrelated buckets for two features:
 
 <!-- #region bucket-decorrelated -->
 
@@ -251,20 +543,75 @@ bucketOf('cust-0007', 'express-pickup'); // -> 0.007160091772675514
 
 <!-- #endregion bucket-decorrelated -->
 
-The bucket is a MurmurHash3 of the seed and the bucketing value, normalised over
-2^32 buckets. The seed defaults to the feature key, which is what decorrelates a
-user's bucket across features -- with a shared seed, someone is in every rollout
-or none. Set `seed` explicitly only to correlate two features deliberately.
+`by` names the context field a rollout buckets on, and `seed` replaces the feature key as the hash seed. Gift cards below take the new checkout's seed, so they reach the same customers the new checkout's 25% does:
 
-The bucket does not depend on the percentage, so raising a percentage only adds
-members and never moves one out. Lowering it removes the highest buckets.
+<!-- #region rollout-spec -->
 
-A context with no value for `by` does not match the rollout.
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'gift-cards',
+    enabled: true,
+    rules: [
+      {
+        rollout: {
+          percent: 25,
+          by: 'targetingKey',
+          seed: 'new-checkout',
+        },
+      },
+    ],
+  },
+]);
+
+features.isEnabled('gift-cards', { targetingKey: 'cust-0101' }); // -> true
+features.isEnabled('gift-cards', { targetingKey: 'cust-0007' }); // -> false
+```
+
+<!-- #endregion rollout-spec -->
+
+A context with no value for `by` is outside every rollout, even at 100%. A `percent` of `0` includes nobody:
+
+<!-- #region rollout-edges -->
+
+```ts @import.meta.vitest
+import { createFeatures, inRollout } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [{ id: 'everyone', rollout: { percent: 100 } }],
+  },
+]);
+
+features.isEnabled('new-checkout', { targetingKey: 'cust-0042' }); // -> true
+features.isEnabled('new-checkout', {}); // -> false
+inRollout('cust-0101', 0, 'new-checkout'); // -> false
+```
+
+<!-- #endregion rollout-edges -->
+
+The primitives work without a store, for snapshot tests or for asking which customers a rollout reaches:
+
+<!-- #region primitives -->
+
+```ts @import.meta.vitest
+import { bucketOf, inRollout } from '@evanion/feature';
+
+const customers = ['cust-0007', 'cust-0042', 'cust-0101', 'cust-0113'];
+
+customers.filter((id) => inRollout(id, 10, 'new-checkout')); // -> ['cust-0101', 'cust-0113']
+bucketOf('cust-0113', 'new-checkout'); // -> 0.03226795047521591
+```
+
+<!-- #endregion primitives -->
 
 ## Variants
 
-A feature can resolve to more than on and off. It can split its subjects
-across named variants:
+A feature can resolve to more than on and off. It can split its subjects across named variants:
 
 <!-- #region variant-basics -->
 
@@ -287,8 +634,7 @@ features.resolve({ targetingKey: 'user-1' })['checkout-cta']; // -> { key: 'chec
 
 <!-- #endregion variant-basics -->
 
-Weights are relative and normalised across the set, so `3` and `1` split
-75%/25% and never have to sum to 100:
+Weights are relative and normalised across the set, so `3` and `1` split 75%/25% and never have to sum to 100:
 
 <!-- #region variant-weights -->
 
@@ -312,11 +658,7 @@ weighted.resolve({ targetingKey: 'user-1' })['summary-panel']; // -> { key: 'sum
 
 <!-- #endregion variant-weights -->
 
-`order` fixes a variant's position in the bucketing walk. The array index
-decides the walk position when an author leaves `order` out, so an array a
-control plane reorders with no explicit `order` reassigns a subject near a
-boundary. An explicit `order` holds the walk steady under that same
-reordering:
+`order` fixes a variant's position in the bucketing walk. Without it the array index decides, so a control plane that reorders the array reassigns a subject. With it, the same reorder moves nobody:
 
 <!-- #region variant-order -->
 
@@ -333,16 +675,6 @@ const declared = createFeatures([
     ],
   },
 ]);
-const reordered = createFeatures([
-  {
-    key: 'summary-panel',
-    enabled: true,
-    variants: [
-      { name: 'control', weight: 3, order: 0 },
-      { name: 'compact', weight: 1, order: 1 },
-    ],
-  },
-]);
 const swapped = createFeatures([
   {
     key: 'summary-panel',
@@ -353,17 +685,25 @@ const swapped = createFeatures([
     ],
   },
 ]);
+const swappedWithOrder = createFeatures([
+  {
+    key: 'summary-panel',
+    enabled: true,
+    variants: [
+      { name: 'compact', weight: 1, order: 1 },
+      { name: 'control', weight: 3, order: 0 },
+    ],
+  },
+]);
 
 declared.resolve({ targetingKey: 'user-4' })['summary-panel'].variant; // -> 'compact'
-reordered.resolve({ targetingKey: 'user-4' })['summary-panel'].variant; // -> 'compact'
 swapped.resolve({ targetingKey: 'user-4' })['summary-panel'].variant; // -> 'control'
+swappedWithOrder.resolve({ targetingKey: 'user-4' })['summary-panel'].variant; // -> 'compact'
 ```
 
 <!-- #endregion variant-order -->
 
-`variantSeed` defaults to a value distinct from the rollout's own seed. The
-same seed on both correlates the two: every member of a 50% rollout falls
-below the same 0.5 boundary a 50/50 variant split also uses.
+`variantSeed` defaults to `${seed ?? key}:variant`, a value distinct from the rollout's own seed. The same seed on both correlates the two: every member of a 50% rollout falls below the same 0.5 boundary a 50/50 split uses, so all of them get the control:
 
 <!-- #region variant-seed-shared -->
 
@@ -405,21 +745,24 @@ const features = createFeatures([
       { name: 'blue', weight: 50, value: { label: 'Get it' } },
     ],
     rules: [
-      { when: [{ field: 'group', op: 'eq', value: 'staff' }], variant: 'blue' },
+      {
+        when: [{ field: 'role', op: 'eq', value: 'bookseller' }],
+        variant: 'blue',
+      },
       { rollout: { percent: 20 } },
     ],
   },
 ]);
 
+const bookseller = { targetingKey: 'user-1', role: 'bookseller' };
+
 features.resolve({ targetingKey: 'user-1' })['checkout-cta'].variant; // -> 'control'
-features.resolve({ targetingKey: 'user-1', group: 'staff' })['checkout-cta']; // -> { key: 'checkout-cta', enabled: true, reason: 'rule-match', rule: 'rule-39b9a074', variant: 'blue', assignment: { source: 'pinned', by: 'targetingKey', rule: 'rule-39b9a074' }, value: { label: 'Get it' } }
+features.resolve(bookseller)['checkout-cta']; // -> { key: 'checkout-cta', enabled: true, reason: 'rule-match', rule: 'rule-d69c7f2b', variant: 'blue', assignment: { source: 'pinned', by: 'targetingKey', rule: 'rule-d69c7f2b' }, value: { label: 'Get it' } }
 ```
 
 <!-- #endregion variant-pin -->
 
-`stickyVariants` holds a prior assignment, keyed by feature, that an
-application stores. A stored entry wins over the weights, checked before a
-bucketing value is ever read:
+`stickyVariants` holds a prior assignment, keyed by feature, that your application stored. A stored entry naming a declared variant wins over the weights:
 
 <!-- #region variant-sticky -->
 
@@ -442,8 +785,7 @@ sticky.resolve({ stickyVariants: { 'checkout-cta': 'blue' } })['checkout-cta']; 
 
 <!-- #endregion variant-sticky -->
 
-With no sticky entry and no usable value for `by`, the subject takes the
-control and `assignment.source` reads `'fallback'`:
+With no sticky entry and no usable value for `variantBy`, the subject takes the control, the first variant in bucketing order, and `assignment.source` reads `'fallback'`:
 
 <!-- #region variant-fallback -->
 
@@ -466,8 +808,7 @@ features.resolve({})['checkout-cta']; // -> { key: 'checkout-cta', enabled: true
 
 <!-- #endregion variant-fallback -->
 
-`variant` and `value` are absent on a feature that resolves off, and so is
-`assignment`:
+`variant`, `value` and `assignment` are absent on a feature that resolves off:
 
 <!-- #region variant-off -->
 
@@ -483,61 +824,23 @@ const features = createFeatures([
       { name: 'blue', weight: 50, value: { label: 'Get it' } },
     ],
     rules: [
-      { when: [{ field: 'group', op: 'eq', value: 'staff' }], variant: 'blue' },
+      {
+        when: [{ field: 'role', op: 'eq', value: 'bookseller' }],
+        variant: 'blue',
+      },
       { rollout: { percent: 20 } },
     ],
   },
 ]);
 
-features.resolve({ targetingKey: 'user-2' })['checkout-cta']; // -> { key: 'checkout-cta', enabled: false, reason: 'no-rule-matched', rules: [{ rule: 'rule-39b9a074', matched: false, failed: { field: 'group', op: 'eq', value: 'staff' } }, { rule: 'rule-3deffef5', matched: false, rollout: { percent: 20, by: 'targetingKey', member: false } }] }
+features.resolve({ targetingKey: 'user-2' })['checkout-cta']; // -> { key: 'checkout-cta', enabled: false, reason: 'no-rule-matched', rules: [{ rule: 'rule-d69c7f2b', matched: false, failed: { field: 'role', op: 'eq', value: 'bookseller' } }, { rule: 'rule-3deffef5', matched: false, rollout: { percent: 20, by: 'targetingKey', member: false } }] }
 ```
 
 <!-- #endregion variant-off -->
 
-See the Variants page in the docs for the full walkthrough.
+## Build-time Planning
 
-## The store never writes
-
-The only writers are `toggle()` and editing the configuration. `resolve()` and
-`plan()` are pure functions of `(config, context, now)`.
-
-When a parent's window expires nothing changes in the store; `resolve()` starts
-returning false for the dependant. When the window reopens it returns true
-again. The dependant's `enabled` was `true` throughout, because that field means
-"the maintainer wants this on", which stayed true.
-
-Writing resolved values back would put entries in an audit log that nobody
-performed, make a process that slept through a window boundary disagree with one
-that was awake, and destroy the difference between "someone turned this off" and
-"the system turned it off".
-
-## Toggling
-
-<!-- #region toggle -->
-
-```ts @import.meta.vitest
-import { createFeatures } from '@evanion/feature';
-
-const features = createFeatures([
-  { key: 'new-checkout', enabled: true },
-  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
-  { key: 'demo-night-booking', enabled: true, dependsOn: ['express-pickup'] },
-]);
-
-features.toggle('new-checkout', false); // -> { ok: true, key: 'new-checkout', enabled: false, willDisable: ['express-pickup', 'demo-night-booking'] }
-```
-
-<!-- #endregion toggle -->
-
-Dependencies cascade one way only -- a dependant never blocks its parent -- but
-the information that blocking existed to provide is kept. `willDisable` lists
-the transitive dependants that resolve on now and will not after the toggle. A UI
-can confirm before applying; a script can ignore it.
-
-An unknown key returns `{ ok: false, error: 'unknown-feature' }` rather than
-throwing.
-
-## Static and runtime evaluation
+`plan()` partitions every feature into resolvable now and deferred, for a build that does not have the whole evaluation context. A build that renders one page per game knows the game and not the customer:
 
 <!-- #region plan -->
 
@@ -552,40 +855,28 @@ const features = createFeatures([
   },
 ]);
 
-features.plan({ now: new Date('2026-11-01T00:00:00Z') }); // -> { 'new-checkout': { key: 'new-checkout', resolved: 'deferred', needs: ['targetingKey'] } }
+features.plan({ game: 'urn:game:azul' }); // -> { 'new-checkout': { key: 'new-checkout', resolved: 'deferred', needs: ['targetingKey'] } }
 ```
 
 <!-- #endregion plan -->
 
-`plan()` partitions rules by the context they require. A rule needing only `now`
-is resolvable for a known instant; a rule needing `targetingKey` is not. A static
-site emits only the deferred set and resolves that per request; an API calls
-`resolve()` per request. One engine, not a second code path.
-
-Freezing a date window into a build is a deploy-cadence decision, so `plan()`
-withholds `now` from the planning context unless the feature sets
-`freezeTimeAtBuild`. A rule that still needs `now` to be decided is deferred on
-the same terms as a rule needing any other absent field.
-
-A rule the context already refutes needs nothing more. Conditions within a rule
-are AND-ed, so one condition that fails settles the rule whatever an absent
-field holds, and `plan()` walks past it to the rules below.
+A rule the context already refutes needs nothing more. Conditions within a rule are AND-ed, so one failing condition settles the rule whatever an absent field holds:
 
 <!-- #region plan-refuted -->
 
 ```ts @import.meta.vitest
 import { createFeatures } from '@evanion/feature';
 
-const promo = createFeatures([
+const booking = createFeatures([
   {
-    key: 'eu-promo',
+    key: 'demo-night-booking',
     enabled: true,
     rules: [
       {
-        id: 'eu-pro',
+        id: 'spirit-island-preview',
         when: [
-          { field: 'plan', op: 'eq', value: 'pro' },
-          { field: 'region', op: 'eq', value: 'eu' },
+          { field: 'game', op: 'eq', value: 'urn:game:spirit-island' },
+          { field: 'role', op: 'eq', value: 'bookseller' },
         ],
       },
       { id: 'everyone', when: [] },
@@ -593,81 +884,83 @@ const promo = createFeatures([
   },
 ]);
 
-promo.plan({ plan: 'free' })['eu-promo']; // -> { key: 'eu-promo', resolved: true, needs: [], decision: { key: 'eu-promo', enabled: true, reason: 'rule-match', rule: 'everyone' } }
+booking.plan({ game: 'urn:game:azul' })['demo-night-booking']; // -> { key: 'demo-night-booking', resolved: true, needs: [], decision: { key: 'demo-night-booking', enabled: true, reason: 'rule-match', rule: 'everyone' } }
 ```
 
 <!-- #endregion plan-refuted -->
 
-`now` is one of those absent fields. A condition beside a window can refute the
-rule on its own, so `'now'` reaches `needs` only where the walk read every other
-condition and each one held.
+`plan()` withholds `now` from a feature's rules unless the feature sets `freezeTimeAtBuild`, so a window stays deferred even when the build's clock is past it:
 
-<!-- #region plan-refuted-window -->
+<!-- #region freeze-time -->
 
 ```ts @import.meta.vitest
 import { createFeatures } from '@evanion/feature';
 
-const launch = createFeatures([
+const features = createFeatures([
   {
-    key: 'promo',
+    key: 'demo-night-booking',
+    enabled: true,
+    freezeTimeAtBuild: true,
+    rules: [
+      {
+        id: 'from-december',
+        when: [{ field: 'now', op: 'after', value: '2026-12-01T00:00:00Z' }],
+      },
+    ],
+  },
+  {
+    key: 'gift-cards',
     enabled: true,
     rules: [
       {
-        id: 'launch-pro',
-        when: [
-          { field: 'now', op: 'after', value: '2030-01-01T00:00:00Z' },
-          { field: 'plan', op: 'eq', value: 'pro' },
-        ],
+        id: 'from-december',
+        when: [{ field: 'now', op: 'after', value: '2026-12-01T00:00:00Z' }],
       },
-      { id: 'everyone', when: [] },
     ],
   },
 ]);
 
-launch.plan({ plan: 'free' }).promo; // -> { key: 'promo', resolved: true, needs: [], decision: { key: 'promo', enabled: true, reason: 'rule-match', rule: 'everyone' } }
-launch.plan({ plan: 'pro' }).promo; // -> { key: 'promo', resolved: 'deferred', needs: ['now'] }
+const plan = features.plan({ now: new Date('2026-12-02T00:00:00Z') });
+
+plan['demo-night-booking']; // -> { key: 'demo-night-booking', resolved: true, needs: [], decision: { key: 'demo-night-booking', enabled: true, reason: 'rule-match', rule: 'from-december' } }
+plan['gift-cards']; // -> { key: 'gift-cards', resolved: 'deferred', needs: ['now'] }
 ```
 
-<!-- #endregion plan-refuted-window -->
+<!-- #endregion freeze-time -->
 
-When every rule loses this way the feature settles off, and the breakdown on
-its decision says only what every request agrees on. `failed` names one
-condition out of the several a rule can fail, and which one a request names
-depends on the fields the build did not have, so an outcome names a condition
-only where `plan()` read every condition ahead of the refuted one. Step over
-one it could not read and the outcome names the rule and drops `failed`.
+A planned breakdown names a failed condition only where every request would name the same one. Where `plan()` stepped over a condition it could not read, the outcome names the rule and drops `failed`:
 
 <!-- #region plan-breakdown -->
 
 ```ts @import.meta.vitest
 import { createFeatures } from '@evanion/feature';
 
-const gated = createFeatures([
+const booking = createFeatures([
   {
-    key: 'gated',
+    key: 'demo-night-booking',
     enabled: true,
     rules: [
       {
-        id: 'eu-pro',
+        id: 'spirit-island-preview',
         when: [
-          { field: 'region', op: 'eq', value: 'eu' },
-          { field: 'plan', op: 'eq', value: 'pro' },
+          { field: 'role', op: 'eq', value: 'bookseller' },
+          { field: 'game', op: 'eq', value: 'urn:game:spirit-island' },
         ],
       },
     ],
   },
 ]);
 
-gated.resolve({ region: 'eu', plan: 'free' }).gated.rules; // -> [{ rule: 'eu-pro', matched: false, failed: { field: 'plan', op: 'eq', value: 'pro' } }]
-gated.plan({ plan: 'free' }).gated.decision?.rules; // -> [{ rule: 'eu-pro', matched: false }]
+const request = { role: 'bookseller', game: 'urn:game:azul' };
+const build = { game: 'urn:game:azul' };
+
+booking.resolve(request)['demo-night-booking'].rules; // -> [{ rule: 'spirit-island-preview', matched: false, failed: { field: 'game', op: 'eq', value: 'urn:game:spirit-island' } }]
+booking.plan(build)['demo-night-booking'].decision?.rules; // -> [{ rule: 'spirit-island-preview', matched: false }]
 ```
 
 <!-- #endregion plan-breakdown -->
 
-A feature with no rules resolves on at build time even while it declares
-variants, so `plan()` settles the two questions separately: `resolved` reads
-enablement, and a deferred entry can still carry a `decision` when only the
-variant split is outstanding.
+`plan()` settles enablement and the variant split separately. A deferred entry still carries a `decision` when only the split is outstanding:
 
 <!-- #region plan-variant -->
 
@@ -691,45 +984,43 @@ withVariants.plan({ targetingKey: 'user-1' })['checkout-cta']; // -> { key: 'che
 
 <!-- #endregion plan-variant -->
 
-A parent deferred on its split alone has settled its own enablement, so it holds
-no dependant up. The dependant cascades off that enablement and plans its own
-rules the way it would under a resolved parent, and the parent's `targetingKey`
-stays out of the dependant's `needs`.
+The two halves of a plan go to different places. The settled decisions ship with the build, and the deferred keys are what the request still resolves:
 
-<!-- #region plan-split-parent -->
+<!-- #region plan-split -->
 
 ```ts @import.meta.vitest
 import { createFeatures } from '@evanion/feature';
 
-const chain = createFeatures([
+const features = createFeatures([
   {
-    key: 'banner',
+    key: 'new-checkout',
     enabled: true,
-    variants: [
-      { name: 'control', weight: 50 },
-      { name: 'blue', weight: 50 },
-    ],
+    rules: [{ id: 'a-share', rollout: { percent: 10 } }],
   },
-  {
-    key: 'banner-cta',
-    enabled: true,
-    dependsOn: ['banner'],
-    rules: [
-      { id: 'staff', when: [{ field: 'role', op: 'eq', value: 'staff' }] },
-    ],
-  },
+  { key: 'gift-cards', enabled: true },
+  { key: 'demo-night-booking', enabled: false },
 ]);
 
-chain.plan({}).banner; // -> { key: 'banner', resolved: 'deferred', needs: ['targetingKey'], decision: { key: 'banner', enabled: true, reason: 'default-on' } }
-chain.plan({})['banner-cta']; // -> { key: 'banner-cta', resolved: 'deferred', needs: ['role'] }
+const plan = features.plan({ game: 'urn:game:azul' });
+
+const settled = Object.fromEntries(
+  Object.entries(plan)
+    .filter(([, entry]) => entry.resolved !== 'deferred')
+    .map(([key, entry]) => [key, entry.decision]),
+);
+const deferred = Object.values(plan)
+  .filter((entry) => entry.resolved === 'deferred')
+  .map((entry) => entry.key);
+
+settled; // -> { 'gift-cards': { key: 'gift-cards', enabled: true, reason: 'default-on' }, 'demo-night-booking': { key: 'demo-night-booking', enabled: false, reason: 'explicitly-off' } }
+deferred; // -> ['new-checkout']
 ```
 
-<!-- #endregion plan-split-parent -->
+<!-- #endregion plan-split -->
 
 ## Observing
 
-An application installs one observer at construction, and the store calls it
-once per public entry point call with the value that call returned.
+An application installs one observer at construction. The store calls it once for each `resolve`, `plan` and `toggle` call, and for each `isEnabled` call on a configured key, with the value that call returned. `variantOf` and `valueOf` report nothing:
 
 <!-- #region observe-install -->
 
@@ -742,7 +1033,7 @@ const seen: FeatureEvent[] = [];
 const features = createFeatures(
   [
     { key: 'new-checkout', enabled: true },
-    { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+    { key: 'gift-cards', enabled: true },
   ],
   {
     observe: (event) => {
@@ -757,13 +1048,12 @@ const now = new Date('2026-11-01T00:00:00Z');
 features.resolve({ targetingKey: 'cust-0042', now });
 
 seen.length; // -> 1
-seen[0]; // -> { type: 'resolve', at: new Date('2026-11-01T00:00:00Z'), subject: 'cust-0042', version: '2026-11-01', decisions: { 'new-checkout': { key: 'new-checkout', enabled: true, reason: 'default-on' }, 'express-pickup': { key: 'express-pickup', enabled: true, reason: 'default-on' } } }
+seen[0]; // -> { type: 'resolve', at: new Date('2026-11-01T00:00:00Z'), subject: 'cust-0042', version: '2026-11-01', decisions: { 'new-checkout': { key: 'new-checkout', enabled: true, reason: 'default-on' }, 'gift-cards': { key: 'gift-cards', enabled: true, reason: 'default-on' } } }
 ```
 
 <!-- #endregion observe-install -->
 
-One call, one event. `resolve` reports every decision in that single event, so
-an auditor reading it knows the application asked for every feature.
+`isEnabled` resolves every feature to answer about one, and it reports the one decision the caller received:
 
 <!-- #region observe-one-key -->
 
@@ -776,7 +1066,7 @@ const seen: FeatureEvent[] = [];
 const features = createFeatures(
   [
     { key: 'new-checkout', enabled: true },
-    { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+    { key: 'gift-cards', enabled: true },
   ],
   {
     observe: (event) => {
@@ -787,51 +1077,15 @@ const features = createFeatures(
 
 const now = new Date('2026-11-01T00:00:00Z');
 
-features.isEnabled('express-pickup', { targetingKey: 'cust-0042', now });
+features.isEnabled('gift-cards', { targetingKey: 'cust-0042', now });
 
 seen.length; // -> 1
-seen[0]; // -> { type: 'is-enabled', at: new Date('2026-11-01T00:00:00Z'), subject: 'cust-0042', key: 'express-pickup', decision: { key: 'express-pickup', enabled: true, reason: 'default-on' } }
+seen[0]; // -> { type: 'is-enabled', at: new Date('2026-11-01T00:00:00Z'), subject: 'cust-0042', key: 'gift-cards', decision: { key: 'gift-cards', enabled: true, reason: 'default-on' } }
 ```
 
 <!-- #endregion observe-one-key -->
 
-`isEnabled` resolves every feature to answer about one, and it reports the one
-decision the caller received. `toggle` reports its own result the same way. A
-write that names an unconfigured key is reported too, carrying the
-`unknown-feature` result the caller received.
-
-<!-- #region observe-toggle -->
-
-```ts @import.meta.vitest
-import { createFeatures } from '@evanion/feature';
-import type { FeatureEvent } from '@evanion/feature';
-
-const seen: FeatureEvent[] = [];
-
-const features = createFeatures(
-  [
-    { key: 'new-checkout', enabled: true },
-    { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
-  ],
-  {
-    observe: (event) => {
-      seen.push(event);
-    },
-  },
-);
-
-const now = new Date('2026-11-01T00:00:00Z');
-
-features.toggle('new-checkout', false, { now });
-
-seen[0]; // -> { type: 'toggle', at: new Date('2026-11-01T00:00:00Z'), result: { ok: true, key: 'new-checkout', enabled: false, willDisable: ['express-pickup'] } }
-```
-
-<!-- #endregion observe-toggle -->
-
-An observer changes no outcome. The engine never awaits it, and an observer
-that throws or rejects reaches `onObserveError` while the caller keeps the
-value the entry point computed.
+An observer changes no outcome. The engine never awaits it, and an observer that throws or rejects reaches `onObserveError` while the caller keeps the value the entry point computed:
 
 <!-- #region observe-failure -->
 
@@ -855,10 +1109,7 @@ failures; // -> ['Error: audit transport down']
 
 <!-- #endregion observe-failure -->
 
-An event carries no `EvaluationContext`. It carries the instant the call
-settled on, the value it returned, and a subject identifier copied out as a
-primitive. `correlateBy` names the context field that identifier is read off,
-and it defaults to `targetingKey`.
+An event carries no `EvaluationContext`. It carries a subject identifier copied out as a primitive, and `correlateBy` names the context field it is read off, defaulting to `targetingKey`:
 
 <!-- #region observe-correlate -->
 
@@ -884,114 +1135,411 @@ seen[0]?.subject; // -> 'anon-7f3c'
 
 <!-- #endregion observe-correlate -->
 
-An application bucketing on a raw identifier points `correlateBy` at a field
-carrying a pseudonym, and the raw identifier stays out of the event.
+Because the engine never awaits an observer, an asynchronous transport buffers events and drains them at a concurrency the application controls:
 
-This seam does not record exposure. `resolve` decides every configured feature,
-so an observer fired from it records an exposure for every feature the request
-never rendered. The application records exposure at the render site, off the
-decision it already holds. See the Observing page in the docs for the whole
-argument.
+<!-- #region observe-buffer -->
 
-## Cycles
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+import type { FeatureEvent } from '@evanion/feature';
 
-A dependency cycle is rejected by `createFeatures`, with the path in the error:
+const pending: FeatureEvent[] = [];
+const sent: FeatureEvent[][] = [];
+const transport = { send: (batch: FeatureEvent[]) => sent.push(batch) };
 
+const features = createFeatures([{ key: 'new-checkout', enabled: true }], {
+  observe: (event) => {
+    pending.push(event);
+  },
+});
+
+features.resolve({ targetingKey: 'cust-0042' });
+features.isEnabled('new-checkout', { targetingKey: 'cust-0107' });
+
+// A server runs this on exit: process.on('SIGTERM', drain)
+const drain = () => transport.send(pending.splice(0));
+drain();
+
+pending.length; // -> 0
+sent[0]?.map((event) => event.type); // -> ['resolve', 'is-enabled']
 ```
-FeatureCycleError: feature dependency cycle: a -> b -> c -> a
+
+<!-- #endregion observe-buffer -->
+
+This seam does not record exposure. `resolve` decides every configured feature, so an observer fired from it records an exposure for every feature the request never rendered. The application records exposure where it renders, off the decision `useFeature` already holds:
+
+<!-- #region observe-exposure -->
+
+```tsx @import.meta.vitest
+/** @jsxRuntime classic */
+import * as React from 'react';
+// ---cut---
+import { createFeatures } from '@evanion/feature';
+import { createFeatureContext } from '@evanion/feature/react';
+import { useEffect } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+const features = createFeatures([
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50, value: { label: 'Get it' } },
+    ],
+  },
+]);
+const { FeatureProvider, useFeature } = createFeatureContext(features);
+
+const exposures: object[] = [];
+const analytics = {
+  exposure: (record: object) => {
+    exposures.push(record);
+  },
+};
+
+// components/cta.tsx, a client module ('use client')
+function Cta({ customerId }: { customerId: string }) {
+  const decision = useFeature('checkout-cta');
+
+  useEffect(() => {
+    analytics.exposure({
+      feature: 'checkout-cta',
+      variant: decision.variant,
+      source: decision.assignment?.source,
+      bucket: decision.assignment?.bucket,
+      rule: decision.rule,
+      subject: customerId,
+    });
+  }, [decision, customerId]);
+
+  return <button type="button">{decision.value?.label ?? 'Buy'}</button>;
+}
+
+// app/page.tsx, a Server Component
+function Page({ customerId }: { customerId: string }) {
+  const decisions = features.resolve({ targetingKey: customerId });
+
+  return (
+    <FeatureProvider decisions={decisions}>
+      <Cta customerId={customerId} />
+    </FeatureProvider>
+  );
+}
+
+const html = renderToStaticMarkup(<Page customerId="cust-0199" />);
+
+html; // -> '<button type="button">Get it</button>'
+exposures; // -> []
 ```
 
-So is a `dependsOn` naming a feature that is not configured, and a duplicate
-key. All three are configuration errors, and a cycle has no defined resolution
-order at all, so none of them is left for evaluation to trip over.
+<!-- #endregion observe-exposure -->
+
+The server render ran no effect, so it recorded nothing. The browser runs `useEffect` when it mounts the button, and that is the exposure.
 
 ## React
 
-```tsx
-'use client';
-import {
-  FeatureProvider,
-  useFeature,
-  useFeatureEnabled,
-  useVariant,
-} from '@evanion/feature/react';
+`FeatureProvider` resolves a store once for a context and hands the decisions to every hook below it:
+
+<!-- #region react-provider -->
+
+```tsx @import.meta.vitest
+/** @jsxRuntime classic */
+import * as React from 'react';
+// ---cut---
+import { createFeatures } from '@evanion/feature';
+import { FeatureProvider, useFeatureEnabled } from '@evanion/feature/react';
+import { renderToStaticMarkup } from 'react-dom/server';
 
 const features = createFeatures([{ key: 'express-pickup', enabled: true }]);
-const context = { targetingKey: user.id, now: new Date() };
-
-<FeatureProvider features={features} context={context}>
-  <Checkout />
-</FeatureProvider>;
+const context = {
+  targetingKey: 'cust-0042',
+  now: new Date('2026-11-01T00:00:00Z'),
+};
 
 function Checkout() {
-  if (!useFeatureEnabled('express-pickup')) return <LegacyCheckout />;
-  return <NewCheckout />;
-}
-```
-
-- `useFeatures()` -- every decision.
-- `useFeature(key)` -- one decision, explanation included. Throws for a key that
-  is not configured: a silent `false` makes a typo indistinguishable from a
-  feature that is off.
-- `useFeatureEnabled(key)` -- the boolean.
-- `useVariant(key)` -- `{ variant?, value? }`, read off the same decision.
-  Throws for the same unconfigured key `useFeature` does.
-- `createFeatureContext(features)` -- the provider and the same four hooks, bound
-  to one store's schema. Each bound hook names `keyof S`, so a misspelled key is
-  a compile error and `useVariant` answers the variant union that store declares.
-
-Resolution is memoised on the `context` object's identity, so keep that
-reference stable. Pass `decisions` to hand the provider results resolved
-elsewhere -- a server render, or a `plan()` snapshot.
-
-## Typing the keys and the variants
-
-A store built from an array literal needs no type argument. `createFeatures`
-reads the keys, the variant names and each variant's value off the literal, so a
-typo is a compile error and not an `undefined` at runtime.
-
-Name a schema when the configuration arrives as JSON, or from a variable typed
-`FeatureDefinition<Flag>[]`, because a value with no literals in it carries
-nothing for the compiler to read. An entry is `never` for a feature that declares
-no variants, and that feature's decision then carries no `variant` key and no
-`value` key.
-
-```ts
-interface Flags {
-  'new-checkout': never;
-  'express-pickup': { variant: 'control' | 'blue'; value: never };
+  if (!useFeatureEnabled('express-pickup')) return <p>Standard checkout</p>;
+  return <p>Checkout with express pickup</p>;
 }
 
-const features = createFeatures<Flags>(config);
+const html = renderToStaticMarkup(
+  <FeatureProvider features={features} context={context}>
+    <Checkout />
+  </FeatureProvider>,
+);
 
-features.resolve()['express-pickup'].enabled; // Decision, not Decision | undefined
-features.variantOf('express-pickup'); // 'control' | 'blue' | undefined
-features.isEnabled('express-delivery'); // compile error: not a key of Flags
+html; // -> '<p>Checkout with express pickup</p>'
 ```
 
-`createFeatures<Flags>(config)` checks every definition's key against
-`keyof Flags`, so a definition naming a feature `Flags` does not declare is a
-compile error at the call.
+<!-- #endregion react-provider -->
 
-## API
+Resolution is memoised on the `context` object's identity, so a component that builds the context holds it in a `useMemo`:
 
-| Export                                                                                       |                                                                    |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `createFeatures(definitions)`                                                                | Builds the store. Validates the graph.                             |
-| `.resolve(context?)`                                                                         | A decision per feature.                                            |
-| `.isEnabled(key, context?)`                                                                  | One boolean.                                                       |
-| `.variantOf(key, context?)`                                                                  | The assigned variant, at the type the schema declares.             |
-| `.valueOf(key, context?)`                                                                    | That variant's configured value.                                   |
-| `.plan(context?)`                                                                            | Build-time partition.                                              |
-| `.toggle(key, enabled, context?)`                                                            | Writes intent, reports `willDisable`.                              |
-| `.config`                                                                                    | The stored intent, deeply frozen.                                  |
-| `.definition(key)`                                                                           | One stored definition.                                             |
-| `.dependants(key)`                                                                           | Transitive dependants, in dependency order.                        |
-| `.keys`                                                                                      | Every key, in configuration order.                                 |
-| `bucketOf(value, seed)`, `inRollout(value, percent, seed)`, `murmur3(input)`                 | The bucketing primitives, exported for snapshot tooling and tests. |
-| `assignVariant(definition, context)`, `variantSeedOf(definition)`                            | The variant assignment primitives, for the same reason.            |
-| `evaluateCondition(condition, context)`                                                      | One condition, for the same reason.                                |
-| `FeatureCycleError`, `UnknownDependencyError`, `DuplicateFeatureError`, `FeatureConfigError` | Construction errors.                                               |
+<!-- #region react-memo -->
+
+```tsx @import.meta.vitest
+/** @jsxRuntime classic */
+import * as React from 'react';
+import { createFeatures } from '@evanion/feature';
+import { FeatureProvider, useFeatureEnabled } from '@evanion/feature/react';
+import { useMemo } from 'react';
+import type { ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+const features = createFeatures([{ key: 'express-pickup', enabled: true }]);
+
+function Checkout() {
+  return <p>{useFeatureEnabled('express-pickup') ? 'Express' : 'Standard'}</p>;
+}
+// ---cut---
+// The instant the server rendered at, so both sides read the same clock.
+const now = new Date('2026-11-01T00:00:00Z');
+
+function Flags({
+  customerId,
+  children,
+}: {
+  customerId: string;
+  children: ReactNode;
+}) {
+  const context = useMemo(
+    () => ({ targetingKey: customerId, now }),
+    [customerId],
+  );
+
+  return (
+    <FeatureProvider features={features} context={context}>
+      {children}
+    </FeatureProvider>
+  );
+}
+
+const html = renderToStaticMarkup(
+  <Flags customerId="cust-0042">
+    <Checkout />
+  </Flags>,
+);
+
+html; // -> '<p>Express</p>'
+```
+
+<!-- #endregion react-memo -->
+
+`useFeature` and `useVariant` throw for a key the provider does not carry, so a typo never reads as a feature that is off. `isEnabled` on the store answers `false` for the same key:
+
+<!-- #region react-strict-key -->
+
+```tsx @import.meta.vitest
+/** @jsxRuntime classic */
+import * as React from 'react';
+// ---cut---
+import { createFeatures } from '@evanion/feature';
+import { FeatureProvider, useFeature } from '@evanion/feature/react';
+import type { ReactElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+const features = createFeatures([{ key: 'express-pickup', enabled: true }]);
+
+function Misspelled() {
+  return <p>{useFeature('express-delivery').reason}</p>;
+}
+
+const attempt = (element: ReactElement) => {
+  try {
+    return renderToStaticMarkup(element);
+  } catch (error) {
+    return String(error);
+  }
+};
+
+const page = (
+  <FeatureProvider features={features}>
+    <Misspelled />
+  </FeatureProvider>
+);
+
+attempt(page); // -> 'Error: feature "express-delivery" is not configured in this <FeatureProvider>'
+// @ts-expect-error -- the store's keys are checked at compile time
+features.isEnabled('express-delivery'); // -> false
+```
+
+<!-- #endregion react-strict-key -->
+
+`decisions` hands the provider a record resolved elsewhere. The provider uses that record as it is and resolves nothing beside it, so a key missing from the record throws:
+
+<!-- #region react-decisions -->
+
+```tsx @import.meta.vitest
+/** @jsxRuntime classic */
+import * as React from 'react';
+import { createFeatures } from '@evanion/feature';
+import { FeatureProvider, useFeatureEnabled } from '@evanion/feature/react';
+import type { ReactElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+const attempt = (element: ReactElement) => {
+  try {
+    return renderToStaticMarkup(element);
+  } catch (error) {
+    return String(error);
+  }
+};
+// ---cut---
+const features = createFeatures([
+  { key: 'express-pickup', enabled: true },
+  { key: 'gift-cards', enabled: true },
+]);
+
+function Checkout() {
+  return <p>{useFeatureEnabled('express-pickup') ? 'Express' : 'Standard'}</p>;
+}
+
+const fromServer = features.resolve();
+fromServer['express-pickup'] = {
+  key: 'express-pickup',
+  enabled: false,
+  reason: 'explicitly-off',
+};
+// A snapshot shipped as JSON reaches the provider unchecked.
+const snapshot = JSON.parse(
+  JSON.stringify({ 'gift-cards': fromServer['gift-cards'] }),
+);
+
+const served = (
+  <FeatureProvider features={features} decisions={fromServer}>
+    <Checkout />
+  </FeatureProvider>
+);
+const partial = (
+  <FeatureProvider features={features} decisions={snapshot}>
+    <Checkout />
+  </FeatureProvider>
+);
+
+attempt(served); // -> '<p>Standard</p>'
+attempt(partial); // -> 'Error: feature "express-pickup" is not configured in this <FeatureProvider>'
+```
+
+<!-- #endregion react-decisions -->
+
+`createFeatureContext` binds the provider and hooks to one store's schema, so a misspelled key is a compile error and `useVariant` answers the variant union that store declares:
+
+<!-- #region react-bound -->
+
+```tsx @import.meta.vitest
+/** @jsxRuntime classic */
+import * as React from 'react';
+// ---cut---
+import { createFeatures } from '@evanion/feature';
+import { createFeatureContext } from '@evanion/feature/react';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+const features = createFeatures([
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50, value: { label: 'Get it' } },
+    ],
+  },
+]);
+
+const { FeatureProvider, useVariant } = createFeatureContext(features);
+
+function Cta() {
+  const { value } = useVariant('checkout-cta');
+  return <button type="button">{value?.label ?? 'Buy'}</button>;
+}
+
+function Misspelled() {
+  // @ts-expect-error -- 'checkout-button' is not a key of this store
+  return <p>{useVariant('checkout-button').variant}</p>;
+}
+
+const forCustomer = (targetingKey: string) =>
+  renderToStaticMarkup(
+    <FeatureProvider context={{ targetingKey }}>
+      <Cta />
+    </FeatureProvider>,
+  );
+
+forCustomer('cust-0199'); // -> '<button type="button">Get it</button>'
+forCustomer('cust-0042'); // -> '<button type="button">Buy</button>'
+```
+
+<!-- #endregion react-bound -->
+
+`FeatureProvider` uses `createContext` and `useMemo`, so it is client code. The core is not. Resolve in a Server Component and hand the decisions down. They are plain objects, so they cross the boundary as serialised props:
+
+<!-- #region react-server -->
+
+```tsx @import.meta.vitest
+/** @jsxRuntime classic */
+import * as React from 'react';
+import { createFeatures } from '@evanion/feature';
+import type { Decisions } from '@evanion/feature';
+import { FeatureProvider, useFeatureEnabled } from '@evanion/feature/react';
+import type { ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+
+function Checkout() {
+  return <p>{useFeatureEnabled('express-pickup') ? 'Express' : 'Standard'}</p>;
+}
+// ---cut---
+const features = createFeatures([
+  {
+    key: 'express-pickup',
+    enabled: true,
+    rules: [{ id: 'a-share', rollout: { percent: 25 } }],
+  },
+]);
+type ShopDecisions = Decisions<{ 'express-pickup': never }>;
+
+// app/flags.tsx, a client module ('use client')
+function Flags({
+  decisions,
+  children,
+}: {
+  decisions: ShopDecisions;
+  children: ReactNode;
+}) {
+  return (
+    <FeatureProvider features={features} decisions={decisions}>
+      {children}
+    </FeatureProvider>
+  );
+}
+
+// app/layout.tsx, a Server Component
+function Layout({
+  customerId,
+  children,
+}: {
+  customerId: string;
+  children: ReactNode;
+}) {
+  const decisions = features.resolve({ targetingKey: customerId });
+  // Props crossing into a client module are serialised; JSON is the same test.
+  const sent: ShopDecisions = JSON.parse(JSON.stringify(decisions));
+
+  return <Flags decisions={sent}>{children}</Flags>;
+}
+
+const forCustomer = (customerId: string) =>
+  renderToStaticMarkup(
+    <Layout customerId={customerId}>
+      <Checkout />
+    </Layout>,
+  );
+
+forCustomer('cust-0042'); // -> '<p>Express</p>'
+forCustomer('cust-0107'); // -> '<p>Standard</p>'
+```
+
+<!-- #endregion react-server -->
+
+The full API reference and the guides are at [docs.evanion.com/feature](https://docs.evanion.com/feature).
 
 ## License
 
