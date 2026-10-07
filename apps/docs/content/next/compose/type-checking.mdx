@@ -59,7 +59,12 @@ The two entries with no `theme` rendered a `div` with no `id`, and `id="blue"` r
 
 Since no value can match this type, the entry fails to compile, and TypeScript prints the message in the first line of the error. For `[ThemeProvider, { theme: 'dark', accent: 'green' }]` that line ends `… & ComposeError<"unknown prop 'accent'">'`. A tuple holding two components, such as `[ThemeProvider, CartProvider]`, reports `second tuple element must be props, not another component`.
 
-`ComposeProvider` refuses two other mistakes before any `ComposeError` check runs. A tuple written props-first, such as `[{ theme: 'dark' }, ThemeProvider]`, reports that `theme` does not exist in type `AnyComponent`. An entry that is neither a component nor a two-element tuple is not assignable to type `Provider`. The messages `first tuple element must be a component` and `not a valid provider` appear only where you apply [`ValidateProvider`](../api#validateprovidert) yourself.
+`ComposeProvider` refuses two other mistakes before any `ComposeError` check runs:
+
+- A tuple written props-first, such as `[{ theme: 'dark' }, ThemeProvider]`, reports that `theme` does not exist in type `AnyComponent`.
+- An entry that is neither a component nor a two-element tuple is not assignable to type `Provider`.
+
+The messages `first tuple element must be a component` and `not a valid provider` appear only where you apply [`ValidateProvider`](../api#validateprovidert) yourself.
 
 ## Solving the "Type 'string' is not assignable to type 'never'" Error
 
