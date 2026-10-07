@@ -47,6 +47,7 @@
   "files": [
     "dist",
     "!dist/**/*.tsbuildinfo",
+    "conformance",
     "src",
     "!src/**/*.test.*",
     "!src/**/*.spec.*",
