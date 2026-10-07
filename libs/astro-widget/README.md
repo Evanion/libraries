@@ -6,7 +6,7 @@ Stop shipping client-side bundles for layouts that don't change after the page i
 
 ## The Problem: The "Runtime Layout" Tax
 
-When you use dynamic layouts in a traditional React or Vue app, the browser has to:
+When a React or Vue app renders a layout only in the browser, the browser has to:
 
 1. Download the JavaScript bundle.
 2. Execute the layout logic.
@@ -16,7 +16,7 @@ This "runtime tax" results in larger bundles, a slower Time to Interactive (TTI)
 
 ## The Solution: Zero-JS Build-Time Rendering
 
-`@evanion/astro-widget` shifts the layout logic from the browser to Astro's own render. It uses the same item shape as [`@evanion/react-widget`](https://www.npmjs.com/package/@evanion/react-widget), but instead of rendering in the browser, `Widgets.astro` renders each widget into HTML when Astro renders the page: once during `astro build` for a static page, and on each request for a page Astro renders on demand.
+`@evanion/astro-widget` shifts the layout logic from the browser to Astro's own render. It uses the same item shape as [`@evanion/react-widget`](https://www.npmjs.com/package/@evanion/react-widget), and `Widgets.astro` renders each widget into HTML when Astro renders the page, with no component code sent to the browser: once during `astro build` for a static page, and on each request for a page Astro renders on demand.
 
 The result: your users get a fully rendered, structured page, with **zero JavaScript** sent for the layout logic.
 
@@ -66,7 +66,7 @@ html; // -> '<header><h1>Brass: Birmingham</h1><p>2-4 players</p></header><p cla
 npm install @evanion/astro-widget
 ```
 
-Astro `^7.3.4` is a peer dependency. The package is ESM-only and needs Node 20 or newer.
+Astro `^7.3.4` is a peer dependency, and Astro 7 needs Node 22.12 or newer. The package is ESM-only.
 
 ## Rendering a Page from CMS Data
 
@@ -181,7 +181,7 @@ validateItems(blank, ['listing-header'], { 'listing-header': ['title'] }); // ->
 
 ### Nested Indexing
 
-`index` is the position within an item's own sibling list, so a problem at the top level and one inside `children` can both report `index: 0`. `id` is what tells them apart:
+`index` is the position within an item's own sibling list, so a problem at the top level and one inside `children` can both report `index: 0`. A problem carries no depth, so `id` tells them apart only when the CMS keeps ids unique across the whole tree:
 
 <!-- #region nested-index -->
 
@@ -266,7 +266,7 @@ const required = { 'listing-header': ['title'] };
 const grids = page.filter((item) => item.type === 'game-grid');
 
 validateItems(page, ['listing-header', 'game-grid'], required); // -> []
-grids.flatMap((grid) => validateItems(grid.children, ['game-card'])); // -> [{ index: 0, id: 'azul', type: 'listing-header', message: 'unknown widget type' }]
+grids.flatMap((grid) => validateItems(grid.children ?? [], ['game-card'])); // -> [{ index: 0, id: 'azul', type: 'listing-header', message: 'unknown widget type' }]
 ```
 
 <!-- #endregion nested-registry -->
@@ -432,7 +432,7 @@ The import specifiers do not change, and neither does `@evanion/astro-widget/com
 
 ### The Validator Checks More
 
-`validateBlocks` reported an unknown type and a missing required field, and nothing else. `validateItems` is the one implementation both renderers share, so it also brings five rules the React side always had. Each of these is a new problem on a payload that passed before:
+`validateBlocks` reported a payload that was not a list, an unknown type and a missing required field, and nothing else. `validateItems` is the one implementation both renderers share, so it also brings five rules the React side always had. Each of these is a new problem on a payload that passed before:
 
 | Message                   | Raised when                                 |
 | ------------------------- | ------------------------------------------- |
@@ -451,16 +451,23 @@ Check `duplicate sibling id` first. A CMS that emits a constant id per widget ty
 The item's own props move under `props`, and `id` becomes required:
 
 ```ts
-const toWidgetItem = ({ type, id, children, meta, ...props }) => ({
-  id: id ?? crypto.randomUUID(),
-  type,
-  props,
-  meta,
-  children: children?.map(toWidgetItem),
-});
+const toWidgetItem =
+  (parentId) =>
+  ({ type, id, children, meta, ...props }, index) => {
+    const itemId = id ?? `${parentId}-${index}`;
+    return {
+      id: itemId,
+      type,
+      props,
+      meta,
+      children: children?.map(toWidgetItem(itemId)),
+    };
+  };
+
+const items = blocks.map(toWidgetItem('page'));
 ```
 
-`id ?? …` is the awkward half. A widget item needs an id as the key, as the identity in a warning, and as what the duplicate-sibling check is about, and a CMS with no per-item id has to supply one. An index-derived value works as long as it is stable across renders.
+`id ?? …` is the awkward half. A widget item needs an id as the key, as the identity in a warning, and as what the duplicate-sibling check is about, and a CMS with no per-item id has to supply one. The function above derives it from the parent's id and the item's position, so the same save gets the same ids on every render.
 
 `chrome.item` no longer receives the item's props, only `type`, `id` and `meta`. The props are the widget's data, and the chrome has no business with them.
 
