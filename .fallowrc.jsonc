@@ -97,6 +97,7 @@
     "react",
     "react-dom",
     "react-live",
+    "semver",
     "tinyglobby",
     "twoslash",
     "vite-plugin-doctest",
