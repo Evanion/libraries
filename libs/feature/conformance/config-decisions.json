@@ -163,6 +163,7 @@
           "rollout": {
             "percent": 50,
             "by": "targetingKey",
+            "bucket": 0.885186268016696,
             "member": false
           }
         }
