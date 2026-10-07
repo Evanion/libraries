@@ -405,14 +405,13 @@ The lookup uses `Object.prototype.hasOwnProperty`, so an item typed `constructor
 
 ## Comparison with React
 
-The data is the same in `@evanion/react-widget` and here. The renderers differ where Astro and React differ:
+The data is the same in `@evanion/react-widget` and here, and both hand page data to every widget as a `ctx` prop, with no provider. The renderers differ where Astro and React differ:
 
-|                         | react-widget                    | astro-widget                                                               |
-| ----------------------- | ------------------------------- | -------------------------------------------------------------------------- |
-| Provider / `useWidgets` | yes                             | no. An Astro component has no render-time context, so use `ctx`            |
-| Prop type inference     | inferred from the component map | no. An `.astro` module's type carries no props, so use `validateItems`     |
-| Nested `children`       | rendered as the widget's own    | no recursion. A widget renders `<Widgets items={children} …>` itself       |
-| Region chrome           | `chrome.wrapper`                | none. The element around `<Widgets>` is the region, and the page writes it |
+|                     | react-widget                    | astro-widget                                                               |
+| ------------------- | ------------------------------- | -------------------------------------------------------------------------- |
+| Prop type inference | inferred from the component map | no. An `.astro` module's type carries no props, so use `validateItems`     |
+| Nested `children`   | rendered as the widget's own    | no recursion. A widget renders `<Widgets items={children} …>` itself       |
+| Region chrome       | `chrome.wrapper`                | none. The element around `<Widgets>` is the region, and the page writes it |
 
 ## Migrating from 0.2.x
 
