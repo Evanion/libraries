@@ -830,7 +830,19 @@ describe('reload, a toggle it lands inside', () => {
       },
     } as Readonly<Record<string, string>>;
 
-    features.toggle('parent', false, { targetingKey: 'u1', stickyVariants });
+    const result = features.toggle('parent', false, {
+      targetingKey: 'u1',
+      stickyVariants,
+    });
+
+    // The candidate declares no `parent`, so the write landed on no document
+    // and the result says so rather than reporting an accepted toggle to the
+    // caller and to the observer's `toggle` event.
+    expect(result).toEqual({
+      ok: false,
+      key: 'parent',
+      error: 'unknown-feature',
+    });
 
     // The install swaps all five references together. A write built from the
     // array `toggle` bound would put the pre-reload document back under the
