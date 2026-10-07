@@ -1,1 +1,7 @@
 npx --no -- commitlint --edit ${1}
+
+# A feat or fix that changes tooling a library depends on, and no library, is
+# read by nx release as a patch for every library. The script decides from the
+# message alone when the type bumps nothing, and builds the project graph only
+# for a feat or fix.
+node tools/repo-checks/src/tooling-commit-types.ts staged "${1}"
