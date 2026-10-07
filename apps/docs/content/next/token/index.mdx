@@ -1,6 +1,6 @@
 # @evanion/token
 
-**Built-in error detection for human-readable codes.** `@evanion/token` mints codes with a check character, so its `validate` function can refuse a misheard code before your application ever touches the database.
+A customer who misreads one character of a pickup code gets "no such order", which looks like a code the shop never issued. `@evanion/token` mints codes with a check character, so `validate` refuses a misread code before any lookup.
 
 <PageSheet
   difficulty={1}
@@ -11,21 +11,21 @@
   ]}
 />
 
-## The Problem: The "Invisible Typo"
+## Why a Typo Looks Like a Missing Order
 
-When a customer reads a Baize pickup code over the phone or types it into a form, a single misheard character can turn a valid code into a "no such order" error, and a system without `@evanion/token` cannot tell the two apart. If a user types `a4kp-9mx8` instead of `a4kp-9mxa`, the system performs a database lookup, finds nothing, and returns a generic `404 Not Found`.
+Baize, the board game shop these pages use as their example, prints a pickup code on every receipt, and a shop without `@evanion/token` checks that code only against its database. When a customer reads the code over the phone or types it into a form, a single misheard character turns it into a "no such order" error, which the shop cannot tell from a code it never issued. If a user types `a4kp-9mx8` instead of `a4kp-9mxa`, the system performs a database lookup, finds nothing, and returns a generic `404 Not Found`.
 
 This creates a poor user experience:
 
 - **User Frustration**: The user knows they typed _something_ and doesn't know where the error is.
-- **Staff Blindness**: Support staff cannot tell the difference between a malicious probe and a simple typo.
+- **Ambiguous Failures**: Support staff cannot tell a malicious probe from a typo.
 - **Database Waste**: Every mistyped code triggers an unnecessary database query.
 
-## The Solution: Check Characters
+## How a Check Character Refuses a Typo
 
-`@evanion/token` implements a check-character system (similar to how credit card numbers work). A token consists of a random body followed by a single **check character** computed from that body: in the code `a4kp-9mxa`, the final `a` is the check character.
+`@evanion/token` implements a check-character system (similar to how credit card numbers work). A code consists of a random body followed by a single **check character** computed from that body: in the code `a4kp-9mxa`, the final `a` is the check character.
 
-`createToken()` returns a token instance, an object fixed to one shape of code, carrying `generate` and `validate`:
+`createToken()` returns a token instance, an object that mints and checks codes of one format, carrying `generate` and `validate`:
 
 ```ts twoslash file=libs/token/README.md region=at-a-glance
 
@@ -33,7 +33,7 @@ This creates a poor user experience:
 
 When you call `validate`, the library recalculates the check character from the body. If a customer reads `a4kp-9mx8` (where the `a` was misheard as `8`), `validate` immediately returns `reason: 'check-failed'`.
 
-Your system can now refuse the code instantly, distinguishing a typo from a non-existent order without a single database call.
+Your system refuses a mistyped code without querying the database, and queries only for codes that are well formed.
 
 ## The Token Vocabulary
 
@@ -41,7 +41,7 @@ These terms name the parts of an `@evanion/token` code, and every later page use
 
 - **Code**: The full string the user sees, such as `a4kp-9mxa`.
 - **Body**: The random characters excluding separators and the check character, such as `a4kp9mx`. This is the part you store in your database.
-- **Check Character**: The final character used for error detection, computed by `@evanion/luhn` (a dependency that installs with token) using the Luhn algorithm.
+- **Check Character**: The final character used for error detection, computed by `@evanion/luhn` (a dependency that installs with token) using the Luhn algorithm. Luhn sums the dictionary positions of the body's characters, doubling every second one, and picks the character that makes the total divisible by the dictionary size.
 - **Dictionary**: The set of characters used to generate the code. The default dictionary excludes confusing characters like `i`, `l`, `o`, and `w` to prevent misreads. The API also calls it the alphabet, in `InvalidAlphabetError` and the reason `outside-alphabet`.
 - **Chunk**: A group of characters (four by default) used to make codes easier to read.
 - **Separator**: The character between chunks (a hyphen by default). `validate` removes it before checking.
@@ -55,7 +55,7 @@ Each task below maps to one call or option of `@evanion/token`.
 | :---------------------------------------- | :------------------------------------------------------------------------- |
 | Mint a human-readable code                | `generate()`, using cryptographically strong random values                 |
 | Refuse a mistyped code instantly          | `validate()`, which returns a specific reason for failure and never throws |
-| Support flexible user input               | `validate()`, which strips separators and folds case before checking       |
+| Support flexible user input               | `validate()`, which strips separators and reads uppercase as lowercase     |
 | Categorize codes (e.g., "ORD-")           | `generate({ prefix: 'ORD' })`                                              |
 | Customize length or chunks                | `createToken({ length, chunkSize, separator })`                            |
 | Use a custom character set                | `createToken({ dictionary })`, which checks the dictionary                 |

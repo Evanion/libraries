@@ -17,6 +17,7 @@ To follow this guide, you will need:
 - **Node 20 or newer**, or any modern browser. `generate` uses `crypto.getRandomValues`, which is available in both environments without additional imports.
 - **An ESM project**: Your project must be an ES module. If you are starting in an empty folder, run `npm init -y` followed by `npm pkg set type=module`.
   _(A CommonJS project needs a Node whose `require()` loads ES modules: 20.19 or later on Node 20, or 22.12 or later. An older `require()` fails with `ERR_REQUIRE_ESM`.)_
+- **A way to run a TypeScript file**: The examples are TypeScript. `npx tsx file.ts` runs one, and downloads tsx on first use. A project that already compiles its TypeScript runs the file its usual way.
 
 ## Install token
 
@@ -38,7 +39,7 @@ pnpm add @evanion/token
 
 ## Configure your token instance
 
-The first step is to create an `@evanion/token` instance with `createToken`. This instance is frozen at creation, ensuring that your code length and dictionary remain consistent throughout your app's lifecycle. Define it at module scope, so its options are checked once, at start-up.
+The first step is to create an `@evanion/token` instance with `createToken`. `createToken` checks the options once and freezes the instance, so every code it mints has the same length and dictionary. Define it at module scope, so that check runs at start-up.
 
 The `generate()` method returns the human-readable code as `value`:
 
@@ -50,7 +51,7 @@ If you call `createToken()` without options, it uses the defaults: a length of 8
 
 ## Implement the checkout and pickup flow
 
-Now, let's use the `@evanion/token` instance to handle a real-world scenario: issuing a code at checkout and validating it at the counter.
+Issue an `@evanion/token` code at checkout and validate it at the counter.
 
 The workflow has two steps:
 
@@ -67,7 +68,7 @@ The code `generate` minted finds `order-2026-0042`. `a4kp-9mxa` is well formed, 
 
 In this example, `validate` acts as a gate. It refuses a misheard code before your system performs a database lookup for a code that is mathematically impossible, so you can tell the customer their code is mistyped rather than a bare "not found."
 
-## Professional touch: Adding a prefix
+## Adding a prefix
 
 Your counter now tells a misheard `@evanion/token` code from one the shop never issued. To make your codes more recognizable, you can add a prefix like `ORD-`, which helps users and staff identify the code's purpose at a glance.
 
