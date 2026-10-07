@@ -37,7 +37,7 @@ yarn add @evanion/astro-widget
 pnpm add @evanion/astro-widget
 ```
 
-`@evanion/widget` (the core logic) is installed automatically, and you import its item types, `defineWidgets`, `validateItems`, `ERROR_MESSAGES` and `VALIDATION_MESSAGES` directly from `@evanion/astro-widget`. `Widgets.astro` is published as `.astro` source, and Astro compiles it from `node_modules` with no configuration.
+`@evanion/widget` (the core logic) is installed automatically, and you import its item types, `defineWidgets`, `validateItems`, and the warning and report message tables `ERROR_MESSAGES` and `VALIDATION_MESSAGES` directly from `@evanion/astro-widget`. `Widgets.astro` is published as `.astro` source, and Astro compiles it from `node_modules` with no configuration.
 
 ## Step 1: Write Your Widgets
 
@@ -118,6 +118,6 @@ The package keeps the same files under its `examples/src` and renders the page i
 
 ## Catch a Stale Type Before it Ships
 
-astro-widget's `Widgets.astro` follows a "fail-soft" strategy: it skips any item whose `type` is not in the registry. The page still renders, with no widget where the skipped item was.
+Your listing page renders from the JSON. A **stale type** is a `type` the CMS still saves after the registry dropped it, or one an editor misspelled. astro-widget's `Widgets.astro` follows a "fail-soft" strategy: it skips any item whose `type` is not in the registry. The page still renders, with no widget where the skipped item was.
 
 To prevent this, run `validateItems` in a build gate, a script that runs before `astro build`. [Check CMS items before Astro renders them](../validation) shows how to stop `astro build` if your CMS payload contains an unknown widget type.
