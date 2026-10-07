@@ -69,7 +69,18 @@ Save this as `src/registry.ts`:
 
 astro-widget renders the items as the CMS saved them, and Astro allows you to import JSON files directly. In a real project, the CMS writes this file. For this example, write it yourself.
 
-Save your items as `src/data/brass-birmingham.json`: the `items` array from [the Overview](../)'s test, as JSON with each key in double quotes. It holds `header`, a `listing-header` whose props are `"title": "Brass: Birmingham"` and `"players": "2-4"`, and `price`, a `price-box` whose one prop is `"price": "649 kr"`.
+Save the items from [the Overview](../)'s test as `src/data/brass-birmingham.json`:
+
+```json no-run
+[
+  {
+    "id": "header",
+    "type": "listing-header",
+    "props": { "title": "Brass: Birmingham", "players": "2-4" }
+  },
+  { "id": "price", "type": "price-box", "props": { "price": "649 kr" } }
+]
+```
 
 Then, create a TypeScript wrapper (`src/data/brass-birmingham.ts`) that assigns the import to `AnyWidgetItem[]`, the item type, with no cast:
 
