@@ -14,6 +14,7 @@ export { evaluateCondition } from './lib/conditions.js';
 export { canonical } from './lib/canonical.js';
 export { configDigest } from './lib/digest.js';
 export { ruleId } from './lib/rule-id.js';
+export { parseFeatureConfig } from './lib/parse.js';
 export { serializeConfig } from './lib/serialize.js';
 export { validateConfig } from './lib/validate.js';
 export { DEFAULT_ROLLOUT_FIELD } from './lib/evaluate.js';
