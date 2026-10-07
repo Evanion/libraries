@@ -2,182 +2,87 @@
 
 <WorkshopNotice slug="feature" />
 
-```tsx
-'use client';
+`FeatureProvider` from `@evanion/feature/react` hands resolved decisions to every component below it, and four hooks read them, so no component takes a `features` prop passed down through every level of the tree.
 
-import {
-  FeatureProvider,
-  createFeatureContext,
-  useFeature,
-  useFeatureEnabled,
-  useFeatures,
-  useVariant,
-} from '@evanion/feature/react';
-```
+<PageSheet
+  difficulty={2}
+  read={8}
+  hands={15}
+  requires={[['Overview', '../']]}
+  unlocks={[['API reference', '../api']]}
+/>
 
-A provider, four hooks and a factory that binds them, over an already-built
-store. Nothing here decides anything — evaluation lives in the core, and this
-layer carries the result down the tree.
+## `FeatureProvider`: Wrapping Your Tree
 
-The entry is separate from `@evanion/feature` because `'use client'` is a
-per-module directive and a bundle is one module. Keeping the core entry free of
-the directive and of any React import is what lets an API, a script or a build
-step import it.
+The `FeatureProvider` from `@evanion/feature/react` wraps your application (or a specific subtree). It takes `features`, the store, plus either a `context` it resolves or a `decisions` record resolved elsewhere. React is an optional peer dependency, so an application that uses only the core does not install it.
 
-React is an optional peer dependency, so a consumer that only uses the core does
-not install it.
-
-## `FeatureProvider`
-
-```tsx
-const features = createFeatures([{ key: 'express-pickup', enabled: true }]);
-const context = { targetingKey: user.id, now: new Date() };
-
-<FeatureProvider features={features} context={context}>
-  <Checkout />
-</FeatureProvider>;
-```
-
-| Prop        | Meaning                                        |
-| ----------- | ---------------------------------------------- |
-| `features`  | the store, built by `createFeatures`           |
-| `context`   | the evaluation context                         |
-| `decisions` | decisions resolved elsewhere, used as they are |
-
-Resolution is memoised on the `context` object's identity. An object literal
-written inline is a fresh identity on every render, so it re-resolves every
-render:
-
-```tsx
-// Re-resolves the whole store on every render.
-<FeatureProvider features={features} context={{ targetingKey: user.id }}>
-```
-
-Hold the context in a `useMemo`, in a module constant, or wherever the data it
-comes from already lives:
-
-```tsx
-const context = useMemo(() => ({ targetingKey: user.id, now }), [user.id, now]);
-```
-
-Leaving `now` out means "the clock at the moment this context was first
-resolved". A tree that has to agree with a server render should pass `now`
-explicitly, with the same instant the server used.
-
-### Decisions from elsewhere
-
-```tsx
-<FeatureProvider features={features} decisions={fromServer}>
-```
-
-Supplied decisions are used as they are, and `features` and `context` become
-only a fallback for what the snapshot does not cover. That is the hand-off for a
-server render, and for the settled half of a
-[`plan()`](/feature/build-time#using-a-plan).
-
-## The hooks
-
-```tsx
-function Checkout() {
-  if (!useFeatureEnabled('express-pickup')) return <LegacyCheckout />;
-  return <NewCheckout />;
-}
-```
-
-| Hook                     | Returns                            |
-| ------------------------ | ---------------------------------- |
-| `useFeatures()`          | every decision                     |
-| `useFeature(key)`        | one decision, explanation included |
-| `useFeatureEnabled(key)` | the boolean                        |
-| `useVariant(key)`        | `{ variant?, value? }`             |
-
-All four throw outside a `<FeatureProvider>`, naming the provider and the
-package.
-
-`useFeature` also throws for a key that is not configured in that provider:
+```tsx twoslash file=libs/feature/README.md region=react-provider
 
 ```
-feature "express-delivery" is not configured in this <FeatureProvider>
+
+### Memoize the Context
+
+Resolution is memoized based on the `context` object's identity. If you pass an object literal inline (e.g., `context={{ targetingKey: id }}`), React will treat it as a new object on every render, forcing the provider to re-resolve the entire feature store.
+
+To avoid this, wrap your context in `useMemo`. The store is the one above, and `Checkout` renders `Express` when express pickup is on and `Standard` when it is off:
+
+```tsx twoslash file=libs/feature/README.md region=react-memo
+
 ```
 
-A silent `false` would make a typo indistinguishable from a feature that is off.
-`useFeature` is the hook that carries the explanation, for showing an operator
-why a flag is off:
+Leaving `now` out of the context means "the clock at the moment this context was first resolved". A tree that has to agree with a server render passes `now` explicitly, with the instant the server used.
 
-```tsx
-const decision = useFeature('express-pickup');
-// { key, enabled, reason, rule?, rules?, blockedBy?, cause? }
+## Accessing Features via Hooks
 
-const { variant, value } = useVariant('express-pickup');
-// { variant?, value? }
+Once wrapped in an `@evanion/feature/react` provider, any component can access feature flags using one of four hooks:
+
+| Hook                     | Returns                    | Use Case                                                          |
+| :----------------------- | :------------------------- | :---------------------------------------------------------------- |
+| `useFeatureEnabled(key)` | `boolean`                  | `useFeature(key).enabled`, for a component that shows or hides.   |
+| `useFeature(key)`        | `Decision`                 | When you need the explanation (`reason`) or the assigned variant. |
+| `useVariant(key)`        | `{ variant?, value? }`     | When you only care about the variant assigned to the user.        |
+| `useFeatures()`          | `Record<string, Decision>` | When a component needs to check multiple flags at once.           |
+
+All four throw outside a `<FeatureProvider>`, naming the provider and the package.
+
+### Strict Key Validation
+
+Unlike `isEnabled()`, the `useFeature`, `useFeatureEnabled` and `useVariant` hooks will **throw an error** if you request a key that is not configured in the provider. This prevents typos from being mistaken for "off" features. `attempt` below renders an element and returns the error message when the render throws:
+
+```tsx twoslash file=libs/feature/README.md region=react-strict-key
+
 ```
 
-The key lookup uses `Object.prototype.hasOwnProperty`, so a key of `constructor`
-or `toString` does not resolve to a function off `Object.prototype` and pass as
-a decision object.
+## Handing the Provider a Resolved Record
 
-### `useVariant`
+The `decisions` prop of `@evanion/feature/react`'s `FeatureProvider` is the way to handle server-side resolution: the server resolves the flags and sends the resulting decisions as a prop, and the client provider uses them as they are without re-resolving.
 
-A reader over the same decision `useFeature` already returns: `variant` and
-`value` come straight off it. Both are absent for a feature that resolved off
-and for a feature declaring no variants, so a component checks `variant` for
-`undefined` before it switches on a name. `useVariant` throws for the same
-reason `useFeature` does, on the same unconfigured key. See
-[Variants](/feature/variants) for how the assignment itself is made.
+The provider resolves nothing beside a supplied record, so every key a component reads has to be in it. The compiler refuses a record whose type lacks a key, and a record that arrived as JSON reaches the provider unchecked. `attempt` is the helper from the fence above:
 
-## Binding the hooks to a store
+```tsx twoslash file=libs/feature/README.md region=react-decisions
 
-`createFeatureContext` takes a store and returns a provider and the four hooks
-bound to that store's schema:
-
-```tsx
-export const { FeatureProvider, useFeature, useVariant } =
-  createFeatureContext(features);
 ```
 
-A bound hook names `keyof S`, so a misspelled key is a compile error against the
-store the factory was given. `useVariant` answers the variant union that store
-declares: over the store [Variants](/feature/variants) builds,
-`useVariant('checkout-cta').variant` is `'control' | 'blue' | undefined`, and
-`value` is the type that variant's `value` has. The factory call is one line at
-module scope, and nothing at a call site restates a key union.
+## Type-Safe Hooks with `createFeatureContext`
 
-A bound provider publishes to the shared context as well as to its own, so a
-component that calls the package's own `useFeature` underneath one reads the
-same decisions. The top-level hooks keep working with no type argument, which is
-what the two examples above use.
+To avoid using string literals for keys and to get full TypeScript autocomplete for variants, you can bind the `@evanion/feature/react` hooks to your specific feature store.
 
-## Server components
+```tsx twoslash file=libs/feature/README.md region=react-bound
 
-`FeatureProvider` uses `createContext` and `useMemo`, so it is client code and
-carries `'use client'`. The core is not: resolve on the server, and hand the
-result down.
-
-```tsx
-// app/layout.tsx — a Server Component
-import { features } from '../features';
-import { Flags } from './flags';
-
-export default async function Layout({ children }) {
-  const decisions = features.resolve({ targetingKey: await currentUserId() });
-  return <Flags decisions={decisions}>{children}</Flags>;
-}
 ```
 
-```tsx
-// app/flags.tsx
-'use client';
+By using a bound context, `useVariant('checkout-cta')` is checked against the keys of your `features` store at compile time, and its `variant` is `'control' | 'blue' | undefined`. If you typo a key, your editor reports a compile error before anything runs. A bound provider also publishes to the shared context, so the package's own `useFeature` reads the same decisions underneath it.
 
-import { FeatureProvider } from '@evanion/feature/react';
+## Server Components and the Client Boundary
 
-export function Flags({ decisions, children }) {
-  return (
-    <FeatureProvider features={features} decisions={decisions}>
-      {children}
-    </FeatureProvider>
-  );
-}
+Because `FeatureProvider` uses `createContext` and `useMemo`, it must be a Client Component (`'use client'`), so `@evanion/feature/react` is a separate entry point. However, the `@evanion/feature` core is not client code.
+
+The recommended pattern for Next.js/RSC is to resolve the flags in a Server Component and pass the decisions down. `Checkout` is the component above, and express pickup here reaches 25% of customers:
+
+```tsx twoslash file=libs/feature/README.md region=react-server
+
 ```
 
-Decisions are plain objects, so they cross the boundary as serialised props.
-Passing the store itself would not — it carries functions.
+Decisions are plain objects, so they cross the boundary as serialized props. The store itself does not: it carries functions. This ensures that resolution runs on the server, while the client renders from the record it was handed and stays type-safe.
+
+[Build-time planning](../build-time) settles part of a decisions record while the site builds, before any request arrives.

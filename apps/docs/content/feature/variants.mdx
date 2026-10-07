@@ -2,144 +2,98 @@
 
 <WorkshopNotice slug="feature" />
 
-A feature can resolve to more than on and off. It can split its subjects
-across named variants. Baize is trying two button labels on its checkout call
-to action, and needs one customer to keep seeing the same label on the next
-request and tomorrow, the same way a rollout keeps one customer on one side of
-its threshold.
+A feature's `variants` split the customers it reaches across named versions, such as two button labels in an A/B test, and `resolve()` returns the one each customer gets, the same one on every request.
 
-## What a variant is
+<PageSheet
+  difficulty={3}
+  read={8}
+  hands={15}
+  requires={[['Configuration', '../configuration']]}
+  unlocks={[
+    ['Build-time planning', '../build-time'],
+    ['API reference', '../api'],
+  ]}
+/>
+
+## How Variants Work
+
+When an `@evanion/feature` feature is enabled and declares variants, the library assigns one of those variants to the customer from the same bucket [Rollouts](../rollouts) derives, under a separate seed. A customer who saw two variants would count in both arms of the test, so the assignment never moves between requests.
 
 ```ts twoslash file=libs/feature/README.md region=variant-basics
 
 ```
 
-A variant carries a `name`, a `weight`, an optional `order` and an optional
-`value`. A feature that resolves on and declares variants carries `variant`
-on its decision, and `value` too when the assigned variant declares one.
+### Weights, Values and Assignment
 
-`assignment` says how the variant was chosen. `source` here is `'weighted'`:
-nothing pinned it and nothing sticky held it, so the weights decided.
-
-One variant is legal, and that is a value flag: a single name with a `value`
-attached, carried on every decision that resolves on.
-
-## Weights and their normalisation
+- **Weight**: Each variant has a weight. These are relative, not absolute. A split with weights `3` and `1` results in a 75%/25% distribution.
+- **Control**: The first variant in bucketing order is the control, the one a customer gets when nothing else decides.
+- **Value**: You can attach a specific value to a variant (e.g., `blue: { label: 'Get it' }`). This allows your components to remain agnostic of the variant names. A variant that declares no value leaves `value` off the decision.
+- **Assignment Source**: The `assignment` field tells you how the variant was chosen: `weighted`, `pinned`, `sticky`, or `fallback`.
 
 ```ts twoslash file=libs/feature/README.md region=variant-weights
 
 ```
 
-Weights are relative and normalised across the set, so `3` and `1` split
-75%/25% and never have to sum to 100. `user-4`'s bucket, `0.9914100710302591`,
-falls in the top quarter, `compact`'s band. `user-1`'s bucket,
-`0.4314444069750607`, falls in the bottom three quarters, `control`'s band.
+## Bucketing Order and Seed
 
-A higher weight on one variant lowers every other variant's share. Nothing
-else about the declaration changes.
+`@evanion/feature` walks a feature's variants in order, and each one takes a band of the bucket range as wide as its share of the weight. The bucket's band decides the variant.
 
-## The bucketing order
+### The Importance of `order`
 
-The bucket a subject falls on does not move. Which variant owns that bucket
-can, and `order` is what fixes it.
+By default, the walk follows each variant's position in the `variants` array. If you reorder the array in a future deploy, the bands move, and customers move between variants with them.
 
-`user-4`'s bucket for `summary-panel` is `0.9914100710302591` in every
-configuration below:
+An explicit `order` on each variant fixes its position in the walk, so reordering the array moves nobody. It does not fix the bands: a weight change still moves the boundaries. A configuration document a store reads as JSON is refused unless every variant declares `order`.
 
 ```ts twoslash file=libs/feature/README.md region=variant-order
 
 ```
 
-With `control` and `compact` declared in that array order, `user-4`'s
-assigned variant is `compact`. An explicit `order` on both variants, matching
-that same array position, changes nothing: `user-4`'s assigned variant is
-still `compact`. The same swap in the array, with no `order` on either
-variant, moves the boundary under that bucket, and `user-4`'s assigned
-variant is now `control`.
+### The Variant Seed
 
-The array index supplies the walk position when an author leaves `order` out,
-so a config a control plane serializes and re-serializes in a different array
-order silently reassigns every subject near a boundary. An explicit `order`
-pins the walk to that position. A serializer can then reorder the array and
-every subject still assigns the same way.
-
-## The variant seed is separate from the rollout seed
-
-A feature's rollout buckets on `seed`, defaulting to the feature key.
-`variantSeed` defaults to `` `${seed ?? key}:variant` ``, one segment past
-that. The two are different hashes of the same subject on purpose.
-
-The same value on `variantSeed` and on the rollout's own seed correlates the
-two:
+`variantSeed` defaults to the feature's `seed` (or its key) followed by `:variant`, so the split is bucketed apart from the rollout. Setting it to the rollout's own seed correlates the two: every member of a 50% rollout sits below the same 0.5 boundary a 50/50 split uses, and all of them get the control.
 
 ```ts twoslash file=libs/feature/README.md region=variant-seed-shared
 
 ```
 
-`user-1` and `user-2` are both members of the 50% rollout, and both hash
-below the 50% rollout threshold. The same seed for the variant split puts
-everyone below that same point in `control` too, because a 50/50 split places
-its own boundary at 0.5 as well. Nobody the rollout admits ever sees `blue`,
-and the experiment measures nothing. An unset `variantSeed` keeps the two
-hashes independent, so a rollout's membership and a variant's assignment do
-not move together.
+## Advanced Variant Control
 
-## Pinning a variant from a rule
+### Pinning via Rules
+
+You can override the weighted distribution of an `@evanion/feature` variant for specific customers. For example, you might want every bookseller to see the `blue` variant regardless of their bucket.
 
 ```ts twoslash file=libs/feature/README.md region=variant-pin
 
 ```
 
-`user-1` is not staff and falls inside the 20% rollout, at bucket
-`0.17582221026532352`, so the weights decide and `user-1`'s assigned variant
-is `control`. The same subject's context, with `group: 'staff'` added,
-matches the first rule, and its `variant: 'blue'` overrides the weights
-entirely.
+When a rule matches, the variant is "pinned." The `assignment.rule` field identifies which rule caused the override, and the `bucket` is absent because no weighted assignment took place.
 
-`assignment.rule` names the rule that pinned it, the same rule `reason:
-'rule-match'` already names. A pinned assignment carries no `bucket`: nothing
-was bucketed.
+### Sticky Variants
 
-## `stickyVariants`
+If you change the weights of a variant, some customers move to a different variant. To prevent this, your application hands back a customer's prior assignment in the context's `stickyVariants` field, keyed by feature, from wherever it keeps session state. The library reads it and writes no storage of its own.
 
 ```ts twoslash file=libs/feature/README.md region=variant-sticky
 
 ```
 
-`stickyVariants` holds a prior assignment, keyed by feature, that an
-application stores wherever it keeps session state. This library writes no
-storage and reads this field only. A stored entry wins over the weights
-whenever it names a variant the feature still declares, checked after a
-rule's pin and before the weights run at all, which is why the example above
-needs no `targetingKey`: the sticky entry answers before a bucketing value is
-ever read.
+A sticky entry wins over the weights, ensuring that a user who has already seen a variant continues to see it even after the weights change. A rule pin still wins over a sticky entry, and an entry naming a variant the feature no longer declares is ignored.
 
-A reweighted split moves every subject above the changed band boundary. An
-application that must hold a subject on the variant it already saw writes
-that name back here on every later request.
+## Edge Cases
 
-## A context missing the bucketing field
+### No Bucketing Value
 
-`by` is the context field a variant split buckets on: `variantBy` on the
-definition, defaulting to `targetingKey`.
+If a customer's context is missing the field used for bucketing (e.g., they are not logged in), `@evanion/feature` assigns the control, and `assignment.source` reads `fallback`. This ensures the app still renders a valid version of the feature.
 
 ```ts twoslash file=libs/feature/README.md region=variant-fallback
 
 ```
 
-With no sticky entry and no usable value for `by`, the subject takes the
-control, the first variant in bucketing order, and `assignment.source` reads
-`'fallback'`. `bucket` is absent, because there was nothing to bucket. The
-feature still resolved on, so calling code needs a variant to render, and the
-control is the one answer that admits nobody to an experiment on incomplete
-data.
+### Features that resolve "Off"
 
-## A feature resolving off carries no variant
+If an `@evanion/feature` feature resolves off for any reason, it carries no variant, no value, and no assignment. Here no rule matched. A variant is assigned only for a feature that has resolved on.
 
 ```ts twoslash file=libs/feature/README.md region=variant-off
 
 ```
 
-`variant` and `value` are absent, and `assignment` is too. `assignVariant`
-never runs for a feature that stayed off because `enabled` was `false` or
-because a dependency blocked it. It never runs when no rule matched either.
+[React](../react) hands these decisions, variants included, to a component tree.

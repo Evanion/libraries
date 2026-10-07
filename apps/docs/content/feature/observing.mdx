@@ -2,258 +2,113 @@
 
 <WorkshopNotice slug="feature" />
 
-`observe` is the one function an application installs on `createFeatures` to
-receive what a call decided. The store calls it once per public entry point
-call, with the value that call returned.
+The `observe` option of `createFeatures` installs a callback that receives one event for each `resolve`, `isEnabled`, `plan` and `toggle` call, carrying what that call returned.
 
-## Where an observer installs
+<PageSheet
+  difficulty={3}
+  read={8}
+  hands={15}
+  requires={[['Overview', '../']]}
+  unlocks={[['API reference', '../api']]}
+/>
 
-`createFeatures` takes the options as its second argument, and `observe` is a
-member of them.
+## How to Install an Observer
+
+When an `@evanion/feature` feature is off for a customer, the decision says whether the kill switch, a rollout, a parent or a time window turned it off, and the caller usually discards that decision. An observer keeps it.
+
+You install the observer as the `observe` option when calling `createFeatures`. The store calls it once for each call in the table below, and the event carries the value that call returned.
 
 ```ts twoslash file=libs/feature/README.md region=observe-install
 
 ```
 
-That is the whole report for one `resolve` call. The event names the instant
-the call settled on, the customer it decided for, the configuration version the
-store was built with, and every decision the call produced.
+### The Four Event Types
 
-## The four events
+Every `@evanion/feature` event carries a standard envelope: the `at` instant, a `subject` read off the context's `targetingKey` by default, and the `version` option of `createFeatures` when you set one. The payload depends on the call:
 
-| `type`       | Entry point                 | What the event carries                           |
-| ------------ | --------------------------- | ------------------------------------------------ |
-| `resolve`    | `resolve(context?)`         | `decisions`, one decision per configured feature |
-| `is-enabled` | `isEnabled(key, context?)`  | `key`, and `decision` for that key alone         |
-| `plan`       | `plan(context?)`            | `plan`, the build-time partition                 |
-| `toggle`     | `toggle(key, enabled, ...)` | `result`, the write's own answer                 |
+| Event Type   | Call                             | Payload                                                         |
+| :----------- | :------------------------------- | :-------------------------------------------------------------- |
+| `resolve`    | `resolve(context)`               | A record of decisions for every configured feature.             |
+| `is-enabled` | `isEnabled(key, context)`        | The specific decision for that one key.                         |
+| `plan`       | `plan(context)`                  | The build-time partition of settled vs. deferred features.      |
+| `toggle`     | `toggle(key, enabled, context?)` | The result of the change, a refused `unknown-feature` included. |
 
-Every event carries the same envelope beside its payload: `at`, the instant the
-call settled on; `subject`, the identifier read out of the context; and
-`version`, the configuration version, when the application supplied one.
-
-`variantOf` and `valueOf` report nothing. Each one resolves a set to read one
-field off it, and an application that wants an event for that question calls
-`resolve` or `isEnabled`.
-
-`isEnabled` resolves every feature to answer about one, and it reports the one
-decision the caller asked for.
+`variantOf` and `valueOf` report nothing, and `isEnabled` for a key the store was not built with reports nothing either. `isEnabled` resolves the whole store to answer one question, and its event carries only the one decision the caller received:
 
 ```ts twoslash file=libs/feature/README.md region=observe-one-key
 
 ```
 
-The resolution `isEnabled` runs to produce that answer reports nothing on its
-own, so one call produces one event and never one event per feature. `toggle`
-resolves twice to compute `willDisable`, and both of those resolutions are
-silent for the same reason.
-
-```ts twoslash file=libs/feature/README.md region=observe-toggle
-
-```
-
-`toggle` reports the write it accepted and the write it refused. A call naming
-an unconfigured key answers `{ ok: false, key, error: 'unknown-feature' }`, and
-the event carries that same result, so an auditor sees the attempt.
-
-A key the store was never configured with has no decision, and `isEnabled`
-answers `false` for it and emits no event. `FeatureEvent` declares `decision`
-present on every `is-enabled` event, so an event for that call would promise a
-member the engine has no value for. The engine stays silent and the caller still
-gets `false`.
-
 ## An observer never awaits and never changes an outcome
 
-The signature is `(event) => void | Promise<unknown>`. The engine calls the
-observer, attaches a rejection handler when the observer returned something
-thenable, and returns. No entry point waits for an observer to settle. A
-decision takes under a microsecond and an audit transport on a bad day takes
-forty milliseconds, so an observer that blocked would turn observability into an
-availability incident.
+An `@evanion/feature` observer is called and the engine immediately moves on. If the observer returns a promise, the engine attaches a rejection handler but **does not await** the result. This ensures that a slow audit transport (e.g., a network call) never slows down the user's request.
 
-Measured at forty features on an Apple M1 Pro under Node 24.20.0, the bare call
-ran at 23 microseconds, a synchronous no-op observer at 41, and an `async` no-op
-observer, with the thenable check and the attached rejection handler, at 44. The
-deep freeze a store carrying an observer runs accounts for that difference, and
-the emit and the thenable check stay within run-to-run noise of the bare call. So
-the number anyone should care about is what their own hook body does.
+Measured at forty features on an Apple M1 Pro under Node 24.20.0, the bare call ran at 23 microseconds, a synchronous no-op observer at 41, and an `async` no-op observer at 44. The deep freeze described below accounts for that difference, and the emit and the thenable check stay within run-to-run noise of the bare call. So the number anyone should care about is what their own hook body does.
 
-### The payload is deeply readonly
+### Read-Only Payloads
 
-A store carrying an observer freezes the record before it emits it and answers
-the caller with that same object, so
-`event.decisions['new-checkout'].enabled = false` is a compile error for a
-TypeScript consumer and a `TypeError` for a JavaScript one. A store carrying no
-observer hands its answer to nobody else and freezes nothing, which is what
-`FrozenWhenObserved` on `resolve`, `plan` and `toggle` reports.
+When an observer is installed, the library deeply freezes the decision records before emitting them. This prevents an observer from accidentally modifying a decision and changing the outcome for the user. The caller receives the same frozen object, so `resolve`, `plan` and `toggle` on an observed store answer a value that throws a `TypeError` on a write.
 
-### Why the freeze is conditional on having an observer
-
-The freeze happens only under an installed observer, so the package behaves
-differently under two configurations. The engine takes that asymmetry
-deliberately. At forty features the freeze adds 18 microseconds to a 23
-microsecond `resolve`, and a freeze on every call would add that to every user of
-the package whether or not they observe anything. A store nobody observes hands
-its record to nobody else, so the freeze protects nothing there. An application
-that reads a decision and then edits it installs no observer, or copies the
-record before it edits the copy.
-
-`event.at` is a copy of the settled instant, so an observer calling
-`event.at.setTime(0)` moves its own copy and no decision.
+The freeze happens only under an installed observer, so the package behaves differently under two configurations. At forty features the freeze adds 18 microseconds to a 23 microsecond `resolve`, and freezing on every call would charge that to every user of the package whether or not they observe anything. A store nobody observes hands its record to nobody else, so the freeze protects nothing there. An application that edits a decision installs no observer, or copies the record first.
 
 ## When an observer throws
+
+If an `@evanion/feature` observer throws an error or returns a rejected promise, the engine catches it and forwards it to `onObserveError`. The original call to `resolve` or `isEnabled` still returns the correct value to the user; the failure of the observer does not crash the application.
 
 ```ts twoslash file=libs/feature/README.md region=observe-failure
 
 ```
 
-The engine catches the throw, and it catches a rejection through the handler it
-attached. Either one reaches `onObserveError(error, event)`, and the caller
-keeps the value the entry point computed on both paths.
-
-An application that installs `observe` and no `onObserveError` gets one
-`console.warn` per distinct failure. The warning stays silent when `NODE_ENV` is
-`production`. One emitter warns about at most twenty distinct failures, writes
-one last warning at that limit, and stays quiet from then on; `onObserveError`
-receives every failure whatever the warning does.
-
-An `onObserveError` that throws, or returns a promise that rejects, reaches the
-warning carrying both errors, and the engine does not call the handler again for
-that event. One level of recovery, no recursion.
+With no `onObserveError`, the engine writes one `console.warn` per distinct failure, at most twenty per store, and none when `NODE_ENV` is `production`. An `onObserveError` that throws is reported the same way, and the engine does not call it again for that event.
 
 ## Records in flight are lost at exit
 
-The engine never awaits an observer, so a promise it never awaited and a buffer
-the application has not drained are both gone when the process exits. A rolling
-deploy replaces every replica, each replica loses whatever it had not written,
-and a configuration change is the moment an operator reads those records.
+Because `@evanion/feature` never awaits an observer, a promise it never awaited and a buffer the application has not drained are both gone when the process exits. Drain the buffer before the process exits.
 
-The hook shape this page documents works in every runtime: the observer pushes
-onto a buffer synchronously and returns, and the application drains that buffer
-at a concurrency it owns.
+If your transport is asynchronous (e.g., a remote logging service), the observer pushes events into a local buffer and returns, and the application drains that buffer at a concurrency it owns.
 
-```ts no-run
-const pending: FeatureEvent<Flags>[] = [];
+```ts twoslash file=libs/feature/README.md region=observe-buffer
 
-const features = createFeatures(definitions, {
-  observe: (event) => {
-    pending.push(event);
-  },
-});
-
-process.on('SIGTERM', async () => {
-  await transport.send(pending.splice(0));
-});
 ```
 
-A server drains on `SIGTERM`. A browser drains on `visibilitychange` and writes
-with `navigator.sendBeacon`, because an unload cancels a `fetch` the page had
-already started. A native client writes to a local queue that persists across a
-process restart. The event shape is the same in all of them, and every transport
-decision after the event belongs to the application.
+A server drains on `SIGTERM`. A browser drains on `visibilitychange` and writes with `navigator.sendBeacon`, because an unload cancels a `fetch` the page had already started. A native client writes to a local queue that persists across a process restart. A phone's operating system suspends a process without warning, so an application reporting from a phone drains on the background transition.
 
-A phone's operating system suspends a process without warning, and whatever the
-buffer held at that moment is gone. An experiment missing a tail of mobile
-records reads as a result, so an application that reports from a phone drains on
-the background transition and does not wait for a clean exit.
-
-`Features` declares no `drain()`. A handle that drained would hold the set of
-pending promises, which is state a `Features` does not otherwise carry, and every
-real transport already owns a flush that this one would have to agree with.
+`Features` declares no `drain()`. Every real transport already owns a flush, and a store-level one would have to agree with it.
 
 ## `correlateBy` and what reaches an event
 
-An event carries no `EvaluationContext`. It carries the settled instant, the
-value the call returned, and a subject identifier copied out as a primitive.
-`correlateBy` names the context field that identifier comes from, and it
-defaults to `targetingKey`.
-
-That default discloses nothing on its own. Every instance of this package
-evaluates in the caller's own process and sends nothing upstream, and the
-observer is a callback the application installed there. The value on the event
-is the value that same application put on its own `EvaluationContext` a moment
-earlier and handed to `resolve`. A library that returns a caller its own data
-discloses nothing, and an application that then forwards the event off the box
-has made that decision itself.
+An `@evanion/feature` event carries no `EvaluationContext`. It carries the instant the call settled on, the value the call returned, and a subject identifier copied out as a string or number. `correlateBy` names the context field that identifier is read from, and it defaults to `targetingKey`.
 
 ```ts twoslash file=libs/feature/README.md region=observe-correlate
 
 ```
 
-An application bucketing on a raw identifier points `correlateBy` at a field
-carrying a pseudonym, and the raw identifier stays out of every event. The
-engine copies the value when it is a string or a number, and leaves `subject`
-off the event for a value of any other type.
-
-A primitive copy holds no reference into the caller's context, so an observer
-writing to `event.subject` writes to its own event object.
-
-`version` is the other envelope field the application supplies. A rollout that
-replaces the configuration across replicas gives each replica a version, and an
-event then says which configuration produced the decision it reports.
+The default discloses nothing on its own. The engine evaluates in your own process and sends nothing upstream, and the subject on an event is the value your application put on its own `EvaluationContext` a moment earlier. A library that returns a caller its own data discloses nothing, and an application that forwards the event off the box has made that decision itself. An application bucketing on a raw customer ID points `correlateBy` at a field carrying a pseudonym.
 
 ## Exposure tracking is not what this seam carries
 
-An exposure record answers "this customer saw this variant of this feature".
-This seam cannot produce that record, and an observer wired to an experiment
-platform produces numbers that look plausible and are wrong.
+The `observe` option of `@evanion/feature`, the seam this page covers, reports a **decision** (observation). An **exposure** is a customer seeing the feature, and the seam does not report one.
 
-### `resolve` decides every feature, not the one rendered
+### The Observation Gap
 
-`resolve` decides every configured feature in one call. A store holding forty
-features resolves forty decisions on a request that renders three, so an
-observer fired from `resolve` writes thirty-seven exposures for features nobody
-rendered, and an experiment computed over those records measures the wrong
-denominator. A decision is not a view of the thing it decided.
+Observation happens when `resolve()` is called. In a server-side render, this occurs once per request. If your store has 40 features, the one `resolve` event carries 40 decisions. However, the user might only actually see 3 of those features on the page.
 
-### The React path narrows it further
+If you use the observer to track experiment "exposures," your data will be heavily skewed by features that were resolved but never actually rendered.
 
-The React path removes even the per-key call. `FeatureProvider` resolves once in
-a `useMemo`, and `useFeature` reads a key out of the record that memo already
-holds. No library code runs at the render site, so a seam installed on
-`createFeatures` sees nothing at the moment the customer sees the button.
+### The Correct Pattern: The Client-Side Ping
 
-A server render and a browser hydration both resolve the same features for the
-same customer, and the library holds nothing that tells the two apart.
-Deduplication is the application's state: an experiment wants one exposure per
-subject per feature per session, and this library holds no session and no
-storage, and no subject identity beyond the string each call passes it.
+Server Components cannot track when they are actually seen by a user. So the application records exposure where it renders, in a small client component, off the decision it already holds. The component calls `useFeature('checkout-cta')` and records `decision.variant`, `decision.assignment?.source`, `decision.assignment?.bucket` and `decision.rule` in an effect:
 
-So the application records exposure where it renders, off the decision it
-already holds:
+```tsx twoslash file=libs/feature/README.md region=observe-exposure
 
-```tsx no-run
-function Cta() {
-  const decision = useFeature('checkout-cta');
-  useEffect(() => {
-    analytics.exposure({
-      feature: 'checkout-cta',
-      variant: decision.variant,
-      source: decision.assignment?.source,
-      bucket: decision.assignment?.bucket,
-      rule: decision.rule,
-      subject: customerId,
-    });
-  }, [decision]);
-  return <Button label={decision.value?.label ?? 'Buy'} />;
-}
 ```
 
-`useFeature` returns the whole decision, which carries everything that record
-needs. `variant` names the assigned variant, `assignment.source` says whether the
-weights, a rule pin, a stored assignment or the control produced it,
-`assignment.bucket` carries the number the split used, and `rule` names the rule
-that matched. `useVariant` returns `variant` and `value` alone, so a component
-that only renders the assigned variant calls that one and a component that writes
-an exposure record calls `useFeature`. See [Variants](/feature/variants) for what
-each of those fields holds and [React](/feature/react) for where the render site
-reads them.
+The server render runs no effect, so it records nothing. This ensures that an exposure is only recorded if the component is actually delivered to the browser and mounted, providing the only accurate denominator for your A/B test results.
+
+`useFeature` returns the whole decision, which carries every field that record needs. `useVariant` returns `variant` and `value` alone, so a component that only renders the assigned variant calls that one, and a component that writes an exposure record calls `useFeature`.
 
 ## What the seam does cover
 
-Decisions, as decisions. An operator reads the `no-rule-matched` breakdown and
-the `dependency-off` cause off a `resolve` event, which is the material a caller
-discards. An auditor reads a `toggle` event to see who turned what off and which
-dependants went with it. A `version` on every event shows which configuration
-each replica decided under during a rollout. See
-[Decisions](/feature/decisions) for the fields those questions read.
+An `@evanion/feature` observer covers decisions, as decisions. An operator reads the `no-rule-matched` breakdown and the `dependency-off` cause off a `resolve` event. An auditor reads a `toggle` event to see what was turned off and which dependants went with it, and a `version` on every event shows which configuration each replica decided under during a rollout.
+
+[API reference](../api) lists every option `createFeatures` takes, `observe`, `onObserveError`, `correlateBy` and `version` among them.

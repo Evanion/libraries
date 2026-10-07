@@ -2,124 +2,89 @@
 
 <WorkshopNotice slug="feature" />
 
-A rollout holds a resolved feature to a share of customers. Baize is putting
-its new checkout in front of a tenth of them, and the tenth has to be the same
-tenth on the next request, in the next process, and tomorrow.
+A rule's `rollout` holds a feature to a percentage of customers, and `inRollout` decides whether one customer is in. A customer in the 10% stays in it on every request, process and device.
 
-```ts twoslash file=libs/feature/README.md region=rollout
+<PageSheet
+  difficulty={3}
+  read={8}
+  hands={15}
+  requires={[['Configuration', '../configuration']]}
+  unlocks={[
+    ['Build-time planning', '../build-time'],
+    ['API reference', '../api'],
+  ]}
+/>
 
-```
+## Stable, Deterministic Bucketing
+
+`@evanion/feature` keeps a customer in a rollout from one page to the next, because a customer who loses the new checkout between two pages cannot finish an order and nobody can reproduce the bug they report. It computes a bucket from a seed and a targeting value, using the hash behind the `inRollout` call [Getting Started](../getting-started#ask-which-tenth-a-customer-is-in) asked about two customers.
 
 <Probe package="feature" probe="rollout" />
 
-Retype the id. `inRollout` is a pure function of the customer and the flag key,
-so one customer's answer never moves, a neighbouring id lands anywhere in the
-range, and about one id in ten is in. A coin flip at ten percent gives the same
-proportion and none of that.
+The probe calls `inRollout(id, 10, 'new-checkout')` for any id you type, and the section below derives the bucket behind its answer.
 
-## What a rollout is written as
+### How a Bucket is Derived
 
-```ts
-{ rollout: { percent: 25, by: 'targetingKey', seed: 'holiday-cohort' } }
-```
+The library hashes the `seed` and the `targetingKey` (e.g., a customer ID) with **MurmurHash3** into a bucket in `[0, 1)`, and a customer is in a rollout when the bucket times 100 is below `percent`.
 
-A rollout is one more conjunct of the rule that carries it. A rule with both
-`when` and `rollout` matches only for a context that satisfies the conditions
-and falls inside the bucket range.
+This approach provides these guarantees:
 
-| Field     | Default          | Meaning                          |
-| --------- | ---------------- | -------------------------------- |
-| `percent` | required         | the threshold, 0 to 100          |
-| `by`      | `'targetingKey'` | which context field to bucket on |
-| `seed`    | the feature key  | what the hash is seeded with     |
+1. **Stability**: The result is a pure function of the input. The same user always lands in the same bucket.
+2. **Decorrelation**: Because the `seed` defaults to the feature key, a user will land in different buckets for different features. A customer in the new checkout's 1% is not, for that reason, in express pickup's 1%.
+3. **Monotonicity**: The bucket value is independent of the percentage threshold. If you raise a rollout from 10% to 25%, you only _add_ new members to the cohort. No one who already had the feature will suddenly lose it. Lowering it removes the highest buckets first.
 
-## How a bucket is derived
-
-The bucket is a MurmurHash3 of the seed and the bucketing value, normalised over
-2^32 buckets into `[0, 1)`. Three properties follow.
-
-### Stable
-
-The bucket is a pure hash of the `(seed, value)` pair. No randomness,
-no clock, no process state, so every process and every evaluation agrees:
+`cust-0101` sits in the lowest 5% of the new checkout's range, so it is in at 10% and still in at 25%:
 
 ```ts twoslash file=libs/feature/README.md region=bucket-stable
 
 ```
 
-### Decorrelated across features
-
-The seed defaults to the feature key, so one customer hashes to an unrelated
-bucket per feature. `cust-0007` sits at the top of the new checkout's range and
-at the very bottom of express pickup's:
+`cust-0007` below sits near the top of the new checkout's range and near the bottom of express pickup's:
 
 ```ts twoslash file=libs/feature/README.md region=bucket-decorrelated
 
 ```
 
-Seeding with a constant instead is what puts someone in every rollout or in
-none. Set `seed` explicitly only to correlate two features deliberately — a pair
-of flags that must reach the same cohort.
+## Defining a Rollout
 
-### Monotonic in the percentage
+An `@evanion/feature` rollout is one more condition of the rule that carries it. A rule that has both a `when` list and a `rollout` matches only if the customer satisfies the conditions AND falls within the bucket range.
 
-The bucket does not depend on `percent` at all;
-`percent` is only a threshold on it. Raising a percentage can therefore only add
-members, never move one out. Lowering it removes the highest buckets.
+```ts twoslash file=libs/feature/README.md region=rollout-spec
 
-A customer who saw the new checkout at 10% still sees it at 25%.
-
-## Edges
-
-```ts
-inRollout('cust-0101', 0, 'seed'); // false — 0% includes nobody
-inRollout('cust-0101', 100, 'seed'); // true — 100% includes everybody
 ```
 
-Comparison is strictly below the threshold, and every bucket is strictly below
-1, so both ends are exact.
+| Field     | Default          | Meaning                                      |
+| :-------- | :--------------- | :------------------------------------------- |
+| `percent` | (Required)       | The threshold (0 to 100).                    |
+| `by`      | `'targetingKey'` | The field in the context used for bucketing. |
+| `seed`    | The feature key  | The salt used for the hash.                  |
 
-A context with no value for `by` does not match the rollout:
+A feature-level `seed` on the definition replaces the key for every rollout in that feature, and a rule's `rollout.seed` replaces it for that rule alone. Set a seed only to correlate two features deliberately, for example to keep a pair of flags rolling out to the same cohort.
 
-```ts
-features.resolve({ now }); // no targetingKey
-// rules: [{ rule: 'after-launch', matched: false,
-//           rollout: { percent: 25, by: 'targetingKey', member: false } }]
+### Edge Cases and Constraints
+
+- **Missing Targeting Keys**: If the context does not carry the field specified in `by`, the rollout is automatically rejected, even at 100%. So a context with no customer id never joins a rollout.
+- **Data Types**: Only `string` and `number` are usable as bucketing values. Objects, booleans, or nulls are treated as absent.
+- **Exact Bounds**: A `percent` of `0` includes nobody; `100` includes every context that carries the bucketing field.
+
+```ts twoslash file=libs/feature/README.md region=rollout-edges
+
 ```
 
-`bucket` is absent from that outcome, because there was nothing to bucket.
-Defaulting to "in" would ramp a rollout to everyone whose context happens to be
-incomplete, which is the population you least want it to reach first.
+## Why MurmurHash3?
 
-Only a `string` or a `number` is a usable bucketing value. Anything else — an
-object, a boolean, `null` — is treated as absent.
+Many libraries use a simple modulus (e.g., `hash % 100`). This is problematic because it only uses the "low bits" of the hash, and a hash such as FNV-1a mixes those bits poorly, which skews the distribution.
 
-## Why not FNV-1a over a concatenation
+`@evanion/feature` uses MurmurHash3's finalization to mix the entire 32-bit word and takes the bucket from all 32 bits, ensuring a uniform distribution over 2^32 buckets. It also length-prefixes the seed, so a seed and value pair such as (`ab`, `c`) can never hash the same as (`a`, `bc`), and flags whose keys share a prefix do not share buckets.
 
-GrowthBook's pre-v2 `hashFnv32a(value + seed) % 1000` fails decorrelation for
-two separate reasons, and this departs from it on both.
+## Exported Primitives
 
-Concatenating value and seed with no unambiguous boundary makes the pairs
-`('ab', 'c')` and `('a', 'bc')` the same input, so flags whose keys share a
-prefix share buckets. The seed here is length-prefixed, which is unambiguous for
-every possible input — no separator character can be, since any separator may
-itself occur in a key or a targeting value.
+For snapshot testing or predictive analysis (e.g., "Which 1,000 customers will see this rollout?"), `@evanion/feature` exports the underlying primitives `bucketOf`, `inRollout` and `murmur3`:
 
-FNV-1a also has weak avalanche in its low bits, and a modulus reads exactly
-those. MurmurHash3's finalisation mixes the whole word, and the bucket is taken
-from all 32 bits rather than from a modulus — which is also what makes the
-granularity fine enough that a percentage change adds buckets instead of
-reshuffling them.
+```ts twoslash file=libs/feature/README.md region=primitives
 
-MurmurHash3 over a normalised 32-bit space is Unleash's approach, with the
-group id defaulting to the flag name: the same defaulting as `seed` here.
-
-## The primitives are exported
-
-```ts
-import { bucketOf, inRollout, murmur3 } from '@evanion/feature';
 ```
 
-For snapshot tooling and tests: computing which accounts a ramp will reach
-before applying it, or asserting that a cohort did not move across a deploy.
-Nothing in the library reads them back.
+These functions allow you to compute the result of a rollout without creating a full feature store. `inRollout(value, percent, seed)` is the whole of what a rollout decides once the bucketing value is known, and `bucketOf(value, seed)` returns the bucket it compares.
+
+[Variants](../variants) splits the customers a feature reaches across named versions, bucketing them the same way under a separate seed.
