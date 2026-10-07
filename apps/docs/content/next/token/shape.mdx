@@ -54,7 +54,7 @@ Because `validate` is tied to the instance that created the code, `counterCode.v
 
 ## Invalid Shapes and `InvalidShapeError`
 
-Not every combination of `@evanion/token` shape options describes a code. `createToken` will throw an `InvalidShapeError` if the shape is invalid. This is designed to stop your application at start-up rather than failing silently at runtime.
+Not every combination of `@evanion/token` shape options describes a code. `createToken` throws `InvalidShapeError` when the shape is invalid. Build the instance at module scope and a bad shape throws when the process starts.
 
 In the example below, `refusal` is a helper of your own: it takes a `TokenOptions` object, the type of `createToken`'s options, and returns the error `createToken` throws, or `undefined` when the options are accepted.
 
