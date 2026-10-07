@@ -2,13 +2,13 @@
 
 **Human-friendly codes with built-in error detection.**
 
-Stop wasting database resources on mistyped codes. Whether it's a gift card, a pickup code, or a support ticket, a single typo should be caught instantly, before your application ever hits the database.
+`@evanion/token` mints readable codes for gift cards, pickup codes and support tickets, and `validate` refuses a code with one wrong character before your application queries the database.
 
 ## Why a Database Lookup Is the Wrong First Check
 
-Most developers generate random strings and validate them by querying the database. This creates two major problems:
+An application that checks a random code only against its database has two problems:
 
-1. **Expensive Failures**: A mistyped code still triggers a database lookup. At scale, thousands of typos per hour become a significant and unnecessary load on your infrastructure.
+1. **Expensive Failures**: A mistyped code still triggers a database lookup, and every typo runs a query that cannot find anything.
 2. **Poor User Experience**: A user who types `a4kp-9mx8` instead of `a4kp-9mxa` only finds out they failed when the database returns "Not Found," which is indistinguishable from a code that actually doesn't exist.
 
 ## Check Characters Refuse a Typo Locally
@@ -383,12 +383,12 @@ It is the lowercase alphanumerics without `i`, `l`, `o` and `w`. The first three
 
 A dictionary you supply has to satisfy every constraint below, all checked by `createToken`:
 
-| Constraint                           | Enforced by     | Why                                    |
-| ------------------------------------ | --------------- | -------------------------------------- |
-| no confusable characters             | this package    | `l`, `i` read as `1`, and `o` as `0`   |
-| lowercase                            | this package    | input is case folded before it is read |
-| `256 % n === 0`                      | this package    | otherwise `byte % n` is biased         |
-| even size, no repeats, no case pairs | `@evanion/luhn` | a check character has to be definable  |
+| Constraint                           | Enforced by     | Why                                                |
+| ------------------------------------ | --------------- | -------------------------------------------------- |
+| no confusable characters             | this package    | `l`, `i` read as `1`, `o` as `0`, `w` heard as `u` |
+| lowercase                            | this package    | input is case folded before it is read             |
+| `256 % n === 0`                      | this package    | otherwise `byte % n` is biased                     |
+| even size, no repeats, no case pairs | `@evanion/luhn` | a check character has to be definable              |
 
 The three this package owns throw `InvalidAlphabetError`, with a `reason` and the `offending` characters:
 
