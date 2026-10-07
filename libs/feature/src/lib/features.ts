@@ -759,9 +759,33 @@ export function createFeatures(
   // attempt to do so fails loudly instead of silently diverging from what was
   // resolved. The freeze covers the array as well as each definition in it, and
   // `toggle` replaces the whole array on a write.
-  let config: readonly FeatureDefinition<FeatureKey>[] = Object.freeze(
-    supplied.map((definition) => deepFreeze(structuredClone(definition))),
-  );
+  //
+  // Inside a catch, for the reason the envelope below is inside one.
+  // `collectIssues` declares nothing about a variant `value`, which
+  // `SerializedVariantSpec` types `unknown`, so a function, a symbol or a
+  // value nested deeper than the stack holds clears the checker and raises
+  // `DataCloneError` or `RangeError` out of this walk, and `deepFreeze` hands
+  // `Object.freeze` a typed array holding elements and raises `TypeError`.
+  //
+  // The two paths answer such a value differently, which is the split the
+  // `UNCOPYABLE` docblock in `parse.spec.ts` draws. A bare array is the
+  // literal an author wrote, the raise names the leaf at the authoring site,
+  // and it travels. A document arrived from a publisher, `errors.ts` has every
+  // refusal over a supplied configuration be a typed `FeatureConfigError`, and
+  // a holder catching one to keep the document it already has catches no
+  // `DOMException`. The text is the raise's own, which is the only part of it
+  // that says anything about the value: `parseFeatureConfig` catches this
+  // throw and keys the issue on the definition that carries the value, and
+  // `reload` keys the same issue on the same definition for the same bytes.
+  let config: readonly FeatureDefinition<FeatureKey>[];
+  try {
+    config = Object.freeze(
+      supplied.map((definition) => deepFreeze(structuredClone(definition))),
+    );
+  } catch (raise) {
+    if (!isDocument(definitions)) throw raise;
+    throw new FeatureConfigError(unreadableText(raise));
+  }
   // The window contract for a literal is read here. `whenIssues` inside the
   // checker answers a served document and stays behind the `arrayIsOrder` gate,
   // so a bare array reaches no other reader of the contract.

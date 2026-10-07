@@ -3511,4 +3511,70 @@ describe('the documents createFeatures refuses', () => {
     expect(() => createFeatures(document)).toThrow(FeatureConfigError);
     expect(document).toEqual(before);
   });
+
+  it('throws a typed error for a value no copy of a definition holds', () => {
+    const document = {
+      version: 1,
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variantBy: 'targetingKey',
+          variantSeed: 'cta',
+          variants: [{ name: 'on', weight: 1, order: 0, value: () => 1 }],
+        },
+      ],
+    } as unknown as FeatureConfig;
+
+    expect(validateConfig(document)).toEqual({ ok: true });
+    expect(() => createFeatures(document)).toThrow(FeatureConfigError);
+  });
+
+  it('throws the text a reload of the same definition reports', () => {
+    const document = {
+      version: 2,
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variantBy: 'targetingKey',
+          variantSeed: 'cta',
+          variants: [{ name: 'on', weight: 1, order: 0, value: Symbol('on') }],
+        },
+      ],
+    } as unknown as FeatureConfig;
+    const store = createFeatures({
+      version: 1,
+      features: [{ key: 'cta', enabled: true }],
+    } as FeatureConfig);
+    const thrown = (() => {
+      try {
+        createFeatures(document);
+        return { name: 'nothing', message: 'nothing' };
+      } catch (raise) {
+        return raise instanceof Error
+          ? { name: raise.name, message: raise.message }
+          : { name: String(raise), message: String(raise) };
+      }
+    })();
+
+    expect([thrown.name, store.reload(document)]).toEqual([
+      'FeatureConfigError',
+      {
+        ok: false,
+        version: 1,
+        rejected: 2,
+        issues: [
+          {
+            code: 'unknown-member',
+            message:
+              'feature "cta" carries a value no copy of the definition ' +
+              `holds: ${thrown.message}`,
+            key: 'cta',
+            path: '/features/0',
+          },
+        ],
+      },
+    ]);
+  });
 });
