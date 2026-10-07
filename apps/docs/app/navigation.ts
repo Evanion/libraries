@@ -67,7 +67,7 @@ export const groups: readonly PackageGroup[] = [
   {
     id: 'rendering',
     title: 'Rendering from data',
-    line: 'Describe a page as data: a list of items, each naming a component and the props it takes. The library resolves every item to its component by type, checks the props against it at compile time, and renders the page. One item shape, held in a framework-free core, rendered by React and by Astro.',
+    line: 'Describe a page as data: a list of items, each naming a component and the props it takes. The library resolves every item to its component by type and renders the page. React checks the props at compile time. In Astro you run validateItems over the items before the build. One item shape, held in a framework-free core, rendered by React and by Astro.',
   },
   {
     id: 'acl',
@@ -77,7 +77,7 @@ export const groups: readonly PackageGroup[] = [
   {
     id: 'identifiers',
     title: 'Identifiers and codes',
-    line: 'Naming a thing, signing an identifier so a typo is caught before the database is, and minting a code a person can read back over the phone. Token is built on Luhn.',
+    line: 'Name a thing with a URN, add a check character so a mistyped ID fails before it reaches the database, and mint a code a person can read back over the phone. Token is built on Luhn.',
   },
   {
     id: 'standalone',
