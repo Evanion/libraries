@@ -56,8 +56,8 @@ astro-widget's `Widgets.astro` renders what it can of a bad save, under the [fai
 | Fault                                | Render Result                                      | Console Warning                                                                                |
 | :----------------------------------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
 | Unknown `type`                       | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET`                                                                |
-| No string `type`                     | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type: "unknown")                                              |
-| Not an object                        | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type/id: "unknown")                                           |
+| No string `type`                     | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET`, with `ERROR_MESSAGES.UNKNOWN` (`unknown`) as the type         |
+| Not an object                        | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET`, with `ERROR_MESSAGES.UNKNOWN` as the type and id              |
 | Missing prop                         | Widget renders, but with `undefined` for that prop | None                                                                                           |
 | `items` present and not a list       | Nothing renders                                    | `ERROR_MESSAGES.MALFORMED_ITEMS`                                                               |
 | `items` undefined                    | Nothing renders                                    | None                                                                                           |
