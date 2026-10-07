@@ -41,7 +41,7 @@ For any even-sized dictionary, swapping the characters at index `0` and index `n
 
 ## Modulo Bias in Random Generation
 
-If you are generating random codes over an `@evanion/luhn` dictionary, you must be aware of **modulo bias**.
+`@evanion/luhn` does not generate random values, but a shop that draws its codes at random over a Luhn dictionary meets **modulo bias**.
 
 If you draw a random byte (0-255) and use `byte % n` to pick a character, every character is equally likely **only if `n` divides 256**.
 
@@ -55,7 +55,7 @@ The default 36-character dictionary is not uniform: $256 \bmod 36 = 4$. This mea
 
 ### How to Avoid Bias
 
-1. **Use a dictionary that divides 256**: This is why `@evanion/token` refuses any other dictionary size, and why its default dictionary holds 32 characters.
+1. **Use a dictionary whose size divides 256**: This is why `@evanion/token` refuses any other dictionary size, and why its default dictionary holds 32 characters.
 2. **Rejection Sampling**: Draw a byte, discard it if it falls in the "biased tail" (e.g., values 252-255 for $n=36$), and draw again.
 
-`@evanion/luhn` does not generate random values. It provides the diagnostic tool (`uniformOverBytes`), but the responsibility for generating high-quality random bytes lies with your random number generator (e.g., `crypto.getRandomValues`).
+Your random number generator, such as `crypto.getRandomValues`, supplies the bytes, and `uniformOverBytes` says nothing about their quality.
