@@ -1,8 +1,6 @@
-# Astro SSR
+# Astro SSR Integration
 
-An `.astro` page's frontmatter runs on the server for every HTTP method at its
-URL, so one `access.can` call from `@evanion/acl` at the top of the file gates
-both the page and the form that posts back to it.
+An `.astro` page's frontmatter runs on the server for every HTTP method at its URL, so a single `@evanion/acl` check can gate both the page render and any form submissions posting back to it.
 
 <PageSheet
   difficulty={4}
@@ -15,123 +13,81 @@ both the page and the form that posts back to it.
   ]}
 />
 
-## One acl decision at the top of `cart.astro`
+## Single-Point Authorization in Astro
 
-`apps/storefront` is Baize's shop front, an Astro app that renders on the server
-and ships no JavaScript to the browser. Its cart answers `GET` and `POST` at
-`/cart`, and both reach the same frontmatter. `access` and `subject` are what
-the middleware put on `Astro.locals`. `decide`, from
-`apps/storefront/src/lib/policy.ts`, calls
-`access.can(subject, 'order', 'create')` and returns `undefined` where the app
-holds no document to decide on:
+In the Baize storefront (`apps/storefront`), `@evanion/acl` ensures that users can only interact with the shopping cart if they have the required permissions. In frameworks like Next.js or React Router, a page render and a data write often happen through two different entry points (e.g., a Page component and a Server Action). In Astro, both a `GET` request to view a page and a `POST` request to submit a form reach the same frontmatter.
+
+In `apps/storefront`, the `/cart` page handles both. `access` and `subject` are what the storefront's middleware put on `Astro.locals` (see [Resolving the subject and policy in middleware](#resolving-the-subject-and-policy-in-middleware)), and `decide` calls `access.can(subject, 'order', 'create')`, returning `undefined` where the app holds no document to decide on. By deciding at the very top of the frontmatter, the application resolves the permission once and uses the verdict for both the UI and the enforcement.
 
 ```ts file=apps/storefront/src/pages/cart.astro region=order-decision
 
 ```
 
-A refused `POST` gets status 403 and the sentence `refusalText` picks from the
-decision's `reason`, and the cart cookie is untouched. The form posts one of four
-intents: `add`, `update` and `remove` edit the cookie, and `checkout` places the
-order. All four are decided against `order.create`, because a cart is the draft
-of an order.
+If a `POST` request is refused, the application returns a 403 Forbidden response and leaves the cart cookie untouched. The `refusalText` is derived from the ACL decision's reason, providing the user with a clear explanation of why the action was blocked.
 
-A React Router route or a React Server Components (RSC) route reaches its render
-and its write through two entry points, so each owes two decisions written in
-two places. An `.astro` page owes one.
+The form posts one of four intents: `add`, `update` and `remove` edit the cookie, and `checkout` places the order. All four are decided against `order.create`, because a cart is the draft of an order.
 
-## The checkout button reads the same acl decision
+## Syncing the UI with the Enforcement
 
-`cart.astro` draws the checkout button from `mayOrder`, the `order.create`
-verdict its frontmatter reached once for the request:
+In `cart.astro`, one `@evanion/acl` decision governs both the render and the write, so the page cannot display a control that its own handler would refuse.
+
+The checkout button in `cart.astro` is enabled or disabled based on the `mayOrder` variable, which is the result of the `order.create` check performed in the frontmatter:
 
 ```astro file=apps/storefront/src/pages/cart.astro region=checkout-gate
 
 ```
 
-The disabled button is the convenience and the `POST` branch is the enforcement.
-One `can` call answers both, so the page cannot draw a control its own handler
-refuses.
+While the disabled button provides a better user experience, the actual enforcement happens in the `POST` branch of the frontmatter. A direct script posting to `/cart` with `intent=checkout` will still be blocked by the same ACL check, regardless of the UI state.
 
-```mermaid caption="One decision at the top of cart.astro, read by both gates. A page view and a direct POST enter the same frontmatter, which resolves order.create once: the render path draws the checkout button enabled or disabled from that verdict, and the POST path answers 403 from the same one."
+```mermaid caption="The unified authorization flow in Astro. Both the page view and a direct POST enter the same frontmatter, which resolves the permission once. This single verdict is then used to both render the UI and enforce the write path."
 flowchart TD
-  V["a page view"] --> F["cart.astro frontmatter"]
-  C["a script posting to /cart"] --> F
+  V["Page View (GET)"] --> F["cart.astro frontmatter"]
+  C["A script posting to /cart"] --> F
   F --> D["decide: order.create, once"]:::accent
-  D --> R["the checkout button,<br>drawn enabled or disabled"]
-  D --> W["the write path:<br>the order is placed, or 403"]
+  D --> R["Render UI: Checkout button<br>enabled or disabled"]
+  D --> W["Enforce Write: Order placed<br>or 403 Forbidden"]
 ```
 
-A script posting `intent=checkout` never draws the button. The page's own test
-posts exactly that, as an anonymous visitor, and checks that no order reached
-shop-api:
+This is verified by tests that attempt to post as an anonymous visitor and confirm that no order is created in the backend API.
 
 ```ts file=apps/storefront/src/pages/cart.astro.test.ts region=post-refused
 
 ```
 
-## Astro server output is what makes a page a boundary
+## Establishing the Server Boundary
 
-A prerendered build runs a page's frontmatter once, at build time, and serves
-the HTML it produced. No process exists at request time to resolve a subject
-against, and no handler exists for a form to post to. A server-rendered build
-runs the frontmatter on every request, inside a Node process the operator
-controls.
+An `@evanion/acl` decision in Astro frontmatter needs the app configured for Server-Side Rendering. In a prerendered (static) build, the frontmatter runs only once at build time, meaning there is no request-time context to resolve a subject against.
 
-`apps/storefront/astro.config.mjs` sets `output: 'server'` and the
-`@astrojs/node` adapter in standalone mode. Under a prerendered build, Astro
-middleware runs once, at build time, against whoever built the site.
+The `apps/storefront/astro.config.mjs` file sets `output: 'server'` and uses the `@astrojs/node` adapter in standalone mode. This ensures the frontmatter runs on every request inside a Node.js process controlled by the operator. Under a prerendered build, Astro middleware also runs once, at build time, against whoever built the site.
 
-## Astro middleware resolves the subject and the acl document
+## Resolving the Subject and Policy in Middleware
 
-Astro middleware runs ahead of every page's frontmatter. `readSubject` reads the
-visitor's cookie, `ShopApi.forRequest` is the typed client for `apps/shop-api`,
-and `policyAccess` answers with the evaluator over shop-api's published
-document. The cart cookie and the correlation header are the app's own and carry
-no decision:
+The storefront's Astro middleware resolves the subject and the `@evanion/acl` document before any page's frontmatter runs, so no page repeats that setup.
+
+The middleware reads the visitor's identity from a cookie and fetches the latest policy document from `apps/shop-api`. The resulting `access` evaluator and `subject` are then attached to `Astro.locals`, making them available to every page.
 
 ```ts file=apps/storefront/src/middleware.ts region=open-context
 
 ```
 
-Every page reads `Astro.locals.subject` and `Astro.locals.access`, resolved once
-per request, so two blocks on one page cannot decide against two identities.
+Every page reads `Astro.locals.subject` and `Astro.locals.access`, resolved once per request, so two blocks on one page cannot decide against two identities. The `policyAccess` evaluator adopts the document with `parseMatrix`, caches it across requests, and only fetches where the process holds no document or the revalidation window has closed. This ensures that ACL decisions in the frontmatter are local function calls rather than network requests.
 
-`policyAccess` adopts the document with `parseMatrix` and holds it across
-requests. It fetches only where the process holds no document or the
-revalidation window has closed, so a decision in a frontmatter is a local
-function call. [Choosing a framework integration](../choosing-an-integration)
-shows the cache, the window, and what a failed poll leaves behind.
+## Sanitizing Roles at the App Boundary
 
-## Narrow the roles before the Astro app forwards them
+The storefront sits between the user and the `shop-api`, and states the subject its `@evanion/acl` decisions read on the `X-Shop-Subject` header. The API trusts that header, so the storefront is the last point where the application can check which roles it asserts on behalf of the user. A subject read from a header is the forged subject the [security contract](../security#subject-authenticity-the-confused-deputy) warns about, and shop-api accepts one only because Baize is a demo. The cookie it reads is unsigned, a demo identity that a deployment replaces with a verified session.
 
-`apps/storefront` states its subject to shop-api on the `X-Shop-Subject` header,
-and shop-api believes what it forwards. The cookie the storefront reads is
-unsigned, a demo identity that a deployment replaces with a verified session, so
-this hop is the last place that knows which roles this app may assert.
-`parseSubject` screens the claim down to `customer`, the one role the app's
-`/session` sign-in route issues:
+To prevent a user from manually editing their cookie to claim a `manager` role, the `parseSubject` function screens the subject against `STOREFRONT_ROLES`, which holds `customer`, the one role the app's `/session` sign-in route issues. If any role outside it is claimed, the whole payload is discarded and the subject becomes `ANONYMOUS_SUBJECT`, an anonymous shopper.
 
 ```ts file=apps/storefront/src/lib/subject.ts region=storefront-roles
 
 ```
 
-`parseSubject` discards a payload claiming any role outside `STOREFRONT_ROLES`,
-the whole payload and never part of it, and answers `ANONYMOUS_SUBJECT`. A
-hand-edited cookie claiming `manager` reaches the API as an anonymous shopper.
+## The Backend Decides Again
 
-## An Astro app with no browser copy still has a second decider
+The storefront's `@evanion/acl` decisions all run in its Node process, because it ships no JavaScript to the browser, and the data still lives in `apps/shop-api`. `apps/shop-api` re-evaluates every order against the same policy document, as [the security contract](../security#complete-mediation) requires.
 
-`apps/storefront` ships no JavaScript to the browser, so every decision it makes
-happens in its Node process. Those decisions still do not guard the orders.
-`apps/shop-api` owns the data, holds the same document, and decides again on
-every request. A storefront that disabled
-the checkout button does not excuse the service the order is posted to.
+## Next.js, adoption and the contract
 
-## Where to go next
-
-- [Next.js (React Server Components)](../nextjs). The same trusted render,
-  with the write on a second entry point.
-- [How do I use rules another service published?](../adopting). Closed mode,
-  and what a fetched document obliges.
-- [Security contract](../security). Subject authenticity, complete mediation,
-  and the rest of what a consumer owns.
+- [Next.js (React Server Components)](../nextjs): Explore how this trusted render pattern works when the write path is handled by a second entry point.
+- [Adopting Other Services' Rules](../adopting): Learn how to use a policy document published by another service.
+- [Security Contract](../security): Read about subject authenticity and complete mediation.

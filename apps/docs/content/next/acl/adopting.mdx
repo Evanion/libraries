@@ -116,7 +116,7 @@ the JSON round trip, so a consumer holding a document for weeks can say which
 revision decided. A process that changes a document before building an evaluator
 over it runs a revision the owner never shipped. A deny overlay does that: it
 merges another team's deny rules into the document, as
-[Many services](../federation#a-cross-cutting-deny-is-an-acl-overlay-the-owner-applies)
+[Many services](../federation#cross-cutting-denials-via-overlays)
 covers. `hydratePolicy(matrix, { version })` names the revision this process
 runs, and `parseMatrix` takes the same option:
 
@@ -138,5 +138,5 @@ The library neither signs a document nor verifies a signature. A matrix arriving
 over an unauthenticated channel is a matrix an attacker wrote, and every check
 above reads the shape and says nothing about where the bytes came from.
 Integrity belongs to the transport, the same way
-[resolving a subject](../pitfalls#the-subject-is-whatever-you-hand-it) belongs
+[resolving a subject](../pitfalls#forged-subjects-the-confused-deputy) belongs
 to the session layer.
