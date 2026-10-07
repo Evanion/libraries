@@ -1,12 +1,12 @@
 # @evanion/compose
 
-**Flatten nested React providers into one type-checked list.**
+**Escape "Provider Hell" with flattened, type-safe provider composition.**
 
-A React root nests one provider inside the next, so adding one reindents the tree and moving one means finding its closing tag. `@evanion/compose` lets you flatten nested providers into a single, readable list, while TypeScript still checks each provider's props against its own component.
+Stop nesting your React providers in a deepening pyramid that makes your `App.tsx` unreadable and your component tree a nightmare to maintain. `@evanion/compose` lets you flatten nested providers into a single, readable list—while keeping the strict type-safety of each provider's props.
 
-## The Problem: Nested Providers
+## The Problem: The Provider Pyramid of Doom
 
-As your app grows, your root component nests one level deeper per provider. It's hard to read, hard to reorder, and a missing prop in a deeply nested provider is hard to find:
+As your app grows, your root component inevitably becomes a wall of nesting. It's hard to read, hard to reorder, and a single missing prop in a deeply nested provider can be a nightmare to debug:
 
 ```tsx
 const App: React.FC = () => {
@@ -16,11 +16,11 @@ const App: React.FC = () => {
         <ThemeProvider theme={theme}>
           <TranslationProvider locale={locale} messages={messages}>
             <StateProvider state={stateStore}>
-              <CartProvider>
-                <TooltipProvider>
+              <CoffeeProvider>
+                <SanityProvider>
                   <Routes />
-                </TooltipProvider>
-              </CartProvider>
+                </SanityProvider>
+              </CoffeeProvider>
             </StateProvider>
           </TranslationProvider>
         </ThemeProvider>
@@ -32,40 +32,43 @@ const App: React.FC = () => {
 
 ## The Solution: Flattened Composition
 
-`@evanion/compose` replaces the nesting with an array. The first entry in the list becomes the outermost provider, matching the natural order of your nesting.
+`@evanion/compose` replaces the pyramid with a simple array. The first entry in the list becomes the outermost provider, matching the natural order of your nesting.
 
-```tsx
-import { ComposeProvider, provider } from '@evanion/compose';
+A bare component works for a provider whose props are all optional, while `provider()` checks the props of others where they are written. This block runs in the package's test suite with `React`, `renderToStaticMarkup` from `react-dom/server`, and `ComposeProvider` and `provider` from `@evanion/compose` imported; the `// ->` comment shows the resulting markup.
 
-const providers = [
-  ErrorBoundary,
-  provider(CacheProvider, { value: emotionCache }),
-  provider(ThemeProvider, { theme }),
-  provider(TranslationProvider, { locale, messages }),
-  provider(StateProvider, { state: stateStore }),
-  CartProvider,
-  TooltipProvider,
-];
+<!-- #region render-order -->
 
-const App: React.FC = () => {
-  return (
-    <ComposeProvider providers={providers}>
-      <Routes />
-    </ComposeProvider>
-  );
-};
+```tsx @import.meta.vitest
+const CartProvider = ({ children }: React.PropsWithChildren) => (
+  <div id="cart">{children}</div>
+);
+
+const ThemeProvider = ({
+  theme,
+  children,
+}: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
+  <div id={theme}>{children}</div>
+);
+
+const markup = renderToStaticMarkup(
+  <ComposeProvider
+    providers={[CartProvider, provider(ThemeProvider, { theme: 'dark' })]}
+  >
+    <p>Brass: Birmingham</p>
+  </ComposeProvider>,
+);
+
+markup; // -> '<div id="cart"><div id="dark"><p>Brass: Birmingham</p></div></div>'
 ```
 
-Rendered, the array is the tree. `CartProvider` is first in the array and outermost in the markup:
+<!-- #endregion render-order -->
 
-`ThemeProvider` needs a prop, so it goes through `provider()`, which pairs the component with its props.
-
-### Why this is better:
+## Key Features
 
 - 🧩 **Readability**: Your provider stack is now a clean, linear list.
-- 🎯 **Compile-Time Safety**: The `provider()` helper checks the props you pass against the component's own props. A missing or wrong prop is a compile error. Nothing checks props at runtime.
-- ⚡ **RSC Ready**: `ComposeProvider` uses no hooks, no context and no class component, so a React Server Component, a Next.js `app/layout.tsx` included, can import it without a `'use client'` boundary. A provider you pass that calls `createContext` is still client code.
-- 🪶 **Zero Dependencies**: React is the only peer dependency, and the package has no runtime dependencies of its own.
+- 🎯 **Compile-Time Safety**: The `provider()` helper ensures that the props you pass match the component's requirements. Missing or wrong props are compile errors, not runtime crashes.
+- ⚡ **RSC Ready**: `ComposeProvider` uses no hooks or context, making it fully compatible with React Server Components (RSC) and Next.js `app/layout.tsx` without needing a `'use client'` boundary.
+- 📦 **Dependencies**: React 18 or 19 is the only peer dependency, with no runtime dependencies. The package is ESM only, requires Node 20 or newer, and ships its own types.
 
 ## Installation
 
@@ -73,114 +76,12 @@ Rendered, the array is the tree. `CartProvider` is first in the array and outerm
 npm install @evanion/compose
 ```
 
-React 18 or 19 is the only peer dependency. The package is ESM-only and needs Node 20 or newer. It has no `require` condition, so a CommonJS consumer needs a Node whose `require()` loads ES modules: 20.19 or later on Node 20, or 22.12 or later. An older `require()`, or Jest without ESM support, fails with `ERR_REQUIRE_ESM`.
+## Documentation
 
-## Beyond the Basics
+For detailed API references, migration guides from 1.x, and advanced type-checking patterns, visit our documentation site:
 
-While the basic usage is simple, `@evanion/compose` handles the cases a production app runs into:
-
-- **Type-Safe Tuples**: Use `[Component, props]` tuples for a concise alternative to the `provider()` helper.
-- **Fixed-Length Arrays**: The library uses TypeScript's `const` type inference to check every entry in your array individually.
-- **Wrapper Components**: `ComposeProviderProps<T>` lets your own wrapper pass its caller's array through still checked.
-- **Remounting**: [Changing the Array Remounts the Subtree](#changing-the-array-remounts-the-subtree), below, keeps a conditional provider from remounting everything under it.
-
-For guides on where the check happens and how to keep it, visit the documentation site:
-
-👉 **[docs.evanion.com/compose](https://docs.evanion.com/compose)**
-
-## A Root Component with Three Context Providers
-
-A board game shop's root holds a cart, a theme and a currency, each a context provider. `Shop` composes them, and `Basket` reads all three:
-
-A context provider renders no element of its own, so `markup` is `Basket`'s paragraph alone, and the values in it came through all three providers.
-
-## Three Ways to Write an Entry
-
-A provider with no props is the component itself. A provider with props is either a `provider()` call or a `[component, props]` tuple. The providers from here on render a `div` whose `id` is their prop, so the markup shows which props arrived:
-
-The docs site renders each block from its `// ---cut---` down. The lines above the marker declare what the block needs to compile.
-
-A `provider()` call and a tuple type-check identically. The difference is where the check happens, and therefore whether you get autocomplete:
-
-|                                 | `provider()`          | tuple                                        |
-| ------------------------------- | --------------------- | -------------------------------------------- |
-| IntelliSense while typing props | yes                   | no: you must know the prop names             |
-| Errors reported at              | the `provider()` call | the `<ComposeProvider>` that takes the array |
-| An entry held in a variable     | still checked         | widened, and refused without naming the prop |
-
-A tuple is checked only while the array has a fixed-length array type, which it has when written inline in the JSX attribute or declared `as const`. Annotated `ProviderArray`, or checked with `satisfies ProviderArray`, the array widens to a plain array and its entries go unchecked. Below, the annotated array compiles and renders `ThemeProvider` with no `theme`, and the same entry declared `as const` reports the missing prop:
-
-`// @errors: 2322` lists the compiler error the block produces. The docs site compiles every such block and fails its build when a listed error stops appearing.
-
-## Changing the Array Remounts the Subtree
-
-React reconciles by position, so `providers={[...(isAuthed ? [AuthProvider] : []), ThemeProvider]}` unmounts and remounts everything below it on login, losing all state in it. Keep the array a fixed length and let the providers themselves handle the conditional case.
-
-A new props value is not a change to the array's shape. An entry built from state, `provider(ThemeProvider, { theme })`, re-renders `ThemeProvider` in place when `theme` changes, and the state below it stays.
-
-## What the Type Errors Look Like
-
-An array written inline is checked entry by entry, and each failing entry reports on its own line. At runtime nothing checks the props, so the same array renders:
-
-`provider()` reports a wrong value at the call, naming the value and the type it missed, and returns the pair unchanged:
-
-Failures that are not just a wrong value resolve to `ComposeError<"…">`, so TypeScript prints the explanation in the first line of the error:
-
-```
-Type '[…, { theme: "dark"; accent: "green"; }]' is not assignable to type
-'readonly […] & ComposeError<"unknown prop 'accent'">'.
-```
-
-## API Reference
-
-### `ComposeProvider`
-
-| Prop        | Meaning                              |
-| ----------- | ------------------------------------ |
-| `providers` | the providers, first entry outermost |
-| `children`  | what they wrap                       |
-
-`ComposeProvider` is a generic function, not a `React.FC`. It infers the providers array as a fixed-length array type (`const T`), which is what lets it check each entry against its own component.
-
-It throws a `TypeError` naming the prop when `providers` is not an array, which only a caller outside TypeScript can reach, and warns once in development when the array is empty.
-
-### `provider(component, props)`
-
-Returns the readonly tuple `[component, props]`, with `props` checked and autocompleted against `component`.
-
-```tsx
-const p = provider(ThemeProvider, {
-  theme: 'dark', // <- IntelliSense suggests available props
-});
-```
-
-### Types
-
-- `AnyComponent`: the constraint for any component, `ComponentType<any>`.
-- `PropsWithoutChildren<T>`: the props an entry has to supply, which is `T`'s props without `children`.
-- `Provider`: a provider component or a `[component, props]` tuple.
-- `ProviderArray`: a readonly array of those.
-- `ValidateProvider<T>` and `ValidateProviders<T>`: the checks for one entry and for each position of an array.
-- `ValidatedProviders<T>`: the type of the `providers` prop. For a fixed-length array type it validates entry by entry; for an already-widened `ProviderArray` it resolves to `ProviderArray`, so a value of that type can be forwarded through a wrapper component.
-- `ComposeProviderProps<T>`: the props interface.
-
-A wrapper generic over `ComposeProviderProps<T>` passes its caller's array to `ComposeProvider` still checked:
-
-A wrapper that types its prop as plain `ProviderArray` compiles too, and the entries are unchecked at that boundary: a `ProviderArray` has already lost the identity of its elements, so there is nothing left to check.
-
-## Migrating from 1.x
-
-| 1.0.8                                           | 2.0                                                                      |
-| ----------------------------------------------- | ------------------------------------------------------------------------ |
-| `<ComposeProvider components={[...]}>`          | `<ComposeProvider providers={[...]}>`                                    |
-| dual CommonJS and ESM builds                    | ESM only; `require('@evanion/compose')` needs Node 20.19, 22.12 or newer |
-| the `Component` type                            | `Provider` or `ProviderArray`                                            |
-| `Provider`, an alias of `Component`             | `AnyComponent \| readonly [AnyComponent, unknown]`                       |
-| `ComposeProvider` typed as a `React.FC`         | a generic function that no longer assigns to `React.FC`                  |
-| a missing `providers` fails reading `undefined` | throws a `TypeError` naming `providers`                                  |
-
-The `components` prop is gone from the type surface. A JavaScript caller that still passes it gets a named error:
+👉 **[docs.evanion.com/compose](https://docs.evanion.com/compose/)**
 
 ## License
 
-MIT License - see [LICENSE](../../LICENSE) for details.
+MIT
