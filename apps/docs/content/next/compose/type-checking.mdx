@@ -32,7 +32,7 @@ The checks differ by entry type:
 
 ## Type Safety for Inline Arrays
 
-When you write your provider array inline within the `providers` prop, `@evanion/compose` checks every entry against its own component. `ComposeProvider` declares its type parameter `const`, a modifier TypeScript 5.0 added, so TypeScript infers the inline array as a **fixed-length array type**: one type per position, with a length that is a number literal.
+When you write your provider array inline within the `providers` prop, `@evanion/compose` checks every entry against its own component. `ComposeProvider` declares its type parameter `const`, a modifier TypeScript 5.0 added, so TypeScript infers the inline array as a **fixed-length array type**: one type per position, with a length that is a number literal. TypeScript calls it a tuple type, and these pages keep "tuple" for an entry.
 
 If you provide an incorrect prop for `ThemeProvider`, the compiler identifies exactly which entry in the array is failing. At runtime nothing checks the props, so `markup` is what the same array rendered:
 
