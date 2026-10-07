@@ -1,6 +1,6 @@
 # The alphabet
 
-To mint codes from your own set of characters, pass a `dictionary` string to `createToken`. To prevent user frustration and mathematical bias, `@evanion/token` enforces strict rules on any custom alphabet.
+To mint codes from your own set of characters, pass a `dictionary` string to `createToken`. `createToken` refuses a dictionary that holds `i`, `l`, `o` or `w`, holds an uppercase character, or has a size that does not divide 256.
 
 <PageSheet
   difficulty={3}
@@ -17,7 +17,7 @@ To mint codes from your own set of characters, pass a `dictionary` string to `cr
 
 When an `@evanion/token` code is read aloud or typed from a printed receipt, some characters are confused: a `1` for an `l` or an `i`, and a `0` for an `o`. If a dictionary held both `1` and `l`, a customer who typed `l` for a printed `1` would get `check-failed`, which does not say which character is wrong. The default dictionary has no `l`, so a typed `l` fails as `outside-alphabet`: the code holds a character that no code contains.
 
-Furthermore, the way random characters are drawn from a dictionary can introduce "bias." If the dictionary size doesn't divide evenly into the range of the random number generator, some characters will appear more often than others, making the codes slightly more predictable.
+`generate` picks each character with `byte % n`, where `byte` is a random value from 0 to 255 and `n` is the dictionary size. When `n` does not divide 256, the first `256 % n` characters come up more often than the rest, and the codes are slightly more predictable.
 
 ## The Default token Dictionary
 
