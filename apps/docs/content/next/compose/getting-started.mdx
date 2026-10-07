@@ -43,7 +43,7 @@ pnpm add @evanion/compose
 
 With `@evanion/compose`, you pass your providers as an array to `ComposeProvider` and stop nesting them by hand. The first item in the array becomes the outermost wrapper, and the last item wraps your application's children.
 
-In the Baize shop example, the root needs to provide a cart, a theme, and a currency, each built on `createContext`. `Shop` passes the three to `ComposeProvider`, and `Basket` reads each value with `useContext`. `renderToStaticMarkup`, from `react-dom/server`, turns the tree into the HTML string `markup`:
+In the Baize shop example, the root needs to provide a cart, a theme, and a currency, each built on `createContext`. `Shop` passes the three to `ComposeProvider`, and `Basket` reads each value with `useContext`. The file imports `ComposeProvider` and `provider` from `@evanion/compose` and `* as React` from `react`. `renderToStaticMarkup`, from `react-dom/server`, turns the tree into the HTML string `markup`:
 
 ```tsx twoslash file=libs/compose/README.md region=first-shop
 
