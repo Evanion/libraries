@@ -20,8 +20,13 @@ carries a control is scheduled work with its own ratchet in
 `tools/repo-checks/src/doc-control-allowance.json`. Skip it.
 
 **There is no prose budget any more.** G8 was retired with the old standard, and
-no page has a word limit of any kind. Do not report a page for being long. What
-replaced the budget is the shape rules below, and those are yours.
+no page has a word limit of any kind. Do not report a page for being long.
+
+**Voice is Gemma's guide.** Pages follow the voice in
+`docs/specs/2026-10-05-documentation-standard-v2.md`. The refused-words list, the
+antithesis rule and the figures rule are retired for docs prose. Do not report a
+page for a word, an antithesis or a figure of speech. Report a figure only when the
+claim it carries is false against the source.
 
 **You are not the cold reader.** `.claude/agents/docs-cold-reader.md` reads a
 sequence of pages knowing nothing and reports where it stopped following. You
@@ -232,21 +237,9 @@ nothing of the kind, and a padded-in result there is the filler the standard is
 trying to remove. Two roles have a guard behind them, `getting-started` and the
 section's demonstration page; everywhere else it is yours.
 
-**Shape.** § 7. `tools/repo-checks/src/doc-shape.test.ts` counts the first four
-below on every page, and a page over a limit fails `nx test` unless
-`doc-shape-allowance.json` records its count. No guard reaches the last two, so
-read for the symptom there.
+**Shape.** § 7's numeric limits (lede, prose run, first fence, first symbol,
+section length) are retired for docs prose. Do not report a page against them.
 
-- The lede, meaning prose before the first `##`, runs to 40 words. A page opening
-  on four paragraphs before any heading is the single most common cause of the
-  "too jarring" complaint.
-- No run of consecutive sentences with no code, list, table or heading between
-  them exceeds eight.
-- The first code fence arrives within eight sentences. A `mermaid` diagram does
-  not count as the first fence.
-- The first backticked symbol arrives within 25 prose words.
-- An `##` section runs to 250 prose words and an `###` to 140. An `###` carrying
-  paragraphs under it is a second-level topic where the standard wants a member.
 - A repeated member surface — options, props, error classes, reasons — goes in a
   table or in one `###` per member, never in running paragraphs.
 

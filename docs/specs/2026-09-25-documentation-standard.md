@@ -542,6 +542,9 @@ direction: the committed counter charges a table cell and a heading to prose, so
 a page that moves facts out of paragraphs and into a table scores no better under
 it, and that is the exact rewrite this standard asks for.
 
+Retired for docs prose on 2026-10-07: the numeric limits in this section.
+Pages follow the voice in `docs/specs/2026-10-05-documentation-standard-v2.md`.
+
 So the budget goes, and no number replaces it. What replaces it is shape, and the
 shape rules come from the density study. Each of its decisions 2 to 10 is
 adopted, amended or declined here, with the reason.
@@ -881,6 +884,14 @@ else breaks. The retirement is recorded here so that nobody re-adds the guard
 from the old standard, and the thing to reread before proposing a word budget
 again is `docs/specs/2026-09-21-reference-page-budget.md` § 2, which is where the
 argument for one was measured and failed.
+
+Retired for docs prose on 2026-10-07. The pages follow the voice in
+`docs/specs/2026-10-05-documentation-standard-v2.md`:
+
+- G13, § 7's numeric limits: `doc-shape.test.ts` and `doc-shape-allowance.json`.
+- The refused-words list: `doc-refused-words.test.ts`.
+- The antithesis rule: `doc-antithesis.test.ts`.
+- The figures rule: `doc-figures.test.ts`.
 
 ### New
 
