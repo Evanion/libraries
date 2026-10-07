@@ -38,15 +38,15 @@ This leaves exactly 32 characters. This is an ideal number because it is even (r
 
 When you provide a custom `dictionary` to `createToken`, `@evanion/token` validates it against several constraints. If any are broken, it throws either an `InvalidAlphabetError` or an `InvalidDictionaryError`, with the `reason` in the table below.
 
-| Constraint         | Enforced by      | `reason`      | Why it matters                                                                               |
-| :----------------- | :--------------- | :------------ | :------------------------------------------------------------------------------------------- |
-| **No Confusables** | `@evanion/token` | `confusable`  | Prevents `1/l/i` and `0/o` and `w/u` confusion.                                              |
-| **Lowercase Only** | `@evanion/token` | `unfolded`    | `validate` folds input to lowercase; uppercase in the dictionary could never be reached.     |
-| **Divides 256**    | `@evanion/token` | `non-uniform` | Ensures every character is equally likely to be drawn.                                       |
-| **Min Length 2**   | `@evanion/luhn`  | `too-short`   | A 1-character dictionary makes every code valid.                                             |
-| **Even Size**      | `@evanion/luhn`  | `odd-length`  | Luhn's [doubling step](../usage) needs an even-sized dictionary.                             |
-| **No Repeats**     | `@evanion/luhn`  | `duplicate`   | Each character must have a unique index for the checksum.                                    |
-| **No Case Pairs**  | `@evanion/luhn`  | `case-pairs`  | Case folding would turn a letter and its uppercase form into one character with two indexes. |
+| Constraint         | Enforced by      | `reason`      | Why it matters                                                                                                                                                                    |
+| :----------------- | :--------------- | :------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No Confusables** | `@evanion/token` | `confusable`  | Prevents `1/l/i` and `0/o` and `w/u` confusion.                                                                                                                                   |
+| **Lowercase Only** | `@evanion/token` | `unfolded`    | `validate` folds input to lowercase; uppercase in the dictionary could never be reached.                                                                                          |
+| **Divides 256**    | `@evanion/token` | `non-uniform` | Ensures every character is equally likely to be drawn.                                                                                                                            |
+| **Min Length 2**   | `@evanion/luhn`  | `too-short`   | A 1-character dictionary makes every code valid.                                                                                                                                  |
+| **Even Size**      | `@evanion/luhn`  | `odd-length`  | Luhn's [doubling step](../usage) needs an even-sized dictionary.                                                                                                                  |
+| **No Repeats**     | `@evanion/luhn`  | `duplicate`   | Each character must have a unique index for the checksum.                                                                                                                         |
+| **No Case Pairs**  | `@evanion/luhn`  | `case-pairs`  | Case folding would turn a letter and its uppercase form into one character with two indexes. Luhn checks first, so a dictionary holding `a` and `A` fails here before `unfolded`. |
 
 In the example below, `dictionaryRefusal` is a helper of your own that returns the `InvalidAlphabetError` for token's three constraints, or `undefined` when the dictionary is accepted:
 
@@ -74,7 +74,7 @@ If `n` were 36, $256 / 36 = 7$ with a remainder of $4$. The first four character
 
 The 31-character dictionary breaks both Luhn's even-size rule and token's `256 % n` rule, and Luhn's error comes out, because `createToken` hands the dictionary to `@evanion/luhn` before it checks its own three constraints.
 
-Note: To import `InvalidDictionaryError`, add `@evanion/luhn` to your own `package.json` at the exact version that `@evanion/token` lists in its `dependencies`. pnpm, and any package manager that does not hoist a dependency's dependencies, cannot resolve the import otherwise. A copy at another version defines a second `InvalidDictionaryError` class, and `instanceof` against it misses the error token throws.
+Note: To import `InvalidDictionaryError`, add `@evanion/luhn` to your own `package.json` at the exact version that `@evanion/token` lists in its `dependencies`, which `node_modules/@evanion/token/package.json` shows. pnpm, and any package manager that does not hoist a dependency's dependencies, cannot resolve the import otherwise. A copy at another version defines a second `InvalidDictionaryError` class, and `instanceof` against it misses the error token throws.
 
 ## Reordering a Dictionary Changes Its Check Characters
 
