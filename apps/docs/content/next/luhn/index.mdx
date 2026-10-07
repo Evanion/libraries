@@ -37,11 +37,11 @@ If a user types `order-2026-0043-l` (one digit changed) or `order-2026-0024-l` (
 
 `@evanion/luhn` calculates the check character through a process called the Luhn sum:
 
-1. **Phrase Extraction**: Every character outside the chosen **dictionary**, the alphabet a code is read against, is dropped. The default instance, `Luhn`, also folds uppercase to lowercase. `ORDER 2026 0042` becomes the **phrase** `order20260042`.
+1. **Phrase Extraction**: Every character outside the chosen **dictionary**, the alphabet a code is read against, is dropped. The default **instance**, `Luhn`, the object that carries `generate` and `validate`, reads against the 36 characters `0-9` then `a-z` and folds uppercase to lowercase. `ORDER 2026 0042` becomes the **phrase** `order20260042`.
 2. **Index Mapping**: Each character is replaced by its **index**, its position in the dictionary (e.g., `o` $\rightarrow$ 24).
-3. **The Doubling Step**: Starting from the right, every second index is doubled. If the result reaches the dictionary size, its two digits (in the dictionary's base) are added together.
+3. **The Doubling Step**: Starting with the rightmost character of the phrase, every other index is doubled. If the result reaches the dictionary size, its two digits (in the dictionary's base) are added together.
 4. **Summation**: All values are added together to create the **Luhn sum**, 123 for `order20260042`.
-5. **Final Character**: The **check character** is the one whose index brings the sum up to the next multiple of the dictionary size: 144 − 123 is 21, the index of `l`.
+5. **Final Character**: The **check character** is the one whose index brings the sum up to the next multiple of the dictionary size: 144, four times 36, minus 123 is 21, the index of `l`.
 
 ```mermaid caption="The @evanion/luhn pipeline: Case folding and cleaning, index mapping, Luhn summation, and final checksum generation."
 flowchart LR
@@ -60,7 +60,7 @@ flowchart LR
 | Add a check character to a code | `Luhn.generate(code).checksum`                                                                    |
 | Validate a code's integrity     | `Luhn.validate(code).isValid`                                                                     |
 | Support flexible input          | On the default instance, both calls ignore case and separators (non-dictionary chars)             |
-| Custom alphabets                | `createLuhn({ dictionary })` builds a custom **instance**, and refuses a dictionary it cannot use |
+| Custom alphabets                | `createLuhn({ dictionary })` builds a custom instance, and refuses a dictionary it cannot use |
 | Credit card validation          | `createLuhn({ dictionary: '0123456789' })`                                                        |
 
 ## What a Check Character Catches (and What it Doesn't)
