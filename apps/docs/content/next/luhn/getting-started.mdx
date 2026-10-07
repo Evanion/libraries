@@ -48,7 +48,7 @@ Imagine your database holds an **order number** like `order-2026-0042`. You want
 
 ```
 
-In this example, `Luhn.generate` returns the check character as `checksum`, and `orderCode` appends it after a hyphen for readability. When a customer reads the code back, `Luhn.validate` ignores the hyphen and other non-dictionary characters (reading only the [phrase](../#how-it-works-the-luhn-sum)), allowing it to verify the code regardless of how it was formatted.
+In this example, `Luhn.generate` returns the check character as `checksum`, and `orderCode` appends it after a hyphen for readability. When a customer reads the code back, `Luhn.validate` ignores the hyphen and other non-dictionary characters (reading only the [phrase](../#how-the-luhn-sum-works)), allowing it to verify the code regardless of how it was formatted.
 
 If a customer reads `order-2026-0042-l` as `order-2026-0042-1`, `validate` immediately returns `isValid: false`. Your system can then ask the customer to repeat the code before ever querying the database for an order that doesn't exist.
 

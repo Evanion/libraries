@@ -11,7 +11,7 @@ A customer reads an order code back, and one digit comes out wrong. `@evanion/lu
   ]}
 />
 
-## The Problem: The "Silent Typo"
+## A Mistyped Code Still Reaches the Database
 
 Without `@evanion/luhn`, an ID is just a string. If a user types `order-2026-0043` instead of `order-2026-0042`, the system treats it as a perfectly valid request for a non-existent resource, which leads to:
 
@@ -19,7 +19,7 @@ Without `@evanion/luhn`, an ID is just a string. If a user types `order-2026-004
 - **Poor User Experience**: The user receives a "Not Found" error and has no way of knowing they mistyped a single character.
 - **Support Overhead**: Staff must manually verify the order, as they cannot tell the difference between a typo and a missing record.
 
-## The Solution: The Luhn Algorithm
+## A Check Character Refuses the Mistyped Code
 
 `@evanion/luhn` implements the Luhn algorithm, the check-digit scheme on credit card numbers, generalized to any even-sized alphabet, to detect transcription errors. It computes a single character from the rest of the code; if any character is changed or almost any two neighbors are swapped, the check character no longer matches.
 
@@ -31,7 +31,7 @@ For example, the order number `order-2026-0042` results in a check character of 
 
 If a user types `order-2026-0043-l` (one digit changed) or `order-2026-0024-l` (two digits swapped), `Luhn.validate` immediately returns `isValid: false`, and your code rejects it before it queries the database.
 
-## How it Works: The Luhn Sum
+## How the Luhn Sum Works
 
 `@evanion/luhn` calculates the check character through a process called the Luhn sum:
 
@@ -65,12 +65,12 @@ flowchart LR
 
 `@evanion/luhn` is a tool for **error detection**, not **security**.
 
-### It catches:
+### It catches
 
 - **Every single-character substitution**: If one character is replaced by another, at any position including the check character itself, the check fails.
 - **Almost every adjacent swap**: If two neighboring characters are swapped, it is caught (except for a swap of the dictionary's first and last characters, e.g., `0` and `z`).
 
-### It does NOT:
+### It does NOT
 
 - **Prove existence**: A random string passes the check one time in `n`, the dictionary's size: 1 in 36 under the default. You still need a database to verify the code was actually issued.
 - **Provide authentication**: The algorithm and the dictionary are public. Anyone can compute a valid check character for any string.
