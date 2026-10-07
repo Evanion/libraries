@@ -24,7 +24,7 @@ The default instance automatically folds input to lowercase. This ensures that `
 
 When your identifiers use a different alphabet, `createLuhn` from `@evanion/luhn` builds a custom instance.
 
-For example, the `@evanion/token` package uses a 32-character dictionary that drops "confusable" characters (`i`, `l`, `o`, `w`) to prevent human transcription errors. You can create a similar instance manually:
+For example, the `@evanion/token` package's default dictionary holds 32 characters, dropping the "confusable" characters (`i`, `l`, `o`, `w`) to prevent human transcription errors. You can create a similar instance manually:
 
 ```ts twoslash file=libs/luhn/README.md region=pickup-dictionary
 
