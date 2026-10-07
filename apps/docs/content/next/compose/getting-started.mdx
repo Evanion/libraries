@@ -57,8 +57,7 @@ In the Baize shop example, the root needs to provide a cart, a theme, and a curr
 
 Render `Shop`, the component that composes the providers with `@evanion/compose`, where your nested providers sit today, around your routes or main page layout.
 
-**Next.js App Router Tip**:
-Any file calling `createContext` must be a Client Component. Mark your provider file with `'use client'`, define your providers and your `Shop` wrapper there, and then wrap your layout in `app/layout.tsx` with `<Shop>{children}</Shop>`. `ComposeProvider` itself needs no directive.
+**Note**: In a Next.js App Router app, any file calling `createContext` must be a Client Component. Mark your provider file with `'use client'`, define your providers and your `Shop` wrapper there, and then wrap your layout in `app/layout.tsx` with `<Shop>{children}</Shop>`. `ComposeProvider` itself needs no directive.
 
 ## Visualizing the Nesting
 

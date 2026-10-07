@@ -44,7 +44,7 @@ If your constant holds hand-written tuples, declare it `as const`, which tells T
 
 `satisfies ProviderArray` leaves the array its inferred type, but TypeScript infers that type against `ProviderArray`, whose length is `number`, so the array's length is `number` too.
 
-**Pro Tip**: Using the `provider()` helper avoids this entire problem. Because `provider()` checks props at the call site, the check is preserved regardless of how the resulting tuple is stored. A bare component gets no such protection: a bare `ThemeProvider` compiles in the three widened rows.
+**Note**: Using the `provider()` helper avoids this entire problem. Because `provider()` checks props at the call site, the check is preserved regardless of how the resulting tuple is stored. A bare component gets no such protection: a bare `ThemeProvider` compiles in the three widened rows.
 
 ## Preserving Checks in Wrapper Components
 
