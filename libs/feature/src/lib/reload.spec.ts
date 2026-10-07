@@ -1282,6 +1282,42 @@ describe('reload, the diff it reports', () => {
     expect(result.ok && result.changed).toEqual([]);
   });
 
+  it('names nothing when a variant value holds a Set that holds itself', () => {
+    const installed = new Set<unknown>();
+    installed.add(installed);
+    const features = createFeatures([valued(installed)]);
+
+    const candidate = new Set<unknown>();
+    candidate.add(candidate);
+    const result = features.reload({
+      features: [valued(candidate)],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // The cycle through a collection rather than through a property. The Set
+    // reading spreads both sides into arrays, and the pair map has to reach
+    // that recursion: a fresh map at the spread re-registers the pair at every
+    // level and the walk goes until the stack does, out of a poller's
+    // `reload`.
+    expect(result.ok && result.changed).toEqual([]);
+  });
+
+  it('names nothing when a variant value holds a Map that holds itself', () => {
+    const installed = new Map<string, unknown>();
+    installed.set('self', installed);
+    const features = createFeatures([valued(installed)]);
+
+    const candidate = new Map<string, unknown>();
+    candidate.set('self', candidate);
+    const result = features.reload({
+      features: [valued(candidate)],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // The same question at the other collection. A Map spreads to entry pairs
+    // and the cycle sits inside one of them, so the pair map has to reach two
+    // levels down from the spread.
+    expect(result.ok && result.changed).toEqual([]);
+  });
+
   it('names a key whose attribute condition holds a Date against its string', () => {
     const features = createFeatures([
       {
