@@ -49,18 +49,6 @@ export function sectionOf(page: string): string {
 }
 
 /**
- * A written page as its section and its path inside it, `acl/api.mdx` for
- * `content/next/acl/api.mdx`: the key the allowance files name a page by,
- * whichever tree the section is written in.
- */
-export function pageKey(page: string): string {
-  return relative(CONTENT, page)
-    .split(sep)
-    .join('/')
-    .replace(/^next\//, '');
-}
-
-/**
  * The directory a section's written pages are in: `content/next/<slug>/`, or
  * `content/<slug>/` for a section with no version.
  */
