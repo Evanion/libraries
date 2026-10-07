@@ -5,6 +5,7 @@ import { buildGraph } from './graph.js';
 import { bucketingStated } from './variants.js';
 import type { FeatureGraph } from './graph.js';
 import { collectIssues } from './validate.js';
+import type { Checkable } from './validate.js';
 import { unreadable } from './unreadable.js';
 import { createEmitter } from './observe.js';
 import type {
@@ -168,6 +169,35 @@ export interface Features<
  */
 export type Definitions<K extends FeatureKey = FeatureKey> =
   readonly FeatureDefinition<K>[];
+
+/**
+ * What `createFeatures` accepts: a bare array, or the document an envelope
+ * carries.
+ *
+ * A literal has no version, no schema and no freshness claim, and an author
+ * writing four flags in a file owes none of them. A process whose poller
+ * already fetched a document hands that document over without unwrapping it.
+ */
+export type DefinitionsOrConfig<K extends FeatureKey = FeatureKey> =
+  readonly FeatureDefinition<K>[] | FeatureConfig<K>;
+
+/**
+ * The definitions inside whichever form a caller passed.
+ *
+ * `InferSchema` reads variant names off a definitions array and constrains its
+ * own parameter to one, so `InferSchema<D>` stops compiling the moment `D` may
+ * be a document: `D extends DefinitionsOrConfig` fails that constraint. This
+ * recovers the array, and every place the current signatures write
+ * `InferSchema<D>` writes `InferSchema<DefinitionsOf<D>>` instead.
+ */
+export type DefinitionsOf<D> =
+  D extends readonly FeatureDefinition<FeatureKey>[]
+    ? D
+    : D extends {
+          features: infer F extends readonly FeatureDefinition<FeatureKey>[];
+        }
+      ? F
+      : never;
 
 /**
  * A schema in the form a generic accepts.
@@ -505,6 +535,19 @@ function changedKeys(
 }
 
 /**
+ * Whether the caller handed over a document and not a bare array.
+ *
+ * `Array.isArray` is declared `arg is any[]` and narrows no union whose array
+ * arm is `readonly FeatureDefinition<K>[]`, so the false branch of a direct
+ * test keeps the whole union.
+ */
+function isDocument(
+  value: DefinitionsOrConfig,
+): value is FeatureConfig<FeatureKey> {
+  return !Array.isArray(value);
+}
+
+/**
  * Creates a feature store from its configuration.
  *
  * The dependency graph is validated here rather than at evaluation: a cycle, a
@@ -594,15 +637,21 @@ function changedKeys(
  * once the observer turns out to be there.
  */
 export function createFeatures<
-  const D extends Definitions,
+  const D extends DefinitionsOrConfig,
   O extends Record<
-    Exclude<keyof O, keyof FeatureOptions<AsSchema<InferSchema<D>>>>,
+    Exclude<
+      keyof O,
+      keyof FeatureOptions<AsSchema<InferSchema<DefinitionsOf<D>>>>
+    >,
     never
   >,
 >(
   definitions: D,
-  options?: O & FeatureOptions<AsSchema<InferSchema<D>>>,
-): Features<AsSchema<InferSchema<D>>, 'observe' extends keyof O ? true : false>;
+  options?: O & FeatureOptions<AsSchema<InferSchema<DefinitionsOf<D>>>>,
+): Features<
+  AsSchema<InferSchema<DefinitionsOf<D>>>,
+  'observe' extends keyof O ? true : false
+>;
 /**
  * Builds the store over a schema the caller names, with no observer the
  * compiler can see. Every definition's key is checked against `keyof S`.
@@ -616,9 +665,7 @@ export function createFeatures<
  * frozen form.
  */
 export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
-  definitions: readonly FeatureDefinition<
-    NoInfer<Extract<keyof S, FeatureKey>>
-  >[],
+  definitions: DefinitionsOrConfig<NoInfer<Extract<keyof S, FeatureKey>>>,
   options?: UnobservedOptions<S>,
 ): Features<S, false>;
 /**
@@ -626,13 +673,11 @@ export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
  * prove nothing about one.
  */
 export function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
-  definitions: readonly FeatureDefinition<
-    NoInfer<Extract<keyof S, FeatureKey>>
-  >[],
+  definitions: DefinitionsOrConfig<NoInfer<Extract<keyof S, FeatureKey>>>,
   options: FeatureOptions<S>,
 ): Features<S, true>;
 export function createFeatures(
-  definitions: readonly FeatureDefinition<FeatureKey>[],
+  definitions: DefinitionsOrConfig,
   given: object = {},
 ): Features<Record<FeatureKey, VariantInfo>, boolean> {
   // The three signatures above are what a caller sees, and this one is checked
@@ -641,19 +686,25 @@ export function createFeatures(
   // so this parameter declares none and the body reads the options at the
   // erased schema.
   const options = given as FeatureOptions<Record<FeatureKey, VariantInfo>>;
+  // A bare array is the document that carries only `features`, and the checker
+  // below reads one document either way.
+  const document: Checkable = isDocument(definitions)
+    ? definitions
+    : { features: definitions };
+  const supplied = document.features;
   // Cloned so the store cannot be edited behind its own back, then frozen so an
   // attempt to do so fails loudly instead of silently diverging from what was
   // resolved. The freeze covers the array as well as each definition in it, and
   // `toggle` replaces the whole array on a write.
   let config: readonly FeatureDefinition<FeatureKey>[] = Object.freeze(
-    definitions.map((definition) => deepFreeze(structuredClone(definition))),
+    supplied.map((definition) => deepFreeze(structuredClone(definition))),
   );
   // One checker answers both paths. `validateConfig` reports what this throws,
   // and the graph is checked before the variants, so a document carrying a
   // duplicate key and an unusable weight names the key. These definitions are
   // the literal an author wrote, so the array is the variant order and a variant
   // declaring none takes its index.
-  const refused = collectIssues({ features: config }, { arrayIsOrder: true });
+  const refused = collectIssues(document, { arrayIsOrder: true });
   if (refused[0]) throw refused[0].error;
   // The window contract is read here for the reason `whenIssues` gives: that
   // walk answers a served document, and these definitions are a literal.
@@ -665,8 +716,15 @@ export function createFeatures(
   let keys: readonly FeatureKey[] = Object.freeze(
     config.map((definition) => definition.key),
   );
-  /** The envelope the store last installed. A literal installs none. */
+  /** The envelope the store last installed. A bare array carries none. */
   let installed: ConfigEnvelope = {};
+  // A document installs its own members with the payload removed, so `version`
+  // and `envelope` answer the document this store was built from.
+  if (isDocument(definitions)) {
+    const members: Record<string, unknown> = { ...definitions };
+    delete members['features'];
+    installed = members as ConfigEnvelope;
+  }
 
   // The store-level lookup, which the public `definition` member answers with.
   // A caller asking for one definition wants the one the store holds now, so
