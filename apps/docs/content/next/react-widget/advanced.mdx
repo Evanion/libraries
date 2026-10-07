@@ -68,4 +68,4 @@ For client-side lists that are long enough to require virtualization, you can im
 
 ## Isolating Slow or Failing Widgets
 
-Because every widget is wrapped in your custom chrome, you have a perfect hook to isolate them. [Suspense and error boundaries](../suspense) shows how to put a loading fallback and an error boundary inside the item chrome, ensuring that a single failing widget doesn't crash the entire page.
+Because every widget is wrapped in your custom chrome, you have a perfect hook to isolate them. [Suspense and error boundaries](../suspense) shows how to give each widget a loading fallback through `chrome.suspenseFallback` and put an error boundary inside the item chrome, ensuring that a single failing widget doesn't crash the entire page.
