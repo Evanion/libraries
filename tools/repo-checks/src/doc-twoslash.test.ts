@@ -305,9 +305,22 @@ describe('twoslash fences', () => {
     expect(covered.map(({ page, info }) => `${page} [${info}]`)).toEqual([]);
   });
 
-  it('compiles, and still produces every error it declares', () => {
-    expect(compileFailures(fences)).toEqual([]);
-  });
+  // One test per section directory, sharing one twoslasher so its compiler
+  // cache carries across sections. Each section gets the whole test timeout,
+  // and a failure names the section it is in.
+  const twoslasher = createTwoslasher();
+  const sections = Map.groupBy(fences, ({ page }) =>
+    dirname(page.replace(/:\d+$/, '')),
+  );
+
+  it.each([...sections.keys()])(
+    'compiles in %s, and still produces every error it declares',
+    (section) => {
+      expect(compileFailures(sections.get(section) ?? [], twoslasher)).toEqual(
+        [],
+      );
+    },
+  );
 });
 
 describe('package markdown fences', () => {
