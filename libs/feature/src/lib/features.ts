@@ -72,6 +72,10 @@ export interface Features<
    * It carries no `digest`, which `configDigest` is the one writer of.
    * `serializeConfig` defaults to this envelope, and a caller re-serving a
    * document it toggled passes its own.
+   *
+   * It is a deeply frozen copy of the installed document's members, so a poller
+   * that polls again onto the buffer it parsed moves neither what the store
+   * reports it is holding nor what `serializeConfig` writes.
    */
   readonly envelope: ConfigEnvelope;
   /** The stored intent, deeply frozen, in the order it was supplied. */
@@ -535,6 +539,36 @@ function changedKeys(
 }
 
 /**
+ * The envelope a store installs for a document: its members, cloned, frozen,
+ * and carrying neither the payload nor the digest.
+ *
+ * `ConfigEnvelope` fences `digest` to `never` and `configDigest` is the one
+ * writer of the member. `serializeConfig` defaults its envelope to the
+ * installed one and spreads it into the document it writes, so a digest kept
+ * here covers the bytes a publisher served and is emitted again over whatever
+ * the store holds after the next toggle, where every holder reports
+ * `digest-mismatch` and refuses the whole document. A candidate handed to
+ * `collectIssues` keeps its digest, because that is the member a holder
+ * verifies.
+ *
+ * The clone and the freeze are what the definitions get, for the same reason. A
+ * shallow copy leaves `schema` the caller's own object, so a poller that reuses
+ * its parsed buffer moves the schema the store reports it is holding and
+ * `serializeConfig` emits the move, and an unfrozen envelope takes a write
+ * through the `envelope` getter that carries `version` with it.
+ *
+ * `structuredClone` raises `DataCloneError` for a leaf it cannot carry, which
+ * `reload` answers with a result and the construction path throws.
+ */
+function envelopeOf(document: FeatureConfig<FeatureKey>): ConfigEnvelope {
+  const members: Record<string, unknown> = { ...document };
+  delete members['features'];
+  delete members['digest'];
+
+  return deepFreeze(structuredClone(members)) as ConfigEnvelope;
+}
+
+/**
  * Whether the caller handed over a document and not a bare array.
  *
  * `Array.isArray` is declared `arg is any[]` and narrows no union whose array
@@ -736,24 +770,14 @@ export function createFeatures(
   let keys: readonly FeatureKey[] = Object.freeze(
     config.map((definition) => definition.key),
   );
-  /** The envelope the store last installed. A bare array carries none. */
-  let installed: ConfigEnvelope = {};
-  // A document installs its own members with the payload removed, so `version`
-  // and `envelope` answer the document this store was built from.
-  //
-  // `digest` goes with the payload, for the reason `reload` gives where it
-  // deletes the same two members: `ConfigEnvelope` fences `digest` to `never`,
-  // `configDigest` is the one writer of it, and `serializeConfig` defaults its
-  // envelope to this one and spreads it into the document it writes. A digest
-  // kept here covers the bytes a publisher served and is emitted again over
-  // whatever the store holds after the next toggle, where every holder reports
-  // `digest-mismatch` and refuses the whole document.
-  if (isDocument(definitions)) {
-    const members: Record<string, unknown> = { ...definitions };
-    delete members['features'];
-    delete members['digest'];
-    installed = members as ConfigEnvelope;
-  }
+  /**
+   * The envelope the store last installed. A bare array carries none, and a
+   * document installs its own members, so `version` and `envelope` answer the
+   * document this store was built from.
+   */
+  let installed: ConfigEnvelope = isDocument(definitions)
+    ? envelopeOf(definitions)
+    : {};
 
   // The store-level lookup, which the public `definition` member answers with.
   // A caller asking for one definition wants the one the store holds now, so
@@ -1077,11 +1101,11 @@ export function createFeatures(
       };
     }
 
-    // The copy, the freeze and the diff, inside one catch. `collectIssues`
-    // declares nothing about a variant `value`, which `SerializedVariantSpec`
-    // types `unknown`, so a function, a symbol or a value nested deeper than
-    // the stack holds clears the checker and raises `DataCloneError` or
-    // `RangeError` out of the walk below. Decision 11 answers a candidate with
+    // The copy, the freeze, the diff and the envelope, inside one catch.
+    // `collectIssues` declares nothing about a variant `value`, which
+    // `SerializedVariantSpec` types `unknown`, so a function, a symbol or a
+    // value nested deeper than the stack holds clears the checker and raises
+    // `DataCloneError` or `RangeError` out of the walk below. Decision 11 answers a candidate with
     // a result, and every assignment the store reads sits after this block, so
     // the report leaves the installed document deciding.
     let next: {
@@ -1090,6 +1114,7 @@ export function createFeatures(
       index: Map<FeatureKey, number>;
       keys: readonly FeatureKey[];
       changed: readonly FeatureKey[];
+      envelope: ConfigEnvelope;
     };
     try {
       const nextConfig = Object.freeze(
@@ -1107,6 +1132,7 @@ export function createFeatures(
         ),
         keys: Object.freeze(nextConfig.map((definition) => definition.key)),
         changed: changedKeys(config, nextConfig),
+        envelope: envelopeOf(candidate),
       };
     } catch (raise) {
       return {
@@ -1119,22 +1145,11 @@ export function createFeatures(
 
     const previousVersion = installed.version;
 
-    // `ConfigEnvelope` fences `digest` to `never` and `configDigest` is the one
-    // writer of the member. `serializeConfig` defaults its envelope to this
-    // one, so a digest kept here covers the candidate's bytes and is emitted
-    // again over whatever the store holds after the next toggle, where every
-    // holder reports `digest-mismatch` and refuses the whole document. The
-    // candidate handed to `collectIssues` above keeps its digest, because that
-    // is the member a holder verifies.
-    const envelopeOf: Record<string, unknown> = { ...candidate };
-    delete envelopeOf['features'];
-    delete envelopeOf['digest'];
-
     config = next.config;
     graph = next.graph;
     index = next.index;
     keys = next.keys;
-    installed = envelopeOf as ConfigEnvelope;
+    installed = next.envelope;
 
     return {
       ok: true,

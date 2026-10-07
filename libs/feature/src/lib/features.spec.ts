@@ -2972,6 +2972,69 @@ describe('the envelope a document installs', () => {
   });
 
   /**
+   * The store decides on a copy of the definitions a document carried, and the
+   * envelope is the other half of that document. A poller holds the buffer it
+   * parsed and polls again onto it, and a shallow copy leaves `schema` the
+   * poller's own object.
+   */
+  it('reports the envelope the document carried and not the one the caller holds', () => {
+    const document = {
+      version: 1,
+      schemaVersion: 's1',
+      schema: { context: { fields: { region: 'string' } } },
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig;
+
+    const features = createFeatures(document);
+    (
+      document.schema as { context: { fields: Record<string, string> } }
+    ).context.fields['region'] = 'number';
+
+    expect([
+      features.envelope.schema,
+      serializeConfig(features).schema,
+    ]).toEqual([
+      { context: { fields: { region: 'string' } } },
+      { context: { fields: { region: 'string' } } },
+    ]);
+  });
+
+  it('hands out an envelope no holder writes through', () => {
+    const features = createFeatures({
+      version: 1,
+      schema: { context: { fields: { region: 'string' } } },
+      schemaVersion: 's1',
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig);
+
+    const written = () => {
+      (features.envelope as { version?: unknown }).version = 1234;
+    };
+
+    expect(written).toThrow(TypeError);
+    expect(features.version).toBe(1);
+  });
+
+  it('freezes the nested members of the envelope it installs', () => {
+    const features = createFeatures({
+      version: 1,
+      schemaVersion: 's1',
+      schema: { context: { fields: { region: 'string' } } },
+      features: [{ key: 'checkout', enabled: true }],
+    } as FeatureConfig);
+
+    const written = () => {
+      (
+        features.envelope.schema as {
+          context: { fields: Record<string, string> };
+        }
+      ).context.fields['region'] = 'number';
+    };
+
+    expect(written).toThrow(TypeError);
+  });
+
+  /**
    * `configDigest` is the one writer of `digest`, which `ConfigEnvelope` fences
    * to `never` and `reload` deletes off a candidate it installs. A store that
    * kept the member hands `serializeConfig` a digest covering the bytes the
