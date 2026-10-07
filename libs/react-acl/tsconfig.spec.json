@@ -8,8 +8,7 @@
       "vitest/importMeta",
       "vite/client",
       "node",
-      "vitest",
-      "@testing-library/jest-dom"
+      "vitest"
     ],
     "jsx": "react-jsx",
     "module": "esnext",
