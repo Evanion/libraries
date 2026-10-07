@@ -194,8 +194,9 @@ shipped renders 23.
 **A `^?` query must be the last line of its fence.** The popup is absolutely
 positioned, so it covers the following line rather than pushing it down.
 
-**`.twoslash-query-presisted` is spelled that way upstream.** It is twoslash's
-own typo. Correcting it silently disables the rule that gives a query room.
+**A query's popup is styled on `.twoslash-query-persisted`.** Nextra's theme
+still targets `.twoslash-query-presisted`, which @shikijs/twoslash 4 no longer
+emits, so `app/global.css` carries both query rules on the `persisted` class.
 
 **`@errors:` is one-directional.** Twoslash throws on an error the fence does
 not declare, and says nothing when a declared error stops occurring.

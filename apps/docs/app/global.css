@@ -669,11 +669,21 @@ html:not(.dark) [class*='baize-kind-'] {
  * Six rem covers a type printed over three lines. A longer one still clips:
  * write the fence so the printed type is short, which is also what makes the
  * query worth reading.
- *
- * `presisted` is Twoslash's own spelling of the class, not a typo here.
  */
-pre:has(.twoslash-query-presisted) {
+pre:has(.twoslash-query-persisted) {
   padding-bottom: 6rem;
+}
+
+/*
+ * Nextra's theme places a query's popup with a rule on
+ * `.twoslash-query-presisted` (`nextra/styles/code-block.css`), the class
+ * @shikijs/twoslash 3 emitted next to `.twoslash-query-persisted`. Version 4
+ * emits only `.twoslash-query-persisted`, so the rule is repeated here on that
+ * class. Without it a query's popup sits where a hover's does.
+ */
+.twoslash-query-persisted .twoslash-popup-container {
+  z-index: 9;
+  transform: translateY(1.5em);
 }
 
 /*
