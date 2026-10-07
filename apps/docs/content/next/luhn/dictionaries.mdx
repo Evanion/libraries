@@ -96,4 +96,4 @@ Asking for `caseInsensitive: true` over `ALTERNATING_CASE_DICTIONARY` would send
 
 ## Matching Published Standards
 
-Different industries use different dictionaries for their `@evanion/luhn` checksums. [Standards and modulo bias](../standards) explains which dictionaries match published standards and how to avoid "modulo bias" when generating random codes.
+Payment cards, IMEIs and US provider IDs use Luhn mod-10, which `@evanion/luhn` computes over the dictionary `'0123456789'`. [Standards and modulo bias](../standards) lists which dictionary matches which standard, and how to draw random codes over a dictionary without modulo bias.
