@@ -1,6 +1,6 @@
 # What a bad CMS save reports and renders
 
-`validateItems` reports every fault in a list of items, and `Widgets.astro` renders what it can of the same list. This guide examines the relationship between a validation error and its resulting effect on the rendered page.
+`validateItems` reports every fault in a list of items, and `Widgets.astro` renders what it can of the same list. This guide examines the relationship between a validation error and its effect on the rendered page.
 
 <PageSheet
   difficulty={3}
@@ -17,59 +17,73 @@
 
 ## Faults in an Item's Shape
 
-Even before checking for a specific widget type, `validateItems` checks if an item is structurally sound. If a CMS save contains broken entries, the engine identifies the faults based on six structural rules.
+Even before checking for a specific widget type, astro-widget's `validateItems` checks if an item is structurally sound. If a CMS save contains broken entries, it identifies the faults based on six structural rules. The save below has four broken entries. Entry 3 breaks two rules, so five problems come back:
 
 ```ts twoslash file=libs/astro-widget/README.md region=structural-rules
 
 ```
 
-| Entry | Structural Fault | Resulting Message |
-| :--- | :--- | :--- |
-| 0 | Saved as `null` instead of an object | `item is not an object` |
-| 1 | Missing the `id` field | `item id is not a string` |
-| 2 | `children` is a string instead of a list | `children is not a list` |
-| 3 | `id` repeats a sibling's `id` | `duplicate sibling id` |
-| 3 | Missing the `props` object | `props is not an object` |
+| Entry | Structural Fault                         | Resulting Message         |
+| :---- | :--------------------------------------- | :------------------------ |
+| 0     | Saved as `null` instead of an object     | `item is not an object`   |
+| 1     | Missing the `id` field                   | `item id is not a string` |
+| 2     | `children` is a string instead of a list | `children is not a list`  |
+| 3     | `id` repeats a sibling's `id`            | `duplicate sibling id`    |
+| 3     | Missing the `props` object               | `props is not an object`  |
+
+The sixth rule, `item type is not a string`, fires on an item whose `type` is missing or is not a string.
 
 ### Special Case: Payload is not a list
 
-If the entire payload is not an array (e.g., it's an object `{ items: [] }`), `validateItems` returns a single problem with an index of `-1` and a message of `items is not a list`.
+If the entire payload is not an array (e.g., it's an object `{ items: [] }`), astro-widget's `validateItems` returns a single problem and checks nothing else. There is no item to name, so the problem's `index` is `-1`, its `id` and `type` are `'-'`, and its message is `items is not a list`:
+
+```ts twoslash file=libs/astro-widget/README.md region=not-a-list
+
+```
 
 ### Nested Indexing
 
-Because `validateItems` performs a depth-first walk, it reports problems for nested children using an index relative to their own siblings. A top-level item and its first child can both report `index: 0`. You must use the `id` field to uniquely identify the faulty item.
+Because astro-widget's `validateItems` performs a depth-first walk, it reports problems for nested children using an index relative to their own siblings. A top-level item and its first child can both report `index: 0`. You must use the `id` field to identify the faulty item. Below, the `game-grid` item has no `title`, and its one child has a type nothing renders:
+
+```ts twoslash file=libs/astro-widget/README.md region=nested-index
+
+```
 
 ## How `Widgets.astro` Renders a Bad Item
 
-`Widgets.astro` follows a "fail-soft" strategy: it renders every item it can and throws on none. This means a bad save publishes with a gap in the UI.
+astro-widget's `Widgets.astro` follows a "fail-soft" strategy: it renders every item it can and throws on none. This means a bad save publishes with a gap in the UI.
 
-Unless `NODE_ENV` is `production`, the renderer prints a warning to the console using `ERROR_MESSAGES`.
+Unless `NODE_ENV` is `production`, which `astro build` sets, the renderer prints a warning to the console using `ERROR_MESSAGES`. Each distinct warning prints once for the life of the process.
 
-| Fault | Render Result | Console Warning |
-| :--- | :--- | :--- |
-| Unknown `type` | Nothing renders | `ERROR_MESSAGES.UNKNOWN_WIDGET` |
-| No string `type` | Nothing renders | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type: "unknown") |
-| Not an object | Nothing renders | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type/id: "unknown") |
-| Missing prop | Widget renders, but with `undefined` for that prop | None |
-| `items` is not a list | Nothing renders | `ERROR_MESSAGES.MALFORMED_ITEMS` |
-| Missing/Repeated `id` | Widget renders (if type is known) | None |
-| `children` not a list | Widget renders; its internal `<Widgets />` warns | `ERROR_MESSAGES.MALFORMED_ITEMS` |
+| Fault                                | Render Result                                      | Console Warning                                                                          |
+| :----------------------------------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------- |
+| Unknown `type`                       | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET`                                                          |
+| No string `type`                     | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type: "unknown")                                        |
+| Not an object                        | Nothing renders                                    | `ERROR_MESSAGES.UNKNOWN_WIDGET` (type/id: "unknown")                                     |
+| Missing prop                         | Widget renders, but with `undefined` for that prop | None                                                                                     |
+| `items` is not a list                | Nothing renders                                    | `ERROR_MESSAGES.MALFORMED_ITEMS`                                                         |
+| Missing/Repeated `id`, or no `props` | Widget renders (if type is known)                  | None                                                                                     |
+| `children` not a list                | Widget renders, and receives the value as it is    | `ERROR_MESSAGES.MALFORMED_ITEMS`, where the widget renders its own `<Widgets />` over it |
 
 ## The "Double-Validation" Gap
 
-A common point of confusion is when an item passes the global `validateItems` check but still renders incorrectly. This usually happens with nested registries.
+A common point of confusion is when an item passes astro-widget's `validateItems` check but still renders incorrectly. This usually happens with nested registries.
 
-Imagine a `GameGrid` widget that only renders `game-card` types. If the global build gate checks the page with one `known` list, it might pass a `listing-header` inside a grid. However, when `GameGrid` tries to render its children using its own `cardRegistry`, the `listing-header` is unknown and will be skipped.
+Imagine a `GameGrid` widget that only renders `game-card` types. If the global build gate checks the page with one `known` list, it might pass a `listing-header` inside a grid. However, when `GameGrid` tries to render its children using its own `cardRegistry`, the `listing-header` is unknown and will be skipped. Below, the first call checks the page with one `known` and passes it, and the second checks the children of every `game-grid` against the names in the grid's registry:
 
 ```ts twoslash file=libs/astro-widget/README.md region=nested-registry
 
 ```
 
-To prevent this, you should run `validateItems` against the specific registries used by your container widgets.
+To prevent this, you should run `validateItems` against the specific registries used by your container widgets. Run that second call in `scripts/check-content.ts`, and add its problems to the report.
+
+The same grid has no `title` either, and renders an empty `<h2>`, because this call's `required` names no prop for `game-grid`. The `'game-grid': ['title']` that [Page data, wrappers and nested items](../layout#syncing-the-build-gate) added to the build gate reports it.
 
 ## Interactive Comparison
 
-You can compare how different faults are reported and rendered using the demo below. You can pick various "bad" lists and see the resulting `WidgetProblem` array and the final HTML output.
+You can compare how different faults are reported and rendered using the astro-widget demo below. It holds four of this page's lists: the save with four broken entries, the object `{ items: [] }`, the grid with no title and an `answer-wall` child, and the page whose grid holds Azul. Pick one to see the resulting `WidgetProblem` array and the final HTML output.
+
+A browser cannot compile an `.astro` component, so the container API rendered each list when this site was built, as `astro dev` would, and the demo shows the warnings it printed too. The lists are fixed:
 
 <AstroRenderDemo />
 
