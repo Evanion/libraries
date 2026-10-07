@@ -19,7 +19,7 @@ When an `@evanion/token` code is read aloud or typed from a printed receipt, som
 
 Furthermore, the way random characters are drawn from a dictionary can introduce "bias." If the dictionary size doesn't divide evenly into the range of the random number generator, some characters will appear more often than others, making the codes slightly more predictable.
 
-## The Default Dictionary
+## The Default token Dictionary
 
 By default, `@evanion/token` uses `DEFAULT_DICTIONARY`, which consists of lowercase alphanumerics minus the **confusable characters**, `CONFUSABLE_CHARACTERS`: `i`, `l`, `o`, and `w`.
 
@@ -34,7 +34,7 @@ Why these four?
 
 This leaves exactly 32 characters. This is an ideal number because it is even (required for the Luhn algorithm) and it divides 256 evenly (preventing random bias).
 
-## Dictionary Constraints
+## What `createToken` Checks in a Dictionary
 
 When you provide a custom `dictionary` to `createToken`, `@evanion/token` validates it against several constraints. If any are broken, it throws either an `InvalidAlphabetError` or an `InvalidDictionaryError`, with the `reason` in the table below.
 

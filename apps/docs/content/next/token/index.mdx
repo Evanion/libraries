@@ -47,7 +47,7 @@ These terms name the parts of an `@evanion/token` code, and every later page use
 - **Separator**: The character between chunks (a hyphen by default). `validate` removes it before checking.
 - **Prefix**: An optional identifier, such as `ORD`, printed in front of a code for categorization. It is not part of the code.
 
-## Core Capabilities
+## What token Can Do
 
 Each task below maps to one call or option of `@evanion/token`.
 
@@ -61,7 +61,7 @@ Each task below maps to one call or option of `@evanion/token`.
 | Use a custom character set                | `createToken({ dictionary })`, which checks the dictionary                 |
 | Size a code for the volume you will issue | `entropyBits`, the random bits in one code                                 |
 
-## Important Constraints
+## What token Leaves to Your Code
 
 `@evanion/token` is an error-detection library. Five jobs stay with your code or another package:
 
