@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { bucketOf } from './bucketing.js';
 import { configDigest } from './digest.js';
 import {
   DuplicateFeatureError,
@@ -684,48 +683,7 @@ describe('precedence', () => {
       {
         rule: 'ramp',
         matched: false,
-        rollout: {
-          percent: 0,
-          by: 'targetingKey',
-          bucket: bucketOf('u1', 'ramped'),
-          member: false,
-        },
-      },
-    ]);
-  });
-
-  it('states the bucket a rollout compared, and omits an absent one', () => {
-    const features = createFeatures([
-      {
-        key: 'ramped',
-        enabled: true,
-        rules: [{ id: 'ramp', rollout: { percent: 50 } }],
-      },
-    ]);
-
-    // `RuleOutcome.rollout.bucket` is the number the threshold was compared
-    // against. A reader given only `member` sees which side of the threshold
-    // the subject fell on, which a second implementation reproduces by
-    // accident about half the time whatever hash it uses.
-    expect(features.resolve({ targetingKey: 'u1' }).ramped.rules).toEqual([
-      {
-        rule: 'ramp',
-        matched: false,
-        rollout: {
-          percent: 50,
-          by: 'targetingKey',
-          bucket: bucketOf('u1', 'ramped'),
-          member: false,
-        },
-      },
-    ]);
-    // No bucketing field in the context, so nothing was hashed and there is no
-    // bucket to state.
-    expect(features.resolve().ramped.rules).toEqual([
-      {
-        rule: 'ramp',
-        matched: false,
-        rollout: { percent: 50, by: 'targetingKey', member: false },
+        rollout: { percent: 0, by: 'targetingKey', member: false },
       },
     ]);
   });
@@ -2632,12 +2590,7 @@ describe('plan', () => {
       {
         rule: 'ramp',
         matched: false,
-        rollout: {
-          percent: 0,
-          by: 'targetingKey',
-          bucket: bucketOf('u1', 'ramped'),
-          member: false,
-        },
+        rollout: { percent: 0, by: 'targetingKey', member: false },
       },
     ]);
     expect(entry.decision).toEqual(features.resolve(context).ramped);

@@ -434,7 +434,7 @@ const features = createFeatures([
 
 const customer = { role: 'customer', targetingKey: 'cust-0042' };
 
-features.resolve(customer)['new-checkout']; // -> { key: 'new-checkout', enabled: false, reason: 'no-rule-matched', rules: [{ rule: 'rule-d69c7f2b', matched: false, failed: { field: 'role', op: 'eq', value: 'bookseller' } }, { rule: 'a-share', matched: false, rollout: { percent: 10, by: 'targetingKey', bucket: 0.19458416639827192, member: false } }] }
+features.resolve(customer)['new-checkout']; // -> { key: 'new-checkout', enabled: false, reason: 'no-rule-matched', rules: [{ rule: 'rule-d69c7f2b', matched: false, failed: { field: 'role', op: 'eq', value: 'bookseller' } }, { rule: 'a-share', matched: false, rollout: { percent: 10, by: 'targetingKey', member: false } }] }
 ```
 
 <!-- #endregion no-rule-matched -->
@@ -833,7 +833,7 @@ const features = createFeatures([
   },
 ]);
 
-features.resolve({ targetingKey: 'user-2' })['checkout-cta']; // -> { key: 'checkout-cta', enabled: false, reason: 'no-rule-matched', rules: [{ rule: 'rule-d69c7f2b', matched: false, failed: { field: 'role', op: 'eq', value: 'bookseller' } }, { rule: 'rule-3deffef5', matched: false, rollout: { percent: 20, by: 'targetingKey', bucket: 0.49886816227808595, member: false } }] }
+features.resolve({ targetingKey: 'user-2' })['checkout-cta']; // -> { key: 'checkout-cta', enabled: false, reason: 'no-rule-matched', rules: [{ rule: 'rule-d69c7f2b', matched: false, failed: { field: 'role', op: 'eq', value: 'bookseller' } }, { rule: 'rule-3deffef5', matched: false, rollout: { percent: 20, by: 'targetingKey', member: false } }] }
 ```
 
 <!-- #endregion variant-off -->
