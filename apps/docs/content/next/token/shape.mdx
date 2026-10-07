@@ -1,8 +1,6 @@
 # Code shape
 
-To mint an `@evanion/token` code longer or shorter than a pickup code, or
-grouped differently, pass `length`, `chunkSize` and `separator` to
-`createToken`.
+To mint an `@evanion/token` code longer or shorter than a pickup code, or grouped differently, you pass `length`, `chunkSize` and `separator` to `createToken`.
 
 <PageSheet
   difficulty={2}
@@ -15,95 +13,77 @@ grouped differently, pass `length`, `chunkSize` and `separator` to
   ]}
 />
 
-## Configure a gift card code
+## The Problem: One Size Doesn't Fit All
 
-Token's `createToken` takes the shape of its codes as options, and a Baize gift
-card code wants more characters than a pickup code:
+A short, 8-character `@evanion/token` code is perfect for a pickup order: it's easy to read and type. But a gift card is issued in larger numbers and holds a balance, so an 8-character code collides sooner and is guessed sooner than you want. You need a longer identifier that still feels "human-readable" through proper chunking.
+
+Conversely, a "counter code" meant to be spoken aloud might need a very specific shape (perhaps two short words separated by a space) to reduce miscommunication.
+
+## Solution: Custom Token Shapes
+
+`createToken` in `@evanion/token` allows you to define the exact geometry of your codes. By adjusting the length and chunking, you can balance entropy with usability.
+
+For a gift card, you might want more characters to reduce the risk of collisions:
 
 ```ts twoslash file=libs/token/README.md region=instances
 
 ```
 
-`giftCard` draws 15 random characters and appends a check character. A
-character of the default 32-character dictionary carries 5 bits, because 32 is
-2⁵, so `entropyBits` is 75. Four chunks of four take three hyphens, so its
-`value` is 19 characters long.
+In this example, `giftCard` draws 15 random characters and appends a check character. With the default 32-character dictionary, each character carries 5 bits, so this provides 75 bits of entropy. Using a `chunkSize` of 4 creates a visually organized code with three hyphens, resulting in a 19-character value.
 
-| Option       | Type     | Default                              | Meaning                                             |
-| ------------ | -------- | ------------------------------------ | --------------------------------------------------- |
-| `length`     | `number` | `8`                                  | total characters, the check character included      |
-| `chunkSize`  | `number` | `4`                                  | characters between separators; must divide `length` |
-| `separator`  | `string` | `'-'`                                | between chunks, and between a prefix and the code   |
-| `dictionary` | `string` | `'0123456789abcdefghjkmnpqrstuvxyz'` | the characters a code draws from, in order          |
+### Shape Options Reference
 
-`createToken` checks every option once, when it builds the instance, and
-nothing when the instance is used. Every code an instance mints without a
-prefix passes that instance's `validate`.
+| Option       | Type     | Default              | Meaning                                            |
+| :----------- | :------- | :------------------- | :------------------------------------------------- |
+| `length`     | `number` | `8`                  | Total characters, including the check character.   |
+| `chunkSize`  | `number` | `4`                  | Characters per chunk; must divide `length` evenly. |
+| `separator`  | `string` | `'-'`                | Placed between chunks and after a prefix.          |
+| `dictionary` | `string` | `DEFAULT_DICTIONARY` | The characters a code draws from, in order.        |
 
-## A counter code read aloud as two words
+`createToken` validates these options once during instance creation, and nothing when the instance is used. Every code an instance mints without a prefix passes that instance's `validate`.
 
-A token code with a space between two chunks of three reads aloud as two words,
-which suits a short code the counter calls out:
+## Creating "Spoken" Codes
+
+If you need an `@evanion/token` code that is easy to call out across a room, you can use a space as a separator and a smaller chunk size. This turns a string of characters into something that reads like two short words:
 
 ```ts twoslash file=libs/token/README.md region=spoken
 
 ```
 
-`validate` strips the separator its own instance was built with, so
-`counterCode.validate` strips the space.
+Because `validate` is tied to the instance that created the code, `counterCode.validate` knows to strip spaces rather than hyphens.
 
-## Shapes createToken refuses
+## Invalid Shapes and `InvalidShapeError`
 
-Token's `createToken` throws `InvalidShapeError` when `length`, `chunkSize` and
-`separator` cannot describe a code. In an app the throw stops start-up at the
-line that builds the instance. `refusal` below takes a `TokenOptions`, the type
-of the object `createToken` takes, and catches the error so each line can show
-it. It returns `undefined` when the options are accepted:
+Not every combination of `@evanion/token` shape options describes a code. `createToken` will throw an `InvalidShapeError` if the shape is invalid. This is designed to stop your application at start-up rather than failing silently at runtime.
+
+In the example below, `refusal` is a helper of your own: it catches the error and returns it, or returns `undefined` when the options are accepted.
 
 ```ts twoslash file=libs/token/README.md region=shape-errors
 
 ```
 
-A `chunkSize` of 4 does not divide a `length` of 10, so the last chunk would be
-shorter than the rest. `reason` is `'chunk-size-indivisible'`, which names
-`chunkSize`, yet a `length` of 12 fixes the shape too. Set `chunkSize` equal to
-`length` for an unchunked code. A `separator` of `'a'` is refused because `a` is
-in the dictionary, and `validate` could not strip it without removing part of
-the code.
+The option to change is not always the one `reason` names: a `length` of 12 fixes the same shape that a `chunkSize` of 5 fixes. So the error also carries `length`, `chunkSize` and `separator` as `createToken` resolved them, defaults included, which is why the last line reads the default `length` of 8.
 
-The option to change is not always the one `reason` names, so the error also
-carries `length`, `chunkSize` and `separator` as properties. Each holds the
-value `createToken` used, defaults included. In the last line, `?.length` reads
-the error's `length` property, the default 8, which that call never passed.
+### Common Shape Errors
 
-| `reason`                  | The shape                                        |
-| ------------------------- | ------------------------------------------------ |
-| `length`                  | `length` is not an integer, or is below 2        |
-| `chunk-size`              | `chunkSize` is not an integer, or is below 1     |
-| `chunk-size-indivisible`  | `chunkSize` does not divide `length`             |
-| `separator-empty`         | `separator` is the empty string                  |
-| `separator-in-dictionary` | `separator` shares a character with `dictionary` |
+| `reason`                  | Cause                                                 | Fix                                                                              |
+| :------------------------ | :---------------------------------------------------- | :------------------------------------------------------------------------------- |
+| `length`                  | `length` is not an integer or is below 2.             | Set an integer of at least 2.                                                    |
+| `chunk-size`              | `chunkSize` is not an integer or is below 1.          | Set an integer of at least 1.                                                    |
+| `chunk-size-indivisible`  | `chunkSize` does not divide `length` evenly.          | Adjust either `length` or `chunkSize`.                                           |
+| `separator-empty`         | `separator` is an empty string.                       | Provide a separator, or set `chunkSize` equal to `length` for an unchunked code. |
+| `separator-in-dictionary` | `separator` shares a character with the `dictionary`. | Choose a separator that doesn't appear in the alphabet.                          |
 
-Those five are every `reason` an `InvalidShapeError` carries. A `dictionary`
-that `createToken` refuses throws `InvalidAlphabetError`, or
-`InvalidDictionaryError` from `@evanion/luhn`.
+If the `separator` shared a character with the `dictionary`, `validate` would be unable to strip it without accidentally removing part of the code's body, which is why this is forbidden. A `dictionary` that `createToken` refuses throws `InvalidAlphabetError`, or `InvalidDictionaryError` from `@evanion/luhn`, never `InvalidShapeError`.
 
-## Try a token shape and dictionary
+## Try a Token Shape
 
-The card below mints codes with token's `generate` in your browser. Every option
-its two controls offer is a configuration `createToken` accepts:
-
-- The Say it as control sets the `length` and `chunkSize` pair.
-- The Drawn from control picks the default 32 characters or the 16 of
-  hexadecimal, `0123456789abcdef`.
-
-The caption reports the code's random bits, and the number of codes the shop
-can issue before the chance that two of them match reaches one in two.
+The card below mints `@evanion/token` codes in your browser. Its Say it as control sets the `length` and `chunkSize` pair, and its Drawn from control picks the default 32 characters or hexadecimal.
 
 <TokenSpecimen initial="a4kp-9mxa" />
+*The caption reports the code's random bits, and how many codes you can issue
+before the chance that two match reaches one in two.*
 
-## Draw codes from another dictionary
+## Draw Codes from Another Dictionary
 
-Every token code above the card drew from the default 32-character dictionary.
-[The alphabet](../alphabet) passes `createToken` a `dictionary` of its own and
-lists the rules that dictionary has to meet.
+Every `@evanion/token` example so far has used the default 32-character alphabet. [The alphabet](../alphabet) shows how to provide your own `dictionary` to `createToken` and the rules that a custom alphabet must follow.

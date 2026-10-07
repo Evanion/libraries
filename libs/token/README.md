@@ -1,12 +1,19 @@
-[![npm version](https://img.shields.io/npm/v/@evanion/token)](https://www.npmjs.com/package/@evanion/token)
-[![npm downloads](https://img.shields.io/npm/dm/@evanion/token)](https://www.npmjs.com/package/@evanion/token)
-[![CI](https://github.com/Evanion/libraries/actions/workflows/ci.yml/badge.svg)](https://github.com/Evanion/libraries/actions/workflows/ci.yml)
+# @evanion/token
 
-# Token Library
+**Human-friendly tokens with built-in error detection.**
 
-Short codes a person can read aloud, type from a card, or dictate over a
-phone. Each one carries a check character, so a mistyped one is rejected before
-you touch the database.
+Stop wasting database resources on mistyped codes. Whether it's a gift card, a pickup code, or a support ticket, a single typo should be caught instantly, before your application ever hits the database.
+
+## The Problem: The "Database-Driven" Validation Trap
+
+Most developers generate random strings and validate them by querying the database. This creates two major problems:
+
+1. **Expensive Failures**: A mistyped code still triggers a database lookup. At scale, thousands of typos per hour become a significant and unnecessary load on your infrastructure.
+2. **Poor User Experience**: A user who types `a4kp-9mx8` instead of `a4kp-9mxa` only finds out they failed when the database returns "Not Found," which is indistinguishable from a code that actually doesn't exist.
+
+## The Solution: Check-Character Tokens
+
+`@evanion/token` generates tokens with an integrated check character, computed by `@evanion/luhn` with the Luhn algorithm. This allows you to validate a code's structural integrity locally. If a user mistypes a single character, the token is rejected instantly, without a single database query.
 
 <!-- #region at-a-glance -->
 
@@ -15,23 +22,22 @@ import { createToken } from '@evanion/token';
 
 const token = createToken();
 
+// ✅ Valid: matches the check character
 token.validate('a4kp-9mxa'); // -> { valid: true, body: 'a4kp9mx' }
+
+// ❌ Invalid: rejected instantly due to a typo
 token.validate('a4kp-9mx8'); // -> { valid: false, reason: 'check-failed' }
 ```
 
 <!-- #endregion at-a-glance -->
 
-## Why use it
+## Key Features
 
-Two properties make a code usable by a human:
-
-- The alphabet leaves out characters that are confused when read or heard, such
-  as `l` and `i` for `1` and `o` for `0`.
-- A wrong code can be rejected **before** an expensive operation. A database
-  lookup for a code that was mistyped is a lookup that never needed to happen.
-
-The second one is the check character, and it is not optional here. Without it
-this package is three lines of `crypto.getRandomValues`.
+- 🛡️ **Instant Validation**: Catch every single-character substitution and almost every adjacent swap before it hits your backend.
+- 🗣️ **Human-Optimized**: Uses a "confusable-free" alphabet that removes `i`, `l`, `o`, and `w` to prevent reading and dictation errors.
+- 📏 **Customizable Shapes**: Control length, chunk size (e.g., `XXXX-XXXX`), and separators to match your brand's needs.
+- 🔐 **CSPRNG Powered**: Uses `crypto.getRandomValues` for cryptographically secure token generation.
+- 🪶 **Lightweight**: ESM-only, one dependency (`@evanion/luhn`), and runs on Node 20 or newer and in any browser with no polyfill.
 
 ## Installation
 
@@ -51,12 +57,9 @@ Or with pnpm:
 pnpm add @evanion/token
 ```
 
-## Construct an instance
+## Creating a Token Instance
 
-`createToken` validates every option once and returns a frozen object with
-`generate` and `validate` bound to it. Build it at module scope. The defaults are
-a `length` of 8, which counts the check character, chunked in fours, so `value`
-comes back nine characters long with its one separator:
+`createToken` validates every option once and returns a frozen instance with `generate` and `validate` bound to it. Build it at module scope. The defaults are a `length` of 8, which counts the check character, chunked in fours, so `value` comes back nine characters long with its one separator:
 
 <!-- #region construct -->
 
@@ -70,8 +73,7 @@ token.generate().value.length; // -> 9
 
 <!-- #endregion construct -->
 
-Every option is optional. A gift card code wants more characters than a pickup
-code:
+Every option is optional. A gift card code wants more characters than a pickup code:
 
 <!-- #region instances -->
 
@@ -86,9 +88,7 @@ giftCard.entropyBits; // -> 75
 
 <!-- #endregion instances -->
 
-A shape that cannot describe a code throws `InvalidShapeError`, which carries a
-`reason` and all three of `length`, `chunkSize` and `separator` as they were
-resolved:
+A shape that cannot describe a code throws `InvalidShapeError` at construction. The error carries a `reason` and all three of `length`, `chunkSize` and `separator` as they were resolved, defaults included:
 
 <!-- #region shape-errors -->
 
@@ -117,11 +117,9 @@ refusal({ separator: 'a' })?.length; // -> 8
 
 <!-- #endregion shape-errors -->
 
-## Generate a code
+## Issuing and Redeeming Codes
 
-`generate` draws `length - 1` random characters, appends the check character,
-and chunks the result. The characters are random, so what can be claimed about
-a pickup code is its shape:
+`generate` draws `length - 1` random characters, appends the check character, and chunks the result. The characters are random, so what the example below can show about a pickup code is its shape:
 
 <!-- #region generate -->
 
@@ -138,13 +136,9 @@ pickup.value.endsWith(pickup.check); // -> true
 
 <!-- #endregion generate -->
 
-`value` is the code as a person sees it, such as `ORD-a4kp-9mxa`. `body` is what
-the check character was computed over, unchunked, which is the form to store
-and index on.
+`value` is the code as a person sees it, such as `ORD-a4kp-9mxa`. `body` is what the check character was computed over, unchunked: store and index on it.
 
-The round trip is the other thing that can be claimed: the code `generate`
-minted validates to the same `body`, and a code with one character retyped does
-not.
+A code that `generate` minted validates back to the same `body`, and a code with one character retyped does not:
 
 <!-- #region round-trip -->
 
@@ -158,9 +152,7 @@ token.validate('a4kp-9mx8'); // -> { valid: false, reason: 'check-failed' }
 
 <!-- #endregion round-trip -->
 
-The shop stores `body` against the order and prints `value` on the receipt. At
-the counter, `validate` turns what the customer reads back into the same `body`,
-or refuses it before the table is read:
+A shop stores `body` against the order and prints `value` on the receipt. At the counter, `validate` turns what the customer reads back into the same `body`, or refuses it before the table is read:
 
 <!-- #region checkout -->
 
@@ -188,12 +180,11 @@ findOrder('a4kp-9nxa'); // -> 'refused: check-failed'
 
 <!-- #endregion checkout -->
 
-Characters are drawn from `crypto.getRandomValues`, which is Web Crypto: the
-same CSPRNG in Node 20 and in a browser, so the package runs in either with no
-import and no polyfill. `generate` never retries and never checks for
-collisions. See [Entropy](#entropy).
+`generate` never retries and never checks for collisions. Uniqueness is a unique index on your table; see [Entropy and Collisions](#entropy-and-collisions).
 
-## Validate a code
+## Understanding Validation Results
+
+`validate` returns `valid: true` and the `body`, or `valid: false` and the first `reason` the code failed:
 
 <!-- #region validate -->
 
@@ -214,11 +205,7 @@ token.validate('b0zg-7kq'); // -> { valid: false, reason: 'wrong-length' }
 | `wrong-length`     | the code is not `length` characters long                         |
 | `check-failed`     | the last character does not check out against the ones before it |
 
-`validate` returns a reason rather than throwing, because it is the cheap gate
-in front of a lookup, not an exceptional path. It is total and free of side
-effects.
-
-Narrow on `valid` to reach `body`, and look the order up by it:
+`validate` never throws and has no side effects, so it can run on every request as the cheap gate in front of a lookup. Narrow on `valid` to reach `body`:
 
 <!-- #region lookup -->
 
@@ -239,18 +226,14 @@ findOrder(token.generate().value); // -> 'no such order'
 
 <!-- #endregion lookup -->
 
-**`valid: true` does not mean the code exists**, and it is not authentication.
-One code in `n` passes by construction, which is one in 32 with the default
-alphabet. Treat it as a filter, never as a credential.
+**`valid: true` does not mean the code exists**, and it is not authentication. One random code in `n` passes the check by construction, which is one in 32 with the default alphabet. Treat it as a filter, never as a credential.
 
-### What the check character catches
+### What the Check Character Catches
 
-Luhn's guarantee, over any alphabet:
+Luhn catches, over any alphabet:
 
-- Every single-character substitution, at every position, including the check
-  character itself.
-- Every swap of two adjacent characters, except one pair: the first and last
-  entries of the dictionary, `0` and `z` by default.
+- Every single-character substitution, at every position, including the check character itself.
+- Every swap of two adjacent characters, except one pair: the first and last entries of the dictionary, `0` and `z` by default.
 
 <!-- #region check-catches -->
 
@@ -265,16 +248,11 @@ token.validate('bz0g-7kqb').valid; // -> true
 
 <!-- #endregion check-catches -->
 
-That one blind spot is structural. With `g(x) = floor(2x / n) + (2x mod n)`, a
-swap of indices `a` and `b` escapes exactly when `a + g(b) ≡ b + g(a)` (mod n),
-which for even `n` has the single non-trivial solution `{0, n - 1}`. It is the
-textbook mod-10 `{0, 9}` case, generalised.
+The blind spot is structural. With `g(x) = floor(2x / n) + (2x mod n)`, a swap of indices `a` and `b` escapes exactly when `a + g(b) ≡ b + g(a)` (mod n), which for even `n` has the single non-trivial solution `{0, n - 1}`. It is the textbook mod-10 `{0, 9}` case, generalised. Two mistakes in one code can also cancel each other out and pass.
 
-## Separators are presentation
+## Flexible Input: Separators and Prefixes
 
-`generate` chunks `value` and leaves `body` unchunked. `validate` strips the
-separator and folds case first, so a code typed without the separator, grouped
-differently, or read off a card in capitals still validates:
+`validate` strips the separator and folds case first, so a code typed without the separator, grouped differently, or read off a card in capitals still validates to the same `body`:
 
 <!-- #region separators -->
 
@@ -288,10 +266,7 @@ token.validate('A4KP-9MXA'); // -> { valid: true, body: 'a4kp9mx' }
 
 <!-- #endregion separators -->
 
-`chunkSize` must divide `length`, or `createToken` throws: a trailing chunk of
-one character is exactly the thing this package exists to avoid. Set
-`chunkSize` equal to `length` for an unchunked code. A shorter code with a
-space between two chunks of three reads aloud as two words:
+`chunkSize` must divide `length`, or `createToken` throws: a trailing chunk of one character is hard to read aloud. Set `chunkSize` equal to `length` for an unchunked code. A short code with a space between two chunks of three reads aloud as two words:
 
 <!-- #region spoken -->
 
@@ -306,10 +281,7 @@ counterCode.validate(value).valid; // -> true
 
 <!-- #endregion spoken -->
 
-## The prefix sits outside the checksum
-
-`ORD-a4kp-9mxa` checksums `a4kp9mx` only, and `validate` takes the code without
-the prefix. Strip it in any case, with or without its separator:
+The prefix sits outside the checksum. `ORD-a4kp-9mxa` checksums `a4kp9mx` only, and `validate` refuses the code with its prefix still on. Strip it first, in any case, with or without its separator:
 
 <!-- #region prefix -->
 
@@ -332,15 +304,11 @@ validatePickupCode(value.replaceAll('-', '')).valid; // -> true
 
 <!-- #endregion prefix -->
 
-`generate` computes the check character over `body` alone, so no prefix is
-covered, whatever its characters. The strip is safe because the dictionary has
-no `o`: no code starts with one, so a leading `ord` is always the prefix.
+The strip is safe because the default dictionary has no `o`: no code starts with one, so a leading `ord` is always the prefix.
 
-## Entropy
+## Entropy and Collisions
 
-`length` counts the check character, so usable entropy is
-`(length - 1) * log2(n)`. At the defaults, `length: 8` and `n: 32`, that is
-**35 bits**, and `entropyBits` reports it:
+`length` counts the check character, so usable entropy is `(length - 1) * log2(n)`. At the defaults, `length: 8` and `n: 32`, that is **35 bits**, and `entropyBits` reports it:
 
 <!-- #region entropy -->
 
@@ -354,14 +322,14 @@ createToken({ length: 13, chunkSize: 13 }).entropyBits; // -> 60
 
 <!-- #endregion entropy -->
 
-35 bits is 34,359,738,368 values. Read that as a collision budget rather than
-as a guess-resistance budget:
+`length: 13` needs its own `chunkSize`, because the default 4 does not divide 13.
+
+35 bits is 34,359,738,368 values. Read that as a collision budget, not as a guess-resistance budget:
 
 - A 50% chance of one collision arrives at about **218,000** codes.
 - At 1,000,000 issued codes a collision is effectively certain.
 
-So uniqueness is a unique index on your table, not a property this generator
-offers. Draw again when the insert conflicts:
+So uniqueness is a unique index on your table. Draw again when the insert conflicts:
 
 <!-- #region issue -->
 
@@ -391,10 +359,11 @@ issued.size; // -> 1
 
 <!-- #endregion issue -->
 
-Raise `length` if 218,000 is within reach of your volume; five more characters
-add 25 more bits.
+Raise `length` if 218,000 is within reach of your volume; five more characters add 25 more bits.
 
-## The alphabet
+A 35-bit code protects against typos, not against an attacker enumerating codes. Don't use it for session IDs, password resets or anything where knowing the string grants access. If a readable code does gate something, such as a gift card balance, rate-limit the lookup and bind it to a second factor.
+
+## Choosing an Alphabet
 
 The default is 32 characters:
 
@@ -410,15 +379,9 @@ CONFUSABLE_CHARACTERS; // -> 'ilow'
 
 <!-- #endregion default-alphabet -->
 
-It is the lowercase alphanumerics without `i`, `l`, `o` and `w`. The first
-three go because they are read as `1`, `1` and `0`. `w` goes because it is the
-one English letter whose name is polysyllabic and contains another letter's
-name, "double-u", which is what breaks it when a code is dictated. `1` and `0`
-survive their own groups because a code is as often typed as spoken, and a
-digit is unambiguous on a keypad.
+It is the lowercase alphanumerics without `i`, `l`, `o` and `w`. The first three are read as `1`, `1` and `0`. `w` goes because "double-u" dictated down a phone gets written back as `u`, and because dropping three leaves 33, which cannot carry a check character.
 
-A dictionary you supply has to satisfy four constraints at once, all checked by
-`createToken`:
+A dictionary you supply has to satisfy every constraint below, all checked by `createToken`:
 
 | Constraint                           | Enforced by     | Why                                    |
 | ------------------------------------ | --------------- | -------------------------------------- |
@@ -427,8 +390,7 @@ A dictionary you supply has to satisfy four constraints at once, all checked by
 | `256 % n === 0`                      | this package    | otherwise `byte % n` is biased         |
 | even size, no repeats, no case pairs | `@evanion/luhn` | a check character has to be definable  |
 
-The three this package owns throw `InvalidAlphabetError`, with a `reason` and
-the `offending` characters:
+The three this package owns throw `InvalidAlphabetError`, with a `reason` and the `offending` characters:
 
 <!-- #region alphabet-errors -->
 
@@ -459,9 +421,7 @@ dictionaryRefusal('0123456789abcdef'); // -> undefined
 
 <!-- #endregion alphabet-errors -->
 
-A dictionary that fails one of Luhn's own constraints throws
-`InvalidDictionaryError` from `@evanion/luhn`, which does not extend
-`TokenError`. Catch each with `instanceof`:
+A dictionary that fails one of Luhn's own constraints throws `InvalidDictionaryError` from `@evanion/luhn`, which does not extend `TokenError`. `createToken` hands the dictionary to Luhn first, so a dictionary that breaks both packages' rules throws Luhn's error. Catch each with `instanceof`:
 
 <!-- #region catch-both -->
 
@@ -488,21 +448,13 @@ rejectedBy('0123456789abcdef'); // -> 'accepted'
 
 <!-- #endregion catch-both -->
 
-`256 % n === 0` is the constraint that is easy to miss. `crypto.getRandomValues`
-yields 0–255, and `byte % n` over-represents the first `256 % n` characters. At
-n = 32 the division is exact. Luhn's own 36-character default is **not**
-uniform: `256 % 36 === 4`, over-representing its first four characters by
-14.3%, which is why this package does not adopt it.
+With a strict package manager such as pnpm, add `@evanion/luhn` to your own `package.json` at the exact version `@evanion/token` pins. A copy at another version defines a second `InvalidDictionaryError` class, and `instanceof` against it misses the error token's copy throws.
 
-Rejection sampling is the alternative to constraining the alphabet. It is not
-used here: it makes generation variable-time, and the constraint is
-satisfiable, as the default shows.
+`256 % n === 0` is the constraint that is easy to miss. `crypto.getRandomValues` yields 0–255, and `byte % n` over-represents the first `256 % n` characters. At n = 32 the division is exact. Luhn's own 36-character default is **not** uniform: `256 % 36 === 4`, over-representing its first four characters by 14.3%, which is why this package does not adopt it. Rejection sampling would lift the constraint, at the price of variable-time generation.
 
-The order of the dictionary decides which index each character occupies, and
-therefore every check character it produces. Two alphabets with the same
-characters in a different order are different alphabets.
+The order of the dictionary decides which index each character occupies, and therefore every check character it produces. Reorder it and codes you already issued can fail `validate`, so store it as a constant string and never sort it.
 
-Hexadecimal passes all four constraints, at four bits a character:
+Hexadecimal passes every constraint, at four bits a character:
 
 <!-- #region hex -->
 
@@ -516,49 +468,20 @@ hexCard.generate().value.length; // -> 19
 
 <!-- #endregion hex -->
 
-## API reference
+## API at a Glance
 
-### `createToken(options?)`
+- `createToken(options?)` validates `length`, `chunkSize`, `separator` and `dictionary` and returns a frozen `Token`. Defaults: `8`, `4`, `'-'`, `DEFAULT_DICTIONARY`.
+- `Token` carries `dictionary`, `n`, `length`, `chunkSize`, `separator`, `entropyBits`, `generate(options?)` returning `{ value, body, check, prefix }`, and `validate(input)` returning `{ valid: true, body } | { valid: false, reason }`.
+- `DEFAULT_DICTIONARY`, `CONFUSABLE_CHARACTERS`, `DEFAULT_LENGTH`, `DEFAULT_CHUNK_SIZE`, `DEFAULT_SEPARATOR` are the constants above.
+- `TokenError` is the base class for everything this package throws. `InvalidAlphabetError` carries `reason` (`confusable | unfolded | non-uniform`), `dictionary` and `offending`. `InvalidShapeError` carries `reason`, `length`, `chunkSize` and `separator`.
 
-Validates the options and returns a frozen `Token`.
+Everything is checked at construction and nothing at use: `generate` and `validate` never throw, and an instance cannot mint an unprefixed code its own `validate` rejects.
 
-- `options.length`: total characters, check character included. Defaults to
-  `8`.
-- `options.chunkSize`: characters between separators. Must divide `length`.
-  Defaults to `4`.
-- `options.separator`: placed between chunks and after a prefix. Must share no
-  character with the dictionary. Defaults to `'-'`.
-- `options.dictionary`: the alphabet. Defaults to `DEFAULT_DICTIONARY`.
+## Full Documentation
 
-### The returned object
+For the full guides, the API reference and an interactive validator, visit the documentation site:
 
-- `dictionary: string`
-- `n: number`, the characters in the dictionary.
-- `length`, `chunkSize`, `separator`, as configured.
-- `entropyBits: number`, which is `(length - 1) * log2(n)`.
-- `generate(options?): { value, body, check, prefix }`
-- `validate(input): { valid: true, body } | { valid: false, reason }`
-
-### Constants
-
-- `DEFAULT_DICTIONARY`: the 32 characters above.
-- `CONFUSABLE_CHARACTERS`: `'ilow'`, excluded from every alphabet.
-- `DEFAULT_LENGTH`, `DEFAULT_CHUNK_SIZE`, `DEFAULT_SEPARATOR`: `8`, `4`, `-`.
-
-### Errors
-
-- `TokenError`: base class for everything this package throws.
-- `InvalidAlphabetError extends TokenError`: carries `reason`
-  (`confusable | unfolded | non-uniform`), `dictionary` and `offending`.
-- `InvalidShapeError extends TokenError`: carries `reason` and all three of
-  `length`, `chunkSize`, `separator`.
-
-A dictionary that fails one of Luhn's own constraints throws
-`InvalidDictionaryError` from `@evanion/luhn`, which does not extend
-`TokenError`.
-
-Everything is checked at construction. Nothing is checked at use, so an
-instance you hold cannot produce an unprefixed code its own `validate` rejects.
+👉 **[docs.evanion.com/token](https://docs.evanion.com/token)**
 
 ## License
 
