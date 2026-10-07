@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DuplicateFeatureError,
   DuplicateVariantError,
   FeatureConfigError,
   FeatureCycleError,
 } from './errors.js';
 import { createFeatures, type Definitions } from './features.js';
+import type { FeatureConfig } from './config.js';
 import type {
   Decision,
   EvaluationContext,
@@ -2754,5 +2756,36 @@ describe('valueOf', () => {
     ]);
 
     expect(features.valueOf('cta', { targetingKey: 'u' })).toBeUndefined();
+  });
+});
+
+describe('createFeatures over a document', () => {
+  it('builds a store from a document and lifts its version', () => {
+    const features = createFeatures({
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    });
+
+    expect(features.version).toBe(41);
+  });
+
+  it('throws the first issue of a document the way it throws an array one', () => {
+    expect(() =>
+      createFeatures({
+        features: [
+          { key: 'a', enabled: true },
+          { key: 'a', enabled: true },
+        ],
+      }),
+    ).toThrow(DuplicateFeatureError);
+  });
+
+  it('refuses a document carrying a member it cannot read', () => {
+    expect(() =>
+      createFeatures({
+        features: [{ key: 'a', enabled: true }],
+        hashVersion: 2,
+      } as unknown as FeatureConfig),
+    ).toThrow(/hashVersion/);
   });
 });

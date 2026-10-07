@@ -226,3 +226,24 @@ describe('plan, inferring from the definitions', () => {
     >();
   });
 });
+
+describe('createFeatures over a document', () => {
+  it('infers the variant union off a document holding a literal', () => {
+    const features = createFeatures({
+      features: [
+        {
+          key: 'cta',
+          enabled: true,
+          variants: [
+            { name: 'control', weight: 50 },
+            { name: 'blue', weight: 50 },
+          ],
+        },
+      ],
+    } as const);
+
+    expectTypeOf(features.variantOf('cta')).toEqualTypeOf<
+      'control' | 'blue' | undefined
+    >();
+  });
+});

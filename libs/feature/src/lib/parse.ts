@@ -57,10 +57,7 @@ export function parseFeatureConfig<
   // the freeze.
   let features: Features<S, boolean>;
   try {
-    features = createFeatures<S>(
-      config.features,
-      (options ?? {}) as FeatureOptions<S>,
-    );
+    features = createFeatures<S>(config, (options ?? {}) as FeatureOptions<S>);
   } catch (raise) {
     return {
       ok: false,

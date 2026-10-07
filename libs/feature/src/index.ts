@@ -5,7 +5,12 @@
  * build-time pass use. The React provider and hooks live on `@evanion/feature/react`.
  */
 export { createFeatures } from './lib/features.js';
-export type { AsSchema, Definitions, Features } from './lib/features.js';
+export type {
+  AsSchema,
+  Definitions,
+  DefinitionsOrConfig,
+  Features,
+} from './lib/features.js';
 
 export { bucketOf, inRollout, murmur3 } from './lib/bucketing.js';
 export { assignVariant, variantSeedOf } from './lib/variants.js';
