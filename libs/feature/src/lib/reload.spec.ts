@@ -1145,6 +1145,19 @@ describe('reload, the diff it reports', () => {
     expect(result.ok && result.changed).toEqual([]);
   });
 
+  it('names a key whose variant value holds an object no walk can read', () => {
+    const features = createFeatures([valued(new ArrayBuffer(8))]);
+
+    const result = features.reload({
+      features: [valued(new ArrayBuffer(16))],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // An `ArrayBuffer` keeps what it holds in an internal slot and declares no
+    // own enumerable property, so a key walk reads `[]` off both sides and
+    // calls eight bytes equal to sixteen. The prototype gate is what refuses
+    // the pair, and a value this diff cannot compare belongs in `changed`.
+    expect(result.ok && result.changed).toEqual(['cta']);
+  });
   it('names nothing when a variant value holds one Map twice', () => {
     const entries: readonly [string, number][] = [['gold', 1]];
     const features = createFeatures([valued(new Map(entries))]);
