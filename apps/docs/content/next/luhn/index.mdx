@@ -23,7 +23,7 @@ Without `@evanion/luhn`, an ID is just a string. If a user types `order-2026-004
 
 ## The Solution: The Luhn Algorithm
 
-`@evanion/luhn` implements the Luhn algorithm, the check-digit scheme on credit card numbers, generalised to any alphabet, to detect transcription errors. It computes a single character from the rest of the code; if any character is changed or two neighbours are swapped, the check character no longer matches.
+`@evanion/luhn` implements the Luhn algorithm, the check-digit scheme on credit card numbers, generalized to any even-sized alphabet, to detect transcription errors. It computes a single character from the rest of the code; if any character is changed or almost any two neighbors are swapped, the check character no longer matches.
 
 For example, the order number `order-2026-0042` results in a check character of `l`, so the final code becomes `order-2026-0042-l`.
 
