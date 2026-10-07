@@ -81,7 +81,7 @@
     "postcss": "^8.5.28",
     "prettier": "^3.9.9",
     "semver": "^7.8.5",
-    "shiki": "3.23.0",
+    "shiki": "4.5.0",
     "tailwindcss": "^4.3.3",
     "tslib": "^2.8.1",
     "twoslash": "0.3.9",
