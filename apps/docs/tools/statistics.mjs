@@ -125,25 +125,26 @@ export function reduceRun(projects) {
  * The documented examples that ran, counted off the same reports.
  *
  * A result file that is not a test file is a doctest: `vite-plugin-doctest`
- * collects a README's fenced blocks and a source file's `@example` blocks
- * under the path they came from, so the path is what separates them.
+ * collects a markdown file's fenced blocks (the README and `docs/`) and a
+ * source file's `@example` blocks under the path they came from, so the path
+ * is what separates them.
  */
 export function reduceDocExamples(reports) {
   let cases = 0;
   let files = 0;
-  let fromReadme = 0;
+  let fromMarkdown = 0;
 
   for (const report of reports) {
     for (const result of report.testResults) {
       if (/\.(test|spec|test-d)\.tsx?$/.test(result.name)) continue;
       files += 1;
       cases += result.assertionResults.length;
-      if (result.name.endsWith('README.md'))
-        fromReadme += result.assertionResults.length;
+      if (result.name.endsWith('.md'))
+        fromMarkdown += result.assertionResults.length;
     }
   }
 
-  return { cases, files, fromReadme };
+  return { cases, files, fromMarkdown };
 }
 
 const ROW = /^\|\s*(SEC-\d+)\s*\|(.*)\|\s*$/;

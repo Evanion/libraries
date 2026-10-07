@@ -5,6 +5,7 @@ import {
   expandReferences,
   mdxProse,
 } from '@evanion/doc-examples/mdx-reference-loader';
+import { packageDirOf } from '@evanion/doc-examples/examples-file';
 import { PREAMBLE_FILE, withPreamble } from '@evanion/doc-examples/preamble';
 import { readRegion } from '@evanion/doc-examples/regions';
 import remarkMdx from 'remark-mdx';
@@ -21,7 +22,7 @@ import { allowed, live } from '../components/archive/surface.mjs';
  * A cut page is read out of git at a pinned commit and rendered by the site as
  * it is on `main`. Everything on it that the site resolves at build time would
  * otherwise resolve against `main`: a `file=… region=…` fence fills from the
- * current README, a reference directive from the current declarations, a
+ * current file, a reference directive from the current declarations, a
  * Twoslash fence compiles against the current package, and a probe or a
  * playground runs it. `docs/specs/2026-09-13-released-by-default.md` § 8 is the
  * rule this applies: every value on the page stays the one the release's own
@@ -97,13 +98,13 @@ function eachFence(source, edit) {
  * Fills every `file=… region=…` fence from the file as it was at the pinned
  * commit, and drops the reference.
  *
- * The region loader would otherwise fill it from the README on disk, which is
+ * The region loader would otherwise fill it from the file on disk, which is
  * `main`'s. With the code written into the fence the loader has nothing to do,
  * and a later rename of the region cannot reach the page.
  *
- * A Twoslash fence gets the preamble beside the README at the pinned commit
- * behind a `// ---cut---`, as the region loader gives it one (`preamble.mjs`),
- * so the compiler resolves the names the README's examples stand on.
+ * A Twoslash fence gets the package's preamble at the pinned commit behind a
+ * `// ---cut---`, as the region loader gives it one (`preamble.mjs`), so the
+ * compiler resolves the names the package's examples stand on.
  *
  * @param {string} source
  * @param {(path: string) => string} read the file at the pinned commit
@@ -139,10 +140,13 @@ export function inlineRegions(source, read, page) {
   });
 }
 
-/** The preamble beside a README at the pinned commit, or `''` without one. */
-function preambleAt(read, readme) {
+/**
+ * The preamble of the package a cited file belongs to, at the pinned commit,
+ * or `''` without one.
+ */
+function preambleAt(read, file) {
   try {
-    return read(posix.join(posix.dirname(readme), PREAMBLE_FILE));
+    return read(posix.join(packageDirOf(file), PREAMBLE_FILE));
   } catch {
     return '';
   }
@@ -459,7 +463,7 @@ function literal(value) {
  * - `WorkshopNotice` reads the current navigation, and the release knew whether
  *   the package was private. So it becomes that answer: a literal panel if it
  *   was, and nothing if it was not.
- * - `Probe` becomes a `FrozenProbe` carrying the call and the value the README
+ * - `Probe` becomes a `FrozenProbe` carrying the call and the value its region
  *   stated at the pinned commit.
  * - A playground, a specimen or a demo runs the workspace package live and has
  *   no value to freeze, so it becomes a line pointing at the same page under
@@ -627,10 +631,10 @@ export function surfaceFaults(source) {
 }
 
 /**
- * The probe a page mounted, as the pinned commit defined it and its README
+ * The probe a page mounted, as the pinned commit defined it and its region
  * stated it.
  *
- * The probe's module at that commit names its label and the README region it
+ * The probe's module at that commit names its label and the region it
  * reproduces. The region's first value claim whose call opens with a string
  * argument is the pair a reader saw seeded in the field: the argument, and the
  * value CI checked the call returns.

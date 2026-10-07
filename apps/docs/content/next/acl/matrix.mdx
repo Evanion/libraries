@@ -7,7 +7,7 @@ is the whole configuration, and what it does not say the library does not know.
 
 `JSON.stringify(access.matrix)` prints the envelope a typed policy flattens to:
 
-```ts twoslash file=libs/acl/README.md region=matrix-text
+```ts twoslash file=libs/acl/docs/examples.md region=matrix-text
 
 ```
 
@@ -28,7 +28,7 @@ decide it. `rules` are the allows and `denyRules` the denies, each list OR-ed, a
 a matched deny wins. A rule's `when` is AND-ed, and its `id` is what a decision
 reports as `rule`, derived from `when` where the rule states none.
 
-```ts twoslash file=libs/acl/README.md region=permission-shape
+```ts twoslash file=libs/acl/docs/examples.md region=permission-shape
 
 ```
 
@@ -46,7 +46,7 @@ string raises a construction error.
 
 One condition reads one path and compares it to one comparand.
 
-```ts twoslash file=libs/acl/README.md region=condition-forms
+```ts twoslash file=libs/acl/docs/examples.md region=condition-forms
 
 ```
 
@@ -80,14 +80,14 @@ Comparison is strict on both sides of a JSON boundary:
 `version` is a string or a number, and the revalidate contract compares it with
 `!==`. A content digest or a composite such as `orders@7+veto@41` works.
 
-```ts twoslash file=libs/acl/README.md region=matrix-round-trip
+```ts twoslash file=libs/acl/docs/examples.md region=matrix-round-trip
 
 ```
 
 `hydratePolicy(matrix, { version })` overrides the document's value, and the
 frozen `access.matrix` carries the winner:
 
-```ts twoslash file=libs/acl/README.md region=version-override
+```ts twoslash file=libs/acl/docs/examples.md region=version-override
 
 ```
 
@@ -99,7 +99,7 @@ against undefined decides nothing.
 `schema` declares the shapes the conditions read. The field is optional, and
 binding wherever present.
 
-```ts twoslash file=libs/acl/README.md region=schema-binding
+```ts twoslash file=libs/acl/docs/examples.md region=schema-binding
 
 ```
 
@@ -142,7 +142,7 @@ untrusted, so an unknown object kind or action fails closed and throws nothing.
 A backend with its own access control list (ACL) publishes its matrix as JSON
 for the frontend to adopt.
 
-```ts twoslash file=libs/acl/README.md region=foreign-matrix
+```ts twoslash file=libs/acl/docs/examples.md region=foreign-matrix
 
 ```
 

@@ -75,7 +75,7 @@ flowchart TD
 Step 5 is the only step that answers `allowed: true`. Four calls on one Baize
 question reach steps 1, 2, 4 and 5:
 
-```ts twoslash file=libs/acl/README.md region=resolution-order
+```ts twoslash file=libs/acl/docs/examples.md region=resolution-order
 
 ```
 
@@ -113,7 +113,7 @@ A Baize order rule that closes ordering during a stocktake shows steps 1, 3 and
 passed as `can`'s fifth argument, and `'soon'` does not parse as one. The third
 type argument to `policy` names `place` as the order's action:
 
-```ts twoslash file=libs/acl/README.md region=resolution-clock
+```ts twoslash file=libs/acl/docs/examples.md region=resolution-clock
 
 ```
 

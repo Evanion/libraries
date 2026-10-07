@@ -10,7 +10,7 @@ block, so a typo in an `object.*` or `subject.*` path is a compile error. Chain
 a `.for()` per kind and one policy covers the whole app. Every kind accumulates
 into the same key map and the same document.
 
-```ts twoslash file=libs/acl/README.md region=typed-authoring
+```ts twoslash file=libs/acl/docs/examples.md region=typed-authoring
 
 ```
 
@@ -50,7 +50,7 @@ derived from its conditions and the side it sits on, and that derivation changes
 whenever a release changes how a condition is represented, so an audit row
 holding a derived id stops matching its rule and nothing reports that it has.
 
-```ts twoslash file=libs/acl/README.md region=rule-ids
+```ts twoslash file=libs/acl/docs/examples.md region=rule-ids
 
 ```
 
@@ -75,7 +75,7 @@ The builder reads an operand as a path when its type matches
 otherwise. The matrix records a literal as `value` and a path as `path`, and a
 path the bound types do not carry is a compile error naming the path:
 
-```ts twoslash file=libs/acl/README.md region=paths-and-literals
+```ts twoslash file=libs/acl/docs/examples.md region=paths-and-literals
 
 ```
 
@@ -141,7 +141,7 @@ to `allowEach` to open all four at once.
 `policy()` takes `version` and `schema`, both document fields, and puts them in
 the document it flattens to:
 
-```ts twoslash file=libs/acl/README.md region=typed-document
+```ts twoslash file=libs/acl/docs/examples.md region=typed-document
 
 ```
 
@@ -157,7 +157,7 @@ schema is binding wherever it is present.
 
 `access.object(key)` binds one object kind so the key is named once:
 
-```ts twoslash file=libs/acl/README.md region=bound-handle
+```ts twoslash file=libs/acl/docs/examples.md region=bound-handle
 
 ```
 

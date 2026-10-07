@@ -16,7 +16,7 @@ You can make your codes more recognizable by adding a prefix like `ORD-`. This h
 
 When you pass a `prefix` to `generate`, it returns the code in four fields:
 
-```ts twoslash file=libs/token/README.md region=generate
+```ts twoslash file=libs/token/docs/examples.md region=generate
 
 ```
 
@@ -31,7 +31,7 @@ The `validate` method is designed to work on the code's body and check character
 
 If you pass `ORD-a4kp-9mxa` directly to `validate`, it will treat `ORD` as part of the code and refuse it (often as `outside-alphabet`). You must strip the prefix before validating:
 
-```ts twoslash file=libs/token/README.md region=prefix
+```ts twoslash file=libs/token/docs/examples.md region=prefix
 
 ```
 
@@ -41,7 +41,7 @@ In the example above, `validatePickupCode` handles the stripping. Because the de
 
 `validate` returns `valid: true` and the `body` if the code is well-formed, or `valid: false` and a `reason` if it fails.
 
-```ts twoslash file=libs/token/README.md region=validate
+```ts twoslash file=libs/token/docs/examples.md region=validate
 
 ```
 
@@ -63,7 +63,7 @@ Customers rarely type codes perfectly. They might omit hyphens, use different gr
 
 `validate` handles this by automatically stripping the separator and folding the case before performing its checks.
 
-```ts twoslash file=libs/token/README.md region=separators
+```ts twoslash file=libs/token/docs/examples.md region=separators
 
 ```
 
@@ -76,7 +76,7 @@ Because every variation of the spelling returns the same `body`, they all resolv
 - **Single-Character Substitutions**: Any single character misread or mistyped at any position is always caught.
 - **Adjacent Swaps**: Almost every swap of two neighboring characters is caught.
 
-```ts twoslash file=libs/token/README.md region=check-catches
+```ts twoslash file=libs/token/docs/examples.md region=check-catches
 
 ```
 

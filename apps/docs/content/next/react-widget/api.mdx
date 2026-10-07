@@ -42,7 +42,7 @@ once one is named, so naming `M` means writing `C` out as well. Call
 `createWidgets` once, at module scope, because each call returns a new `Widgets`
 and a call inside a component remounts the region on every render.
 
-```tsx twoslash file=libs/react-widget/README.md region=region-markup
+```tsx twoslash file=libs/react-widget/docs/examples.md region=region-markup
 
 ```
 
@@ -143,7 +143,7 @@ type WidgetItemComponent<M = WidgetMeta> = ComponentType<{
 Annotating `chrome.item` with it types the `meta` of every item one
 `createWidgets` call accepts: `createWidgets` infers `M` from the annotation.
 
-```tsx twoslash file=libs/react-widget/README.md region=meta-grid
+```tsx twoslash file=libs/react-widget/docs/examples.md region=meta-grid
 
 ```
 
@@ -186,7 +186,7 @@ function DefaultWrapper(
 A `<section>` with an accessible name maps to the `region` landmark role, so an
 `aria-label` makes the region reachable by landmark navigation.
 
-```tsx twoslash file=libs/react-widget/README.md region=chrome
+```tsx twoslash file=libs/react-widget/docs/examples.md region=chrome
 
 ```
 
@@ -232,7 +232,7 @@ type WidgetItem<
 `WidgetItem` widens to [`AnyWidgetItem`](#anywidgetitem). `satisfies
 WidgetItem<typeof components>[]` checks an array the way `defineItems` does.
 
-```tsx twoslash file=libs/react-widget/README.md region=typed-items
+```tsx twoslash file=libs/react-widget/docs/examples.md region=typed-items
 
 ```
 
@@ -271,7 +271,7 @@ type WidgetChildren<
 The `never` makes nesting under a widget that renders no `children` a compile
 error. Without it, `Widgets` drops that subtree and logs nothing.
 
-```tsx twoslash file=libs/react-widget/README.md region=nesting-rejected
+```tsx twoslash file=libs/react-widget/docs/examples.md region=nesting-rejected
 
 ```
 
@@ -312,7 +312,7 @@ component props are contravariant. Inference is unaffected:
 `validateItems` walks a payload and returns every problem it finds, re-exported
 unchanged from `@evanion/widget`.
 
-```ts twoslash file=libs/react-widget/README.md region=validate-payload
+```ts twoslash file=libs/react-widget/docs/examples.md region=validate-payload
 
 ```
 
@@ -330,7 +330,7 @@ signature, and [What it reports](/widget/problems) every message.
 `defineWidgets` returns the component map it is handed, typed as the literal
 object, re-exported from `@evanion/widget`.
 
-```ts twoslash file=libs/react-widget/README.md region=define-widgets
+```ts twoslash file=libs/react-widget/docs/examples.md region=define-widgets
 
 ```
 

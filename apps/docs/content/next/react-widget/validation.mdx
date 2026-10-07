@@ -20,7 +20,7 @@ If you pass this raw JSON directly to `<Widgets>`, the renderer will simply skip
 
 `@evanion/react-widget` re-exports `validateItems` from `@evanion/widget`. You can use this function in a build script or a webhook handler to block the publishing of broken content.
 
-```ts twoslash file=libs/react-widget/README.md region=validate-payload
+```ts twoslash file=libs/react-widget/docs/examples.md region=validate-payload
 
 ```
 
@@ -36,7 +36,7 @@ If you pass this raw JSON directly to `<Widgets>`, the renderer will simply skip
 
 You can ensure that a widget is not just "known" but also "complete." By passing a `required` map, you can reject items that have missing or blank props (where "blank" means `undefined`, `null`, or a string of only whitespace).
 
-```tsx twoslash file=libs/react-widget/README.md region=validate-bound
+```tsx twoslash file=libs/react-widget/docs/examples.md region=validate-bound
 
 ```
 
@@ -46,7 +46,7 @@ You can ensure that a widget is not just "known" but also "complete." By passing
 
 Because widgets can contain other widgets, `validateItems` recursively scans the `children` array of every item. If a nested child is faulty, the `WidgetProblem` reports its `index` among its own siblings.
 
-```ts twoslash file=libs/react-widget/README.md region=validate-nested
+```ts twoslash file=libs/react-widget/docs/examples.md region=validate-nested
 
 ```
 
@@ -56,7 +56,7 @@ To find the exact location of a nested error, you can search the `children` of y
 
 Once a payload has passed validation, you can safely cast it to the expected item type and render it.
 
-```tsx twoslash file=libs/react-widget/README.md region=render-validated
+```tsx twoslash file=libs/react-widget/docs/examples.md region=render-validated
 
 ```
 

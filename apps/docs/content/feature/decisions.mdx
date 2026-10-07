@@ -28,7 +28,7 @@ Both are pure functions of the configuration and the context, and both write not
 
 The store is the new checkout and express pickup that [Getting Started](../getting-started#write-the-flags-down) writes down, with the `after-launch` rule and its 25% rollout:
 
-```ts twoslash file=libs/feature/README.md region=resolve-request
+```ts twoslash file=libs/feature/docs/examples.md region=resolve-request
 
 ```
 
@@ -69,7 +69,7 @@ When a parent feature is disabled, `@evanion/feature` cascades it. The fence bel
 - `blockedBy` identifies the immediate edge (demo night booking is blocked by express pickup).
 - `cause` walks the chain to the root failure (demo night booking is ultimately off because the new checkout is `explicitly-off`).
 
-```ts twoslash file=libs/feature/README.md region=cascade-reasons
+```ts twoslash file=libs/feature/docs/examples.md region=cascade-reasons
 
 ```
 
@@ -79,7 +79,7 @@ An operator reading demo night booking's `cause` finds the new checkout without 
 
 When a feature resolves to `false` because of `no-rule-matched`, the `@evanion/feature` decision includes a detailed breakdown of every rule and why it failed.
 
-```ts twoslash file=libs/feature/README.md region=no-rule-matched
+```ts twoslash file=libs/feature/docs/examples.md region=no-rule-matched
 
 ```
 
@@ -89,7 +89,7 @@ If a condition failed, the `failed` object names the first condition that did no
 
 `toggle` is the only way to modify the stored intent of a feature in `@evanion/feature`. It sets the `enabled` property, applies the change at once, and returns a report of which dependants went off with it. The store below is the same three-flag chain, before any toggle:
 
-```ts twoslash file=libs/feature/README.md region=toggle-report
+```ts twoslash file=libs/feature/docs/examples.md region=toggle-report
 
 ```
 
@@ -106,7 +106,7 @@ You can inspect the state of an `@evanion/feature` store using these properties:
 
 On the same three-flag chain:
 
-```ts twoslash file=libs/feature/README.md region=inspect
+```ts twoslash file=libs/feature/docs/examples.md region=inspect
 
 ```
 

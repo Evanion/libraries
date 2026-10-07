@@ -1,5 +1,5 @@
 /**
- * Rewrites the READMEs' value-claiming comment style into assertions, so the
+ * Rewrites the markdown examples' value-claiming comment style into assertions, so the
  * claim is checked without the example having to read like a test.
  *
  *     Luhn.generate('foo'); // -> { phrase: 'foo', checksum: '5', filtered: 0 }

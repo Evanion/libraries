@@ -25,7 +25,7 @@ Conversely, a "counter code" meant to be spoken aloud might need a very specific
 
 For a gift card, you might want more characters to reduce the risk of collisions:
 
-```ts twoslash file=libs/token/README.md region=instances
+```ts twoslash file=libs/token/docs/examples.md region=instances
 
 ```
 
@@ -46,7 +46,7 @@ In this example, `giftCard` draws 15 random characters and appends a check chara
 
 If you need a code that is easy to call out across a room, you can use a space as a separator and a smaller chunk size. This turns a string of characters into something that reads like two short words:
 
-```ts twoslash file=libs/token/README.md region=spoken
+```ts twoslash file=libs/token/docs/examples.md region=spoken
 
 ```
 
@@ -56,7 +56,7 @@ Because `validate` is tied to the instance that created the code, `counterCode.v
 
 Not every combination of options is mathematically possible. `createToken` will throw an `InvalidShapeError` if the shape is invalid. This is designed to stop your application at start-up rather than failing silently at runtime.
 
-```ts twoslash file=libs/token/README.md region=shape-errors
+```ts twoslash file=libs/token/docs/examples.md region=shape-errors
 
 ```
 

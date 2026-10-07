@@ -19,7 +19,7 @@ When a renderer encounters a widget `type` it doesn't have a component for, it m
 
 Both `@evanion/react-widget` and `@evanion/astro-widget` solve this by using `ERROR_MESSAGES` from the core. This ensures that regardless of the framework, the same unknown type produces the same log line.
 
-```ts twoslash file=libs/widget/README.md region=warning
+```ts twoslash file=libs/widget/docs/examples.md region=warning
 
 ```
 
@@ -33,7 +33,7 @@ Renderers run during the render loop. Without protection, a single unknown widge
 
 A basic renderer iterates over the widget items, looks up the `type` in a registry, and renders the corresponding component. If the type is missing, it uses `warnOnce` to report the issue.
 
-```ts twoslash file=libs/widget/README.md region=renderer
+```ts twoslash file=libs/widget/docs/examples.md region=renderer
 
 ```
 

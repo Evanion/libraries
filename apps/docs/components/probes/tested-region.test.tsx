@@ -19,7 +19,7 @@ import { GameURN, probes as urn } from './urn';
  * The probe is the tested example, not a copy of it.
  *
  * Three things have to hold at once for that to be true, and two of them hold
- * elsewhere: the README block is executed by Vitest, and the page renders that
+ * elsewhere: the example block is executed by Vitest, and the page renders that
  * block because the region loader fills it and a missing region fails
  * `next build`. This file is the third -- the probe, called with the argument
  * the block writes, produces the value the block claims, character for
@@ -108,7 +108,7 @@ describe('what a probe calls', () => {
     expect(token.validate.call('a4kp-9mxa')).toEqual(
       createToken().validate('a4kp-9mxa'),
     );
-    // The README's block names a namespace with a subclass, which overrides a
+    // The example block names a namespace with a subclass, which overrides a
     // static and inherits every method, so this is `URN.parse` itself.
     expect(GameURN.parse).toBe(URN.parse);
   });
@@ -134,7 +134,7 @@ describe('what a probe calls', () => {
 });
 
 describe('the printer', () => {
-  it('writes a string the way the READMEs are formatted', () => {
+  it('writes a string the way the examples are formatted', () => {
     expect(quote('foo')).toBe("'foo'");
     expect(quote("it's")).toBe('"it\'s"');
   });

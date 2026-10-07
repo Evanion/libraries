@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, join } from 'node:path';
 
 import { DeclarationError, readReference } from './declarations.mjs';
+import { packageDirOf } from './examples-file.mjs';
 import { preamblePath, readPreamble, withPreamble } from './preamble.mjs';
 import { readRegion } from './regions.mjs';
 
@@ -21,12 +22,12 @@ import { readRegion } from './regions.mjs';
  * The directive becomes five things: the docblock's first paragraph as the
  * entry's summary, its block tags as a parameter list, the rest of the docblock
  * inside a collapsed `<details>`, a `twoslash` fence querying the compiler for
- * the signature, and a `twoslash` fence holding the named README region. The
+ * the signature, and a `twoslash` fence holding the named example region. The
  * whole entry is wrapped in an element binding the export's kind hue, so the
  * name is coloured by what the export is while the chip beside it says the same
  * word in text.
  *
- * The example comes from a named region of the package's README, through the
+ * The example comes from a named region of the package's examples file, through the
  * same reader the region loader uses, so an example on a reference page is
  * still an example a package's own tests run and a renamed region fails the
  * build.
@@ -190,8 +191,8 @@ const STATED_KINDS = new Set(['function', 'class']);
  * The file holding what the package behind an entry states.
  *
  * Named after the package's own directory, which the entry already carries
- * through its README path. A missing file fails the build, for the reason an
- * unresolved symbol and a missing README region already do: an entry that
+ * through its examples path. A missing file fails the build, for the reason an
+ * unresolved symbol and a missing example region already do: an entry that
  * rendered its catalogue as empty because a target had not run would be making
  * the claim of § 9 without having looked.
  */
@@ -205,7 +206,7 @@ export function behaviourPath(root, reference) {
  * fetches from `/behaviour/` when a reader reaches it.
  */
 export function libraryOf(reference) {
-  return basename(dirname(join('/', reference.readme)));
+  return basename(packageDirOf(join('/', reference.examples)));
 }
 
 /** What a package's tests state, read off disk. */
@@ -383,7 +384,8 @@ function head(reference) {
 }
 
 /**
- * The example fence, filled from the named region of the package's README.
+ * The example fence, filled from the named region of the package's examples
+ * file.
  *
  * Resolved here rather than left as a `file=`/`region=` reference for the
  * region loader to fill on a later pass. Turbopack runs the `*.mdx` loaders in
@@ -392,25 +394,25 @@ function head(reference) {
  * The region reader is a module either loader can call, so calling it is the
  * fix that does not depend on which way round the chain runs.
  *
- * The README's preamble goes in front of the region behind a `// ---cut---`
+ * The package's preamble goes in front of the region behind a `// ---cut---`
  * the reader never sees, which is what `expandRegions` does for a Twoslash
- * fence and for the same reason: the fence has to compile and the README does
+ * fence and for the same reason: the fence has to compile and the region does
  * not show the imports that make it compile.
  */
 function exampleFence(root, reference, region, file) {
-  const path = join(root, reference.readme);
+  const path = join(root, reference.examples);
   let contents;
   try {
     contents = readFileSync(path, 'utf8');
   } catch {
     throw new Error(
-      `${file}: cannot read '${reference.readme}', which is where ` +
+      `${file}: cannot read '${reference.examples}', which is where ` +
         `'${reference.name}' names the region '${region}'`,
     );
   }
 
-  const found = readRegion(contents, reference.readme, region);
-  const code = withPreamble(readPreamble(dirname(path)), found.code);
+  const found = readRegion(contents, reference.examples, region);
+  const code = withPreamble(readPreamble(packageDirOf(path)), found.code);
 
   return ['```ts twoslash', ...code.split('\n'), '```'];
 }
@@ -572,7 +574,7 @@ export default function mdxReferenceLoader(source) {
 
   // Declares what each entry was read from as an input of this page, so
   // rebuilding a library rebuilds the pages quoting its signatures and editing
-  // a README rebuilds the pages quoting its regions. Without this the page's
+  // an examples file rebuilds the pages quoting its regions. Without this the page's
   // own mtime is the only thing the build watches, and an entry keeps showing
   // a signature the package no longer has.
   return expandReferences(
@@ -581,10 +583,10 @@ export default function mdxReferenceLoader(source) {
     this.resourcePath,
     readReference,
     (reference, behaviours) => {
-      const readme = join(root, reference.readme);
+      const examples = join(root, reference.examples);
       this.addDependency(reference.declaration);
-      this.addDependency(readme);
-      this.addDependency(preamblePath(dirname(readme)));
+      this.addDependency(examples);
+      this.addDependency(preamblePath(packageDirOf(examples)));
       this.addDependency(behaviourPath(root, reference));
       // The test sources behind the sentences, so editing a test rebuilds the
       // page quoting it rather than leaving a name the suite no longer carries.

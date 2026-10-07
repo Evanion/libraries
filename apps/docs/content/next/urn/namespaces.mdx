@@ -31,7 +31,7 @@ The safest way to handle different identifier types is to declare a separate nam
 
 By creating `GameURN` and `OrderURN`, you can use the `belongsToNamespace` helper to filter a mixed list of identifiers instantly:
 
-```ts twoslash file=libs/urn/README.md region=class-per-namespace
+```ts twoslash file=libs/urn/docs/examples.md region=class-per-namespace
 
 ```
 
@@ -43,7 +43,7 @@ What happens when you use a specific namespace class—like `GameURN`—to parse
 
 `GameURN.parse` is designed to be "safe." It will strip its own NID if it finds it, but if it encounters a foreign NID, it simply leaves it at the front of the Namespace Specific String (NSS).
 
-```ts twoslash file=libs/urn/README.md region=parse
+```ts twoslash file=libs/urn/docs/examples.md region=parse
 
 ```
 
@@ -55,13 +55,13 @@ If your application supports a dynamic or unknown number of namespaces (e.g., a 
 
 The base `URN` class provides a generic `stringify` method that takes the NID as an argument. This is ideal for services that act as a pass-through for many different types of URNs.
 
-```ts twoslash file=libs/urn/README.md region=stringify-forms
+```ts twoslash file=libs/urn/docs/examples.md region=stringify-forms
 
 ```
 
 To extract the actual ID from a URN regardless of its namespace, use `extractId`. This helper strips the NID and returns only the unique identifier:
 
-```ts twoslash file=libs/urn/README.md region=extract-id
+```ts twoslash file=libs/urn/docs/examples.md region=extract-id
 
 ```
 
@@ -69,7 +69,7 @@ To extract the actual ID from a URN regardless of its namespace, use `extractId`
 
 Sometimes you just need to know if two URNs belong to the same category, regardless of what that category is. `sameNamespace` compares the scheme and NID of two URNs. If they match (case-insensitively), the URNs are in the same namespace.
 
-```ts twoslash file=libs/urn/README.md region=same-namespace
+```ts twoslash file=libs/urn/docs/examples.md region=same-namespace
 
 ```
 

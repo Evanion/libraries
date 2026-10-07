@@ -31,7 +31,7 @@ To include characters that aren't allowed (or should be consistent) in your iden
 
 Note that `stringify` and `parse` do not perform encoding automatically:
 
-```ts twoslash file=libs/urn/README.md region=nss-encoding
+```ts twoslash file=libs/urn/docs/examples.md region=nss-encoding
 
 ```
 
@@ -47,7 +47,7 @@ It treats URNs as equal if:
 - The NSS matches exactly (case-sensitively).
 - The hex digits in percent-encoded characters match (case-insensitively).
 
-```ts twoslash file=libs/urn/README.md region=equality
+```ts twoslash file=libs/urn/docs/examples.md region=equality
 
 ```
 
@@ -59,7 +59,7 @@ To use a URN as a segment in a URL path (e.g., `/resources/urn:game:brass-birmin
 
 The NSS must be encoded first, and then the entire URN must be encoded to ensure that characters like `:` and `%` do not interfere with the browser or the router.
 
-```ts twoslash file=libs/urn/README.md region=url-segment
+```ts twoslash file=libs/urn/docs/examples.md region=url-segment
 
 ```
 

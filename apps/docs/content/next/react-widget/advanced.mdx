@@ -28,7 +28,7 @@ The "Chrome" consists of two components:
 
 The package exports `DefaultWrapper` and `DefaultItem` as starting points. A custom chrome typically spreads these defaults to maintain the essential `data-widget-*` attributes.
 
-```tsx twoslash file=libs/react-widget/README.md region=chrome
+```tsx twoslash file=libs/react-widget/docs/examples.md region=chrome
 
 ```
 
@@ -40,7 +40,7 @@ While a widget's `props` contain the data, the `meta` property is used for place
 
 You can use the `WidgetItemComponent` type to annotate your chrome and ensure that `defineItems` validates the `meta` fields for every item.
 
-```tsx twoslash file=libs/react-widget/README.md region=meta-grid
+```tsx twoslash file=libs/react-widget/docs/examples.md region=meta-grid
 
 ```
 
@@ -50,7 +50,7 @@ In this example, `GridCell` reads a `column` property from `meta`. If an item's 
 
 Sometimes every widget in a region needs the same data—such as the current currency or a user's locale. Rather than passing this data into every single item's `props` in the CMS, you can use the `ctx` prop on the `<Widgets>` component.
 
-```tsx twoslash file=libs/react-widget/README.md region=ctx
+```tsx twoslash file=libs/react-widget/docs/examples.md region=ctx
 
 ```
 
@@ -60,7 +60,7 @@ Sometimes every widget in a region needs the same data—such as the current cur
 
 `Widgets` renders all items in the array. For server-rendered pages with many widgets, you can improve performance using the CSS property `content-visibility: auto` on your item chrome. This tells the browser to skip the layout and paint of off-screen widgets.
 
-```tsx twoslash file=libs/react-widget/README.md region=content-visibility
+```tsx twoslash file=libs/react-widget/docs/examples.md region=content-visibility
 
 ```
 

@@ -6,7 +6,7 @@ import { quote, type Probe } from './probe';
  * `Luhn.generate` over a phrase the reader types.
  *
  * The check character changing as the phrase is retyped is the thing four
- * paragraphs of README explain: it depends on every code point before it, on
+ * paragraphs of the docs explain: it depends on every code point before it, on
  * their order, and on nothing else. Filtering and case folding show in the same
  * output -- `phrase` comes back lowercased and stripped, `filtered` counts what
  * went -- so `FoO-ö` and `foo` landing on the same character is one keystroke
@@ -17,7 +17,7 @@ export const generate: Probe = {
   hint: 'Retype the phrase, or hyphenate it, and watch the check character.',
   call: (phrase) => Luhn.generate(phrase),
   source: (phrase) => `Luhn.generate(${quote(phrase)})`,
-  region: { file: 'libs/luhn/README.md', name: 'generate' },
+  region: { file: 'libs/luhn/docs/examples.md', name: 'generate' },
 };
 
 export const probes = { generate };

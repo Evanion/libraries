@@ -51,7 +51,7 @@ function read(_root: string, specifier: string, name: string) {
     rest: '',
     tags: [],
     declaration: '/nowhere/index.d.ts',
-    readme: 'libs/acl/README.md',
+    examples: 'libs/acl/docs/examples.md',
   };
 }
 

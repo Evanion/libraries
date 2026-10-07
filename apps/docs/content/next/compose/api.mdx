@@ -30,7 +30,7 @@ Below, `CartProvider` renders `<div id="cart">`, and `ThemeProvider` and
 `currency` prop. `renderToStaticMarkup`, from
 `react-dom/server`, turns the tree into the HTML string `markup`:
 
-```tsx twoslash file=libs/compose/README.md region=entries
+```tsx twoslash file=libs/compose/docs/examples.md region=entries
 
 ```
 
@@ -59,7 +59,7 @@ inferred from `component` in the same expression, so `props` is checked and
 completed against that component. Below, `ThemeProvider` takes
 `theme: 'light' | 'dark'`, and the call reports `'blue'` where it is written:
 
-```tsx twoslash file=libs/compose/README.md region=checked-at-call
+```tsx twoslash file=libs/compose/docs/examples.md region=checked-at-call
 
 ```
 
@@ -211,6 +211,6 @@ shows one.
 JavaScript caller that still passes it gets a named error.
 `React.createElement` passes the props an untyped caller would:
 
-```tsx twoslash file=libs/compose/README.md region=removed-components
+```tsx twoslash file=libs/compose/docs/examples.md region=removed-components
 
 ```

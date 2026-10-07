@@ -5,7 +5,7 @@ is the answer, and `reason`, `rule` and `missing` explain it without a second
 call. A decision whose deny rule could not read `status` carries all five
 fields:
 
-```ts twoslash file=libs/acl/README.md region=decision-shape
+```ts twoslash file=libs/acl/docs/examples.md region=decision-shape
 
 ```
 
@@ -79,7 +79,7 @@ empty rule list and an unknown action each refuse. Above that, a deny that
 matched outranks an allow that also matched, and a deny the engine could not
 read refuses too.
 
-```ts twoslash file=libs/acl/README.md region=four-outcomes
+```ts twoslash file=libs/acl/docs/examples.md region=four-outcomes
 
 ```
 
@@ -103,7 +103,7 @@ A caller sees it in two situations:
 - A projection that does not carry the field. A list query selected `id` and
   `body`, and the rule reads `object.askedBy`.
 
-```ts twoslash file=libs/acl/README.md region=refetch
+```ts twoslash file=libs/acl/docs/examples.md region=refetch
 
 ```
 
@@ -126,7 +126,7 @@ call that happened to lack data.
 
 `access.readsObject(key, action)` says which is which, from the document:
 
-```ts twoslash file=libs/acl/README.md region=reads-object
+```ts twoslash file=libs/acl/docs/examples.md region=reads-object
 
 ```
 
@@ -135,7 +135,7 @@ call that happened to lack data.
 The guard decides what the subject settles and records that the handler owes
 the rest:
 
-```ts twoslash file=libs/acl/README.md region=guard-before-row
+```ts twoslash file=libs/acl/docs/examples.md region=guard-before-row
 
 ```
 
@@ -163,7 +163,7 @@ plain miss.
 `canMany` and `capabilities` answer more than one question per call, and
 `authorize` binds the subject so every later call leaves it out:
 
-```ts twoslash file=libs/acl/README.md region=many-questions
+```ts twoslash file=libs/acl/docs/examples.md region=many-questions
 
 ```
 
@@ -176,7 +176,7 @@ plain miss.
 
 Prefer `canMany` or `capabilities` over a loop of `can`.
 
-```ts twoslash file=libs/acl/README.md region=server-authorize
+```ts twoslash file=libs/acl/docs/examples.md region=server-authorize
 
 ```
 
@@ -196,7 +196,7 @@ component evaluates without restating it.
 | a `Date`                       | that instant                                                                                                                 |
 | an instant that does not parse | `{ allowed: false, reason: 'unusable-clock' }` from every permission whose decision reads it, allow side and deny side alike |
 
-```ts twoslash file=libs/acl/README.md region=clock
+```ts twoslash file=libs/acl/docs/examples.md region=clock
 
 ```
 

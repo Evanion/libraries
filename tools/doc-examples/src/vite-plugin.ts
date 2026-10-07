@@ -3,7 +3,7 @@ import type { Plugin } from 'vite';
 import { rewriteJsDoc, rewriteMarkdown } from './expect-comments.ts';
 
 /**
- * Turns the READMEs' `// -> value` claims into assertions before
+ * Turns the markdown examples' `// -> value` claims into assertions before
  * vite-plugin-doctest extracts the code around them.
  *
  * `enforce: 'pre'` is what puts it there. doctest reads the file as written,

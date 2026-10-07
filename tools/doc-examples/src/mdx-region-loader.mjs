@@ -1,14 +1,15 @@
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 
+import { packageDirOf } from './examples-file.mjs';
 import { preamblePath, readPreamble, withPreamble } from './preamble.mjs';
 import { readRegion } from './regions.mjs';
 
 /**
  * Fills empty code blocks in the docs app's MDX from named regions in the
- * packages' READMEs, during `next build`.
+ * packages' `docs/examples.md`, during `next build`.
  *
- *     ```ts file=libs/urn/README.md region=basic-usage
+ *     ```ts file=libs/urn/docs/examples.md region=basic-usage
  *     ```
  *
  * Paths are workspace-root relative, which survives a page being moved
@@ -18,7 +19,7 @@ import { readRegion } from './regions.mjs';
  * Whatever else the info string carries is kept and handed to Shiki, so a
  * region block can also be a Twoslash block:
  *
- *     ```ts twoslash file=libs/acl/README.md region=quick-start
+ *     ```ts twoslash file=libs/acl/docs/examples.md region=quick-start
  *     ```
  *
  * Nextra injects the `Popup` component only for a fence whose meta is exactly
@@ -29,7 +30,7 @@ import { readRegion } from './regions.mjs';
  * throw on a `Popup` it never imported — so `twoslash` is the only other meta
  * a region block may carry.
  *
- * A Twoslash block gets the README's own preamble in front of it, behind a
+ * A Twoslash block gets its package's preamble in front of it, behind a
  * `// ---cut---` the reader never sees. `preamble.mjs` carries why.
  *
  * A webpack loader rather than the remark plugin the demo-apps spec called
@@ -102,9 +103,12 @@ export function expandRegions(source, root, file) {
 
       // Only a Twoslash fence, which a compiler reads and `// ---cut---` trims
       // back to the region. A plain fence is displayed source, and an import
-      // line in front of it shows the reader something the README does not.
+      // line in front of it shows the reader something the file does not.
       const code = /\btwoslash\b/.test(emitted)
-        ? withPreamble(readPreamble(dirname(join(root, path))), region.code)
+        ? withPreamble(
+            readPreamble(packageDirOf(join(root, path))),
+            region.code,
+          )
         : region.code;
 
       out.push(`${indent}${ticks}${emitted}`);
@@ -132,15 +136,15 @@ export function expandRegions(source, root, file) {
 export default function mdxRegionLoader(source) {
   const { root } = this.getOptions();
 
-  // Declares each referenced README as an input of this page, so editing one
+  // Declares each referenced file as an input of this page, so editing one
   // rebuilds the pages that quote it. Without this the page's own mtime is the
   // only thing the build watches, and a page keeps serving a stale region.
-  // The preamble beside each README is declared too, so editing one rebuilds
-  // the Twoslash fences compiling against it.
+  // The package's preamble is declared too, so editing one rebuilds the
+  // Twoslash fences compiling against it.
   for (const match of source.matchAll(new RegExp(REFERENCE, 'g'))) {
-    const readme = join(root, match[1]);
-    this.addDependency(readme);
-    this.addDependency(preamblePath(dirname(readme)));
+    const examples = join(root, match[1]);
+    this.addDependency(examples);
+    this.addDependency(preamblePath(packageDirOf(examples)));
   }
 
   return expandRegions(source, root, this.resourcePath);

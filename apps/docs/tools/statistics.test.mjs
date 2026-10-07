@@ -112,10 +112,19 @@ describe('the run', () => {
   });
 
   it('counts a documented example by the file it came from', () => {
-    expect(reduceDocExamples([passing])).toEqual({
-      cases: 1,
-      files: 1,
-      fromReadme: 1,
+    const withExamples = {
+      ...passing,
+      testResults: [
+        ...passing.testResults,
+        { name: '/w/libs/shop/docs/examples.md', assertionResults: [{}, {}] },
+        { name: '/w/libs/shop/src/basket.ts', assertionResults: [{}] },
+      ],
+    };
+
+    expect(reduceDocExamples([withExamples])).toEqual({
+      cases: 4,
+      files: 3,
+      fromMarkdown: 3,
     });
   });
 });

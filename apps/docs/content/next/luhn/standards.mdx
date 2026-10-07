@@ -15,7 +15,7 @@ When you use the dictionary `'0123456789'`, `@evanion/luhn` implements **Luhn mo
 
 `createLuhn({ dictionary: '0123456789' })` reproduces the published mod-10 test vectors:
 
-```ts twoslash file=libs/luhn/README.md region=mod-10
+```ts twoslash file=libs/luhn/docs/examples.md region=mod-10
 
 ```
 
@@ -49,7 +49,7 @@ The default 36-character dictionary is not uniform: $256 \pmod{36} = 4$. This me
 
 `uniformOverBytes` allows you to check if a dictionary is safe for simple modulo drawing:
 
-```ts twoslash file=libs/luhn/README.md region=modulo-bias
+```ts twoslash file=libs/luhn/docs/examples.md region=modulo-bias
 
 ```
 

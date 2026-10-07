@@ -21,7 +21,7 @@ A service defines which parts of its policy are intended for public consumption 
 
 The `serialize` function produces the contract. A "reduced" serialization keeps only the public permissions and their associated rules, while a "full" serialization returns the entire document.
 
-```ts twoslash file=libs/acl/README.md region=typed-contract
+```ts twoslash file=libs/acl/docs/examples.md region=typed-contract
 
 ```
 
@@ -42,7 +42,7 @@ When a permission is published, it is exported in its entirety. This includes al
 
 If a permission's logic depends on a deny rule (e.g., "Allow refund unless the user is on probation"), that deny rule must be part of the published contract. If it were stripped, a consumer might incorrectly grant a permission that the owner would refuse.
 
-```ts twoslash file=libs/acl/README.md region=contract
+```ts twoslash file=libs/acl/docs/examples.md region=contract
 
 ```
 

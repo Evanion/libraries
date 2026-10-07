@@ -10,8 +10,8 @@ import { parseRegions } from '@evanion/doc-examples';
 import { authoredPages } from './docs-content';
 
 /**
- * The docs app fills `file=… region=…` code blocks from the packages' READMEs
- * at build time, and a bad reference fails `next build`.
+ * The docs app fills `file=… region=…` code blocks from the packages'
+ * `docs/examples.md` at build time, and a bad reference fails `next build`.
  *
  * That build is slow and runs late. This runs in `nx test`, so a renamed
  * region is caught in seconds rather than at the end of CI.
@@ -37,11 +37,11 @@ describe('doc region references', () => {
 
   it('reads the keys past a twoslash marker, which is how most of the site writes them', () => {
     const source =
-      '```ts twoslash file=libs/urn/README.md region=equality\n```';
+      '```ts twoslash file=libs/urn/docs/examples.md region=equality\n```';
 
     expect(
       [...source.matchAll(REFERENCE)].map(([, path, name]) => [path, name]),
-    ).toEqual([['libs/urn/README.md', 'equality']]);
+    ).toEqual([['libs/urn/docs/examples.md', 'equality']]);
   });
 
   it('counts the references the site actually carries', () => {
@@ -84,7 +84,7 @@ describe('doc region references', () => {
 
   it('expands a reference to the region body', () => {
     const source = [
-      '```ts file=libs/urn/README.md region=equality',
+      '```ts file=libs/urn/docs/examples.md region=equality',
       '```',
     ].join('\n');
 
@@ -95,7 +95,7 @@ describe('doc region references', () => {
 
   it('drops whatever the referencing block already held', () => {
     const source = [
-      '```ts file=libs/urn/README.md region=equality',
+      '```ts file=libs/urn/docs/examples.md region=equality',
       'stale();',
       '```',
     ].join('\n');
@@ -107,7 +107,7 @@ describe('doc region references', () => {
 
   it('carries the fence meta through to the expanded block', () => {
     const source = [
-      '```ts twoslash file=libs/urn/README.md region=equality',
+      '```ts twoslash file=libs/urn/docs/examples.md region=equality',
       '```',
     ].join('\n');
 
@@ -117,9 +117,10 @@ describe('doc region references', () => {
   });
 
   it('takes the language from the region when the block names none', () => {
-    const source = ['```file=libs/urn/README.md region=equality', '```'].join(
-      '\n',
-    );
+    const source = [
+      '```file=libs/urn/docs/examples.md region=equality',
+      '```',
+    ].join('\n');
 
     expect(expandRegions(source, workspaceRoot, 'test.mdx')).toContain(
       '```ts\n',
@@ -133,9 +134,10 @@ describe('doc region references', () => {
   });
 
   it('fails on a region that does not exist', () => {
-    const source = ['```ts file=libs/urn/README.md region=nope', '```'].join(
-      '\n',
-    );
+    const source = [
+      '```ts file=libs/urn/docs/examples.md region=nope',
+      '```',
+    ].join('\n');
 
     expect(() => expandRegions(source, workspaceRoot, 'test.mdx')).toThrow(
       /no region 'nope'/,
@@ -143,9 +145,10 @@ describe('doc region references', () => {
   });
 
   it('fails on a file that does not exist', () => {
-    const source = ['```ts file=libs/nope/README.md region=x', '```'].join(
-      '\n',
-    );
+    const source = [
+      '```ts file=libs/nope/docs/examples.md region=x',
+      '```',
+    ].join('\n');
 
     expect(() => expandRegions(source, workspaceRoot, 'test.mdx')).toThrow(
       /cannot read/,

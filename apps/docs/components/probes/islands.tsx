@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 export interface IslandProps {
   /** The probe's name within its package's module. */
   name: string;
-  /** The argument the README block makes the call with. */
+  /** The argument the example block makes the call with. */
   initial: string;
 }
 

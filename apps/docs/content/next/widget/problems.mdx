@@ -31,7 +31,7 @@ If these aren't caught, your renderer will simply skip the items it cannot draw 
 
 Consider a payload with three distinct faults: a missing `props` object, a duplicate ID, and a typo in a widget type.
 
-```ts twoslash file=libs/widget/README.md region=sweep
+```ts twoslash file=libs/widget/docs/examples.md region=sweep
 
 ```
 
@@ -74,7 +74,7 @@ Beyond checking if a widget type is known, you can enforce that certain props ar
 
 You do this by passing a `required` map as the third argument to `validateItems`:
 
-```ts twoslash file=libs/widget/README.md region=required
+```ts twoslash file=libs/widget/docs/examples.md region=required
 
 ```
 
@@ -88,7 +88,7 @@ You can pass the same registry your renderer uses as the `known` argument to `va
 
 If you are running a validation check in a CI environment where you cannot import your React components, you can simply pass a plain array of type names.
 
-```ts twoslash file=libs/widget/README.md region=registry
+```ts twoslash file=libs/widget/docs/examples.md region=registry
 
 ```
 

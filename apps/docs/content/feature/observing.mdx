@@ -18,7 +18,7 @@ When an `@evanion/feature` feature is off for a customer, the decision says whet
 
 You install the observer as the `observe` option when calling `createFeatures`. The store calls it once for each call in the table below, and the event carries the value that call returned.
 
-```ts twoslash file=libs/feature/README.md region=observe-install
+```ts twoslash file=libs/feature/docs/examples.md region=observe-install
 
 ```
 
@@ -35,7 +35,7 @@ Every `@evanion/feature` event carries a standard envelope: the `at` instant, a 
 
 `variantOf` and `valueOf` report nothing, and `isEnabled` for a key the store was not built with reports nothing either. `isEnabled` resolves the whole store to answer one question, and its event carries only the one decision the caller received:
 
-```ts twoslash file=libs/feature/README.md region=observe-one-key
+```ts twoslash file=libs/feature/docs/examples.md region=observe-one-key
 
 ```
 
@@ -55,7 +55,7 @@ The freeze happens only under an installed observer, so the package behaves diff
 
 If an `@evanion/feature` observer throws an error or returns a rejected promise, the engine catches it and forwards it to `onObserveError`. The original call to `resolve` or `isEnabled` still returns the correct value to the user; the failure of the observer does not crash the application.
 
-```ts twoslash file=libs/feature/README.md region=observe-failure
+```ts twoslash file=libs/feature/docs/examples.md region=observe-failure
 
 ```
 
@@ -67,7 +67,7 @@ Because `@evanion/feature` never awaits an observer, a promise it never awaited 
 
 If your transport is asynchronous (e.g., a remote logging service), the observer pushes events into a local buffer and returns, and the application drains that buffer at a concurrency it owns.
 
-```ts twoslash file=libs/feature/README.md region=observe-buffer
+```ts twoslash file=libs/feature/docs/examples.md region=observe-buffer
 
 ```
 
@@ -79,7 +79,7 @@ A server drains on `SIGTERM`. A browser drains on `visibilitychange` and writes 
 
 An `@evanion/feature` event carries no `EvaluationContext`. It carries the instant the call settled on, the value the call returned, and a subject identifier copied out as a string or number. `correlateBy` names the context field that identifier is read from, and it defaults to `targetingKey`.
 
-```ts twoslash file=libs/feature/README.md region=observe-correlate
+```ts twoslash file=libs/feature/docs/examples.md region=observe-correlate
 
 ```
 
@@ -99,7 +99,7 @@ If you use the observer to track experiment "exposures," your data will be heavi
 
 Server Components cannot track when they are actually seen by a user. So the application records exposure where it renders, in a small client component, off the decision it already holds. The component calls `useFeature('checkout-cta')` and records `decision.variant`, `decision.assignment?.source`, `decision.assignment?.bucket` and `decision.rule` in an effect:
 
-```tsx twoslash file=libs/feature/README.md region=observe-exposure
+```tsx twoslash file=libs/feature/docs/examples.md region=observe-exposure
 
 ```
 

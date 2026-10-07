@@ -24,7 +24,7 @@ $$\text{Entropy Bits} = (\text{length} - 1) \times \log_2(\text{dictionary size}
 
 `entropyBits` reports this figure automatically:
 
-```ts twoslash file=libs/token/README.md region=entropy
+```ts twoslash file=libs/token/docs/examples.md region=entropy
 
 ```
 
@@ -47,7 +47,7 @@ The 50% collision point is roughly $1.18 \times \sqrt{2^{\text{bits}}}$. As you 
 
 The best practice is to put a `UNIQUE` index on the `body` column and redraw the code if the insert fails:
 
-```ts twoslash file=libs/token/README.md region=issue
+```ts twoslash file=libs/token/docs/examples.md region=issue
 
 ```
 

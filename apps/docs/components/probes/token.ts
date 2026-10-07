@@ -3,7 +3,7 @@ import { createToken } from '@evanion/token';
 import { quote, type Probe } from './probe';
 
 /**
- * The default token, as the README's `validate` block constructs it. The block
+ * The default token, as the `validate` example constructs it. The block
  * writes `token.validate(...)`, so the name here is the name there.
  */
 const token = createToken();
@@ -23,7 +23,7 @@ export const validate: Probe = {
   hint: 'Change the last character, type an o for a 0, or drop one.',
   call: (code) => token.validate(code),
   source: (code) => `token.validate(${quote(code)})`,
-  region: { file: 'libs/token/README.md', name: 'validate' },
+  region: { file: 'libs/token/docs/examples.md', name: 'validate' },
 };
 
 export const probes = { validate };

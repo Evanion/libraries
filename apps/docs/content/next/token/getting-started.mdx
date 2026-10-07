@@ -34,7 +34,7 @@ The first step is to create a token instance. This instance is frozen at creatio
 
 The `generate()` method returns the human-readable code as `value`:
 
-```ts twoslash file=libs/token/README.md region=construct
+```ts twoslash file=libs/token/docs/examples.md region=construct
 
 ```
 
@@ -49,7 +49,7 @@ The workflow is simple:
 1. **At Checkout**: Call `generate()`. This returns both the `value` (which you print on the receipt) and the `body` (which you store in your database).
 2. **At Pickup**: Pass the customer's spoken or typed code to `validate`.
 
-```ts twoslash file=libs/token/README.md region=checkout
+```ts twoslash file=libs/token/docs/examples.md region=checkout
 
 ```
 

@@ -12,6 +12,7 @@ import {
 import { dirname, join, relative, sep } from 'node:path';
 
 import { behavioursOf } from '@evanion/doc-examples/behaviours';
+import { examplesFileIn } from '@evanion/doc-examples/examples-file';
 import { behaviourPath } from '@evanion/doc-examples/mdx-reference-loader';
 import { defaultTwoslashOptions } from '@shikijs/twoslash';
 import { createTwoslasher } from 'twoslash';
@@ -618,14 +619,14 @@ function materialise(git, sha, release, names, docsRoot, generator) {
 
     emitDeclarations(packageDir);
 
-    // At the path the loader derives from the package's README here, which is
-    // named after `node_modules/<name>` and not after the directory the package
-    // had in the tree: `@evanion/nestjs-correlation-id` was at
+    // At the path the loader derives from the package's examples file here,
+    // which is named after `node_modules/<name>` and not after the directory
+    // the package had in the tree: `@evanion/nestjs-correlation-id` was at
     // `nest/correlation-id`.
     const { files, states } = behavioursOf(packageDir);
     write(
       behaviourPath(root, {
-        readme: relative(root, join(packageDir, 'README.md')),
+        examples: relative(root, examplesFileIn(packageDir)),
       }),
       `${JSON.stringify({
         package: name,
@@ -762,6 +763,7 @@ function generatorHash() {
     '../../../tools/doc-examples/src/regions.mjs',
     '../../../tools/doc-examples/src/declarations.mjs',
     '../../../tools/doc-examples/src/behaviours.mjs',
+    '../../../tools/doc-examples/src/examples-file.mjs',
   ])
     hash.update(readFileSync(join(import.meta.dirname, file)));
   return hash.digest('hex').slice(0, 16);

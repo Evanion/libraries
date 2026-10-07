@@ -58,33 +58,6 @@ const App: React.FC = () => {
 
 Rendered, the array is the tree. `CartProvider` is first in the array and outermost in the markup:
 
-<!-- #region render-order -->
-
-```tsx @import.meta.vitest
-const CartProvider = ({ children }: React.PropsWithChildren) => (
-  <div id="cart">{children}</div>
-);
-
-const ThemeProvider = ({
-  theme,
-  children,
-}: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
-  <div id={theme}>{children}</div>
-);
-
-const markup = renderToStaticMarkup(
-  <ComposeProvider
-    providers={[CartProvider, provider(ThemeProvider, { theme: 'dark' })]}
-  >
-    <p>Brass: Birmingham</p>
-  </ComposeProvider>,
-);
-
-markup; // -> '<div id="cart"><div id="dark"><p>Brass: Birmingham</p></div></div>'
-```
-
-<!-- #endregion render-order -->
-
 `ThemeProvider` needs a prop, so it goes through `provider()`, which pairs the component with its props.
 
 ### Why this is better:
@@ -115,118 +88,15 @@ For guides on where the check happens and how to keep it, visit the documentatio
 
 👉 **[docs.evanion.com/compose](https://docs.evanion.com/compose)**
 
-The rest of this README is the reference: every example below marked `@import.meta.vitest` runs in the package's test suite.
-
 ## A Root Component with Three Context Providers
 
 A board game shop's root holds a cart, a theme and a currency, each a context provider. `Shop` composes them, and `Basket` reads all three:
-
-<!-- #region first-shop -->
-
-```tsx @import.meta.vitest
-const CartContext = React.createContext(0);
-const ThemeContext = React.createContext<'light' | 'dark'>('light');
-const CurrencyContext = React.createContext<'SEK' | 'GBP' | 'USD'>('SEK');
-
-const CartProvider = ({ children }: React.PropsWithChildren) => (
-  <CartContext.Provider value={2}>{children}</CartContext.Provider>
-);
-
-const ThemeProvider = ({
-  theme,
-  children,
-}: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
-  <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>
-);
-
-const CurrencyProvider = ({
-  currency,
-  children,
-}: React.PropsWithChildren<{ currency: 'SEK' | 'GBP' | 'USD' }>) => (
-  <CurrencyContext.Provider value={currency}>
-    {children}
-  </CurrencyContext.Provider>
-);
-
-function Shop({ children }: React.PropsWithChildren) {
-  return (
-    <ComposeProvider
-      providers={[
-        CartProvider,
-        provider(ThemeProvider, { theme: 'dark' }),
-        provider(CurrencyProvider, { currency: 'SEK' }),
-      ]}
-    >
-      {children}
-    </ComposeProvider>
-  );
-}
-
-function Basket() {
-  const games = React.useContext(CartContext);
-  const theme = React.useContext(ThemeContext);
-  const currency = React.useContext(CurrencyContext);
-
-  return <p className={theme}>{`${games} games, priced in ${currency}`}</p>;
-}
-
-const markup = renderToStaticMarkup(
-  <Shop>
-    <Basket />
-  </Shop>,
-);
-
-markup; // -> '<p class="dark">2 games, priced in SEK</p>'
-```
-
-<!-- #endregion first-shop -->
 
 A context provider renders no element of its own, so `markup` is `Basket`'s paragraph alone, and the values in it came through all three providers.
 
 ## Three Ways to Write an Entry
 
 A provider with no props is the component itself. A provider with props is either a `provider()` call or a `[component, props]` tuple. The providers from here on render a `div` whose `id` is their prop, so the markup shows which props arrived:
-
-<!-- #region entries -->
-
-```tsx @import.meta.vitest
-const CartProvider = ({ children }: React.PropsWithChildren) => (
-  <div id="cart">{children}</div>
-);
-
-const ThemeProvider = ({
-  theme,
-  children,
-}: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
-  <div id={theme}>{children}</div>
-);
-
-const CurrencyProvider = ({
-  currency,
-  children,
-}: React.PropsWithChildren<{ currency: 'SEK' | 'GBP' | 'USD' }>) => (
-  <div id={currency}>{children}</div>
-);
-// ---cut---
-const markup = renderToStaticMarkup(
-  <ComposeProvider
-    providers={[
-      // A bare component, for a provider whose props are all optional.
-      CartProvider,
-      // A `provider()` call, checked where it is written.
-      provider(ThemeProvider, { theme: 'dark' }),
-      // A tuple, checked where the array reaches `ComposeProvider`.
-      [CurrencyProvider, { currency: 'SEK' }],
-    ]}
-  >
-    <p>Brass: Birmingham</p>
-  </ComposeProvider>,
-);
-
-markup; // -> '<div id="cart"><div id="dark"><div id="SEK"><p>Brass: Birmingham</p></div></div></div>'
-```
-
-<!-- #endregion entries -->
 
 The docs site renders each block from its `// ---cut---` down. The lines above the marker declare what the block needs to compile.
 
@@ -240,39 +110,6 @@ A `provider()` call and a tuple type-check identically. The difference is where 
 
 A tuple is checked only while the array has a fixed-length array type, which it has when written inline in the JSX attribute or declared `as const`. Annotated `ProviderArray`, or checked with `satisfies ProviderArray`, the array widens to a plain array and its entries go unchecked. Below, the annotated array compiles and renders `ThemeProvider` with no `theme`, and the same entry declared `as const` reports the missing prop:
 
-<!-- #region named-array -->
-
-```tsx @import.meta.vitest
-// @errors: 2322
-const ThemeProvider = ({
-  theme,
-  children,
-}: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
-  <div id={theme}>{children}</div>
-);
-// ---cut---
-import type { ProviderArray } from '@evanion/compose';
-
-const annotated: ProviderArray = [[ThemeProvider, {}]];
-const constant = [[ThemeProvider, {}]] as const;
-const plain = [[ThemeProvider, { theme: 'dark' }]];
-
-// Compiled for their errors only: `constant` misses `theme`, and `plain` has
-// widened to an array that is not a provider.
-<ComposeProvider providers={constant}>{null}</ComposeProvider>;
-<ComposeProvider providers={plain}>{null}</ComposeProvider>;
-
-const markup = renderToStaticMarkup(
-  <ComposeProvider providers={annotated}>
-    <p>Brass: Birmingham</p>
-  </ComposeProvider>,
-);
-
-markup; // -> '<div><p>Brass: Birmingham</p></div>'
-```
-
-<!-- #endregion named-array -->
-
 `// @errors: 2322` lists the compiler error the block produces. The docs site compiles every such block and fails its build when a listed error stops appearing.
 
 ## Changing the Array Remounts the Subtree
@@ -285,54 +122,7 @@ A new props value is not a change to the array's shape. An entry built from stat
 
 An array written inline is checked entry by entry, and each failing entry reports on its own line. At runtime nothing checks the props, so the same array renders:
 
-<!-- #region checked-inline -->
-
-```tsx @import.meta.vitest
-// @errors: 2322 2741
-const ThemeProvider = ({
-  theme,
-  children,
-}: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
-  <div id={theme}>{children}</div>
-);
-// ---cut---
-const markup = renderToStaticMarkup(
-  <ComposeProvider
-    providers={[
-      ThemeProvider,
-      [ThemeProvider, {}],
-      [ThemeProvider, { theme: 'blue' }],
-      [ThemeProvider, { theme: 'dark', accent: 'green' }],
-    ]}
-  >
-    <p>Brass: Birmingham</p>
-  </ComposeProvider>,
-);
-
-markup; // -> '<div><div><div id="blue"><div id="dark"><p>Brass: Birmingham</p></div></div></div></div>'
-```
-
-<!-- #endregion checked-inline -->
-
 `provider()` reports a wrong value at the call, naming the value and the type it missed, and returns the pair unchanged:
-
-<!-- #region checked-at-call -->
-
-```tsx @import.meta.vitest
-// @errors: 2322
-const ThemeProvider = ({
-  theme,
-  children,
-}: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
-  <div id={theme}>{children}</div>
-);
-// ---cut---
-const entry = provider(ThemeProvider, { theme: 'blue' });
-
-entry; // -> [ThemeProvider, { theme: 'blue' }]
-```
-
-<!-- #endregion checked-at-call -->
 
 Failures that are not just a wrong value resolve to `ComposeError<"…">`, so TypeScript prints the explanation in the first line of the error:
 
@@ -376,46 +166,6 @@ const p = provider(ThemeProvider, {
 
 A wrapper generic over `ComposeProviderProps<T>` passes its caller's array to `ComposeProvider` still checked:
 
-<!-- #region wrapper -->
-
-```tsx @import.meta.vitest
-// @errors: 2741
-const CartProvider = ({ children }: React.PropsWithChildren) => (
-  <div id="cart">{children}</div>
-);
-
-const ThemeProvider = ({
-  theme,
-  children,
-}: React.PropsWithChildren<{ theme: 'light' | 'dark' }>) => (
-  <div id={theme}>{children}</div>
-);
-// ---cut---
-import type { ComposeProviderProps, ProviderArray } from '@evanion/compose';
-
-function AppProviders<const T extends ProviderArray>({
-  providers,
-  children,
-}: ComposeProviderProps<T>) {
-  return <ComposeProvider providers={providers}>{children}</ComposeProvider>;
-}
-
-// Compiled for its error only: the caller's tuple misses `theme`.
-<AppProviders providers={[CartProvider, [ThemeProvider, {}]]}>
-  {null}
-</AppProviders>;
-
-const markup = renderToStaticMarkup(
-  <AppProviders providers={[CartProvider]}>
-    <p>Brass: Birmingham</p>
-  </AppProviders>,
-);
-
-markup; // -> '<div id="cart"><p>Brass: Birmingham</p></div>'
-```
-
-<!-- #endregion wrapper -->
-
 A wrapper that types its prop as plain `ProviderArray` compiles too, and the entries are unchecked at that boundary: a `ProviderArray` has already lost the identity of its elements, so there is nothing left to check.
 
 ## Migrating from 1.x
@@ -430,28 +180,6 @@ A wrapper that types its prop as plain `ProviderArray` compiles too, and the ent
 | a missing `providers` fails reading `undefined` | throws a `TypeError` naming `providers`                                  |
 
 The `components` prop is gone from the type surface. A JavaScript caller that still passes it gets a named error:
-
-<!-- #region removed-components -->
-
-```tsx @import.meta.vitest
-const CartProvider = ({ children }: React.PropsWithChildren) => (
-  <div id="cart">{children}</div>
-);
-
-// The props a JavaScript caller passes, which no compiler checked.
-const legacy = { components: [CartProvider] } as never;
-
-let message = '';
-try {
-  renderToStaticMarkup(React.createElement(ComposeProvider, legacy));
-} catch (error) {
-  message = (error as Error).message;
-}
-
-message; // -> 'ComposeProvider: `components` was removed in v2.0 — rename it to `providers`.'
-```
-
-<!-- #endregion removed-components -->
 
 ## License
 

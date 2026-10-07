@@ -30,15 +30,15 @@ run of the build that published this site:
 ## The documentation's examples run as tests
 
 A TypeScript example on a package page is copied from a named region of a
-package README, a test file, or a demo application under `apps/`: the span of
+package's `docs/examples.md`, a test file, or a demo application under `apps/`: the span of
 the file between a `#region name` marker and its `#endregion`.
 
 <DocExamples />
 
 Four mechanisms hold an example to its test:
 
-- A code block in a package README whose fence opens with
-  `ts @import.meta.vitest` runs as a test in that package's `vitest` run.
+- A code block in a package's README or `docs/examples.md` whose fence opens
+  with `ts @import.meta.vitest` runs as a test in that package's `vitest` run.
 - A `// -> value` comment on a line of such a block becomes an assertion that
   the line returns `value`.
 - The page and the test read the same named region, so the example on the page
@@ -47,16 +47,16 @@ Four mechanisms hold an example to its test:
   is compiled against the package's built `dist/`. An example that shows a
   compiler error on purpose fails the build if the error goes away.
 
-The block below is an `@evanion/acl` README example, set in Baize, the board
+The block below is an `@evanion/acl` example, set in Baize, the board
 game shop every acl example uses: a customer who asked a question may edit it.
 
-```ts twoslash file=libs/acl/README.md region=quick-start
+```ts twoslash file=libs/acl/docs/examples.md region=quick-start
 
 ```
 
 `policy()` writes the rules. `p.allow` grants the `update` action when its
 condition holds, and `p.eq` compares the question's `askedBy` field with the
-user's `id`. The README fence that holds this code carries the
+user's `id`. The fence in `libs/acl/docs/examples.md` that holds this code carries the
 `@import.meta.vitest` marker on its opening line, which the page does not
 render. The package's `vitest` run executes the block, and the `// -> true` line
 is the assertion.
@@ -88,7 +88,7 @@ the path of each file that ran:
 | ----------------- | -------------------------------------------------------------------- |
 | `behaviour`       | `*.test.ts(x)` and `*.spec.ts(x)`                                    |
 | `type`            | `*.test-d.ts(x)`, whose assertions the compiler checks               |
-| `doctest`         | README code blocks marked `@import.meta.vitest`                      |
+| `doctest`         | markdown code blocks marked `@import.meta.vitest`                    |
 | `astro-container` | `*.astro.test.ts`, which render an Astro component on the server     |
 | `adversarial`     | files under a `security/` folder, today only `libs/acl/src/security` |
 | `end-to-end`      | `*.e2e.spec.ts`, which send HTTP requests to a running application   |

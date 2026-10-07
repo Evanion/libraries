@@ -14,7 +14,7 @@
 
 The standard `Luhn` instance is built over the `DEFAULT_DICTIONARY`, which consists of the 36 lowercase alphanumerics (`0-9` and `a-z`).
 
-```ts twoslash file=libs/luhn/README.md region=default-dictionary
+```ts twoslash file=libs/luhn/docs/examples.md region=default-dictionary
 
 ```
 
@@ -26,7 +26,7 @@ When your identifiers use a different alphabet, you can build a custom Luhn inst
 
 For example, the `@evanion/token` package uses a 32-character dictionary that drops "confusable" characters (`i`, `l`, `o`, `w`) to prevent human transcription errors. You can create a similar instance manually:
 
-```ts twoslash file=libs/luhn/README.md region=pickup-dictionary
+```ts twoslash file=libs/luhn/docs/examples.md region=pickup-dictionary
 
 ```
 
@@ -48,7 +48,7 @@ To ensure the Luhn algorithm works correctly, `createLuhn` validates your dictio
 | `duplicate`    | No repeated characters                        | Each character must map to exactly one unique index.                                           |
 | `case-pairs`   | No case variants (if `caseInsensitive: true`) | If `A` and `a` both exist, folding input to lowercase would make the index of `A` unreachable. |
 
-```ts twoslash file=libs/luhn/README.md region=constraints
+```ts twoslash file=libs/luhn/docs/examples.md region=constraints
 
 ```
 
@@ -58,7 +58,7 @@ By default, `createLuhn` sets `caseInsensitive` to `false` when you provide a cu
 
 If you want your custom instance to ignore case, set `caseInsensitive: true`. This is useful for dictionaries that only contain lowercase letters but need to accept uppercase input from users.
 
-```ts twoslash file=libs/luhn/README.md region=case-sensitivity
+```ts twoslash file=libs/luhn/docs/examples.md region=case-sensitivity
 
 ```
 
@@ -68,7 +68,7 @@ If you want your custom instance to ignore case, set `caseInsensitive: true`. Th
 
 `createLuhn` counts **code points**, not UTF-16 units. This means you can safely use astral symbols such as 🂡 in your dictionary without breaking the index mapping. An emoji built from several code points, such as ❤️ or a flag, takes several entries.
 
-```ts twoslash file=libs/luhn/README.md region=code-points
+```ts twoslash file=libs/luhn/docs/examples.md region=code-points
 
 ```
 
@@ -76,7 +76,7 @@ If you want your custom instance to ignore case, set `caseInsensitive: true`. Th
 
 `createLuhn` builds a lookup table for the dictionary every time it is called. If your application uses a few recurring dictionaries (e.g., one for orders, one for pickup codes), you should cache the resulting instances in a `Map` rather than recreating them on every request.
 
-```ts twoslash file=libs/luhn/README.md region=instance-per-dictionary
+```ts twoslash file=libs/luhn/docs/examples.md region=instance-per-dictionary
 
 ```
 

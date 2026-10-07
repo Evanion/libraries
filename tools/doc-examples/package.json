@@ -9,6 +9,7 @@
     "./claims": "./src/expect-comments.ts",
     "./preamble": "./src/preamble.mjs",
     "./regions": "./src/regions.mjs",
+    "./examples-file": "./src/examples-file.mjs",
     "./mdx-region-loader": "./src/mdx-region-loader.mjs",
     "./mdx-reference-loader": "./src/mdx-reference-loader.mjs",
     "./behaviours": "./src/behaviours.mjs",

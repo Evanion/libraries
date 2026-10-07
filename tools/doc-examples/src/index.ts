@@ -15,6 +15,12 @@ export {
 } from './declarations.mjs';
 export type { ExportKind, Reference } from './declarations.mjs';
 export { expandReferences } from './mdx-reference-loader.mjs';
+export {
+  EXAMPLES_FILE,
+  MARKDOWN_SOURCES,
+  examplesFileIn,
+  packageDirOf,
+} from './examples-file.mjs';
 export { mdSiblings } from './md-siblings.mjs';
 export {
   PREAMBLE_FILE,

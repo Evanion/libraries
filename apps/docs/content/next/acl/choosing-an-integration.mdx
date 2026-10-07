@@ -112,7 +112,7 @@ functions over a frozen document, and functions do not serialize. `structuredClo
 silently drops every method. The document is what crosses a server/client
 boundary, and the client rebuilds the evaluator from it:
 
-```ts twoslash file=libs/acl/README.md region=matrix-round-trip
+```ts twoslash file=libs/acl/docs/examples.md region=matrix-round-trip
 
 ```
 
@@ -175,7 +175,7 @@ call, as `apps/storefront`'s checkout does. A permission with `.fields` needs
 the subject may set, and the value to write is what `pickAllowedFields` returns.
 `.fields(['*', '!status'])` below allows every field but `status`:
 
-```ts twoslash file=libs/acl/README.md region=write-path
+```ts twoslash file=libs/acl/docs/examples.md region=write-path
 
 ```
 

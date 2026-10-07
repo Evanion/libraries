@@ -14,7 +14,7 @@ on:
       - 'apps/docs/**'
       - 'libs/**'
       - 'internal/**'
-      # Inlines a README region into a page while the site prerenders, so what it
+      # Inlines an example region into a page while the site prerenders, so what it
       # extracts is part of what the page says.
       - 'tools/doc-examples/**'
       - 'package.json'

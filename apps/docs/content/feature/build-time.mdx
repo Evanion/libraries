@@ -18,7 +18,7 @@ A static build of `@evanion/feature` flags can write a flag that is on for every
 
 `plan()` evaluates your feature store against the part of the context a build has, such as `{ game: 'urn:game:azul' }` for a build that renders one page per game, and returns a `PlanEntry` for every feature.
 
-```ts twoslash file=libs/feature/README.md region=plan
+```ts twoslash file=libs/feature/docs/examples.md region=plan
 
 ```
 
@@ -38,13 +38,13 @@ A rule is settled at build time if it can be decided without the missing context
 - **Refuted Rules**: If a rule's condition is already false regardless of the missing field, the rule is settled off. If the build is Azul's page and a rule requires Spirit Island, that rule is refuted whatever `role` the request carries.
 - **Global Defaults**: A feature with `enabled: false` is settled off whatever its rules need. A feature with no rules and `enabled: true` is settled on, unless a parent is deferred or a variant split still needs `targetingKey`.
 
-```ts twoslash file=libs/feature/README.md region=plan-refuted
+```ts twoslash file=libs/feature/docs/examples.md region=plan-refuted
 
 ```
 
 A planned breakdown names a failed condition only where every request would name the same one. Where `plan()` stepped over a condition it could not read, the outcome names the rule and drops `failed`, so a UI reading a planned decision checks for `failed` before it names a condition:
 
-```ts twoslash file=libs/feature/README.md region=plan-breakdown
+```ts twoslash file=libs/feature/docs/examples.md region=plan-breakdown
 
 ```
 
@@ -52,7 +52,7 @@ A planned breakdown names a failed condition only where every request would name
 
 `plan()` settles enablement and the variant split separately. A feature with no rules is settled on, and while its split still needs `targetingKey` the entry is `'deferred'` and carries a `decision` without a variant. A filter that keeps only boolean entries leaves such a feature out of the settled half.
 
-```ts twoslash file=libs/feature/README.md region=plan-variant
+```ts twoslash file=libs/feature/docs/examples.md region=plan-variant
 
 ```
 
@@ -62,7 +62,7 @@ Time is a special case in `@evanion/feature`. By default, `plan()` withholds `no
 
 However, you can opt in to freezing a time window at build time using the `freezeTimeAtBuild` property in your configuration. This is useful for sites that rebuild on a strict schedule (e.g., hourly) and can afford a small delay in feature activation. A frozen window disagrees with the request from the moment its boundary passes until the next build.
 
-```ts twoslash file=libs/feature/README.md region=freeze-time
+```ts twoslash file=libs/feature/docs/examples.md region=freeze-time
 
 ```
 
@@ -79,7 +79,7 @@ flowchart LR
   D --> R["the request<br>resolve(context)"]
 ```
 
-```ts twoslash file=libs/feature/README.md region=plan-split
+```ts twoslash file=libs/feature/docs/examples.md region=plan-split
 
 ```
 

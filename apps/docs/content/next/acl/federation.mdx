@@ -21,7 +21,7 @@ When multiple services manage similar types of data, they may use the same names
 
 To avoid collisions in a federated view, object kinds should be namespaced by their origin using a colon separator (e.g., `storefront:listing` and `stock:listing`). This tells the federated evaluator exactly which service owns the permission.
 
-```ts twoslash file=libs/acl/README.md region=namespaced-kind
+```ts twoslash file=libs/acl/docs/examples.md region=namespaced-kind
 
 ```
 
@@ -31,7 +31,7 @@ The key for these permissions remains `${object}.${action}`. If a `.` is used in
 
 `federatedPolicies` takes a map of `Access` evaluators (each created via `.build()`, `hydratePolicy`, or `parseMatrix`) and returns a unified view. This view preserves the integrity of each original document—nothing is merged or altered.
 
-```ts twoslash file=libs/acl/README.md region=federation
+```ts twoslash file=libs/acl/docs/examples.md region=federation
 
 ```
 
@@ -86,7 +86,7 @@ Sometimes a specialized team (e.g., Compliance or Fraud) needs to enforce global
 
 An overlay is a set of deny rules for permissions the service already owns. The service applies this overlay to its own matrix before building the final evaluator:
 
-```ts twoslash file=libs/acl/README.md region=deny-overlay
+```ts twoslash file=libs/acl/docs/examples.md region=deny-overlay
 
 ```
 

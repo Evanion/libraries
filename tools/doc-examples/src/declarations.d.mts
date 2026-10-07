@@ -38,8 +38,8 @@ export interface Reference {
   tags: { name: string; text: string }[];
   /** The declaration file the entry was read from. */
   declaration: string;
-  /** The package's README, workspace relative. */
-  readme: string;
+  /** The file holding the package's example regions, workspace relative. */
+  examples: string;
 }
 
 export declare class DeclarationError extends Error {}

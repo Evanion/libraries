@@ -34,7 +34,7 @@ interface ProbeProps {
  * under the `file=… region=…` block it belongs to:
  *
  * ```mdx
- * ```ts file=libs/luhn/README.md region=generate
+ * ```ts file=libs/luhn/docs/examples.md region=generate
  * ```
  *
  * <Probe package="luhn" probe="generate" />

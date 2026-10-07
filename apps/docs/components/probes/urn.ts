@@ -3,7 +3,7 @@ import { URN } from '@evanion/urn';
 import { quote, type Probe } from './probe';
 
 /**
- * The class the README's components block declares, so the call this probe
+ * The class the `components` example declares, so the call this probe
  * writes is the call that block makes. `parse` is inherited rather than
  * overridden -- `GameURN.parse === URN.parse` -- so what runs is the
  * package's own export, and a subclass is only how the block names a
@@ -27,7 +27,7 @@ export const components: Probe = {
   hint: 'Put ?+lang=en before ?= for an r-component, or a bare ? to see it refused.',
   call: (value) => GameURN.parse(value),
   source: (value) => `GameURN.parse(${quote(value)})`,
-  region: { file: 'libs/urn/README.md', name: 'components' },
+  region: { file: 'libs/urn/docs/examples.md', name: 'components' },
 };
 
 export const probes = { components };

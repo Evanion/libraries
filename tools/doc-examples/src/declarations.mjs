@@ -3,6 +3,8 @@ import { dirname, join, relative } from 'node:path';
 
 import ts from 'typescript';
 
+import { examplesFileIn } from './examples-file.mjs';
+
 /**
  * What a package's own declarations say about one export: its kind, its
  * docblock and its block tags.
@@ -394,8 +396,8 @@ function paragraphs(text) {
 /**
  * One export, as a reference entry needs it.
  *
- * `readme` is workspace relative so that an example reference survives the page
- * moving between directories.
+ * `examples` is workspace relative so that an example reference survives the
+ * page moving between directories.
  */
 export function readReference(root, specifier, name) {
   const { packageDir, declaration, program, checker } = programOf(
@@ -460,6 +462,6 @@ export function readReference(root, specifier, name) {
     rest,
     tags,
     declaration,
-    readme: relative(root, join(packageDir, 'README.md')).split('\\').join('/'),
+    examples: relative(root, examplesFileIn(packageDir)).split('\\').join('/'),
   };
 }

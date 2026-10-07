@@ -23,7 +23,7 @@ While this prevents the entire page from crashing, it results in a "silent gap" 
 
 You can use `validateItems` to scan your CMS payload before the build process starts. This turns a silent runtime failure into a loud build-time error.
 
-```ts twoslash file=libs/astro-widget/README.md region=validate
+```ts twoslash file=libs/astro-widget/docs/examples.md region=validate
 
 ```
 
@@ -51,7 +51,7 @@ Since `.astro` components do not have the same compile-time prop inference as Re
 
 By passing a `required` map, you can specify which props must be present and not blank (where "blank" means `undefined`, `null`, or a string of only whitespace).
 
-```ts twoslash file=libs/astro-widget/README.md region=required-fields
+```ts twoslash file=libs/astro-widget/docs/examples.md region=required-fields
 
 ```
 
@@ -64,7 +64,7 @@ By passing a `required` map, you can specify which props must be present and not
 - **List of Names**: Ideal for Node scripts (like a CI build) where you cannot import `.astro` components.
 - **Registry**: Ideal for code running within the Astro/Vite pipeline (like a page's frontmatter), as it ensures the validation and the rendering use a single source of truth for supported types.
 
-```ts file=libs/astro-widget/README.md region=known-types
+```ts file=libs/astro-widget/docs/examples.md region=known-types
 
 ```
 

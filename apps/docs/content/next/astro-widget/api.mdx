@@ -18,7 +18,7 @@ names in the registry, in the order the list gives them. It is published as
 only Astro's own compiler, running in your project, can compile it. Two items
 from a Baize listing page render through a registry of two widgets:
 
-```ts file=libs/astro-widget/README.md region=overview
+```ts file=libs/astro-widget/docs/examples.md region=overview
 
 ```
 
@@ -71,7 +71,7 @@ prints [`ERROR_MESSAGES.UNKNOWN_WIDGET`](#error_messages) for the item. It
 prints each distinct message once for the life of the process. Below, the
 registry holds no `answer-wall`, so only the price renders:
 
-```ts file=libs/astro-widget/README.md region=skip-unknown
+```ts file=libs/astro-widget/docs/examples.md region=skip-unknown
 
 ```
 
@@ -110,7 +110,7 @@ a whole list. It is the only check an astro-widget item's props get. Below,
 `answer-wall` is not in the list of known types, and the `price-box` item has no
 `price`:
 
-```ts twoslash file=libs/astro-widget/README.md region=validate
+```ts twoslash file=libs/astro-widget/docs/examples.md region=validate
 
 ```
 
@@ -198,7 +198,7 @@ plain list of type names. `validateItems` reads only a registry's keys, so both
 report the same problems. A script run under plain Node, which cannot import
 `.astro` modules, passes the names. The example passes both:
 
-```ts file=libs/astro-widget/README.md region=known-types
+```ts file=libs/astro-widget/docs/examples.md region=known-types
 
 ```
 
@@ -243,7 +243,7 @@ field name, and the other eight keys are strings.
 A CMS webhook splits one report by message, unknown types for the developers
 and blank fields for the editor:
 
-```ts twoslash file=libs/astro-widget/README.md region=messages
+```ts twoslash file=libs/astro-widget/docs/examples.md region=messages
 
 ```
 

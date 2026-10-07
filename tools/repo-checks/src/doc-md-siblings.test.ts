@@ -76,7 +76,7 @@ describe('the .md siblings', () => {
   });
 
   it('carries the code of the region a page cites', () => {
-    // `libs/urn/README.md`'s `basic-usage` region, which
+    // `libs/urn/docs/examples.md`'s `basic-usage` region, which
     // `content/next/urn/getting-started.mdx` cites and leaves empty.
     expect(siblings.get('next/urn/getting-started.md')).toContain(
       'GameURN.stringify(',
@@ -85,7 +85,7 @@ describe('the .md siblings', () => {
 
   /**
    * Twoslash renders nothing above a fence's `// ---cut---`, and the region
-   * expansion puts a README's preamble there, so a sibling that kept those lines
+   * expansion puts a package's preamble there, so a sibling that kept those lines
    * would show imports the browser never shows.
    */
   it('shows each Twoslash fence from its cut down, as the browser does', () => {

@@ -24,7 +24,7 @@ same answer: the save handler has to refuse, and the Edit button had to be grey
 before the click. `can` answers both with the same call, on the server that
 saves and in the browser that draws the button:
 
-```ts twoslash file=libs/acl/README.md region=quick-start
+```ts twoslash file=libs/acl/docs/examples.md region=quick-start
 
 ```
 
@@ -90,7 +90,7 @@ A list query selects only the columns the list needs, a projection of the row,
 and a rule may read a column the list did not select. `can` takes a partial
 object, so pass what you have:
 
-```ts twoslash file=libs/acl/README.md region=refetch
+```ts twoslash file=libs/acl/docs/examples.md region=refetch
 
 ```
 
@@ -110,7 +110,7 @@ before the call.
 `access.readsObject(kind, action)` answers from the document whether a
 permission reads the row at all:
 
-```ts twoslash file=libs/acl/README.md region=reads-object
+```ts twoslash file=libs/acl/docs/examples.md region=reads-object
 
 ```
 
@@ -132,7 +132,7 @@ carries the worked case.
 
 `canMany` takes the rows and answers per row:
 
-```ts twoslash file=libs/acl/README.md region=can-many
+```ts twoslash file=libs/acl/docs/examples.md region=can-many
 
 ```
 
@@ -164,7 +164,7 @@ Every handler in a request passes the same subject. `access.authorize(subject)`
 returns a handle with the subject bound, and one instant with it, taken from
 `{ now }` or from the moment of the call:
 
-```ts twoslash file=libs/acl/README.md region=server-authorize
+```ts twoslash file=libs/acl/docs/examples.md region=server-authorize
 
 ```
 

@@ -4,7 +4,7 @@ import { policy, type Decision } from '@evanion/acl';
  * The policy behind the repair-loop demonstration, and the question it is asked
  * about.
  *
- * It is the four-outcomes policy of `libs/acl/README.md`: one allow rule
+ * It is the four-outcomes policy of `libs/acl/docs/examples.md`: one allow rule
  * reading `object.askedBy`, one deny rule reading `object.status`. Both paths
  * name the object, so a question fetched without them leaves the engine with
  * nothing to read and the decision comes back `unevaluable` naming what it

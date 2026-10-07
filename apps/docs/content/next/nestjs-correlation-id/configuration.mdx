@@ -34,7 +34,7 @@ To show what `forRoot()` built, the code below builds the module on its own as a
 Nest application context and reads the configuration back through
 `CORRELATION_CONFIG_TOKEN` ([Carry the id through a job](../jobs)):
 
-```ts twoslash file=libs/nestjs-correlation-id/README.md region=configure
+```ts twoslash file=libs/nestjs-correlation-id/docs/examples.md region=configure
 
 ```
 
@@ -77,7 +77,7 @@ the response header and into whatever the application logs.
 `DEFAULT_CORRELATION_ID_VALIDATOR` accepts 1 to 128 characters, each a letter
 from A to Z in either case, a digit, an underscore, a dot, a colon or a hyphen.
 
-```ts twoslash file=libs/nestjs-correlation-id/README.md region=validator
+```ts twoslash file=libs/nestjs-correlation-id/docs/examples.md region=validator
 
 ```
 

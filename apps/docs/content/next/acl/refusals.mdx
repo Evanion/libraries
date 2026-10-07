@@ -27,7 +27,7 @@ decide the label. The policy below carries a deny rule, written with `p.deny`,
 which refuses whenever it matches and outranks the allow, and `.id(name)` gives
 that rule the name a decision reports:
 
-```ts twoslash file=libs/acl/README.md region=refusal-label
+```ts twoslash file=libs/acl/docs/examples.md region=refusal-label
 
 ```
 
@@ -75,7 +75,7 @@ holds once the call's instant passes the boundary. The third type argument names
 `place` as an action of `preorder`, because the default actions are `create`,
 `read`, `update` and `delete`:
 
-```ts twoslash file=libs/acl/README.md region=unusable-clock
+```ts twoslash file=libs/acl/docs/examples.md region=unusable-clock
 
 ```
 
