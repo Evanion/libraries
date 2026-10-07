@@ -13,19 +13,18 @@ A customer who misreads one character of a pickup code gets "no such order", whi
 
 ## Why a Typo Looks Like a Missing Order
 
-Baize, the board game shop these pages use as their example, prints a pickup code on every receipt, and a shop without `@evanion/token` checks that code only against its database. When a customer reads the code over the phone or types it into a form, a single misheard character turns it into a "no such order" error, which the shop cannot tell from a code it never issued. If a user types `a4kp-9mx8` instead of `a4kp-9mxa`, the system performs a database lookup, finds nothing, and returns a generic `404 Not Found`.
+Baize, the board game shop these pages use as their example, prints a pickup code on every receipt, and a shop without `@evanion/token` checks that code only against its database. When a customer reads the code over the phone or types it into a form, a single misheard character turns it into a "no such order" error. If a user types `a4kp-9mx8` instead of `a4kp-9mxa`, the system performs a database lookup, finds nothing, and returns a generic `404 Not Found`.
 
 This creates a poor user experience:
 
 - **User Frustration**: The user knows they typed _something_ and doesn't know where the error is.
-- **Ambiguous Failures**: Support staff cannot tell a malicious probe from a typo.
 - **Database Waste**: Every mistyped code triggers an unnecessary database query.
 
 ## How a Check Character Refuses a Typo
 
 `@evanion/token` codes carry a check character, as credit card numbers do: a code is a random body followed by a single **check character** computed from that body, such as the final `a` in `a4kp-9mxa`.
 
-`createToken()` returns a token instance, an object that mints and checks codes of one format, carrying `generate` and `validate`:
+`createToken()` returns a token instance, an object that mints and checks codes of one shape (one length, chunking and dictionary), carrying `generate` and `validate`:
 
 ```ts twoslash file=libs/token/README.md region=at-a-glance
 
@@ -68,7 +67,7 @@ Each task below maps to one call or option of `@evanion/token`.
 - **Uniqueness**: `generate` does not check your database and never retries. Use a `UNIQUE` index on your database column to ensure uniqueness.
 - **Existence**: A `valid: true` result only means the code is _well-formed_. It does not mean the code was actually issued: one in 32 random 8-character strings over the default dictionary passes the check.
 - **Security**: These codes are for convenience (like pickup codes), not high-security credentials. A default code carries 35 random bits, which an attacker can enumerate.
-- **Prefixes**: The check character only covers the body. You must strip the prefix (e.g., `ORD-`) manually before calling `validate`.
+- **Prefix stripping**: The check character only covers the body. Your code strips the prefix (e.g., `ORD-`) before calling `validate`.
 - **Retrofitting**: It cannot add check characters to existing IDs. For that, use the `@evanion/luhn` package directly.
 
 ## Install and Issue Your First Code
