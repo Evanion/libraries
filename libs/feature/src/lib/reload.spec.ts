@@ -1170,6 +1170,19 @@ describe('reload, the diff it reports', () => {
     // prototype gate and compare equal to nothing.
     expect(result.ok && result.changed).toEqual([]);
   });
+  it('names nothing when a variant value holds the same Set twice', () => {
+    const features = createFeatures([valued(new Set(['gold']))]);
+
+    const result = features.reload({
+      features: [valued(new Set(['gold']))],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // The counterpart of the Set pair that differs. A diff with no reading for
+    // a Set falls to the prototype gate, which answers `false` for every pair
+    // of them, so a poller that invalidates its cache on `changed` invalidates
+    // on every poll of an unchanged document.
+    expect(result.ok && result.changed).toEqual([]);
+  });
   it('names nothing when a variant value holds one Map twice', () => {
     const entries: readonly [string, number][] = [['gold', 1]];
     const features = createFeatures([valued(new Map(entries))]);
