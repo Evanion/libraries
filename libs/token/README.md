@@ -265,7 +265,7 @@ token.validate('A4KP-9MXA'); // -> { valid: true, body: 'a4kp9mx' }
 
 <!-- #endregion separators -->
 
-`chunkSize` must divide `length`, or `createToken` throws: a trailing chunk of one character is hard to read aloud. Set `chunkSize` equal to `length` for an unchunked code. A short code with a space between two chunks of three reads aloud as two words:
+`chunkSize` must divide `length`, or `createToken` throws: a trailing chunk shorter than the rest is hard to read aloud. Set `chunkSize` equal to `length` for an unchunked code. A short code with a space between two chunks of three reads aloud as two words:
 
 <!-- #region spoken -->
 
