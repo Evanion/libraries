@@ -122,10 +122,19 @@ matrix replaces the copy. `@evanion/acl` can expire the copy:
   For a matrix that arrived with the server render, `fetchedAt` is the `now` the
   server sent with it.
 
-Once `maxStale` milliseconds have passed since `fetchedAt`, every decision
-answers `allowed: false` with `reason: 'stale-contract'`, acl's reason for an
-expired matrix, and every control gated on it hides until a refetch replaces the
-matrix. Refetch on the cadence your revocations need.
+Once the instant a decision reads is more than `maxStale` milliseconds past
+`fetchedAt`, every decision answers `allowed: false` with
+`reason: 'stale-contract'`, acl's reason for an expired matrix, and every control
+gated on it hides until a refetch replaces the matrix. A react-acl decision reads
+the provider's `context.now`, and `ShopAccess` passes the server's render
+instant, which never moves. With `ShopAccess` as Getting started builds it,
+`maxStale` never fires, and only a refetch, which brings a new matrix and a new
+server `now`, replaces the copy.
+
+`maxStale` matters to a react-acl client that keeps deciding between fetches.
+That client has to pass a `now` it reads from its own clock, and the clock the
+shopper's machine sets then also decides every time window in the policy.
+Refetch on the cadence your revocations need.
 
 ## Follow the react-acl boundary into your framework
 
