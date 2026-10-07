@@ -128,6 +128,30 @@ function firstRuleOnly(config: FeatureConfig): FeatureConfig {
   };
 }
 
+/**
+ * The document a port that stops at a rule's first condition reads.
+ *
+ * `evaluateRule` AND-s a rule's conditions: it returns on the first one that
+ * does not hold and matches only when every one of them held. A port that
+ * reads `when[0]` and a port that ORs the array both answer for the document
+ * holding each rule's first condition alone.
+ */
+function conditionsAfterFirstDropped(config: FeatureConfig): FeatureConfig {
+  return {
+    ...config,
+    features: config.features.map((definition) =>
+      definition.rules
+        ? {
+            ...definition,
+            rules: definition.rules.map((rule) =>
+              rule.when ? { ...rule, when: rule.when.slice(0, 1) } : rule,
+            ),
+          }
+        : definition,
+    ),
+  };
+}
+
 describe('the published cross-process fixture', () => {
   it('states the digest of the document it carries', () => {
     expect(fixture.config.digest).toBe(configDigest(fixture.config));
@@ -265,9 +289,9 @@ describe('the document the fixture publishes', () => {
     expect(definitions.filter((each) => each.dependsOn).length).toBeGreaterThan(
       0,
     );
-    expect(conditions.filter((each) => each.op === 'eq').length).toBe(3);
+    expect(conditions.filter((each) => each.op === 'eq').length).toBe(5);
     expect(conditions.filter((each) => each.op === 'after').length).toBe(1);
-    expect(conditions.filter((each) => each.op === 'before').length).toBe(1);
+    expect(conditions.filter((each) => each.op === 'before').length).toBe(2);
     expect(rules.filter((each) => each.rollout).length).toBe(2);
     expect(
       definitions
@@ -371,11 +395,61 @@ describe('the document the fixture publishes', () => {
     expect(fixture.decisions['enterprise-only']).toMatchObject({
       enabled: false,
       reason: 'no-rule-matched',
-      rules: [{ matched: false, failed: { field: 'plan', op: 'eq' } }],
+      rules: [
+        { matched: false, failed: { field: 'plan', op: 'eq' } },
+        { matched: false, failed: { field: 'now', op: 'before' } },
+      ],
     });
     expect(decisionsOver(conditionsDropped(fixture.config))).not.toEqual(
       fixture.decisions,
     );
+  });
+
+  it('refuses a rule on a condition one that held sits in front of', () => {
+    const rule = fixture.config.features
+      .find((definition) => definition.key === 'enterprise-only')
+      ?.rules?.find((each) => each.id === 'lapsed-window');
+    const decision = fixture.decisions['enterprise-only'] as {
+      rules: readonly { rule: string; matched: boolean; failed?: unknown }[];
+    };
+    const outcome = decision.rules.find(
+      (each) => each.rule === 'lapsed-window',
+    );
+
+    // A rule whose conditions all hold, or all fail, is decided the same way
+    // by an engine that ANDs them, one that ORs them and one that reads the
+    // first and stops. This rule is refused on its second condition, which
+    // says the first one held, so those three engines answer three ways.
+    expect(rule?.when).toHaveLength(2);
+    expect(outcome?.matched).toBe(false);
+    expect(outcome?.failed).toEqual(rule?.when?.[1]);
+    expect(
+      decisionsOver(conditionsAfterFirstDropped(fixture.config)),
+    ).not.toEqual(fixture.decisions);
+  });
+
+  it('refuses a rule whose conditions held and whose rollout did not', () => {
+    const rule = fixture.config.features.find(
+      (definition) => definition.key === 'new-nav',
+    )?.rules?.[0];
+    const decision = fixture.decisions['new-nav'] as {
+      rules: readonly {
+        matched: boolean;
+        failed?: unknown;
+        rollout?: { member: boolean };
+      }[];
+    };
+    const outcome = decision.rules[0];
+
+    // `evaluateRule` treats the rollout as one more conjunct beside the
+    // conditions. The published outcome names no failed condition, so every
+    // condition held, and the rule is refused on the rollout alone -- which an
+    // engine reading the two as alternatives enables.
+    expect(rule?.when).toHaveLength(1);
+    expect(rule?.rollout).toBeTruthy();
+    expect(outcome?.failed).toBeUndefined();
+    expect(outcome?.rollout?.member).toBe(false);
+    expect(outcome?.matched).toBe(false);
   });
 
   it('lists its variants in an order its own `order` values disagree with', () => {
