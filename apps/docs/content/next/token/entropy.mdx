@@ -45,7 +45,7 @@ The 50% collision point is roughly $1.18 \times \sqrt{2^{\text{bits}}}$. As you 
 
 `@evanion/token` does not check your database for collisions because it has no access to your issued codes, and `generate` never retries. The responsibility for uniqueness lies with your database.
 
-The best practice is to put a `UNIQUE` index on the `body` column and redraw the code if the insert fails:
+Put a `UNIQUE` index on the `body` column and redraw the code if the insert fails:
 
 ```ts twoslash file=libs/token/README.md region=issue
 
@@ -75,7 +75,7 @@ If a readable code _must_ gate a resource (like a gift card), you must implement
 
 ## Why Codes Are Not Shorter
 
-You might wonder why `@evanion/token` doesn't use a larger dictionary or drop the check character, to get the same bits from fewer characters.
+`@evanion/token` could get the same bits from fewer characters with a larger dictionary or without the check character, and does neither:
 
 1. **Alphabet Limits**: `createToken` refuses uppercase, so a 64-character dictionary would require punctuation or non-ASCII characters. Even expanding to a full alphanumeric set (36 chars) would bring back characters like `o` and `l`, which are confused with `0` and `1`, and 36 does not divide 256.
 2. **The Value of the Check**: Dropping the check character would increase entropy (e.g., 40 bits instead of 35), but it would mean every mistyped code triggers a database lookup and a "Not Found" error. `createToken` has no option to drop it.
