@@ -42,34 +42,28 @@ If you provide an incorrect prop for `ThemeProvider`, the compiler identifies ex
 
 The compiler can detect multiple types of errors:
 
-| Entry                                                 | Compiler Report                                   | Meaning                                                |
-| :---------------------------------------------------- | :------------------------------------------------ | :----------------------------------------------------- |
-| `ThemeProvider`                                       | `this component requires props — …`               | You used a bare component, but it has mandatory props. |
-| `[ThemeProvider, {}]`                                 | `Property 'theme' is missing`                     | The props object is missing a required key.            |
-| `[ThemeProvider, { theme: 'blue' }]`                  | `Type 'string' is not assignable to type 'never'` | The value provided is not among the allowed literals.  |
-| `[ThemeProvider, { theme: 'dark', accent: 'green' }]` | `unknown prop 'accent'`                           | You provided a prop the component doesn't declare.     |
+| Entry                                                 | Compiler Report                                                                                | Meaning                                                |
+| :---------------------------------------------------- | :--------------------------------------------------------------------------------------------- | :----------------------------------------------------- |
+| `ThemeProvider`                                       | `this component requires props — use provider(Component, props) or a [Component, props] tuple` | You used a bare component, but it has mandatory props. |
+| `[ThemeProvider, {}]`                                 | `Property 'theme' is missing`                                                                  | The props object is missing a required key.            |
+| `[ThemeProvider, { theme: 'blue' }]`                  | `Type 'string' is not assignable to type 'never'`                                              | The value provided is not among the allowed literals.  |
+| `[ThemeProvider, { theme: 'dark', accent: 'green' }]` | `unknown prop 'accent'`                                                                        | You provided a prop the component doesn't declare.     |
 
 The two entries with no `theme` rendered a `div` with no `id`, and `id="blue"` reached the HTML. The compiler is the only check.
 
 ## Debugging Compose Errors
 
-To make these TypeScript failures readable, `@evanion/compose` wraps them in a `ComposeError` type. When a check fails, the expected type of the entry becomes `ComposeError<"message">`. `ComposeError` is internal, and the package does not export it.
+`@evanion/compose` writes its own message into the expected type when an entry carries an unknown prop, is a bare component that needs props, or pairs two components. That entry's expected type becomes `ComposeError<"message">`. `ComposeError` is internal, and the package does not export it.
 
-Since no value can match this type, the entry fails to compile, and TypeScript prints the message in the first line of the error. For `[ThemeProvider, { theme: 'dark', accent: 'green' }]` that line ends `… & ComposeError<"unknown prop 'accent'">'`.
+Since no value can match this type, the entry fails to compile, and TypeScript prints the message in the first line of the error. For `[ThemeProvider, { theme: 'dark', accent: 'green' }]` that line ends `… & ComposeError<"unknown prop 'accent'">'`. A tuple holding two components, such as `[ThemeProvider, CartProvider]`, reports `second tuple element must be props, not another component`.
 
-| Message                                                                                        | Meaning                                                                   |
-| :--------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------ |
-| `unknown prop 'x'`                                                                             | The props object contains a key the component does not declare.           |
-| `this component requires props — use provider(Component, props) or a [Component, props] tuple` | A bare component was used, but it requires mandatory props.               |
-| `first tuple element must be a component`                                                      | The tuple is ordered incorrectly or the first element is not a component. |
-| `second tuple element must be props, not another component`                                    | The tuple contains two components instead of a component and its props.   |
-| `not a valid provider`                                                                         | The entry is neither a component nor a valid two-element tuple.           |
+`ComposeProvider` refuses two other mistakes before any `ComposeError` check runs. A tuple written props-first, such as `[{ theme: 'dark' }, ThemeProvider]`, reports that `theme` does not exist in type `AnyComponent`. An entry that is neither a component nor a two-element tuple is not assignable to type `Provider`. The messages `first tuple element must be a component` and `not a valid provider` appear only where you apply [`ValidateProvider`](../api#validateprovidert) yourself.
 
 ## Solving the "Type 'string' is not assignable to type 'never'" Error
 
-`@evanion/compose` has no `ComposeError` message for a wrong prop value, so you may encounter a confusing error like `Type 'string' is not assignable to type 'never'` when providing a value outside the allowed literals (e.g., `'blue'` when only `'light'` or `'dark'` are accepted).
+`@evanion/compose` has no `ComposeError` message for a missing or wrong prop value. For those, the check builds the shape the entry should have had, `[ThemeProvider, { theme: 'light' | 'dark' }]`, and `ComposeProvider` types `providers` as your array intersected with that shape.
 
-This happens because TypeScript intersects your provided type with the correct type; since `'blue'` and `'light' | 'dark'` don't overlap, the result is `never`.
+For `[ThemeProvider, { theme: 'blue' }]`, the intersection asks for a `theme` that is both `'blue'` and `'light' | 'dark'`. No value is both, so TypeScript names the expected type `never` and prints `'blue'` as `string`. For `[ThemeProvider, {}]`, the intersection still requires `theme`, and the error reads `Property 'theme' is missing`.
 
 **The Fix**: Use the `provider()` helper. It avoids this intersection and reports the error at the call site with a much clearer message: `Type '"blue"' is not assignable to type '"light" | "dark"'`.
 
