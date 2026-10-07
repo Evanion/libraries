@@ -137,6 +137,18 @@ npm run commit
 
 This will guide you through creating a properly formatted commit message.
 
+### Dependency versions
+
+A package that another dependency builds on moves only as far as that
+dependency's declared range allows. Shiki moves when Nextra's range admits the
+new major, vitest when `@nx/vitest`'s does. When an upgrade is blocked this way,
+`.github/dependabot.yml` ignores the blocked major with a comment naming the
+range that blocks it and the release that lifts it.
+
+A security fix in a transitive dependency the parent's range rejects goes in
+with `patch-package`: the patch raises the parent's dependency and fixes
+whatever the upgrade breaks in the parent.
+
 ### Dependency overrides
 
 Root `package.json` carries an `overrides` block. `package.json` is strict
