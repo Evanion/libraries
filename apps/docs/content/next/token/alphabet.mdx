@@ -1,6 +1,6 @@
 # The alphabet
 
-To mint codes from your own set of characters, pass a `dictionary` string to `createToken`. `createToken` refuses a dictionary that holds `i`, `l`, `o` or `w`, holds an uppercase character, or has a size that does not divide 256, and `@evanion/luhn` adds rules of its own.
+Pass a `dictionary` to `createToken` to mint codes from your own characters. `createToken` refuses one that holds `i`, `l`, `o`, `w` or an uppercase letter, or whose size does not divide 256, and `@evanion/luhn` adds its own rules.
 
 <PageSheet
   difficulty={3}
