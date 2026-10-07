@@ -1,6 +1,6 @@
 # Keeping the check
 
-`@evanion/compose` checks a bare component or a hand-written tuple only while the array keeps a fixed-length type. If you move your providers into a named constant or a wrapper component, you might accidentally "silence" the type checker.
+`@evanion/compose` checks a bare component or a hand-written tuple only while the array keeps a fixed-length array type. If you move your providers into a named constant or a wrapper component, you might accidentally "silence" the type checker.
 
 <PageSheet
   difficulty={4}
@@ -13,12 +13,12 @@
 
 When you declare an `@evanion/compose` array in a variable, TypeScript **widens** it: in place of a [fixed-length array type](../type-checking#type-safety-for-inline-arrays) of specific components and props, it sees a general array of `(Component | Props)[]`, of any length, and `ComposeProvider` can no longer correlate a specific component with its specific props. Two of the package's types name what a named array is checked against:
 
-- `Provider` is the type of one entry: a component, or a `readonly` two-element `[component, props]` tuple.
+- `Provider` is the type of one [entry](../#the-compose-vocabulary), so the name covers a tuple as well as a component: a component, or a `readonly` two-element `[component, props]` tuple.
 - `ProviderArray` is `readonly Provider[]`, an array of any length.
 
 ### Maintaining Checks in Named Arrays
 
-If your constant holds hand-written tuples, declare it `as const`, which tells TypeScript to treat the array as a read-only tuple with a fixed length and exact values. The example below declares three arrays:
+If your constant holds hand-written tuples, declare it `as const`, which tells TypeScript to treat the array as a read-only fixed-length array type with exact values. The example below declares three arrays:
 
 - `annotated` is typed `ProviderArray`, and renders `ThemeProvider` with no `theme` and no error.
 - `constant` holds the same entry `as const` and reports the missing prop.
@@ -48,7 +48,7 @@ If your constant holds hand-written tuples, declare it `as const`, which tells T
 
 It is common to create a custom wrapper component (e.g., `<AppProviders />`) to encapsulate your `@evanion/compose` root. However, if you type the `providers` prop as plain `ProviderArray`, you've silenced the check for anyone using your wrapper.
 
-To fix this, use a **const type parameter**. This forces TypeScript to infer the exact, fixed-length tuple of the caller's array. In the example, the first `<AppProviders>` exists only for its compile error, and the second renders `markup`:
+To fix this, use a **const type parameter**. This forces TypeScript to infer the caller's array as a fixed-length array type. In the example, the first `<AppProviders>` exists only for its compile error, and the second renders `markup`:
 
 ```tsx twoslash file=libs/compose/README.md region=wrapper
 
@@ -56,7 +56,7 @@ To fix this, use a **const type parameter**. This forces TypeScript to infer the
 
 ### How it Works:
 
-1. **`<const T extends ProviderArray>`**: The `const` modifier tells TypeScript to infer `T` as the most specific literal type possible (a fixed-length tuple). Without it, the caller's `[ThemeProvider, {}]` compiles with no error.
+1. **`<const T extends ProviderArray>`**: The `const` modifier tells TypeScript to infer `T` as the most specific literal type possible (a fixed-length array type). Without it, the caller's `[ThemeProvider, {}]` compiles with no error.
 2. **`ComposeProviderProps<T>`**: By typing the props as `ComposeProviderProps<T>`, the validation logic of `ComposeProvider` is passed through to the caller of your wrapper.
 
 Now, if a developer uses your `<AppProviders />` and passes a `ThemeProvider` with missing props, they will get a compile error at the call site.
