@@ -15,11 +15,19 @@ import * as reactEntry from './index.js';
  * case, which is the point of spelling it.
  *
  * The names half is read off the sources instead, because nothing at runtime
- * holds it. `config.ts` is the one place the document vocabulary is declared,
- * and both entries are held to it: the react entry re-exports exactly those
- * names and no others, and the core entry re-exports every one of them. A name
- * added to one entry and forgotten on the other fails here, and so does a name
- * `config.ts` declares that neither entry publishes.
+ * holds it. The rule is parity with the core entry: every document type the
+ * core publishes from `config.ts` is on the react entry, from `config.ts`, and
+ * the react entry publishes no `config.ts` type the core keeps to itself. A
+ * name added to one entry and forgotten on the other fails here.
+ *
+ * `config.ts`'s own declaration set is not the rule, in either direction. A
+ * type it exports so `exported-type-closure.test.ts` passes is not thereby
+ * public, and the react entry is free to re-export a type from another module:
+ * `ReloadResult.changed` and `ConfigIssue.key` are typed on `FeatureKey`,
+ * which `types.ts` declares, and a component file annotating either one wants
+ * that name on the entry it already imports. The spec's header names eight of
+ * the document types, and one case holds the core to them, so the parity cases
+ * cannot pass over a set that went empty.
  *
  * Read off `src` with the parser alone, so the check needs no build and points
  * at the line an author would edit, on `exported-type-closure.test.ts`'s
@@ -40,8 +48,9 @@ const CORE_ENTRY = join(import.meta.dirname, '../index.ts');
 const REACT_ENTRY = join(import.meta.dirname, 'index.tsx');
 const CONFIG = join(import.meta.dirname, '../lib/config.ts');
 
-/** The module `config.ts` resolves as, from the react entry. */
-const CONFIG_SPECIFIER = '../lib/config.js';
+/** The module `config.ts` resolves as, from each entry. */
+const CORE_CONFIG_SPECIFIER = './lib/config.js';
+const REACT_CONFIG_SPECIFIER = '../lib/config.js';
 
 function parse(file: string, text: string): ts.SourceFile {
   return ts.createSourceFile(
@@ -105,8 +114,62 @@ function typeReExports(source: ts.SourceFile): Map<string, string> {
   return found;
 }
 
+/** How an entry's document re-exports differ from the names it is held to. */
+interface Parity {
+  /** A name the entry does not publish, or publishes from somewhere else. */
+  readonly absent: readonly string[];
+  /** A name the entry publishes that the set does not carry. */
+  readonly extra: readonly string[];
+}
+
+/**
+ * Reads an entry against the document types it is held to.
+ *
+ * Both halves are scoped to `specifier`, the module `config.ts` resolves as
+ * from that entry. A name the entry takes from any other module is a type of
+ * another module's and no business of this rule: it is `extra` only when it
+ * comes from `config.ts`, and it leaves a published name `absent` because the
+ * name a component file imports has to be the core's declaration and not a
+ * second one beside it.
+ */
+function parityWith(
+  entry: ts.SourceFile,
+  specifier: string,
+  published: readonly string[],
+): Parity {
+  const named = typeReExports(entry);
+  const absent = published
+    .filter((name) => named.get(name) !== specifier)
+    .map((name) => `${name} from ${named.get(name) ?? 'nowhere'}`)
+    .sort();
+  const extra = [...named]
+    .filter(([name, from]) => from === specifier && !published.includes(name))
+    .map(([name]) => name)
+    .sort();
+
+  return { absent, extra };
+}
+
 /** The document vocabulary, which is what `config.ts` declares. */
 const DOCUMENT_TYPES = declaredTypes(read(CONFIG));
+
+/** The document types the core entry publishes, read off its own clause. */
+const CORE_DOCUMENT_TYPES = [...typeReExports(read(CORE_ENTRY))]
+  .filter(([, specifier]) => specifier === CORE_CONFIG_SPECIFIER)
+  .map(([name]) => name)
+  .sort();
+
+/** The document types the spec's header puts on the package, § header. */
+const SPEC_DOCUMENT_TYPES = [
+  'ConfigIssue',
+  'ContextSchema',
+  'FeatureConfig',
+  'FeatureSchema',
+  'FeatureShape',
+  'ReloadResult',
+  'SerializedInstant',
+  'ValidationResult',
+] as const;
 
 /** The document functions a component file reaches the core entry for. */
 const DOCUMENT_FUNCTIONS = [
@@ -158,26 +221,83 @@ describe('the react entry at runtime', () => {
 });
 
 describe('the names the react entry re-exports', () => {
-  it('spells every document type config.ts declares and re-exports nothing else', () => {
-    const named = [...typeReExports(read(REACT_ENTRY)).keys()].sort();
+  it('publishes what the core entry publishes, each one from config.ts itself', () => {
+    const parity = parityWith(
+      read(REACT_ENTRY),
+      REACT_CONFIG_SPECIFIER,
+      CORE_DOCUMENT_TYPES,
+    );
 
-    expect(named).toEqual(DOCUMENT_TYPES);
+    expect(parity).toEqual({ absent: [], extra: [] });
   });
 
-  it('takes each of them from the module that declares them', () => {
-    const elsewhere = [...typeReExports(read(REACT_ENTRY))]
-      .filter(([, specifier]) => specifier !== CONFIG_SPECIFIER)
-      .map(([name, specifier]) => `${name} from ${specifier}`)
-      .sort();
+  it('is held to a real set, because the core publishes the eight the spec names', () => {
+    const missing = SPEC_DOCUMENT_TYPES.filter(
+      (name) => !CORE_DOCUMENT_TYPES.includes(name),
+    );
 
-    expect(elsewhere).toEqual([]);
+    expect(missing).toEqual([]);
+  });
+});
+
+describe('the parity rule', () => {
+  const PUBLISHED = ['FeatureConfig', 'ReloadResult'];
+
+  function verdict(...clauses: readonly string[]): Parity {
+    return parityWith(
+      parse('entry.tsx', clauses.join('\n')),
+      REACT_CONFIG_SPECIFIER,
+      PUBLISHED,
+    );
+  }
+
+  it('takes an entry publishing the core names from config.ts', () => {
+    const parity = verdict(
+      "export type { FeatureConfig, ReloadResult } from '../lib/config.js';",
+    );
+
+    expect(parity).toEqual({ absent: [], extra: [] });
   });
 
-  it('names what the core entry names, so one specifier reaches either of them', () => {
-    const published = typeReExports(read(CORE_ENTRY));
-    const absent = DOCUMENT_TYPES.filter((name) => !published.has(name));
+  it('takes a type the entry publishes from a module config.ts is not', () => {
+    const parity = verdict(
+      "export type { FeatureConfig, ReloadResult } from '../lib/config.js';",
+      "export type { FeatureKey } from '../lib/types.js';",
+    );
 
-    expect(absent).toEqual([]);
+    expect(parity).toEqual({ absent: [], extra: [] });
+  });
+
+  it('names a document type the entry dropped', () => {
+    const parity = verdict(
+      "export type { FeatureConfig } from '../lib/config.js';",
+    );
+
+    expect(parity).toEqual({
+      absent: ['ReloadResult from nowhere'],
+      extra: [],
+    });
+  });
+
+  it('names a document type the entry takes from somewhere other than config.ts', () => {
+    const parity = verdict(
+      "export type { FeatureConfig } from '../lib/config.js';",
+      "export type { ReloadResult } from '../lib/reload.js';",
+    );
+
+    expect(parity).toEqual({
+      absent: ['ReloadResult from ../lib/reload.js'],
+      extra: [],
+    });
+  });
+
+  it('names a config.ts type the entry publishes past the set', () => {
+    const parity = verdict(
+      "export type { FeatureConfig, ReloadResult } from '../lib/config.js';",
+      "export type { Hidden } from '../lib/config.js';",
+    );
+
+    expect(parity).toEqual({ absent: [], extra: ['Hidden'] });
   });
 });
 

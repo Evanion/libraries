@@ -62,8 +62,8 @@ import type {
  * its own: the mutation that reddens it reddens the core file first.
  *
  * `entry-surface.spec.tsx` holds the rest of the entry's claim. The names
- * arrive as types and never as values, and the set of them is the set
- * `config.ts` declares, read off both entries rather than listed by hand.
+ * arrive as types and never as values, and the set of them is the set the core
+ * entry publishes, read off both entries rather than listed by hand.
  */
 
 describe('the document types the react entry re-exports', () => {
