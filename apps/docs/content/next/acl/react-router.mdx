@@ -1,6 +1,8 @@
 # React Router Integration
 
-A React Router 8 route's `loader` and `action` each call `@evanion/acl`'s `access.can` for themselves, because they run independently on the server. The browser tree between them toggles controls with `useCan` and enforces nothing.
+In a React Router 8 application, the boundary between the user and the server is split across two distinct entry points: the `loader` and the `action`. Because these run independently on the server, each must resolve the subject and make its own ACL decisions to ensure security.
+
+In the Baize admin portal (`apps/admin`), `@evanion/acl` is used to gate page access via loaders and enforce data mutations via actions, while the browser-side UI simply toggles controls based on those same rules.
 
 <PageSheet
   difficulty={5}
@@ -15,7 +17,7 @@ A React Router 8 route's `loader` and `action` each call `@evanion/acl`'s `acces
 
 ## Adopting a Remote ACL Document
 
-In the Baize admin portal (`apps/admin`, a framework-mode app with `ssr: true`), `@evanion/acl` gates page access via loaders and enforces data mutations via actions, while the browser-side UI only toggles controls based on those same rules. The admin portal does not author its own rules; instead, it "adopts" the policy document published by the `shop-api`. This allows the admin portal to share the same authorization logic as the backend service without duplicating the rules.
+The admin portal does not author its own rules; instead, it "adopts" the policy document published by the `shop-api`. This allows the admin portal to share the same authorization logic as the backend service without duplicating the rules.
 
 The `adoptMatrix` function transforms the published JSON document into a live `@evanion/acl` evaluator:
 
@@ -23,28 +25,27 @@ The `adoptMatrix` function transforms the published JSON document into a live `@
 
 ```
 
-`adoptMatrix` memoizes the evaluator by the document's version. `parseMatrix` validates, deep-clones and deep-freezes on every call, so the memo skips re-parsing a document whose version has not changed. Evaluations never parse.
+To optimize performance, the document is memoized using a version key. Since `parseMatrix` performs deep-cloning and freezing on every call, memoization prevents unnecessary overhead during repeated evaluations.
 
-Because the server evaluates the matrix for enforcement and the browser evaluates it for UI toggles, `access.ts` is a shared module. However, the network call to fetch the document is isolated in `access.server.ts`, which the Vite plugin keeps out of the browser bundle. A request that cannot reach shop-api falls back to `NO_ACCESS`, a parsed document carrying no permissions, so every key answers `unknown-action` and the page writes nothing.
+Because the server evaluates the matrix for enforcement and the browser evaluates it for UI toggles, `access.ts` is a shared module. However, the network call to fetch the document is isolated in `access.server.ts`, ensuring that the API credentials and fetch logic are kept out of the browser bundle.
 
 ## The Loader and Action: Two Separate Boundaries
 
-An `@evanion/acl` decision a React Router `loader` makes for the page render does not carry over to the `action` that writes the data. In React Router, a `<Form>` submission or a direct `curl` request reaches the `action` without ever triggering the `loader`.
+A common mistake in framework integration is assuming that a decision made during the page render (the `loader`) persists until the data is written (the `action`). In React Router, a `<Form>` submission or a direct `curl` request reaches the `action` without ever triggering the `loader`.
 
 Therefore, every `action` must re-resolve the subject and re-evaluate the permission against the most recent version of the data.
 
-| Phase           | Runtime | Responsibility                                                             |
-| --------------- | ------- | -------------------------------------------------------------------------- |
-| `middleware`    | Server  | Resolves the identity (Who is asking?)                                     |
-| `loader`        | Server  | Decides if the subject may read the resource (Can they see this page?)     |
-| Route Component | Browser | Toggles UI elements based on the policy (Should I show this button?)       |
-| `action`        | Server  | Decides if the subject may write the resource (Can they change this data?) |
-| `clientLoader`  | Browser | Never decides; it is no trust boundary, whatever it fetches from           |
+| Phase           | Runtime | Responsibility                                                                 |
+| ---------------- | ------- | ------------------------------------------------------------------------------------ |
+| `middleware`    | Server  | Resolves the identity (Who is asking?)                                            |
+| `loader`        | Server  | Decides if the subject may read the resource (Can they see this page?)              |
+| Route Component | Browser | Toggles UI elements based on the policy (Should I show this button?)               |
+| `action`        | Server  | Decides if the subject may write the resource (Can they change this data?)          |
 
 ```mermaid caption="The dual-server boundary in React Router. Middleware identifies the user, the loader gates the read, and the action independently gates the write. The browser tree sits between them, merely reflecting the policy for a better user experience."
 flowchart TD
   N["Navigation (GET)"] --> M["Middleware: Identity Resolution"]
-  P["A write request, from a Form or from curl"] --> M
+  P["Write Request (POST/PUT)"] --> M
   M -->|"Read Path"| L["Loader: Read Permission Check"]:::accent
   L --> T["Route Component: UI Toggles via useCan"]
   M -->|"Write Path"| A["Action: Write Permission Check"]
@@ -54,33 +55,29 @@ flowchart TD
 
 ## Resolving Identity in Middleware
 
-Middleware is the ideal place to resolve the `@evanion/acl` subject and bind it to the request context. By doing this in the middleware, every subsequent loader and action on the route can assume a consistent identity. The middleware calls no `can` itself: a refusal needs a route to render it, and middleware has none.
+Middleware is the ideal place to resolve the subject and bind it to the request context. By doing this in the middleware, every subsequent loader and action on the route can assume a consistent identity.
 
-`subjectContext` is a React Router 8 `createContext` cell that holds the request's subject. Its default is a subject with no roles and no shop, and Baize's matrix grants that subject no write, so a loader or an action reached without the middleware decides for a subject that may write nothing:
-
-```ts file=apps/admin/app/page-context.ts region=subject-context
-
-```
-
-The admin portal's middleware, `loadPageView`, sets that cell to `demoSubject()`, the demo's stand-in for a session (see the note below). It also sets `accessContext` to a function that fetches the policy document, and fetches nothing itself. React Router runs middleware, then the action, then the revalidating loaders. The first of those to call the function fills a memoized promise, so the action and the loaders of one request decide on one fetched copy. The correlation id and the shelf snapshot the middleware also sets are the app's own plumbing, and decide nothing:
+Using React Router 8's `middleware` and `createContext`, the application binds the subject and the ACL evaluator to the request:
 
 ```ts file=apps/admin/app/page-view.server.ts region=bind-subject
 
 ```
 
-<Panel heading="The demo states its subject in an environment variable">
+To ensure that a page view only triggers one network fetch for the policy document, a memoization cell is used. This ensures the fetch happens after any `action` has run, providing the freshest possible rules.
+
+```ts file=apps/admin/app/page-context.ts region=subject-context
+
+```
+
+<Panel heading="Security Note: Trusting the Subject">
   <Text as="div" size="sm">
-    In this demo, `demoSubject()` reads the `ADMIN_SUBJECT` environment variable
-    or defaults to Ines, a Stockholm operator. In a production system, the
-    middleware must resolve the actor identity from a verified session or JWT.
-    Since `can` authorizes whichever subject it is handed, the middleware is the
-    ultimate trust boundary.
+    In this demo, `demoSubject()` simply reads an environment variable or defaults to a specific user. In a production system, the middleware must resolve the actor identity from a verified session or JWT. Since `can` authorizes whichever subject it is handed, the middleware is the ultimate trust boundary.
   </Text>
 </Panel>
 
 ## Gating Reads in the Loader
 
-The admin portal's `loader` asks `@evanion/acl` whether the bound subject may view the page. The orders page requires `telemetry.read`, which only managers hold. `allows` is the app's helper in `access.ts`: it reads one key of `access.capabilities(subject)` and treats an absent key as refused.
+The `loader` decides if the bound subject has the necessary capabilities to view the page. For example, the orders page requires `telemetry.read` permissions, which are restricted to managers.
 
 ```tsx file=apps/admin/app/routes/orders.tsx region=loader-decides
 
@@ -90,15 +87,11 @@ If the permission is refused, the loader returns a `refused: true` flag. The rou
 
 ## Passing the Policy to the Browser
 
-An `@evanion/acl` `Access` evaluator contains functions, so it cannot be serialized and passed from the server to the client. The loader returns the raw `access.matrix` (the JSON document).
+Because the `Access` evaluator contains functions, it cannot be serialized and passed from the server to the client. Instead, the loader returns the raw `access.matrix` (the JSON document).
 
-The shell loader returns `access.matrix`, the subject and a `now` string once for the whole tree. The subject is no credential: the server resolves its own on the next request. `now` crosses as a string, because the hooks key their memos on it by value and a `Date` is a new object each render. The client-side shell then adopts this matrix using the same `adoptMatrix` logic used on the server. This allows the browser to use the `useCan` hook to toggle UI elements without making a network request for every check.
+The client-side shell then adopts this matrix using the same `adoptMatrix` logic used on the server. This allows the browser to use the `useCan` hook to toggle UI elements without making a network request for every check.
 
-The shell mounts the policy for the whole component tree with these components:
-
-- `PolicyProvider` comes from `createPolicyContext` in `@evanion/react-acl`, bound in `access.ts` to `NO_ACCESS` until the shell hands it the fetched document.
-- `ComposeProvider` and `provider` come from [`@evanion/compose`](/compose) and nest the providers in the order listed.
-- `SessionProvider`, `ThemeProvider`, `CartProvider` and `Chrome` are the admin app's own components.
+The `PolicyProvider` and `ComposeProvider` are used to make the policy available to the entire component tree:
 
 ```tsx file=apps/admin/app/shell.tsx region=mount-provider
 
@@ -106,41 +99,41 @@ The shell mounts the policy for the whole component tree with these components:
 
 ## Toggling the UI with useCan
 
-The admin portal's browser-side components call `@evanion/react-acl`'s `useCan` hook to decide whether to show specific controls. This is purely for user experience; it does not provide any actual security.
+The browser-side components use the `useCan` hook to decide whether to show specific controls. This is purely for user experience; it does not provide any actual security.
 
 ```tsx file=apps/admin/app/routes/title.tsx region=tree-toggles
 
 ```
 
-For instance, Ines, the Stockholm operator `demoSubject()` returns, sees the availability form on Wingspan, which her own shop lists, and a sentence naming the declaring shop on Gloomhaven, which Gothenburg lists. The action behind the form is a URL either way.
+For instance, an operator in Stockholm can see the "Declare" form for a title listed in their own shop, but they will see a different message for a title listed in Gothenburg.
 
 ## Enforcing Writes in the Action
 
-The admin portal's `action` is the final `@evanion/acl` trust boundary. It reads no state from the loader and re-evaluates the permission against the row it loads itself.
+The `action` is the final trust boundary. It ignores any state from the loader and re-evaluates the permission against the actual data row retrieved from the database.
 
 ```tsx file=apps/admin/app/routes/title.tsx region=action-decides
 
 ```
 
-The action checks `decision.action.allowed` first. If the write is refused, it returns a failure response, which keeps the refusal off the exception path that `pickAllowedFields` takes with `ActionNotAllowedError`. With `pickAllowedFields`, which [Which fields may they write?](../writing) teaches, the action also ensures that only the fields the subject is permitted to modify are actually written to the database, regardless of what was sent in the `formData`, which carries whatever the sender put a `name` on. Between the render that showed the form and this action arriving, the title can move to another shop and the ownership rule can stop matching.
+The action checks `decision.action.allowed` first. If the write is refused, it returns a failure response. By using `pickAllowedFields`, the action also ensures that only the fields the subject is permitted to modify are actually written to the database, regardless of what was sent in the `formData`.
 
 ## Verifying the Action Independently
 
-A `curl` request reaches the admin portal's `action` without the browser UI, so its tests call the `action` directly against a real `@evanion/acl` document.
+Since `curl` requests can bypass the browser UI, it is critical to test the `action` directly.
 
-The tests build a `RouterContextProvider` holding what the middleware would have set, and call the action function with it:
+Using a `RouterContextProvider`, tests can simulate a request by calling the action function with a mock context that mimics the middleware's output:
 
 ```tsx file=apps/admin/tests/access.spec.tsx region=calling-the-action
 
 ```
 
-A `curl` at that URL reaches the same function with the same arguments, so the tests specifically cover the post the tree never offered: a Stockholm operator declaring availability on a title Gothenburg lists, which the action refuses and writes nothing. Every case decides on a real document, because a stubbed decision only asserts that the action called something.
+Tests specifically cover the "disagreement" case: where the UI might have shown a button (due to a stale policy), but the server action refuses the write because the data changed or the policy was updated.
 
 ```tsx file=apps/admin/tests/access.spec.tsx region=refusing-the-post
 
 ```
 
-## Next.js, capabilities and the contract
+## Where to go next
 
 - [Next.js (React Server Components)](../nextjs): Explore the similar split between server components and server actions.
 - [Listing Permissions](../listing-permissions): See how to generate a map of everything a user can do.

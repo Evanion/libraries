@@ -1,6 +1,8 @@
 # NestJS Integration
 
-In the Baize shop API (`apps/shop-api`), a global `AclGuard` bridges Nest's request lifecycle and `@evanion/acl` for route-level gating, and service-level checks decide fine-grained object access.
+When using `@evanion/acl` in a NestJS application, you need a way to bridge the gap between Nest's request lifecycle and the ACL's subject-based evaluation. 
+
+In the Baize shop API (`apps/shop-api`), this is achieved by combining a global `AclGuard` for route-level gating and service-level checks for fine-grained object access.
 
 <PageSheet
   difficulty={5}
@@ -16,29 +18,29 @@ In the Baize shop API (`apps/shop-api`), a global `AclGuard` bridges Nest's requ
   ]}
 />
 
-## Building the ACL Evaluator at Boot
+## Building the ACL Matrix at Boot
 
-`@evanion/acl` ships no NestJS module. `apps/shop-api` writes its policy as a plain TypeScript file and builds the evaluator when the application boots. Every fence on this page is a region of `apps/shop-api`, run by its own test suite.
+Since `@evanion/acl` is framework-agnostic, it doesn't ship a dedicated NestJS module. Instead, the policy is defined as a plain TypeScript file and instantiated when the application boots.
 
 In `apps/shop-api`, the `ShopSubject` defines the identity of the user (id, roles, shop), while `ShopObjects` defines the shapes of the data being accessed.
 
-| Name                     | Role                                                                                                                       |
+| Name                     | Role                                                                                                                 |
 | ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `ShopVerbs`              | The third type argument, `{ game: Action \| 'declare' \| 'reprice' }`; `Action` is `create`, `read`, `update` and `delete` |
-| `SHOP_MATRIX_VERSION`    | `'shop-api@1'`, the version a consumer compares against the one it holds                                                   |
-| `SHOP_SCHEMA`            | Defines the field types for subjects and objects, ensuring conditions are checked against valid data                       |
-| `p.always`               | A universal condition that every subject meets                                                                             |
-| `p.contains(path, v)`    | Validates that an array at a specific path contains the value `v`                                                          |
-| `.fields`, `.visibility` | Refines the result of the last declared action in the chain                                                                |
-| `AVAILABILITIES`         | The valid states a write operation may set for a resource's availability                                                   |
+| `ShopVerbs`              | The allowed actions for a resource, such as `create`, `read`, `update`, `delete`, `declare`, or `reprice` |
+| `SHOP_MATRIX_VERSION`    | Used by consumers to ensure they are using a compatible version of the policy                                                   |
+| `SHOP_SCHEMA`            | Defines the field types for subjects and objects, ensuring conditions are checked against valid data                              |
+| `p.always`               | A universal condition that every subject meets                                                                                            |
+| `p.contains(path, v)`    | Validates that an array at a specific path contains the value `v`                                                                                   |
+| `.fields`, `.visibility` | Refines the result of the last declared action in the chain                                                                                |
+| `AVAILABILITIES`         | The valid states a write operation may set for a resource's availability                                          |
 
 ```ts file=apps/shop-api/src/acl/shop.policy.ts region=shop-matrix
 
 ```
 
-The policy defines six permissions, and every one but `inventory.read` carries `visibility`, which marks what the service publishes. `game.declare` lets an operator or a manager set `availability`, and `game.reprice` adds `price` for a manager. Both check that the subject's shop matches the title's shop, so an operator in Gothenburg cannot touch a title Stockholm lists.
+The policy defines specific permissions like `game.declare` (for operators) and `game.reprice` (for managers). These rules typically check that the operator's shop matches the resource's shop, preventing a user in one location from modifying data in another.
 
-`SHOP_MATRIX` is the JSON document the builder emits, exported so a test can build a second evaluator over the same bytes. To ensure the policy document is valid and immutable, `hydratePolicy` rebuilds it once, when the app boots:
+To ensure the policy document is valid and immutable, `hydratePolicy` is used during the build process:
 
 ```ts file=apps/shop-api/src/acl/shop.policy.ts region=build-shop-access
 
@@ -46,60 +48,55 @@ The policy defines six permissions, and every one but `inventory.read` carries `
 
 `hydratePolicy` validates the structure, deep-clones the object, and freezes it. If it encounters an unknown field or duplicate permissions, the application will fail to boot.
 
-## Integrating the Evaluator via a Global Nest Module
+## Integrating the Matrix via a Global Nest Module
 
-`apps/shop-api` binds its `@evanion/acl` evaluator into a global `DynamicModule`, under a token. A bare `'ACL_ACCESS'` in a global module collides with any other provider of that name, and nothing reports it, so `apps/shop-api` uses a package-namespaced string:
-
-```ts twoslash file=apps/shop-api/src/acl/acl.constants.ts region=acl-token
-
-```
-
-`AclModule.forRoot()` provides the evaluator under `ACL_ACCESS`. It also provides `SubjectService`, which holds the request's subject (next section), and registers `PolicyController`, which publishes the matrix (see [Publishing the Policy Matrix](#publishing-the-policy-matrix)):
+To make the ACL matrix available throughout the application, it is bound into a global `DynamicModule`. This provides the matrix as a provider and registers the necessary guards and controllers.
 
 ```ts file=apps/shop-api/src/acl/acl.module.ts region=acl-module
 
 ```
 
-The module binds `AclGuard` under `APP_GUARD`, so the guard runs on every route, and the `@Requires` metadata decorator decides which routes it gates.
+The `APP_GUARD` binds the `AclGuard` to every route. Which specific routes are gated is determined by the `@Requires` metadata decorator. To avoid collisions with other providers in a global module, a package-namespaced string is used as the token:
+
+```ts twoslash file=apps/shop-api/src/acl/acl.constants.ts region=acl-token
+
+```
 
 ## Resolving the Subject from the Request
 
 For `@evanion/acl` to make a decision, it needs a `Subject`. In NestJS, this subject is resolved from the incoming request and stored in `AsyncLocalStorage` via a `SubjectService`.
 
-Using `AsyncLocalStorage` allows the subject to be accessed anywhere in the request chain without marking the service `Scope.REQUEST`. That would make every provider depending on it request-scoped too, `GamesService` among them, rebuilt per request and never given `onModuleInit`.
+Using `AsyncLocalStorage` allows the subject to be accessed anywhere in the request chain without forcing every dependent provider to become request-scoped, which would degrade performance and break `onModuleInit` hooks.
 
 ```ts file=apps/shop-api/src/acl/subject.service.ts region=subject-service
 
 ```
 
-The `SubjectMiddleware` is responsible for populating this service. It is applied to all routes in `AppModule.configure`. The middleware parses the subject from a request header (`X-Shop-Subject`), joining a repeated header so two stated subjects parse as none, and falling back to a shopper who works for no shop if no valid subject is provided:
+The `SubjectMiddleware` is responsible for populating this service. It is applied to all routes in `AppModule.configure`. The middleware parses the subject from a request header (`X-Shop-Subject`), falling back to a default "shopper" identity if no valid subject is provided:
 
 ```ts file=apps/shop-api/src/acl/subject.middleware.ts region=subject-middleware
 
 ```
 
-<Panel heading="The demo reads the subject from a header">
+<Panel heading="Security Note: Trusting Headers">
   <Text as="div" size="sm">
-    In this demo, the subject is read directly from a header for simplicity. In
-    a production environment, this middleware must read the actor identity from
-    a verified session layer. Because `can` only authorizes the subject it is
-    given, it relies on the middleware to provide a trusted identity.
+    In this demo, the subject is read directly from a header for simplicity. In a production environment, this middleware should read the actor identity from a verified session layer. Because `can` only authorizes the subject it is given, it relies on the middleware to provide a trusted identity.
   </Text>
 </Panel>
 
 ## Coordinating the Guard and the Service
 
-A write request to `apps/shop-api` meets two `@evanion/acl` checks: the Guard and the Service.
+A typical write request in NestJS passes through two distinct "seats" where ACL checks occur: the Guard and the Service.
 
-1. **The Guard (`AclGuard`)**: Runs before the controller. It only has access to the `Subject`. It can decide on permissions that depend solely on the user's identity (e.g., "Is this user a customer?").
+1. **The Guard (`AclGuard`)**: Runs before the controller. It only has access to the `Subject`. It can decide on permissions that depend solely on the user's identity (e.g., "Is this user an admin?").
 2. **The Service (`GamesService`)**: Runs after the resource has been loaded from the database. It has access to both the `Subject` and the `Object` (the row). It decides on permissions that depend on the data (e.g., "Does this operator belong to the same shop as this game?").
 
-| Check          | Context              | Decision Capability                                                       |
-| -------------- | -------------------- | ------------------------------------------------------------------------- |
-| `AclGuard`     | Subject only         | Permissions whose rules only read `subject.*`                             |
-| `GamesService` | Subject + Object row | Permissions that read `object.*` (e.g., `game.declare` or `game.reprice`) |
+| Seat           | Context               | Decision Capability                                                                                                |
+| -------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `AclGuard`     | Subject only          | Permissions whose rules only read `subject.*`                                                                     |
+| `GamesService` | Subject + Object row  | Permissions that read `object.*` (e.g., `game.declare` or `game.reprice`)                                              |
 
-The `AclGuard` uses `access.readsObject(key, action)` to determine if a permission requires an object to be evaluated: it is true when any allow or deny rule of that permission reads an `object.*` path. If a permission is object-dependent, the guard allows the request to proceed to the controller whatever `can` answered, leaving the final decision to the service. The guard's pass is no grant: a guard that took `unevaluable` as a grant would let a Gothenburg operator edit a Stockholm title.
+The `AclGuard` uses `access.readsObject(key, action)` to determine if a permission requires an object to be evaluated. If a permission is object-dependent, the guard allows the request to proceed to the controller, leaving the final decision to the service.
 
 ```mermaid caption="The two-stage authorization flow in NestJS. The Guard handles identity-based checks, while the Service handles data-based checks after the resource is loaded."
 flowchart TD
@@ -114,7 +111,7 @@ flowchart TD
 
 ## Gating Routes with @Requires
 
-`apps/shop-api`'s `@Requires` decorator attaches the `@evanion/acl` permission a handler needs. To ensure type safety, the permission key is typed against `ShopObjects`, meaning a route requesting a permission for a non-existent object kind will fail to compile.
+The `@Requires` decorator attaches the required permission to the handler. To ensure type safety, the permission key is typed against `ShopObjects`, meaning a route requesting a permission for a non-existent object kind will fail to compile.
 
 ```ts file=apps/shop-api/src/acl/requires.decorator.ts region=requires-decorator
 
@@ -126,21 +123,19 @@ The `AclGuard` then evaluates this requirement:
 
 ```
 
-For example, `order.create` only checks the subject's roles. If the user is not a customer, the guard refuses the request immediately, and the controller never executes. Conversely, `game.declare` requires the title's shop ID, so the guard defers the decision.
-
-The `action` in `@Requires` stays a string, so a route naming an action the document lacks still compiles. `hydratePolicy` builds an `Access` in open mode, where `can` on a permission the document does not carry throws `UnknownPermissionError` and Nest renders a 500. `requires-coverage.spec.ts` moves that failure to the build: it reads the metadata off every controller and holds each pair to `SHOP_MATRIX`.
+For example, `order.create` may only check the subject's roles. If the user is not a customer, the guard refuses the request immediately, and the controller never executes. Conversely, `game.declare` requires the title's shop ID, so the guard defers the decision.
 
 ## Fine-Grained Decisions in the Service
 
-`GamesService` loads the title, then makes the final `@evanion/acl` check with `canFields`, which [Which fields may they write?](../writing) teaches. This allows the service to decide whether the action is allowed and which specific fields the subject is permitted to modify.
+Once the service loads the resource, it performs the final check using `canFields`. This allows the service to not only decide if the action is allowed but also which specific fields the subject is permitted to modify.
 
 ```ts file=apps/shop-api/src/games/games.service.ts region=row-decision
 
 ```
 
-The action comes from the body, because `declare` and `reprice` allow different fields. The service checks `decision.action.allowed` first, so a refusal is a `ForbiddenException` and never the `ActionNotAllowedError` that `pickAllowedFields` throws on a refused action. If allowed, it keeps only the fields the decision allows from the request body, ensuring that the user cannot modify restricted fields even if they are present in the payload. An allow-listing `ValidationPipe` answers whether a key is a legal field of the endpoint, and the decision answers whether this subject may set it on this row, so keep both.
+The service checks `decision.action.allowed` first. If refused, it throws a `ForbiddenException`. If allowed, it uses the decision to whitelist the fields from the request body, ensuring that the user cannot modify restricted fields even if they are present in the payload.
 
-`games.service.spec.ts` runs this logic against the real policy, and shows that an operator from one shop cannot modify a title belonging to another:
+This logic is verified against the real policy matrix in tests, ensuring that an operator from one shop cannot modify a title belonging to another:
 
 ```ts file=apps/shop-api/src/games/games.service.spec.ts region=declare-on-the-row
 
@@ -148,27 +143,27 @@ The action comes from the body, because `declare` and `reprice` allow different 
 
 ## Publishing the Policy Matrix
 
-`apps/shop-api`'s `PolicyController` publishes a reduced version of the `@evanion/acl` matrix, so frontends can hide a button the user can't use.
+To allow frontends to implement "optimistic" UI (e.g., hiding a button the user can't use), the `PolicyController` publishes a reduced version of the matrix.
 
 ```ts file=apps/shop-api/src/acl/policy.controller.ts region=policy-endpoint
 
 ```
 
-`serialize(access, 'reduced')` removes internal-only permissions, here `inventory.read`, and keeps only those marked as `visibility: 'public'`, each whole. While the frontend uses this for UI hints, the backend always re-evaluates every request to ensure security.
+`serialize(access, 'reduced')` removes internal-only permissions and keeps only those marked as `visibility: 'public'`. While the frontend uses this for UI hints, the backend always re-evaluates every request to ensure security.
 
 ## Verifying the Integration
 
-`games.controller.spec.ts` tests the controller against the real `@evanion/acl` evaluator and stubs only the subject.
+Testing the NestJS wiring requires the real ACL matrix to ensure that the guards and services are interacting correctly with the policy.
 
 ```ts file=apps/shop-api/src/games/games.controller.spec.ts region=controller-for
 
 ```
 
-The specs run the controller and the service against the real `ACL_ACCESS`. A spec that stubbed `ACL_ACCESS` would test only that the controller called it. `acl.guard.spec.ts` covers the guard, and `orders.e2e.spec.ts` boots the real `AppModule`.
+By building a testing module with the real `ACL_ACCESS` provider, the specs verify the end-to-end flow from the guard to the service.
 
-## Express, decisions and the contract
+## Where to go next
 
 - [Express Integration](../express): See how to implement the same boundary without a built-in guard system.
-- [Can this user do this?](../asking): `readsObject`, the call the guard defers on.
-- [Permission Resolution](../resolution): Understand the "deny, then allow, then deny" order behind the guard's two branches.
+- [The Decision Object](../decision-object): Learn about the `unevaluable` state that triggers the Guard-to-Service deferral.
+- [Permission Resolution](../resolution): Understand the "Deny $\rightarrow$ Allow $\rightarrow$ Deny" logic.
 - [Security Contract](../security): Explore the principle of complete mediation.

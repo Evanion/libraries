@@ -1,6 +1,6 @@
 # Schemes and separators
 
-In `@evanion/urn`, a namespace class that overrides the `urn` and `separator` statics mints identifiers such as `baize.game.azul`, outside RFC 8141.
+`@evanion/urn` allows you to override the default scheme and separator in your namespace class. This means you can mint identifiers that look like dotted paths (e.g., `baize.game.azul`) rather than standard URNs.
 
 <PageSheet
   difficulty={2}
@@ -10,17 +10,17 @@ In `@evanion/urn`, a namespace class that overrides the `urn` and `separator` st
   unlocks={[['API reference', '../api']]}
 />
 
-## Non-Standard Internal Identifiers
+## The Problem: Non-Standard Internal Identifiers
 
-`@evanion/urn` follows RFC 8141 by default, but many internal systems use other conventions for their keys. You might have a legacy system that expects dotted paths (`system.resource.id`) or a custom internal scheme (`app:resource:id`) that isn't strictly a URN.
+While RFC 8141 is the global standard for resource naming, many internal systems use different conventions for their keys. You might have a legacy system that expects dotted paths (`system.resource.id`) or a custom internal scheme (`app:resource:id`) that isn't strictly a URN.
 
-Such a system's logs read worse with keys in `urn:nid:nss` form, and its existing tooling may not parse them.
+Forcing these identifiers into a `urn:nid:nss` format can make logs harder to read or break compatibility with existing internal tooling.
 
-## Custom Schemes and Separators
+## Solution: Custom Schemes and Separators
 
-By overriding the `urn` (scheme) and `separator` properties in your namespace class, you can tell `@evanion/urn` to use your own conventions while still benefiting from the library's parsing and validation logic.
+By overriding the `scheme` and `separator` properties in your namespace class, you can tell `@evanion/urn` to use your own conventions while still benefiting from the library's parsing and validation logic.
 
-For example, a `GameKey` class that sets the scheme to `baize` and the separator to `.` will produce identifiers like `baize.game.azul`. Only the first two separators split, so a `.` inside the NSS stays there.
+For example, a `GameKey` class that sets the scheme to `baize` and the separator to `.` will produce identifiers like `baize.game.azul`.
 
 ```ts twoslash file=libs/urn/README.md region=custom-separator
 
@@ -29,17 +29,15 @@ For example, a `GameKey` class that sets the scheme to `baize` and the separator
 ### Impact on Validation
 
 When you use a custom separator, the library adjusts its grammar checks:
-
-- The scheme and NID are checked against a character class that **excludes the separator**, with no length bounds. `GameKey` refuses the scheme `baize.shop`, which `URN` accepts, because the `.` would be read as a separator.
-- This allows `stringify` to write one-character NIDs that the standard `URN` class's `stringify` would refuse.
-- The class is no longer RFC 8141 conformant.
+- The scheme and NID are checked against a character class that **excludes the separator**.
+- This allows you to use one-character NIDs that the standard `URN` class would refuse.
 - However, the NSS (the actual ID) always keeps the RFC 8141 grammar, regardless of the separator.
 
 ## Verifying Namespaces Across Different Schemes
 
-The `belongsToNamespace` method of `@evanion/urn` defaults its scheme check to the calling class's own scheme. If you are checking a URN that uses a different scheme than your current class, you must provide the scheme as the third argument.
+The `belongsToNamespace` method defaults its scheme check to the calling class's own scheme. If you are checking a URN that uses a different scheme than your current class, you must provide the scheme as the third argument.
 
-Otherwise, a `GameURN` (which uses `urn`) will return `false` for `baize:game:azul`, a URN that keeps the `:` separator under another scheme:
+Otherwise, a `GameURN` (which uses `urn`) will return `false` for `baize:game:azul`:
 
 ```ts twoslash file=libs/urn/README.md region=belongs-to-namespace
 
@@ -47,15 +45,14 @@ Otherwise, a `GameURN` (which uses `urn`) will return `false` for `baize:game:az
 
 ## Component Restrictions for Special Separators
 
-Because `@evanion/urn` identifies components by `?` and `#`, a separator containing either character switches components off.
+Because components are identified by `?` and `#`, you cannot use these characters as separators. 
 
 If you set a separator like `static override readonly separator = '#'`, the library cannot distinguish between the separator and the start of a component. In this case:
-
-- `parse` will throw an `InvalidError` with `property: 'NSS'` for any URN carrying a `?` or `#` after the NID.
-- `stringify` will throw an `InvalidError` with `property: 'COMPONENT'` if you attempt to add a component.
+- `parse` will throw an `InvalidError` for any URN carrying a `?` or `#` after the NID.
+- `stringify` will throw an `InvalidError` if you attempt to add a component.
 
 Every other separator allows components to work as described in the [r-, q- and f-components](../components) guide.
 
 ## Every @evanion/urn export
 
-With `nid` from Getting started, an `@evanion/urn` namespace class has now set all three statics it can override. The [API reference](../api) lists every class, function, error and type the package exports, those statics included.
+The [API reference](../api) lists every class, function, error and type `@evanion/urn` exports, including the static properties a namespace class can override.

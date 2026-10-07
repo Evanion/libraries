@@ -1,6 +1,6 @@
 # Suspense and error boundaries
 
-`chrome.suspense` sets the `<Suspense>` boundaries the `Widgets` component of `@evanion/react-widget` renders around each widget, and a custom `chrome.item` holds the error boundary you write, so one slow or failing widget leaves the rest of the region standing.
+A slow widget should not hold up the rest of your page, and a failing widget should not take the entire region down with it. `@evanion/react-widget` provides hooks to integrate `<Suspense>` and Error Boundaries directly into the item chrome.
 
 <PageSheet
   difficulty={5}
@@ -15,47 +15,44 @@
 
 ## Choosing Where the `<Suspense>` Boundaries Go
 
-By default, the react-widget `Widgets` component wraps every individual widget in its own `<Suspense>` boundary. This ensures that one slow widget (e.g., one fetching data from a legacy API) does not block its siblings from rendering.
+By default, the `Widgets` component wraps every individual widget in its own `<Suspense>` boundary. This ensures that one slow widget (e.g., one fetching data from a legacy API) does not block its siblings from rendering.
 
-This is controlled via `chrome.suspense`, which defaults to `'per-item'`. You can also specify a `chrome.suspenseFallback` to render a custom loading state while a widget suspends. It defaults to nothing.
+This is controlled via `chrome.suspense`, which defaults to `'per-item'`. You can also specify a `chrome.suspenseFallback` to render a custom loading state while a widget suspends.
 
 ```tsx twoslash file=libs/react-widget/README.md region=suspense-fallback
 
 ```
 
-In this example, `StockLevel` is an async Server Component. `renderToStaticMarkup` does not wait for a widget that suspends, so its HTML carries the fallback ("Counting stock") in that widget's place. When using a streaming render, React sends the fallback first and replaces it with the actual content once the promise resolves. The boundary lives in `Widgets`, so a custom `chrome.item` cannot remove it.
+In this example, `StockLevel` is an async Server Component. When using a streaming render, React sends the fallback ("Counting stock") first and replaces it with the actual content once the promise resolves.
 
-## When to disable Suspense: `chrome.suspense: 'none'`
+### When to disable Suspense: `chrome.suspense: 'none'`
 
-In a large streamed region, the hundreds of individual `<Suspense>` boundaries react-widget's `Widgets` renders can lead to "outlined boundaries." The shell is the first HTML React streams. Once the shell passes `progressiveChunkSize` (12,800 bytes by default), React moves the content of every unfinished boundary into trailing `<div hidden>` tags, **whether or not anything in it suspended**, and an inline script moves them into place.
+In a large streamed region, having hundreds of individual `<Suspense>` boundaries can lead to "outlined boundaries." React may send the shell of the page first and move the content of every boundary into trailing `<div hidden>` tags, which are then moved into place by an inline script.
 
 This can be problematic if:
+1. **Scripts are disabled**: Users with scripts turned off or a strict CSP will see placeholders instead of widgets.
+2. **SEO/Indexing**: Some text extractors or snapshot tests may struggle to find content moved to the end of the document.
 
-1. **Scripts are disabled**: Users with scripts turned off or a Content-Security-Policy that blocks inline scripts will see placeholders instead of widgets.
-2. **SEO/Indexing**: Some text extractors, reader-mode passes or snapshot tests read placeholders where the widgets should be, and find the content at the end of the document.
-
-Measured over 150 synchronous items of about 1,000 bytes each, `'per-item'` kept 5 of them in the shell and outlined the other 145. `'none'` kept all 150.
-
-If you know your widgets are all synchronous (they don't use `use(promise)` or `async` components), set `chrome.suspense: 'none'`. This removes the boundaries entirely, ensuring all widgets are in the initial HTML shell. `Widgets` does not detect which widgets suspend: `use(promise)` looks synchronous at runtime, and `memo()` hides an async component. `renderToString`, imported from `react-dom/server`, writes a `<!--$-->` marker pair per boundary, which shows where they went:
+If you know your widgets are all synchronous (they don't use `use(promise)` or `async` components), set `chrome.suspense: 'none'`. This removes the boundaries entirely, ensuring all widgets are in the initial HTML shell.
 
 ```tsx twoslash file=libs/react-widget/README.md region=suspense-none
 
 ```
 
-**Warning**: If you set `'none'` but a widget _does_ suspend, it will suspend the nearest boundary _above_ the `<Widgets>` region. To prevent a single widget from blocking the entire page, wrap the `<Widgets>` component in its own `<Suspense>` boundary.
+**Warning**: If you set `'none'` but a widget *does* suspend, it will suspend the nearest boundary *above* the `<Widgets>` region. To prevent a single widget from blocking the entire page, wrap the `<Widgets>` component in its own `<Suspense>` boundary.
 
 ## Catching Widget Errors with Error Boundaries
 
-`@evanion/react-widget` does not ship a built-in error boundary. This is because Error Boundaries must be class components, and React's `react-server` build exports no `Component`, so including one in the package would force the entire library to be marked as `'use client'`, breaking its Server Component compatibility.
+`@evanion/react-widget` does not ship a built-in error boundary. This is because Error Boundaries must be class components, and including one in the package would force the entire library to be marked as `'use client'`, breaking its Server Component compatibility.
 
-Write your own error boundary in a file whose first line is `'use client'`. Below the directive, the file imports `React` and `DefaultItem`: `import * as React from 'react';` and `import { DefaultItem } from '@evanion/react-widget';`. The fence starts at the directive and leaves those two lines out:
+Instead, you should write your own error boundary in a separate file marked with `'use client'`.
 
 ```tsx twoslash file=libs/react-widget/README.md region=error-boundary
 
 ```
 
-Export `SafeItem`, import it into the server file that calls `createWidgets`, and pass it as `chrome: { item: SafeItem }`. That isolates failures. If a specific widget crashes, only that slot is replaced by the error fallback; the rest of the region continues to function. The boundary is client code, and the widgets inside it stay server components. In a project without Server Components the directive does nothing, and `SafeItem` can sit in the same file as `createWidgets`.
+By creating a `SafeItem` component that wraps the widget in an error boundary and then passing it as `chrome: { item: SafeItem }`, you isolate failures. If a specific widget crashes, only that slot is replaced by the error fallback; the rest of the region continues to function.
 
 ## Rearranging a Region in the Browser
 
-The react-widget [Playground](../playground) allows you to interactively rearrange a Baize staff page. Since these widgets run entirely in the browser, you can see the effects of chrome and nesting in real-time without dealing with server-side streaming.
+The [Playground](../playground) allows you to interactively rearrange a Baize staff page. Since these widgets run entirely in the browser, you can see the effects of chrome and nesting in real-time without dealing with server-side streaming.

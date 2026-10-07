@@ -9,53 +9,51 @@
   unlocks={[['API reference', '../api']]}
 />
 
-## Luhn mod-10 and Its Standards
+## Luhn mod-10: The Industry Standard
 
 When you use the dictionary `'0123456789'`, `@evanion/luhn` implements **Luhn mod-10**. This is the standardized check digit used worldwide for credit card numbers, payment cards, and various government identifiers.
 
-`createLuhn({ dictionary: '0123456789' })` gives `7992739871` the mod-10 check digit `3` and accepts a card number, then computes a check digit for the shop's order number `20260042`:
+`createLuhn({ dictionary: '0123456789' })` reproduces the published mod-10 test vectors:
 
 ```ts twoslash file=libs/luhn/README.md region=mod-10
 
 ```
 
-Luhn's patent [US 2,950,048](https://patents.google.com/patent/US2950048A/en) defines the algorithm, and these standards specify the same check digit:
-
+This implementation is compliant with:
 - **ISO/IEC 7812-1 Annex B**: The specification for issuer identification numbers on payment cards.
-- **3GPP TS 23.003 Annex B.2**: The check digit of the IMEI, the identifier of a mobile device.
-- **CMS National Provider Identifier (NPI)**: The [check-digit specification](https://www.cms.gov/Regulations-and-Guidance/Administrative-Simplification/NationalProvIdentStand/Downloads/NPIcheckdigit.pdf) for US healthcare providers.
+- **3GPP TS 23.003 Annex B.2**: The standard for mobile network identifiers.
+- **CMS National Provider Identifier (NPI)**: The check-digit specification for US healthcare providers.
 
-## Luhn mod-N Over Any Other Dictionary
+## Luhn mod-N: General Purpose Checksums
 
-When you use any other dictionary, `@evanion/luhn` implements **Luhn mod-N**.
+When you use any other dictionary, `@evanion/luhn` implements **Luhn mod-N**. 
 
-**There is no formal RFC, ISO, ITU or ANSI standard for mod-N Luhn**. The doubling formula used by this library (and many others), `floor(2x / n) + (2x mod n)` for index `x`, traces back to [Wikipedia revision 74161899](https://en.wikipedia.org/w/index.php?title=Luhn_mod_N_algorithm&oldid=74161899) of 2006-09-06, which was unsourced then and is unsourced now.
+It is important to note that **there is no formal RFC or ISO standard for mod-N Luhn**. The la-generalization used by this library (and many others) traces back to common community implementations and Wikipedia. 
 
 If you are integrating with another system that claims to use "Luhn mod-N," do not assume their implementation matches. Always verify their output against your own test vectors, as the dictionary order and the doubling formula may differ.
 
 ## The "Blind Spot" of the Luhn Algorithm
 
-As the [Overview](../#what-a-check-character-catches-and-what-it-doesnt) notes, the `@evanion/luhn` check character misses exactly one adjacent swap: a swap of the dictionary's first and last characters.
+As discussed in the [Dictionaries](../dictionaries) guide, the Luhn algorithm has one specific weakness: it cannot detect a swap of the dictionary's first and last characters.
 
-For any even-sized dictionary, swapping the characters at index `0` and index `n - 1` (e.g., `0` and `z` in the default dictionary, `0` and `9` in mod-10) leaves the Luhn sum unchanged. This is a mathematical property of the algorithm's doubling step and cannot be "fixed" without changing the algorithm itself.
+For any even-sized dictionary, swapping the characters at index `0` and index `n - 1` (e.g., `0` and `z` in the default dictionary) leaves the Luhn sum unchanged. This is a mathematical property of the algorithm's doubling step and cannot be "fixed" without changing the algorithm itself.
 
 ## Modulo Bias in Random Generation
 
-A shop that draws its codes at random over an `@evanion/luhn` dictionary meets **modulo bias**. `@evanion/luhn` generates no random values itself.
+If you are generating random codes based on a Luhn dictionary, you must be aware of **modulo bias**. 
 
-If you draw a random byte (0-255) and use `byte % n` to pick a character, every character is equally likely **only if `n` divides 256**.
+If you draw a random byte (0-255) and use `byte % n` to pick a character, every character is equally likely **only if `n` divides 256**. 
 
-The default 36-character dictionary is not uniform: $256 \bmod 36 = 4$. This means the first four characters in the dictionary will appear roughly 14.3% more often than the others.
+The default 36-character dictionary is not uniform: $256 \pmod{36} = 4$. This means the first four characters in the dictionary will appear roughly 14.3% more often than the others.
 
-`uniformOverBytes` reports whether an instance's dictionary is safe for `byte % n`. The fence checks the default `Luhn` and `pickup`, the 32-character instance from [Building Custom Instances](../dictionaries#building-custom-instances-with-createluhn):
+`uniformOverBytes` allows you to check if a dictionary is safe for simple modulo drawing:
 
 ```ts twoslash file=libs/luhn/README.md region=modulo-bias
 
 ```
 
-### How to Avoid Bias
-
-1. **Use a dictionary whose size divides 256**: This is why `@evanion/token` refuses any other dictionary size, and why its default dictionary holds 32 characters.
+### How to avoid bias:
+1. **Use a dictionary that divides 256**: This is why `@evanion/token` constrains its alphabet to 32 characters.
 2. **Rejection Sampling**: Draw a byte, discard it if it falls in the "biased tail" (e.g., values 252-255 for $n=36$), and draw again.
 
-Your random number generator, such as `crypto.getRandomValues`, supplies the bytes, and `uniformOverBytes` says nothing about their quality.
+`@evanion/luhn` provides the diagnostic tool (`uniformOverBytes`), but the responsibility for generating high-quality random bytes lies with your random number generator (e.g., `crypto.getRandomValues`).

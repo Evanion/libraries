@@ -13,79 +13,72 @@ To mint an `@evanion/token` code longer or shorter than a pickup code, or groupe
   ]}
 />
 
-## Why a Gift Card Needs a Longer Code
+## The Problem: One Size Doesn't Fit All
 
-A short, 8-character `@evanion/token` code suits a pickup order: it's easy to read and type. But a gift card holds a balance, so a guessed code spends someone else's money, and an attacker can enumerate the 35 random bits of an 8-character code. You need a longer identifier that still feels "human-readable" through proper chunking.
+A short, 8-character code is perfect for a pickup order—it's easy to read and type. But for a high-value gift card, an 8-character code is too easy to guess or collide. You need a longer, more secure identifier that still feels "human-readable" through proper chunking.
 
-Conversely, a code that staff call out across a room needs a specific shape (perhaps two groups of three characters separated by a space) to reduce miscommunication.
+Conversely, a "counter code" meant to be spoken aloud might need a very specific shape—perhaps two short words separated by a space—to reduce miscommunication.
 
-## Choosing a Code Shape
+## Solution: Custom Token Shapes
 
-In `@evanion/token`, each extra character of `length` adds 5 bits with the default dictionary, and `chunkSize` decides where the separators go.
+`createToken` allows you to define the exact geometry of your codes. By adjusting the length and chunking, you can balance security (entropy) with usability.
 
-For a gift card, set a longer `length`:
+For a gift card, you might want more characters to reduce the risk of collisions:
 
 ```ts twoslash file=libs/token/README.md region=instances
 
 ```
 
-In this example, `giftCard` draws 15 random characters and appends a check character. With the default 32-character dictionary, each character carries 5 bits, so this provides 75 bits of entropy. Using a `chunkSize` of 4 creates a visually organized code with three hyphens, resulting in a 19-character value.
+In this example, `giftCard` draws 15 random characters and appends a check character. With the default 32-character dictionary, this provides significant entropy (75 bits). Using a `chunkSize` of 4 creates a visually organized code with three hyphens, resulting in a 19-character value.
 
-### `createToken` options
+### Shape Options Reference
 
-| Option       | Type     | Default              | Meaning                                            |
-| :----------- | :------- | :------------------- | :------------------------------------------------- |
-| `length`     | `number` | `8`                  | Total characters, including the check character.   |
-| `chunkSize`  | `number` | `4`                  | Characters per chunk; must divide `length` evenly. |
-| `separator`  | `string` | `'-'`                | Placed between chunks and after a prefix.          |
-| `dictionary` | `string` | `DEFAULT_DICTIONARY` | The characters a code draws from, in order.        |
+| Option | Type | Default | Meaning |
+| :--- | :--- | :--- | :--- |
+| `length` | `number` | `8` | Total characters, including the check character. |
+| `chunkSize` | `number` | `4` | Characters per chunk; must divide `length` evenly. |
+| `separator` | `string` | `'-'` | Character used between chunks and after a prefix. |
+| `dictionary` | `string` | (Default alphabet) | The set of characters used to generate the code. |
 
-`createToken` checks these options once, when it builds the instance. `generate` and `validate` check nothing. Every code an instance mints without a prefix passes that instance's `validate`.
+`createToken` validates these options once during instance creation. Every code minted by that instance is guaranteed to match this shape.
 
 ## Creating "Spoken" Codes
 
-If you need an `@evanion/token` code that is easy to call out across a room, set `length` to 6 with a `chunkSize` of 3 and a space as the separator. Six characters leave 25 random bits, and the code reads aloud as two groups of three:
+If you need a code that is easy to call out across a room, you can use a space as a separator and a smaller chunk size. This turns a string of characters into something that reads like two short words:
 
 ```ts twoslash file=libs/token/README.md region=spoken
 
 ```
 
-Because `validate` is tied to the instance that created the code, `counterCode.validate` strips spaces. It strips only its own separator, so the same code typed with a hyphen fails.
+Because `validate` is tied to the instance that created the code, `counterCode.validate` knows to strip spaces rather than hyphens.
 
 ## Invalid Shapes and `InvalidShapeError`
 
-Not every combination of `@evanion/token` shape options describes a code. `createToken` throws `InvalidShapeError` when the shape is invalid. Build the instance at module scope and a bad shape throws when the process starts.
-
-In the example below, `refusal` is a helper of your own: it takes a `TokenOptions` object, the type of `createToken`'s options, and returns the error `createToken` throws, or `undefined` when the options are accepted.
+Not every combination of options is mathematically possible. `createToken` will throw an `InvalidShapeError` if the shape is invalid. This is designed to stop your application at start-up rather than failing silently at runtime.
 
 ```ts twoslash file=libs/token/README.md region=shape-errors
 
 ```
 
-`reason` names one option, and another can fix the same shape: `length: 10, chunkSize: 4` passes with a `chunkSize` of 5 or with a `length` of 12. So the error also carries `length`, `chunkSize` and `separator` as `createToken` resolved them, defaults included, which is why the last line reads the default `length` of 8.
-
 ### Common Shape Errors
 
-| `reason`                  | Cause                                                 | Fix                                                                              |
-| :------------------------ | :---------------------------------------------------- | :------------------------------------------------------------------------------- |
-| `length`                  | `length` is not an integer or is below 2.             | Set an integer of at least 2.                                                    |
-| `chunk-size`              | `chunkSize` is not an integer or is below 1.          | Set an integer of at least 1.                                                    |
-| `chunk-size-indivisible`  | `chunkSize` does not divide `length` evenly.          | Adjust either `length` or `chunkSize`.                                           |
-| `separator-empty`         | `separator` is an empty string.                       | Provide a separator, or set `chunkSize` equal to `length` for an unchunked code. |
-| `separator-in-dictionary` | `separator` shares a character with the `dictionary`. | Choose a separator that doesn't appear in the dictionary.                        |
+| `reason` | Cause | Fix |
+| :--- | :--- | :--- |
+| `length` | `length` is not an integer or is below 2. | Set a valid positive integer. |
+| `chunk-size` | `chunkSize` is not an integer or is below 1. | Set a valid positive integer. |
+| `chunk-size-indivisible` | `chunkSize` does not divide `length` evenly. | Adjust either `length` or `chunkSize`. |
+| `separator-empty` | `separator` is an empty string. | Provide a separator character. |
+| `separator-in-dictionary` | `separator` is also a character in the `dictionary`. | Choose a separator that doesn't appear in the alphabet. |
 
-If the `separator` shared a character with the `dictionary`, `validate` would be unable to strip it without accidentally removing part of the code's body, which is why this is forbidden. A dictionary of your own throws `InvalidShapeError` with `separator-in-dictionary` when it holds the separator, as `'0123456789abcde-'` does with the default hyphen.
+If the `separator` is also in the `dictionary`, `validate` would be unable to strip it without accidentally removing part of the code's body, which is why this is forbidden.
 
 ## Try a Token Shape
 
-The card below mints `@evanion/token` codes in your browser. Its "Say it as" control sets the `length` and `chunkSize` pair, and its "Drawn from" control picks the default 32 characters or hexadecimal, the 16 characters `0` to `9` and `a` to `f`.
+You can experiment with different shapes and dictionaries using the interactive tool below.
 
 <TokenSpecimen initial="a4kp-9mxa" />
-*The caption reports the code's random bits, 5 for each character before the
-check character with the default dictionary and 4 with hexadecimal. It also
-reports how many codes you can issue before the chance that two match reaches
-one in two, a number that doubles with every 2 bits the code gains.*
+*Adjust the length, chunking, and alphabet to see how it affects the code's entropy and collision probability.*
 
 ## Draw Codes from Another Dictionary
 
-Every `@evanion/token` example so far has used the default 32-character dictionary. [The alphabet](../alphabet) shows how to provide your own `dictionary` to `createToken` and the rules that a custom dictionary must follow.
+Every example so far has used the default 32-character alphabet. [The alphabet](../alphabet) shows how to provide your own `dictionary` to `createToken` and the rules that a custom alphabet must follow.

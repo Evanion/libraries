@@ -15,13 +15,11 @@ The `@evanion/react-widget` playground allows you to experiment with component m
 
 ## Interactive Region: Baize's Staff Page
 
-The demo below renders a single `react-widget` region representing a staff dashboard. It holds two `columns` rows, `week` and `counter`, built from a combination of layout and data widgets:
+The demo below renders a single `react-widget` region representing a staff dashboard. It uses a combination of layout and data widgets:
 
-- **`columns`**: A layout widget that positions its children side-by-side.
-- **`metric`**: Single-figure displays with labels and change indicators.
-- **`tables` and `reprints`**: Titled boards containing data tables. The `tables` board carries `meta.span: 2`, placement data only the item chrome reads, so it takes two columns.
-
-The demo's own `createWidgets` call maps these four types and passes a `Cell` item chrome that turns `meta.span` into a column count. The items come from its `defineItems`:
+- **Columns**: A layout widget that positions its children side-by-side.
+- **Metrics**: Single-figure displays with labels and change indicators.
+- **Boards**: Titled panels containing data tables.
 
 ```tsx file=apps/docs/components/landing/counter.tsx region=counter-items
 
@@ -29,15 +27,13 @@ The demo's own `createWidgets` call maps these four types and passes a `Cell` it
 
 <DataDemo />
 
-The demo builds its `Widgets` with the published `createWidgets` and prints the same items under the page it renders. You can interactively rearrange the region using the arrows beside each item in that printout, and `Widgets` renders the page again.
-
+You can interactively rearrange the region using the controls beside each item.
 - **Swap Rows**: Move the `counter` row above the `week` row to see the entire section move.
 - **Reorder Widgets**: Move the `tables` board past the `reprints` board. Because `meta.span` is tied to the item, the two-column layout follows the widget as it moves.
 
 ## Live Code Editor
 
 The playground includes a live editor where you can write snippets using the actual `@evanion/react-widget` build. Every snippet follows a simple pattern:
-
 1. Build a component map with `createWidgets`.
 2. Define an item array.
 3. Call `render(<Widgets items={items} />)` to display the result.
@@ -45,18 +41,16 @@ The playground includes a live editor where you can write snippets using the act
 <PlaygroundExamples />
 
 ### Editor Scope
-
 The snippets run in a restricted environment. The following are available in scope:
-
 - `createWidgets`: The package's primary export.
-- `React`, and the hooks `useState`, `useEffect`, `useMemo` and `useCallback`, for adding client-side state to your widgets.
+- `React` and standard hooks (`useState`, `useEffect`, etc.) for adding client-side state to your widgets.
 - `render`: The function that hands the resulting element to the preview pane.
 
-**Note**: `DefaultWrapper` and `DefaultItem` are not in scope. Define your chrome with plain JSX elements. The editor has no module resolution: an `import` line, or a name outside the scope, shows as a runtime error in the preview pane.
+**Note**: `DefaultWrapper` and `DefaultItem` are not in scope, so you should define your chrome using plain JSX elements.
 
 ## Limitations of the Playground
 
-Since the react-widget playground runs entirely in the browser, it cannot demonstrate certain server-side behaviors:
+Since the playground runs entirely in the browser, it cannot demonstrate certain server-side behaviors:
 
 - **Server Components**: You cannot use `async` components or Server Component-specific features.
 - **Streaming**: The streaming behavior of [`chrome.suspense`](../suspense) (where the shell is sent first) cannot be shown.
@@ -65,13 +59,13 @@ Since the react-widget playground runs entirely in the browser, it cannot demons
 
 ## Experiments to Try
 
-To understand how the react-widget renderer works, try making these changes in a snippet:
+To understand how the renderer works, try making these changes in a snippet:
 
-1. **Break a Type**: Change a `type` to something not in your component map. The item disappears from the page, and the rest of the region renders.
-2. **Mistype a Prop**: Change a prop key (e.g., `title` to `headline`). The widget will receive `undefined` for that prop, demonstrating why compile-time validation is so important.
-3. **Change the Chrome**: In the "New in, nested" or "At the counter" snippet, modify the `chrome.wrapper`. You'll see the container for the entire region change while the widgets inside remain unchanged.
+1. **Break a Type**: Change a `type` to something not in your component map. The item will simply disappear from the page.
+2. **Mistype a Prop**: Change a prop key (e.g., `title` $\rightarrow$ `headline`). The widget will receive `undefined` for that prop, demonstrating why compile-time validation is so important.
+3. **Change the Shell**: Modify the `chrome.wrapper`. You'll see the container for the entire region change while the widgets inside remain unchanged.
 4. **Reorder the List**: Swap the position of two items in the array to see the render order change instantly.
 
 ## API Reference
 
-For a full list of `@evanion/react-widget` exports, signatures, and types, visit the [API reference](../api).
+For a full list of exports, signatures, and types, visit the [API reference](../api).

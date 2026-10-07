@@ -1,6 +1,6 @@
 # Next.js (React Server Components)
 
-A Next.js server component calls `@evanion/acl`'s `access.can` in the trusted Node.js process, so its decision enforces what it renders. A Server Action is a second entry point, and it decides again.
+In a Next.js application, authorization happens at the trust boundary. When a request hits the server, your server components and Server Actions act as the final gatekeepers. Because they run in a trusted Node.js process, they can call `@evanion/acl`'s `access.can` to enforce rules before any data is rendered or any write is performed.
 
 <PageSheet
   difficulty={5}
@@ -15,9 +15,9 @@ A Next.js server component calls `@evanion/acl`'s `access.can` in the trusted No
 
 ## Adopting a shared policy document
 
-In a microservices architecture, your frontend doesn't usually author the `@evanion/acl` rules; it adopts a document published by a backend service.
+In a microservices architecture, your frontend doesn't usually author the rules; it adopts a document published by a backend service. 
 
-In the Baize storefront (`apps/storefront-rsc`, a Next 16 App Router app with no `'use client'` file), the app fetches a `PolicyDocument` (containing a version and the matrix) from the `shop-api`. It then uses `parseMatrix` to create an evaluator, `ShopAccess`, typed over this app's subject and rows.
+In the Baize storefront (`apps/storefront-rsc`), the app fetches a `PolicyDocument` (containing a version and the matrix) from the `shop-api`. It then uses `parseMatrix` to create an evaluator.
 
 ```ts file=apps/storefront-rsc/app/access.ts region=version-keyed-memo
 
@@ -29,19 +29,17 @@ When you adopt a document from another process, you use `parseMatrix` to enter *
 
 ### Efficiency through versioning
 
-To avoid the cost of validating, deep-cloning and deep-freezing the matrix on every single request, the app keys its evaluator by version. If the fetched version matches the held version, the app re-uses the existing evaluator, skipping the expensive setup process. A document republished under a new version replaces the held evaluator on the next page view.
-
-An app that owns its rules builds them with `policy(…).build()` at module scope instead, as [Express](../express) shows. Put that module behind `import 'server-only'`, so a client component importing it is a build error.
+To avoid the cost of validating and deep-freezing the matrix on every single request, the app keys its evaluator by version. If the fetched version matches the held version, the app re-uses the existing evaluator, skipping the expensive setup process.
 
 ## Request-scoped authorization
 
-`apps/storefront-rsc` scopes its `@evanion/acl` evaluator to the request, so every component on a page decides for the same subject at the same instant.
+To ensure that every component on a page uses the same subject and the same instant in time, the app scopes the evaluator to the request.
 
 ```ts file=apps/storefront-rsc/app/access.ts region=per-request-cache
 
 ```
 
-`authorize` returns a handle bound to that subject and one clock instant, so its `can` takes no subject. By wrapping the logic in React's `cache`, the app ensures that `GET /api/policy` is called only once per render, regardless of how many components (like `Catalogue` or `Spotlight`) need to check permissions, while two concurrent page views each get their own fetch, which a module-level promise does not give them.
+By wrapping the logic in React's `cache`, the app ensures that `GET /api/policy` is called only once per render, regardless of how many components (like `Catalogue` or `Spotlight`) need to check permissions.
 
 ```mermaid caption="The lifecycle of a policy document during a page view."
 flowchart TD
@@ -52,36 +50,31 @@ flowchart TD
   P --> H["hold it as the new evaluator"]
 ```
 
-A rule change reaches this app's gates on the next page view. An app that holds a document across requests needs a revalidation window, which [Choosing a framework integration](../choosing-an-integration) sets out.
-
 ## Gating the render and the fetch
 
-In an `@evanion/acl` Server Component, you can decide whether to render a piece of UI before you even fetch the data it needs.
+In a Server Component, you can decide whether to render a piece of UI before you even fetch the data it needs.
 
-For example, the `Activity` component might list recent events, but only for managers. By calling `can()` before the fetch, you prevent the server from pulling sensitive data from the API if the user isn't authorized to see it, because a widget that renders nothing over data it already asked for has still pulled that data into the process:
+For example, the `Activity` component might list recent events, but only for managers. By calling `can()` before the fetch, you prevent the server from pulling sensitive data from the API if the user isn't authorized to see it:
 
 ```tsx file=apps/storefront-rsc/app/activity.tsx region=gate-before-fetch
 
 ```
 
-Conversely, if a rule depends on the object's data (like `game.reprice`, which compares the title's shop with the subject's), you must fetch the row first, then decide.
+Conversely, if a rule depends on the object's data (like checking if a user owns a specific game), you must fetch the row first, then decide.
 
 ```tsx file=apps/storefront-rsc/app/spotlight.tsx region=decide-on-the-row
 
 ```
 
-Where a refusal has to be a whole page, `notFound()` is the answer for a title that exists. Each title is addressed by its urn, an identifier such as `urn:game:wingspan`. A page saying "forbidden" for a real urn and "not found" for a made-up one tells a caller which urns exist.
-
 ## The two boundaries: Render and Action
 
-A Next.js route reaches `@evanion/acl` from two independent trusted entry points: the **Render** (Server Component) and the **Server Action**.
+A Next.js route has two independent trusted entry points: the **Render** (Server Component) and the **Server Action**.
 
-| Boundary                  | Runtime | Role                                                                 |
-| ------------------------- | ------- | -------------------------------------------------------------------- |
-| Server Component          | Trusted | Decides what is rendered; hides buttons or sections.                 |
-| Client Component          | Browser | Advisory only; toggles UI based on the render's verdict.             |
-| Server Action             | Trusted | Decides independently if a write is allowed before committing to DB. |
-| Route handler / API route | Trusted | Decides independently, like a Server Action.                         |
+| Boundary              | Runtime | Role                                                                 |
+| -------------------- | ------- | -------------------------------------------------------------------- |
+| Server Component     | Trusted | Decides what is rendered; hides buttons or sections.                   |
+| Client Component     | Browser | Advisory only; toggles UI based on the render's verdict.                |
+| Server Action        | Trusted | Decides independently if a write is allowed before committing to DB.     |
 
 ```mermaid caption="The dual-gate architecture. A page view runs the server component to decide what to render. A direct post to a Server Action skips the render entirely, requiring the action to re-resolve the subject and re-evaluate the rules."
 flowchart TD
@@ -95,30 +88,21 @@ flowchart TD
 
 ### Why Server Actions must decide again
 
-A caller can post straight to a Server Action endpoint with `curl`, whatever button the render hid, so the action re-resolves the subject, re-reads the row and decides again.
-
-`apps/storefront-rsc` has no Server Action, so the example below comes from the `@evanion/acl` README. Its policy passes `policy()` a third type argument, `{ game: Action | 'declare' }`: `Action` is the default four (`create`, `read`, `update`, `delete`), and the map adds `declare`. `.fields({ fields: ['availability'] })` limits what `declare` may write, and the action decides with `canFields` and `pickAllowedFields` ([Which fields may they write?](../writing)):
+Even if the render hid a "Delete" button from the user, a malicious actor can post directly to the Server Action endpoint using `curl` or a script. Therefore, the Server Action must never trust the render's verdict; it must re-resolve the subject, re-read the row, and decide again.
 
 ```ts twoslash file=libs/acl/README.md region=server-action
 
 ```
 
-Ines, a Stockholm operator, posts for Wingspan and gets `written`, and the write drops the `urn` and `price` keys the form also carried, because `game.declare` allows `availability` alone. Her post for Gloomhaven, which Gothenburg lists, throws `Error('forbidden')`. The title can move to another shop between the render and the action, so the action never reuses the render's answer.
-
 ## Client-side UI toggles
 
-So controls respond without a server round trip, a server component can pass the `@evanion/acl` `access.matrix` (but never the `access` evaluator itself, as functions cannot be serialized) to a `'use client'` boundary, together with the subject and a `now` string.
+To provide a snappy UI, you can pass the `access.matrix` (but never the `access` evaluator itself, as functions cannot be serialized) to the client.
 
-The client rebuilds the evaluator using `parseMatrix` and wraps the tree in the `@evanion/react-acl` provider, which [Getting started with react-acl](/react-acl/getting-started) builds. This allows client components to use the `useCan` hook to hide or show elements instantly. However, this is purely advisory: a client component that hides a button stops nobody posting to the action behind it.
+The client rebuilds the evaluator using `parseMatrix` and wraps the tree in the `@evanion/react-acl` provider. This allows client components to use the `useCan` hook to hide or show elements instantly. However, this is purely advisory; the actual enforcement always happens on the server.
 
-Resolve `now` on the server, so the server render and the client's first render agree. A server that takes `now` from the request lets the caller pick the instant every `before` and `after` rule compares against.
-
-### `@evanion/react-acl` cannot gate a Next.js server tree
-
-`@evanion/react-acl` cannot gate the server tree itself. Its entry point starts with `'use client'`, so a server component importing `useCan` imports a client reference, and calling it during the server render throws. A server tree decides with `@evanion/acl` directly.
-
-## React Router, the matrix and the contract
+## Where to go next
 
 - [React Router 8](../react-router). Similar split between loaders and actions.
 - [The matrix: your rules as JSON](../matrix). Understanding the envelope and versioning.
 - [Security contract](../security). Why every layer must decide for itself.
+

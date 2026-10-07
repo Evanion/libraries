@@ -1,6 +1,6 @@
 # Getting started
 
-In this guide, you will build a "quality gate" for your content: a script that uses `validateItems` to check a page your CMS saved, print each item your renderer cannot draw, and fail the run.
+In this guide, you will build a "quality gate" for your content. You'll learn how to use `validateItems` to check a page payload saved by your CMS, identify any items that your renderer cannot draw, and fail the process before a broken page ever reaches production.
 
 <PageSheet
   difficulty={2}
@@ -18,11 +18,11 @@ In this guide, you will build a "quality gate" for your content: a script that u
 To follow this guide, ensure you have the following:
 
 - **Node 20 or newer.**
-- **An ESM environment**: The example is a `.mts` file, which Node and `tsx` load as an ES module.
-  _(Note: CommonJS files calling `require('@evanion/widget')` require Node 20.19 or 22.12+; an older `require()` fails with `ERR_REQUIRE_ESM`)_.
+- **An ESM environment**: We use a `.mts` file in the example, which Node and `tsx` load as an ES module. 
+  *(Note: CommonJS files calling `require('@evanion/widget')` require Node 20.19 or 22.12+)*.
 - **tsx**: A tool to run TypeScript files without a build step. You can run it via `npx tsx`.
 
-The `@evanion/widget` package has no dependencies. If you are already using `@evanion/react-widget` or `@evanion/astro-widget`, you can import `validateItems` directly from the renderer instead of installing the core separately; each renderer pins `@evanion/widget` to an exact version and re-exports every name this page uses.
+The `@evanion/widget` package has no dependencies. If you are already using `@evanion/react-widget` or `@evanion/astro-widget`, you can import `validateItems` directly from the renderer instead of installing the core separately.
 
 ## Install the widget core
 
@@ -32,36 +32,27 @@ Run the command for your preferred package manager:
 npm install @evanion/widget
 ```
 
-```bash
-yarn add @evanion/widget
-```
-
-```bash
-pnpm add @evanion/widget
-```
-
 ## Create a Validation Gate
 
-`validateItems` is designed to handle raw data: it types its first argument as `unknown`, meaning it can take a payload straight from `JSON.parse` without needing any type casting.
+`validateItems` is designed to handle raw data. It types its first argument as `unknown`, meaning it can take a payload straight from `JSON.parse` without needing any type casting.
 
-To create a check, you'll need to define the "known types"—the list of widget types your frontend actually knows how to render—then save the following as `check.mts`:
+To create a check, you'll need to define the "known types"—the list of widget types your frontend actually knows how to render. Save the following as `check.mts`:
 
 ```ts twoslash file=libs/widget/README.md region=gate
 
 ```
 
 ### How the Gate Works:
-
 1. **Parse the payload**: It takes the JSON saved by the CMS.
 2. **Define the supported types**: It lists the types your renderer supports.
 3. **Run the check**: `validateItems` returns an array of problems.
-4. **Handle the result**: If any problems are found, the script prints them and sets the exit code to 1, signaling a failure to your continuous integration (CI) pipeline.
+4. **Handle the result**: If any problems are found, the script prints them and sets the exit code to 1, signaling a failure to your CI/CD pipeline.
 
-In the example above, `report` holds one line. The shelf `tonight` uses the type `featured-shelf`, which is not in our `known` list. Because a renderer would skip this item, the page would lose its "On the table tonight" section. `process.exitCode` is 1, so the script fails the run. `@evanion/widget` never sets the exit status itself; your script decides what a problem means.
+In the example above, the shelf `tonight` uses the type `featured-shelf`, which is not in our `known` list. Because a renderer would simply skip this item, the page would lose its "On the table tonight" section. The script catches this and fails the run.
 
 ## Run the Check from Your Terminal
 
-Run the `@evanion/widget` check with `tsx`:
+You can execute your validation script using `tsx`:
 
 ```bash
 npx tsx check.mts; echo "exit $?"
@@ -69,10 +60,15 @@ npx tsx check.mts; echo "exit $?"
 
 The terminal will print `tonight (featured-shelf): unknown widget type` and return `exit 1`. If you change `featured-shelf` back to `shelf` in the payload, the script will return `exit 0`.
 
-## Where to Run the Gate
+## Integrating the Gate into Your Workflow
 
-The `@evanion/widget` gate runs wherever a saved page passes on its way to the browser: in the webhook handler your CMS calls on save, or as a CI step before the build generates the final pages.
+This simple check can be integrated into several parts of your workflow to prevent broken content from reaching users:
+
+- **CMS Webhooks**: Run the check in the handler that receives the "save" event from your CMS.
+- **CI/CD Pipelines**: Validate all JSON payloads committed to your repository before deployment.
+- **Build Scripts**: Run the check as a pre-processing step before the build generates the final pages.
+- **Test Suites**: Run the check against your content fixtures to ensure they remain renderable.
 
 ## Understanding the Reports
 
-Your `@evanion/widget` gate now fails a run on an unknown type, which is one of nine possible faults. [What it reports](../problems) shows how `validateItems` handles more complex issues, including nested item faults, and lists every possible error message.
+Your script now catches missing types, but that is only one of nine possible faults. [What it reports](../problems) shows how `validateItems` handles more complex issues, including nested item faults, and lists every possible error message.

@@ -1,6 +1,8 @@
 # Where the check happens
 
-`ComposeProvider` and `provider()` check each entry's props against its component at compile time, because `ComposeProvider` renders a missing or wrong prop without complaint. Where the check runs depends on how you write the entry.
+In a complex React application, it's easy to pass the wrong props to a provider, especially when the provider list is long. Because `ComposeProvider` is a generic wrapper, it could technically render a provider with missing or incorrect props without any immediate warning—only for the app to crash at runtime.
+
+To prevent this, `@evanion/compose` moves the validation to compile time using advanced TypeScript generics.
 
 <PageSheet
   difficulty={3}
@@ -14,29 +16,22 @@
 
 ## Validating Providers at Different Stages
 
-Depending on how you write an `@evanion/compose` [entry](../#the-compose-vocabulary), the compiler checks its props at a different place. Consider three providers, each rendering a `div` whose `id` is its prop, so the markup shows which props arrived:
-
-- `CartProvider` takes no prop and renders `<div id="cart">`.
-- `ThemeProvider` requires `theme: 'light' | 'dark'`.
-- `CurrencyProvider` requires `currency: 'SEK' | 'GBP' | 'USD'`.
-
-`renderToStaticMarkup` renders `markup`, as on [Getting started](../getting-started).
+Depending on how you define your provider entries, the compiler checks the props at different times. Consider three providers: `CartProvider` (no props), `ThemeProvider` (requires `theme`), and `CurrencyProvider` (requires `currency`).
 
 ```tsx twoslash file=libs/compose/README.md region=entries
 
 ```
 
 The checks differ by entry type:
-
-1. **`provider()` calls**: This helper checks props _at the call site_. You get autocomplete and immediate errors as you type, making it the preferred way to define tuples.
-2. **Bare components**: Used for providers with all-optional props (like `CartProvider`). If a bare component requires props, the compiler flags it where the array reaches `ComposeProvider`.
+1. **`provider()` calls**: This helper checks props *at the call site*. You get autocomplete and immediate errors as you type, making it the preferred way to define tuples.
+2. **Bare components**: Used for providers with all-optional props (like `CartProvider`). If a bare component is used but requires mandatory props, the compiler will flag it.
 3. **Hand-written tuples**: If you write `[Component, Props]` manually, the check is deferred until the array is passed to `ComposeProvider`.
 
 ## Type Safety for Inline Arrays
 
-When you write your provider array inline within the `providers` prop, `@evanion/compose` checks every entry against its own component. `ComposeProvider` declares its type parameter `const`, a modifier TypeScript 5.0 added, so TypeScript infers the inline array as a **fixed-length array type**: one type per position, with a length that is a number literal. TypeScript calls it a tuple type, and these pages keep "tuple" for an entry.
+When you write your provider array inline within the `providers` prop, `ComposeProvider` uses a TypeScript `const` type parameter to ensure every entry is checked against its own component.
 
-Below, an inline array carries four broken entries for `ThemeProvider`, and the compiler reports each one on its own line. Nothing checks the props at runtime, so `markup` is what that array rendered:
+If you provide an incorrect prop for `ThemeProvider`, the compiler identifies exactly which entry in the array is failing.
 
 ```tsx twoslash file=libs/compose/README.md region=checked-inline
 
@@ -44,42 +39,35 @@ Below, an inline array carries four broken entries for `ThemeProvider`, and the 
 
 The compiler can detect multiple types of errors:
 
-| Entry                                                 | Compiler Report                                                                                | Meaning                                                |
-| :---------------------------------------------------- | :--------------------------------------------------------------------------------------------- | :----------------------------------------------------- |
-| `ThemeProvider`                                       | `this component requires props — use provider(Component, props) or a [Component, props] tuple` | You used a bare component, but it has mandatory props. |
-| `[ThemeProvider, {}]`                                 | `Property 'theme' is missing`                                                                  | The props object is missing a required key.            |
-| `[ThemeProvider, { theme: 'blue' }]`                  | `Type 'string' is not assignable to type 'never'`                                              | The value provided is not among the allowed literals.  |
-| `[ThemeProvider, { theme: 'dark', accent: 'green' }]` | `unknown prop 'accent'`                                                                        | You provided a prop the component doesn't declare.     |
-
-The two entries with no `theme` rendered a `div` with no `id`, and `id="blue"` reached the HTML. The compiler is the only check.
+| Entry | Compiler Report | Meaning |
+| :--- | :--- | :--- |
+| `ThemeProvider` | `this component requires props — …` | You used a bare component, but it has mandatory props. |
+| `[ThemeProvider, {}]` | `Property 'theme' is missing` | The props object is missing a required key. |
+| `[ThemeProvider, { theme: 'blue' }]` | `Type 'string' is not assignable to type 'never'` | The value provided is not among the allowed literals. |
+| `[ThemeProvider, { theme: 'dark', accent: 'green' }]` | `unknown prop 'accent'` | You provided a prop the component doesn't declare. |
 
 ## Debugging Compose Errors
 
-`@evanion/compose` writes its own message into the expected type when an entry carries an unknown prop, is a bare component that needs props, or pairs two components. That entry's expected type becomes `ComposeError<"message">`. `ComposeError` is internal, and the package does not export it.
+To make these complex TypeScript failures readable, `@evanion/compose` wraps them in a `ComposeError` type. When a check fails, the expected type of the entry becomes `ComposeError<"message">`.
 
-Since no value can match this type, the entry fails to compile, and TypeScript prints the message in the first line of the error. For `[ThemeProvider, { theme: 'dark', accent: 'green' }]` that line ends `… & ComposeError<"unknown prop 'accent'">'`. A tuple holding two components, such as `[ThemeProvider, CartProvider]`, reports `second tuple element must be props, not another component`.
+Since no value can match this type, the entry fails to compile, and the message is displayed directly in the TypeScript output.
 
-`ComposeProvider` refuses two other mistakes before any `ComposeError` check runs:
-
-- A tuple written props-first, such as `[{ theme: 'dark' }, ThemeProvider]`, reports that `theme` does not exist in type `AnyComponent`.
-- An entry that is neither a component nor a two-element tuple is not assignable to type `Provider`.
-
-The messages `first tuple element must be a component` and `not a valid provider` appear only where you apply [`ValidateProvider`](../api#validateprovidert) yourself.
+| Message | Meaning |
+| :--- | :--- |
+| `unknown prop 'x'` | The props object contains a key the component does not declare. |
+| `this component requires props — ...` | A bare component was used, but it requires mandatory props. |
+| `first tuple element must be a component` | The tuple is ordered incorrectly or the first element is not a component. |
+| `second tuple element must be props...` | The tuple contains two components instead of a component and its props. |
+| `not a valid provider` | The entry is neither a component nor a valid two-element tuple. |
 
 ## Solving the "Type 'string' is not assignable to type 'never'" Error
 
-`@evanion/compose` has no `ComposeError` message for a missing or wrong prop value. For those, the check builds the shape the entry should have had, `[ThemeProvider, { theme: 'light' | 'dark' }]`, and `ComposeProvider` types `providers` as your array intersected with that shape.
+You may encounter a confusing error like `Type 'string' is not assignable to type 'never'` when providing a value outside the allowed literals (e.g., `'blue'` when only `'light'` or `'dark'` are accepted).
 
-For `[ThemeProvider, { theme: 'blue' }]`, the intersection asks for a `theme` that is both `'blue'` and `'light' | 'dark'`. No value is both, so TypeScript names the expected type `never` and prints `'blue'` as `string`. For `[ThemeProvider, {}]`, the intersection still requires `theme`, and the error reads `Property 'theme' is missing`.
+This happens because TypeScript intersects your provided type with the correct type; since they don't overlap, the result is `never`. 
 
-The `provider()` helper avoids this intersection and reports the error at the call site with a clearer message: `Type '"blue"' is not assignable to type '"light" | "dark"'`.
-
-```tsx twoslash file=libs/compose/README.md region=checked-at-call
-
-```
-
-`entry` is the tuple `provider()` returned, unchanged, because the check ran in the compiler and not when the line ran.
+**The Fix**: Use the `provider()` helper. It avoids this intersection and reports the error at the call site with a much clearer message: `Type '"blue"' is not assignable to type '"light" | "dark"'`.
 
 ## Maintain Checks in Separate Constants
 
-In real applications, `@evanion/compose` provider arrays are often moved to a `const` or a config file to keep the JSX clean. [Keeping the check](../keeping-the-check) explains how to maintain these compile-time checks when the array is moved out of the JSX.
+In real applications, provider arrays are often moved to a `const` or a config file to keep the JSX clean. [Keeping the check](../keeping-the-check) explains how to maintain these compile-time checks when the array is moved out of the JSX.

@@ -1,6 +1,6 @@
 # Nesting items
 
-An item's `children` field allows you to nest items inside other widgets. For example, you can place multiple `ListingCard` widgets inside a single `Showcase` widget. `@evanion/react-widget` renders these nested items as the parent component's `children` prop.
+A widget's `children` field allows you to nest items inside other widgets. For example, you can place multiple `ListingCard` widgets inside a single `Showcase` widget. `@evanion/react-widget` automatically renders these nested items as the parent component's `children` prop.
 
 <PageSheet
   difficulty={2}
@@ -12,30 +12,37 @@ An item's `children` field allows you to nest items inside other widgets. For ex
 
 ## Putting Listings Inside a Showcase
 
-The react-widget `defineItems` helper checks nested items too. Every child item has to name a known widget type and carry that widget's props, the same as a top-level item. The fence below uses `ListingCard`, the card [Getting started](../getting-started) renders, cut down to a `title` prop and declared above the part shown: `const ListingCard = (props: { title: string }) => <h3>{props.title}</h3>;`. To run the example, put that line and the fence in `render.tsx` below the same two imports, in place of the Getting started code:
+The `defineItems` helper used in [Getting started](../getting-started) provides deep type checking. It validates nested items with the same rigor as top-level ones, ensuring that every child item matches a known widget type and has the correct props.
 
 ```tsx twoslash file=libs/react-widget/README.md region=nesting
 
 ```
 
-In this example, the `Showcase` component declares a `children` prop (`React.ReactNode`), so `render.tsx` also needs `import * as React from 'react';` at the top. Because `Widgets` renders the nested items as children, the `tonight` item (a `Showcase`) wraps the Hive listing. In the resulting HTML, the child's chrome, the `<div data-widget-id="hive">`, sits inside the parent's own `<div>`, below its heading.
-
-`Widgets` uses each item's `id` as its React key, and React keys each list of children separately. So an `id` has to be unique among its siblings only, and `hive` could appear again under a second showcase.
+In this example, the `Showcase` component declares a `children` prop (`React.ReactNode`). Because `Widgets` renders the nested items as children, the `tonight` item (a `Showcase`) effectively wraps the Hive listing. In the resulting HTML, the child's chrome sits inside the parent's chrome.
 
 ### Type Safety and Nested Items
+TypeScript prevents you from nesting items where they don't belong. Since `ListingCard` does not declare a `children` prop, the compiler will reject any attempt to nest items under it.
 
-TypeScript prevents you from nesting react-widget items where they don't belong. Since `ListingCard` does not declare a `children` prop, the compiler rejects any attempt to nest items under it, and `@ts-expect-error` marks the line where it does:
-
-```tsx twoslash file=libs/react-widget/README.md region=nesting-rejected
-
+```tsx
+// ❌ Compiler Error: 'ListingCard' does not accept children
+defineItems(widgets, [
+  {
+    id: 'azul',
+    type: 'listing',
+    props: { title: 'Azul' },
+    children: [{ id: 'nested', type: 'something', props: {} }] 
+  }
+]);
 ```
 
 ## Where Nested Items are Rendered
 
 `@evanion/react-widget` handles the recursive rendering of items and hands the result to the parent component as its `children` prop. **The parent component decides where these children appear.**
 
-In the `Showcase` component, the children are rendered under an `<h2>` heading. If a component declares `children` in its type but never renders them in its JSX, the nested items never reach the HTML, even though they are valid, and `Widgets` logs nothing.
+In the `Showcase` component, the children are rendered under an `<h2>` heading. If a component declares `children` in its type but never renders them in its JSX, the nested items will be ignored by the browser, even though they are valid.
 
 ## The limits of compile-time checks
 
-react-widget's `defineItems` only checks the code _you_ write. A CMS payload is just JSON; it never meets the TypeScript compiler. A CMS could send nested items under a `ListingCard`, and `ListingCard` would drop them without a warning. `validateItems` does not catch this either: it checks each nested item's own `type` and props, and has no record of which components render `children`. [Checking a CMS payload](../validation) shows how to run it on what the CMS sends.
+It's important to remember that `defineItems` only checks the code *you* write. 
+
+A CMS payload is just JSON; it never meets the TypeScript compiler. A CMS could send nested items under a `ListingCard`, and `Widgets` would simply ignore them during render. To catch these structural errors in your data, you must use `validateItems` at runtime. [Checking a CMS payload](../validation) shows how to implement this.
