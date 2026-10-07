@@ -3,6 +3,7 @@ import { configDigest } from './digest.js';
 import { FeatureConfigError } from './errors.js';
 import { createFeatures } from './features.js';
 import { parseFeatureConfig } from './parse.js';
+import { serializeConfig } from './serialize.js';
 import { validateConfig } from './validate.js';
 import type {
   ConfigIssueCode,
@@ -693,5 +694,85 @@ describe('the copy a document asks the construction path for', () => {
 
     expect(build).toThrow('() => 1 could not be cloned.');
     expect(build).not.toThrow(FeatureConfigError);
+  });
+});
+
+/**
+ * The envelope a parsed store installs, which Task 8 hands over whole.
+ *
+ * This entry point used to unwrap the document and build the store over
+ * `config.features`, so the store installed an empty envelope and
+ * `serializeConfig` wrote the document back with no version.
+ */
+describe('the envelope a parsed document installs', () => {
+  it('answers the version the document it parsed states', () => {
+    const config: FeatureConfig = {
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    };
+
+    const result = parseFeatureConfig(config);
+
+    expect(result.ok && result.features.version).toBe(41);
+  });
+
+  it('answers no version for a document that states none', () => {
+    const config: FeatureConfig = {
+      features: [{ key: 'checkout', enabled: true }],
+    };
+
+    const result = parseFeatureConfig(config);
+
+    expect(result.ok && result.features.version).toBeUndefined();
+  });
+
+  it('answers every envelope member the document carries and no payload', () => {
+    const config: FeatureConfig = {
+      version: 'v9',
+      schemaVersion: 's1',
+      maxStale: 30_000,
+      features: [{ key: 'checkout', enabled: true }],
+    };
+
+    const result = parseFeatureConfig(config);
+
+    expect(result.ok && result.features.envelope).toEqual({
+      version: 'v9',
+      schemaVersion: 's1',
+      maxStale: 30_000,
+    });
+  });
+
+  it('names the document it parsed as a reload previous version', () => {
+    const config: FeatureConfig = {
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    };
+    const result = parseFeatureConfig(config);
+
+    const reloaded =
+      result.ok &&
+      result.features.reload({
+        version: 42,
+        features: [{ key: 'checkout', enabled: false }],
+      });
+
+    expect(reloaded).toEqual({
+      ok: true,
+      version: 42,
+      previousVersion: 41,
+      changed: ['checkout'],
+    });
+  });
+
+  it('writes the version back into the document it serializes', () => {
+    const config: FeatureConfig = {
+      version: 41,
+      features: [{ key: 'checkout', enabled: true }],
+    };
+
+    const result = parseFeatureConfig(config);
+
+    expect(result.ok && serializeConfig(result.features).version).toBe(41);
   });
 });
