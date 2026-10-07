@@ -1293,7 +1293,26 @@ function digestIssues(config: Checkable): readonly Found[] {
   // `FeatureConfig` narrows a window instant and a condition value, and
   // `configDigest` reads neither: it canonicalises the document whole. The
   // assertion is what lets the checker's wider element type reach it.
-  const derived = configDigest(config as FeatureConfig);
+  let derived: string;
+  try {
+    derived = configDigest(config as FeatureConfig);
+  } catch (raise) {
+    // `canonical` recurses at `canonical.ts:128`, so a value nested deeper
+    // than the stack holds raises here rather than at a walk that reads a
+    // member. Nothing about the document is trusted, and a holder that cannot
+    // digest the content cannot verify the digest it states, so the document is
+    // refused with the raise as the member it could not read. No pointer names
+    // the value: the canonicaliser walks the document whole and reports no
+    // position.
+    return [
+      found(
+        'unknown-member',
+        new FeatureConfigError(
+          `the document states the digest ${config.digest} and its content digests to nothing this checker can read: ${raise instanceof Error ? raise.message : String(raise)}`,
+        ),
+      ),
+    ];
+  }
   if (derived === config.digest) return [];
   return [
     found(
