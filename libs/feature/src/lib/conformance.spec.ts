@@ -50,10 +50,14 @@ describe('the published cross-process fixture', () => {
  * implementation in Stockholm and one in Tokyo read one fixture two ways.
  * Issue #284.
  */
-const INSTANT = /\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})?/g;
+const INSTANT = /\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})?/;
 
 function offsetless(text: string): readonly string[] {
-  return [...text.matchAll(INSTANT)]
+  // A global copy per call, because `matchAll` and `test` both read and write
+  // `lastIndex` and `matchAll` carries it onto the copy it walks with. One
+  // shared global regex starts each walk wherever its last reader stopped, so
+  // the instants before that offset are never inspected.
+  return [...text.matchAll(new RegExp(INSTANT, 'g'))]
     .filter((found) => found[1] === undefined)
     .map((found) => found[0]);
 }
@@ -65,6 +69,25 @@ describe('the guard the fixture is held to', () => {
       other: '2026-06-01T12:00:00.000Z',
     });
 
+    expect(offsetless(bad)).toEqual(['2026-06-01T12:00:00']);
+  });
+
+  it('names an instant a reader before it already matched past', () => {
+    const bad = JSON.stringify({
+      note: 'Captured 2026-06-01T12:00:00 from the reference engine.',
+      at: '2026-06-01T12:00:00.000Z',
+    });
+
+    // `toMatch` runs `RegExp.prototype.test`, which advances `lastIndex` on a
+    // global regex. The first instant is the one the guard exists to catch.
+    expect(bad).toMatch(INSTANT);
+    expect(offsetless(bad)).toEqual(['2026-06-01T12:00:00']);
+  });
+
+  it('names the same instant on a second call as on the first', () => {
+    const bad = JSON.stringify({ value: '2026-06-01T12:00:00' });
+
+    expect(offsetless(bad)).toEqual(offsetless(bad));
     expect(offsetless(bad)).toEqual(['2026-06-01T12:00:00']);
   });
 
