@@ -30,15 +30,16 @@ Consider a staff dashboard:
 ```
 
 In this structure:
+
 - The root contains two main sections: `week` and `counter`.
 - The `week` item acts as a container, wrapping three `metric` widgets.
 - The `counter` item wraps two board widgets: `tables` and `reprints`.
 
-Because the children are nested *inside* the parent item, moving the `week` item to the bottom of the array moves all three metrics with it, preserving the group's integrity.
+Because the children are nested _inside_ the parent item, moving the `week` item to the bottom of the array moves all three metrics with it, preserving the group's integrity.
 
 ## Placement and the Wrapper
 
-While the widget's `props` contain the data, the widget's `meta` property contains **placement data**. 
+While the widget's `props` contain the data, the widget's `meta` property contains **placement data**.
 
 A **wrapper** is the component that surrounds each widget. It uses the `meta` field to determine how the widget should be positioned (e.g., in a grid).
 
@@ -49,12 +50,23 @@ In the dashboard example, the `tables` widget has `meta: { span: 2 }`. The wrapp
 While `@evanion/react-widget` and `@evanion/astro-widget` both use the same core widget items and follow the same order, they handle the rendering process differently:
 
 ### 1. Handling Children
+
 - **`@evanion/react-widget`**: Draws each child first and passes the resulting React elements as the `children` prop to the parent component.
 - **`@evanion/astro-widget`**: Passes the raw child items to the parent component. The parent is then responsible for rendering its own `<Widgets />` component over those items.
 
 ### 2. The Wrapper
+
 - **React**: Uses a default wrapper (a `div`) that ignores `meta` unless you provide a custom one.
 - **Astro**: Does not provide a default wrapper. You must pass one, and that wrapper must render a `<slot />`, or the widget inside will not appear on the page.
+
+## Move a Widget Item and Watch the Page Follow
+
+`@evanion/react-widget` draws the dashboard below from the seven items above, and draws it again after every move. The items are printed under the page, and each line that opens an item has two move controls beside it.
+
+- Move `counter` above `week`. The two rows swap, and each row keeps its own items, because an item's `children` move with it.
+- Move the board `tables` past the board `reprints`. The wide board changes sides, because `meta` belongs to the item it sits on, so the width moves with `tables`.
+
+<DataDemo />
 
 ## Build a Custom Renderer for Layout
 
