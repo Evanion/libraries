@@ -18,7 +18,7 @@ If your system has already issued codes using `@evanion/luhn` 2.x, you must deci
 2. **Legacy Support**: Maintain a legacy instance to validate 2.x codes.
 3. **Transition Period**: Validate against both 2.x and 3.x instances, and reissue the code to the 3.x format when it is first read.
 
-The 2.x default lowercased input but used a 62-character dictionary that included both cases. You can reproduce 2.x check characters using `ALTERNATING_CASE_DICTIONARY` combined with lowercased input:
+The 2.x default lowercased input but used a 62-character dictionary that included both cases. `ALTERNATING_CASE_DICTIONARY` over lowercased input reproduces 2.x check characters:
 
 ```ts twoslash file=libs/luhn/README.md region=legacy-default
 
