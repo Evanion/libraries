@@ -17,13 +17,13 @@ To mint an `@evanion/token` code longer or shorter than a pickup code, or groupe
 
 A short, 8-character `@evanion/token` code suits a pickup order: it's easy to read and type. But a gift card is issued in larger numbers and holds a balance, so an 8-character code collides sooner and is guessed sooner than you want. You need a longer identifier that still feels "human-readable" through proper chunking.
 
-Conversely, a code that staff call out across a room might need a very specific shape (perhaps two groups of three characters separated by a space) to reduce miscommunication.
+Conversely, a code that staff call out across a room needs a specific shape (perhaps two groups of three characters separated by a space) to reduce miscommunication.
 
 ## Choosing a Code Shape
 
 In `@evanion/token`, each extra character of `length` adds 5 bits with the default dictionary, and `chunkSize` decides where the separators go.
 
-For a gift card, you might want more characters to reduce the risk of collisions:
+For a gift card, set a longer `length`:
 
 ```ts twoslash file=libs/token/README.md region=instances
 
