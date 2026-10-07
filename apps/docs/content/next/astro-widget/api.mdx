@@ -185,7 +185,8 @@ interface WidgetProblem {
 `WidgetProblem` is one line of the report `validateItems` returns. `index` is
 the item's position in its own sibling list, and `-1` when `items` is not an
 array. `id` and `type` are the item's own, or `-` when that field is not a
-string, so `id` tells apart two problems at `index: 0` on different levels.
+string. A problem carries no depth, so `id` tells apart two problems at
+`index: 0` on different levels only when the ids are unique across the tree.
 [The widget core's entry](/widget/api#widgetproblem) carries the rest.
 
 ## `KnownWidgetTypes`
@@ -211,11 +212,11 @@ report the same problems. A script run under plain Node, which cannot import
 warn with, so a stale type reads the same way whether React or Astro drew the
 page. `Widgets.astro` uses three of the five keys:
 
-| Key               | `Widgets.astro` uses it                                         |
-| ----------------- | --------------------------------------------------------------- |
-| `UNKNOWN_WIDGET`  | to warn that an item's `type` is not an own key of the registry |
-| `MALFORMED_ITEMS` | to warn that `items` is present and is not an array             |
-| `UNKNOWN`         | in that warning, for a `type` or `id` that is not a string      |
+| Key               | `Widgets.astro` uses it                                                    |
+| ----------------- | -------------------------------------------------------------------------- |
+| `UNKNOWN_WIDGET`  | to warn that an item's `type` is not an own key of the registry            |
+| `MALFORMED_ITEMS` | to warn that `items` is present and is not an array                        |
+| `UNKNOWN`         | in the `UNKNOWN_WIDGET` warning, for a `type` or `id` that is not a string |
 
 Only `@evanion/react-widget` warns with `MALFORMED_ITEM` and
 `MALFORMED_CHILDREN`. The [Unknown types](#unknown-types) example prints
