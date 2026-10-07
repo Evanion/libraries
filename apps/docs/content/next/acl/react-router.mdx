@@ -25,7 +25,7 @@ The `adoptMatrix` function transforms the published JSON document into a live `@
 
 ```
 
-To optimize performance, the document is memoized using a version key. Since `parseMatrix` performs deep-cloning and freezing on every call, memoization prevents unnecessary overhead during repeated evaluations.
+To optimize performance, the document is memoized using a version key. Since `parseMatrix` performs deep-cloning and freezing on every call, memoization prevents unnecessary overhead when the same document version arrives again.
 
 Because the server evaluates the matrix for enforcement and the browser evaluates it for UI toggles, `access.ts` is a shared module. However, the network call to fetch the document is isolated in `access.server.ts`, ensuring that the API credentials and fetch logic are kept out of the browser bundle.
 

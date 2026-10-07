@@ -78,7 +78,7 @@ flowchart LR
 
 If a service is offline or unreachable, simply omit it from the object passed to `federatedPolicies`. The view will treat any keys owned by that missing service as `unknown-action`.
 
-Each member of the federation is built using `parseMatrix`, ensuring that if a service is dropped from the federation, its rules are not mistakenly treated as grants in "closed mode."
+Build each member from a fetched document with `parseMatrix`: in "closed mode," a permission the owner dropped from its document answers `unknown-action` where `hydratePolicy` would throw.
 
 ## Cross-Cutting Denials via Overlays
 

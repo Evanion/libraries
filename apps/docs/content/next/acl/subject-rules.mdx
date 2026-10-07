@@ -43,7 +43,7 @@ flowchart TD
 
 ### Identifying rules with `.id`
 
-By default, `@evanion/acl` generates an internal hash as the ID for every rule. While this works for the engine, it's useless for logging or debugging.
+By default, `@evanion/acl` generates an internal hash of the rule's conditions as the ID for every rule. The hash stays stable and names the rule in a log, but it tells a reader nothing when debugging.
 
 You can use `.id(name)` to give a rule a human-readable name. For example, naming a rule `suspended-reads-nothing` allows your application to log exactly why a user was blocked, making it much easier to provide helpful feedback to the user or support staff.
 

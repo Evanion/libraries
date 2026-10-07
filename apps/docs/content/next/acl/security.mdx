@@ -65,12 +65,12 @@ To close this gap, you should either re-read the object and re-check the permiss
 
 The `now` parameter allows you to evaluate time-based boundaries (`before`/`after`).
 
-| `now` Value           | Engine Behavior              | Result                                                                              |
-| --------------------- | ---------------------------- | ----------------------------------------------------------------------------------- |
-| Omitted               | Uses the process wall clock. | Evaluated against the current server time.                                          |
-| Supplied Instant      | Uses the provided value.     | Evaluated against the specific instant.                                             |
-| Browser Wall Clock    | Uses the client's clock.     | **Dangerous**: A user can set their system clock back to "re-open" a closed window. |
-| Unparseable / Invalid | Cannot determine time.       | Returns `{ allowed: false, reason: 'unusable-clock' }`.                             |
+| `now` Value           | Engine Behavior              | Result                                                                                                       |
+| --------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Omitted               | Uses the process wall clock. | Evaluated against the current server time.                                                                   |
+| Supplied Instant      | Uses the provided value.     | Evaluated against the specific instant.                                                                      |
+| Browser Wall Clock    | Uses the client's clock.     | **Dangerous**: A user can set their system clock back to "re-open" a closed window.                          |
+| Unparseable / Invalid | Cannot determine time.       | Returns `{ allowed: false, reason: 'unusable-clock' }` from every permission that needs the clock to decide. |
 
 ```ts twoslash file=libs/acl/README.md region=unusable-clock
 
