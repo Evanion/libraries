@@ -1255,6 +1255,20 @@ describe('reload, the diff it reports', () => {
     expect(result.ok && result.changed).toEqual([]);
   });
 
+  it('names a key whose variant value holds a different instant', () => {
+    const features = createFeatures([valued(new Date(0))]);
+
+    const result = features.reload({
+      features: [valued(new Date(86400000))],
+    } as unknown as FeatureConfig<'cta'>);
+
+    // The direction the pair of equal instants cannot pin. `Object.keys` reads
+    // nothing off either side, so a diff that answered `true` for every pair
+    // of them would serve the old variant value forever to a holder that
+    // invalidates its cache on `changed`.
+    expect(result.ok && result.changed).toEqual(['cta']);
+  });
+
   it('names a key whose attribute condition holds a Date against its string', () => {
     const features = createFeatures([
       {
