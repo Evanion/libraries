@@ -152,6 +152,30 @@ function conditionsAfterFirstDropped(config: FeatureConfig): FeatureConfig {
   };
 }
 
+/**
+ * The document a port that gives every variant one share reads.
+ *
+ * `assignmentOf` normalises each `weight` over the set's total, so a set whose
+ * weights are all equal bands the bucket space evenly. That is the banding a
+ * port which never reads `weight` computes, whatever the weights say.
+ */
+function weightsEven(config: FeatureConfig): FeatureConfig {
+  return {
+    ...config,
+    features: config.features.map((definition) =>
+      definition.variants
+        ? {
+            ...definition,
+            variants: definition.variants.map((variant) => ({
+              ...variant,
+              weight: 1,
+            })),
+          }
+        : definition,
+    ),
+  };
+}
+
 describe('the published cross-process fixture', () => {
   it('states the digest of the document it carries', () => {
     expect(fixture.config.digest).toBe(configDigest(fixture.config));
@@ -293,11 +317,14 @@ describe('the document the fixture publishes', () => {
     expect(conditions.filter((each) => each.op === 'after').length).toBe(1);
     expect(conditions.filter((each) => each.op === 'before').length).toBe(2);
     expect(rules.filter((each) => each.rollout).length).toBe(2);
+    expect(definitions.filter((each) => each.variants).length).toBeGreaterThan(
+      0,
+    );
     expect(
       definitions
         .flatMap((each) => each.variants ?? [])
-        .map((variant) => variant.order),
-    ).toEqual([1, 0]);
+        .filter((variant) => variant.order === undefined),
+    ).toEqual([]);
   });
 
   it('publishes an assignment, so a port proves its bucketing', () => {
@@ -305,11 +332,17 @@ describe('the document the fixture publishes', () => {
       (decision) => (decision as { assignment?: unknown }).assignment,
     );
 
-    expect(assigned).toHaveLength(1);
-    expect(assigned[0]).toMatchObject({
-      variant: expect.any(String),
-      assignment: { source: 'weighted', bucket: expect.any(Number) },
-    });
+    expect(assigned).toHaveLength(2);
+    expect(assigned).toMatchObject([
+      {
+        variant: expect.any(String),
+        assignment: { source: 'weighted', bucket: expect.any(Number) },
+      },
+      {
+        variant: expect.any(String),
+        assignment: { source: 'weighted', bucket: expect.any(Number) },
+      },
+    ]);
   });
 
   it('decides one rollout against the subject and one for it', () => {
@@ -467,6 +500,22 @@ describe('the document the fixture publishes', () => {
       sorted.map((variant) => variant.name),
     );
     expect(decisionsOver(ordersByPosition(fixture.config))).not.toEqual(
+      fixture.decisions,
+    );
+  });
+
+  it('splits one feature on weights an even split disagrees with', () => {
+    const uneven = fixture.config.features.filter((definition) => {
+      const weights = definition.variants?.map((variant) => variant.weight);
+      return weights && new Set(weights).size > 1;
+    });
+
+    // § 3 names `weight` as one of the four members a document carries whole.
+    // A fifty-fifty split bands the bucket space where an even split bands it,
+    // so a port that reads no weight answers every such feature correctly and
+    // misassigns every subject on the first ramped split it is served.
+    expect(uneven.length).toBeGreaterThan(0);
+    expect(decisionsOver(weightsEven(fixture.config))).not.toEqual(
       fixture.decisions,
     );
   });

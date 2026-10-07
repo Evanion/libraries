@@ -2,7 +2,7 @@
   "note": "One document, one context, and the decisions any implementation must produce. See docs/specs/2026-09-23-feature-config-distribution.md § 9.",
   "config": {
     "version": 1,
-    "digest": "392615dec0e82adb204d4d410c4b9b53",
+    "digest": "7f02c51a02170750c1e55b7b1bbce575",
     "features": [
       {
         "key": "checkout",
@@ -165,13 +165,38 @@
             }
           }
         ]
+      },
+      {
+        "key": "hero-copy",
+        "enabled": true,
+        "variantBy": "accountId",
+        "variantSeed": "headline-v1",
+        "variants": [
+          {
+            "name": "long",
+            "weight": 75,
+            "order": 0,
+            "value": {
+              "headline": "Every title your shelf is missing"
+            }
+          },
+          {
+            "name": "short",
+            "weight": 25,
+            "order": 1,
+            "value": {
+              "headline": "Shop the shelf"
+            }
+          }
+        ]
       }
     ]
   },
   "context": {
     "targetingKey": "u-4711",
     "now": "2026-06-01T12:00:00.000Z",
-    "plan": "pro"
+    "plan": "pro",
+    "accountId": "acct-9"
   },
   "decisions": {
     "checkout": {
@@ -270,6 +295,20 @@
       },
       "value": {
         "label": "Get it"
+      }
+    },
+    "hero-copy": {
+      "key": "hero-copy",
+      "enabled": true,
+      "reason": "default-on",
+      "variant": "long",
+      "assignment": {
+        "source": "weighted",
+        "by": "accountId",
+        "bucket": 0.6766119098756462
+      },
+      "value": {
+        "headline": "Every title your shelf is missing"
       }
     }
   }
