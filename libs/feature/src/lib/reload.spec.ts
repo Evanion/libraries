@@ -724,6 +724,46 @@ describe('reload, the diff it reports', () => {
     expect(result.ok && result.changed).toEqual([]);
   });
 
+  it('names a key whose attribute condition holds a Date against its string', () => {
+    const features = createFeatures([
+      {
+        key: 'sale',
+        enabled: true,
+        rules: [
+          {
+            when: [{ field: 'cohort', op: 'eq' as const, value: new Date(0) }],
+          },
+        ],
+      },
+    ]);
+
+    const result = features.reload({
+      features: [
+        {
+          key: 'sale',
+          enabled: true,
+          rules: [
+            {
+              when: [
+                {
+                  field: 'cohort',
+                  op: 'eq' as const,
+                  value: '1970-01-01T00:00:00.000Z',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    } as unknown as FeatureConfig<'sale'>);
+
+    // The window operators are the pair that reads an instant. Every other
+    // operator runs over `===` in `evaluateCondition`, so the store comparing
+    // the `Date` and a holder comparing the string decide this rule two ways
+    // and the two documents state two intents.
+    expect(result.ok && result.changed).toEqual(['sale']);
+  });
+
   it('names the keys in the candidate order, with a dropped key after them', () => {
     const features = createFeatures([
       { key: 'alpha', enabled: true },
