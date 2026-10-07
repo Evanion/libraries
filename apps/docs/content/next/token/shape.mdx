@@ -13,15 +13,15 @@ To mint an `@evanion/token` code longer or shorter than a pickup code, or groupe
   ]}
 />
 
-## The Problem: One Size Doesn't Fit All
+## Why a Gift Card Needs a Longer Code
 
-A short, 8-character `@evanion/token` code is perfect for a pickup order: it's easy to read and type. But a gift card is issued in larger numbers and holds a balance, so an 8-character code collides sooner and is guessed sooner than you want. You need a longer identifier that still feels "human-readable" through proper chunking.
+A short, 8-character `@evanion/token` code suits a pickup order: it's easy to read and type. But a gift card is issued in larger numbers and holds a balance, so an 8-character code collides sooner and is guessed sooner than you want. You need a longer identifier that still feels "human-readable" through proper chunking.
 
-Conversely, a "counter code" meant to be spoken aloud might need a very specific shape (perhaps two short words separated by a space) to reduce miscommunication.
+Conversely, a code that staff call out across a room might need a very specific shape (perhaps two short words separated by a space) to reduce miscommunication.
 
-## Solution: Custom Token Shapes
+## Choosing a Code Shape
 
-`createToken` in `@evanion/token` allows you to define the exact geometry of your codes. By adjusting the length and chunking, you can balance entropy with usability.
+In `@evanion/token`, each extra character of `length` adds 5 bits with the default dictionary, and `chunkSize` decides where the separators go.
 
 For a gift card, you might want more characters to reduce the risk of collisions:
 
@@ -31,7 +31,7 @@ For a gift card, you might want more characters to reduce the risk of collisions
 
 In this example, `giftCard` draws 15 random characters and appends a check character. With the default 32-character dictionary, each character carries 5 bits, so this provides 75 bits of entropy. Using a `chunkSize` of 4 creates a visually organized code with three hyphens, resulting in a 19-character value.
 
-### Shape Options Reference
+### `createToken` options
 
 | Option       | Type     | Default              | Meaning                                            |
 | :----------- | :------- | :------------------- | :------------------------------------------------- |
@@ -44,13 +44,13 @@ In this example, `giftCard` draws 15 random characters and appends a check chara
 
 ## Creating "Spoken" Codes
 
-If you need an `@evanion/token` code that is easy to call out across a room, you can use a space as a separator and a smaller chunk size. This turns a string of characters into something that reads like two short words:
+If you need an `@evanion/token` code that is easy to call out across a room, set `length` to 6 with a `chunkSize` of 3 and a space as the separator. Six characters leave 25 random bits, and the code reads like two short words:
 
 ```ts twoslash file=libs/token/README.md region=spoken
 
 ```
 
-Because `validate` is tied to the instance that created the code, `counterCode.validate` knows to strip spaces rather than hyphens.
+Because `validate` is tied to the instance that created the code, `counterCode.validate` strips spaces. It strips only its own separator, so the same code typed with a hyphen fails.
 
 ## Invalid Shapes and `InvalidShapeError`
 
@@ -72,18 +72,19 @@ The option to change is not always the one `reason` names: a `length` of 12 fixe
 | `chunk-size`              | `chunkSize` is not an integer or is below 1.          | Set an integer of at least 1.                                                    |
 | `chunk-size-indivisible`  | `chunkSize` does not divide `length` evenly.          | Adjust either `length` or `chunkSize`.                                           |
 | `separator-empty`         | `separator` is an empty string.                       | Provide a separator, or set `chunkSize` equal to `length` for an unchunked code. |
-| `separator-in-dictionary` | `separator` shares a character with the `dictionary`. | Choose a separator that doesn't appear in the alphabet.                          |
+| `separator-in-dictionary` | `separator` shares a character with the `dictionary`. | Choose a separator that doesn't appear in the dictionary.                        |
 
-If the `separator` shared a character with the `dictionary`, `validate` would be unable to strip it without accidentally removing part of the code's body, which is why this is forbidden. A `dictionary` that `createToken` refuses throws `InvalidAlphabetError`, or `InvalidDictionaryError` from `@evanion/luhn`, never `InvalidShapeError`.
+If the `separator` shared a character with the `dictionary`, `validate` would be unable to strip it without accidentally removing part of the code's body, which is why this is forbidden. A `dictionary` that breaks an alphabet rule throws `InvalidAlphabetError`, or `InvalidDictionaryError` from `@evanion/luhn`. A dictionary that passes those rules but holds the separator, such as `'0123456789abcde-'` with the default hyphen, throws `InvalidShapeError` with `separator-in-dictionary`.
 
 ## Try a Token Shape
 
-The card below mints `@evanion/token` codes in your browser. Its Say it as control sets the `length` and `chunkSize` pair, and its Drawn from control picks the default 32 characters or hexadecimal.
+The card below mints `@evanion/token` codes in your browser. Its "Say it as" control sets the `length` and `chunkSize` pair, and its "Drawn from" control picks the default 32 characters or hexadecimal.
 
 <TokenSpecimen initial="a4kp-9mxa" />
 *The caption reports the code's random bits, and how many codes you can issue
-before the chance that two match reaches one in two.*
+before the chance that two match reaches one in two. [Entropy and
+collisions](../entropy) explains both numbers.*
 
 ## Draw Codes from Another Dictionary
 
-Every `@evanion/token` example so far has used the default 32-character alphabet. [The alphabet](../alphabet) shows how to provide your own `dictionary` to `createToken` and the rules that a custom alphabet must follow.
+Every `@evanion/token` example so far has used the default 32-character dictionary. [The alphabet](../alphabet) shows how to provide your own `dictionary` to `createToken` and the rules that a custom dictionary must follow.

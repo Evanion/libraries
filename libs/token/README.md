@@ -4,14 +4,14 @@
 
 Stop wasting database resources on mistyped codes. Whether it's a gift card, a pickup code, or a support ticket, a single typo should be caught instantly, before your application ever hits the database.
 
-## The Problem: The "Database-Driven" Validation Trap
+## Why a Database Lookup Is the Wrong First Check
 
 Most developers generate random strings and validate them by querying the database. This creates two major problems:
 
 1. **Expensive Failures**: A mistyped code still triggers a database lookup. At scale, thousands of typos per hour become a significant and unnecessary load on your infrastructure.
 2. **Poor User Experience**: A user who types `a4kp-9mx8` instead of `a4kp-9mxa` only finds out they failed when the database returns "Not Found," which is indistinguishable from a code that actually doesn't exist.
 
-## The Solution: Check-Character Tokens
+## Check Characters Refuse a Typo Locally
 
 `@evanion/token` generates tokens with an integrated check character, computed by `@evanion/luhn` with the Luhn algorithm. This allows you to validate a code's structural integrity locally. If a user mistypes a single character, the token is rejected instantly, without a single database query.
 
@@ -78,17 +78,15 @@ Every option is optional. A gift card code wants more characters than a pickup c
 <!-- #region instances -->
 
 ```ts @import.meta.vitest
-const pickupCode = createToken();
 const giftCard = createToken({ length: 16, chunkSize: 4 });
 
-pickupCode.generate().value.length; // -> 9
 giftCard.generate().value.length; // -> 19
 giftCard.entropyBits; // -> 75
 ```
 
 <!-- #endregion instances -->
 
-A shape that cannot describe a code throws `InvalidShapeError` at construction. The error carries a `reason` and all three of `length`, `chunkSize` and `separator` as they were resolved, defaults included:
+A shape that cannot describe a code throws `InvalidShapeError` at construction. The error carries a `reason` and all three of `length`, `chunkSize` and `separator` as they were resolved, defaults included. A dictionary that holds the separator throws it too:
 
 <!-- #region shape-errors -->
 
@@ -111,6 +109,7 @@ refusal({ length: 10, chunkSize: 5 }); // -> undefined
 refusal({ length: 10, chunkSize: 4 })?.reason; // -> 'chunk-size-indivisible'
 refusal({ length: 10, chunkSize: 4 })?.message; // -> 'Token chunkSize must divide length, or the last chunk is shorter than the rest; 4 does not divide 10.'
 refusal({ length: 12, chunkSize: 4 }); // -> undefined
+refusal({ dictionary: '0123456789abcde-' })?.reason; // -> 'separator-in-dictionary'
 refusal({ separator: 'a' })?.reason; // -> 'separator-in-dictionary'
 refusal({ separator: 'a' })?.length; // -> 8
 ```
@@ -277,6 +276,7 @@ const { value } = counterCode.generate();
 value.length; // -> 7
 value.charAt(3); // -> ' '
 counterCode.validate(value).valid; // -> true
+counterCode.validate(value.replace(' ', '-')).valid; // -> false
 ```
 
 <!-- #endregion spoken -->
@@ -359,7 +359,7 @@ issued.size; // -> 1
 
 <!-- #endregion issue -->
 
-Raise `length` if 218,000 is within reach of your volume; five more characters add 25 more bits.
+The retry absorbs a collision. Size `length` by the chance that the next insert conflicts, the codes already issued divided by `2^bits`: keep it below 1 in 1,000 at the volume you expect in three years. At 35 bits that is about 34 million codes, and five more characters add 25 more bits.
 
 A 35-bit code protects against typos, not against an attacker enumerating codes. Don't use it for session IDs, password resets or anything where knowing the string grants access. If a readable code does gate something, such as a gift card balance, rate-limit the lookup and bind it to a second factor.
 
@@ -473,7 +473,7 @@ hexCard.generate().value.length; // -> 19
 - `createToken(options?)` validates `length`, `chunkSize`, `separator` and `dictionary` and returns a frozen `Token`. Defaults: `8`, `4`, `'-'`, `DEFAULT_DICTIONARY`.
 - `Token` carries `dictionary`, `n`, `length`, `chunkSize`, `separator`, `entropyBits`, `generate(options?)` returning `{ value, body, check, prefix }`, and `validate(input)` returning `{ valid: true, body } | { valid: false, reason }`.
 - `DEFAULT_DICTIONARY`, `CONFUSABLE_CHARACTERS`, `DEFAULT_LENGTH`, `DEFAULT_CHUNK_SIZE`, `DEFAULT_SEPARATOR` are the constants above.
-- `TokenError` is the base class for everything this package throws. `InvalidAlphabetError` carries `reason` (`confusable | unfolded | non-uniform`), `dictionary` and `offending`. `InvalidShapeError` carries `reason`, `length`, `chunkSize` and `separator`.
+- `TokenError` is the base class for every error this package defines. `createToken` also lets `@evanion/luhn`'s `InvalidDictionaryError` through. `InvalidAlphabetError` carries `reason` (`confusable | unfolded | non-uniform`), `dictionary` and `offending`. `InvalidShapeError` carries `reason`, `length`, `chunkSize` and `separator`.
 
 Everything is checked at construction and nothing at use: `generate` and `validate` never throw, and an instance cannot mint an unprefixed code its own `validate` rejects.
 
