@@ -139,7 +139,13 @@ This will guide you through creating a properly formatted commit message.
 
 ### Dependency versions
 
-A package that another dependency builds on moves only as far as that
+Application frameworks (Nest, Next, React, React Router, Astro, Nextra) track
+their latest release. When tooling around a framework lags behind it, such as
+an nx plugin whose peer range stops a major short, root `overrides` holds the
+framework at its latest and the entry under Dependency overrides says which
+range it overrides.
+
+Any other package that a dependency builds on moves only as far as that
 dependency's declared range allows. Shiki moves when Nextra's range admits the
 new major, vitest when `@nx/vitest`'s does. When an upgrade is blocked this way,
 `.github/dependabot.yml` ignores the blocked major with a comment naming the
