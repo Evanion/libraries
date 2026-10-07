@@ -13,15 +13,15 @@
   ]}
 />
 
-## The Problem: The "Silent Gap" in Production
+## The Silent Gap in Production
 
-astro-widget's `Widgets.astro` follows a "fail-soft" strategy: if it encounters a widget `type` it doesn't recognize, it skips that item and renders the rest of the region.
+astro-widget's `Widgets.astro` skips an item whose `type` the registry does not hold, the fail-soft rule [Getting started](../getting-started#catch-a-stale-type-before-it-ships) ended on, and renders the rest of the list.
 
-While this prevents the entire page from crashing, it results in a "silent gap" in your production content, because the renderer warns only when `NODE_ENV` is not `production`, and `astro build` sets it to `production` when your environment has not set it. A content editor might accidentally use a stale widget type or misspell a type name, and you wouldn't know the page is broken until a user reports it.
+`Widgets.astro` warns about a skipped item only when `NODE_ENV` is not `production`. `astro build` sets `NODE_ENV` to `production` when your environment has not set it, so a production build skips the item with no warning and publishes the page with a gap. A content editor might accidentally use a stale widget type or misspell a type name, and you wouldn't know the page is broken until a user reports it.
 
-## Solution: A Build-Time Quality Gate
+## Check the Items with `validateItems`
 
-You can use astro-widget's `validateItems` to scan your CMS payload before the build process starts, turning a silent runtime failure into a loud build-time error. It takes the items and `known`, the widget types you render, and an optional third argument, `required`, which maps a type to the props it cannot render without:
+Run astro-widget's `validateItems` over the CMS payload before `astro build`, so the build script throws on a save `Widgets.astro` would render with a gap. It takes the items and `known`, the widget types you render, and an optional third argument, `required`, which maps a type to the props it cannot render without:
 
 ```ts twoslash file=libs/astro-widget/README.md region=validate
 
@@ -37,7 +37,7 @@ To ensure no broken content ever ships, create a validation script (e.g., `scrip
 
 ```
 
-`known` lists the type names, because a script Node runs cannot import the `.astro` modules the registry holds. The package's main entry holds no `.astro` file, so Node imports `validateItems` from it.
+`known` lists the type names, because a script Node runs cannot import the `.astro` modules the registry holds. `Widgets.astro` has a subpath of its own, so `@evanion/astro-widget` itself holds no `.astro` file, and Node imports `validateItems` from it.
 
 Set your `package.json`'s `build` script to run this check before `astro build`. `tsx` runs a TypeScript file in Node, and `npx` fetches it if the project does not have it:
 
@@ -72,4 +72,4 @@ astro-widget's `validateItems` can accept either a full component registry or a 
 
 ## Lay Out the Rest of the Page
 
-Your build now stops on a missing type or a blank required prop. [Page data, wrappers and nested items](../layout) shows how to provide page-level data to your widgets, wrap them in shared markup, and create nested layouts.
+Your build now stops on an unknown type or a blank required prop. [Page data, wrappers and nested items](../layout) shows how to provide page-level data to your widgets, wrap them in shared markup, and create nested layouts.

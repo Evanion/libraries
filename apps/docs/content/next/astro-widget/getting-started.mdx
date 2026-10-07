@@ -15,11 +15,11 @@ By the end of this page, you will have an Astro page where `Widgets.astro` rende
 
 ## Prerequisites
 
-To follow this guide, ensure you have the following:
+Before you install astro-widget, you need:
 
 - **An Astro project**: If you don't have one, run `npm create astro@latest`. It makes one with a `dev` script that starts Astro's development server.
 - **Astro 7.3.4 or a later 7.x release**: This is the package's only peer dependency. `npx astro --version` prints the version your project has.
-- **Node 20 or newer and an ESM project**: `@evanion/astro-widget` is an ESM-only package. A project `npm create astro` made is ESM already.
+- **Node 22.12 or newer and an ESM project**: Astro 7 needs Node 22.12, and `@evanion/astro-widget` is an ESM-only package. A project `npm create astro` made is ESM already.
 
 ## Install astro-widget
 
@@ -37,7 +37,7 @@ yarn add @evanion/astro-widget
 pnpm add @evanion/astro-widget
 ```
 
-`@evanion/widget` (the core logic) is installed automatically, and you import its item types, `defineWidgets`, `validateItems` and both message tables directly from `@evanion/astro-widget`. `Widgets.astro` is published as `.astro` source, and Astro compiles it from `node_modules` with no configuration.
+`@evanion/widget` (the core logic) is installed automatically, and you import its item types, `defineWidgets`, `validateItems`, `ERROR_MESSAGES` and `VALIDATION_MESSAGES` directly from `@evanion/astro-widget`. `Widgets.astro` is published as `.astro` source, and Astro compiles it from `node_modules` with no configuration.
 
 ## Step 1: Write Your Widgets
 
@@ -57,7 +57,7 @@ An astro-widget widget is just an ordinary `.astro` component, and it receives t
 
 ## Step 2: Map Each Type to Its Widget
 
-To tell astro-widget's renderer which component to use for each item type, you create a **registry**. Use the `defineWidgets` helper to keep your type names as literal types, `'listing-header'` and `'price-box'` where a plain object would have `string`, which gives you autocomplete in your editor.
+astro-widget's renderer finds each item's widget in a registry, the type-to-component map [the Overview](../) showed. Use the `defineWidgets` helper to keep your type names as literal types, `'listing-header'` and `'price-box'` where a plain object would have `string`, which gives you autocomplete in your editor.
 
 Save this as `src/registry.ts`:
 
@@ -77,11 +77,11 @@ Then, create a TypeScript wrapper (`src/data/brass-birmingham.ts`) that assigns 
 
 ```
 
-`astro check` and your editor now report an entry in the JSON that has no `id`, no `type` or no `props` object. They check no value inside `props`, and a save the CMS writes after `astro check` ran goes unchecked until the next run.
+`astro check` and your editor now type-check the JSON, and report any entry that has no `id`, no `type` or no `props` object. They check no value inside `props`. They also check the file as it was when they ran, so a save the CMS writes later goes unchecked until the next run.
 
 ## Step 4: Render the Items on a Page
 
-Now, create a page in `src/pages/brass-birmingham.astro`. astro-widget's `Widgets.astro` takes the items and the registry, and renders each item through its widget, in order:
+Now, create a page in `src/pages/brass-birmingham.astro`. It imports astro-widget's `Widgets.astro` from `@evanion/astro-widget/components/Widgets.astro`, which takes the items and the registry, and renders each item through its widget, in order:
 
 ```astro file=libs/astro-widget/examples/src/pages/brass-birmingham.astro region=page
 
@@ -91,7 +91,7 @@ Astro serves this file at `/brass-birmingham`.
 
 ## Open the Listing Page
 
-Start the development server with your project's `dev` script:
+To see the page astro-widget renders, start Astro's development server with your project's `dev` script:
 
 ```bash
 npm run dev
@@ -99,7 +99,7 @@ npm run dev
 
 Open `http://localhost:4321/brass-birmingham`, the port Astro prints when it starts. You will see the header and the price box rendered in the order they appear in the JSON. The page source shows that `Widgets.astro` adds no HTML element of its own inside the `<main>` tag.
 
-The package keeps the same files under its `examples/src` and renders the page in its own tests, with the container API [the Overview](../) used. Its last line holds the `<main>` element your page renders:
+The package keeps the same files under its `examples/src` and renders the page in its own tests, with the container API [the Overview](../) used. The code below is that test, and its last line holds the `<main>` element your page renders:
 
 ```ts file=libs/astro-widget/README.md region=first-render
 

@@ -1,8 +1,6 @@
 # @evanion/astro-widget
 
-**Render CMS-driven pages with zero-JS overhead using Astro.**
-
-A content management system (CMS) saves a page as a list of items, and each item's `type` names the `.astro` component that renders its `props`.
+A content management system (CMS) that lays out an Astro page saves it as a list of items, each naming its `.astro` component by `type`, so the page cannot import its components by hand.
 
 <PageSheet
   difficulty={1}
@@ -13,23 +11,23 @@ A content management system (CMS) saves a page as a list of items, and each item
   ]}
 />
 
-## The Problem: The "Static Content" Bottleneck
+## Pages a CMS Lays Out
 
 In many Astro projects, developers place components on a page by hand, and astro-widget is for the page where that stops working: when a CMS drives the page, you don't know which components are needed until the data is fetched.
 
 Writing a `switch` statement on the `type` string by hand is repetitive and error-prone. An `.astro` module's type also carries none of its component's props, so it's easy to miss a required prop in the CMS data and publish a broken page.
 
-## Solution: Data-Driven Component Mapping
+## The Registry and `Widgets.astro`
 
-`@evanion/astro-widget` solves this with a **registry**, a map from each widget type, such as `'listing-header'`, to the `.astro` component that renders it. The `Widgets.astro` component takes your item array and the registry, and renders each item in order through its mapped component when Astro renders the page, so it sends no JavaScript to the browser.
+`@evanion/astro-widget` finds each item's component in a **registry**, a map from each widget type, such as `'listing-header'`, to the `.astro` component that renders it. The `Widgets.astro` component takes your item array and the registry, and renders each item in order through its mapped component when Astro renders the page, so it sends no JavaScript to the browser.
 
-A page writes `<Widgets items={items} registry={registry} />`, and the test below renders the same component through Astro's container API and gets its HTML back as a string, for two items from a listing page at Baize, the board game shop these pages are set in:
+A page writes `<Widgets items={items} registry={registry} />`, and the test below renders the same component through Astro's container API, which renders a component outside a request, and gets its HTML back as a string, for two items from a listing page at Baize, the board game shop these pages are set in:
 
 ```ts file=libs/astro-widget/README.md region=overview
 
 ```
 
-The `listing-header` item became the `<header>`, and the `price-box` item became the price, in the order the list gives them. By decoupling the content (the item array) from the rendering logic (the registry), you can rearrange a page by updating the items your CMS saves.
+The `listing-header` item became the `<header>`, and the `price-box` item became the price, in the order the list gives them. To reorder the page, the CMS saves the items in a new order, and no component changes.
 
 ## The astro-widget Vocabulary
 
@@ -44,6 +42,8 @@ The item shape, `defineWidgets` and `validateItems` come from `@evanion/widget`,
 
 ## Core Capabilities
 
+Each astro-widget capability below is taught on the page its last column links:
+
 | You want to...                   | Use this tool                           | Taught on                                                               |
 | :------------------------------- | :-------------------------------------- | :---------------------------------------------------------------------- |
 | Render a page from CMS items     | `Widgets.astro`                         | [Getting started](./getting-started)                                    |
@@ -56,7 +56,7 @@ The item shape, `defineWidgets` and `validateItems` come from `@evanion/widget`,
 ## When astro-widget is the Wrong Tool
 
 - **Dynamic Content**: `Widgets.astro` renders once, when Astro renders the page. If a page needs to change after it has loaded in the browser, use `@evanion/react-widget` within an Astro island.
-- **Strict Prop Checking**: If you need the compiler to verify every prop of every item, use `@evanion/react-widget`, which infers props from its components. An `.astro` module's type carries no props, so astro-widget checks the props you list from a script, with `validateItems`.
+- **Strict Prop Checking**: The compiler does not check an item's props against its astro-widget component, because an `.astro` module's type carries no props. `validateItems` checks the props you list, from a script. If you need the compiler to check every prop of every item, use `@evanion/react-widget`, which infers props from its components.
 - **Static Pages**: If your page structure never changes and is not driven by a CMS, write the components directly into your `.astro` page.
 
 ## Build the Baize Listing Page
