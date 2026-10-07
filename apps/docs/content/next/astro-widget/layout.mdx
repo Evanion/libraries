@@ -1,8 +1,6 @@
 # Page data, wrappers and nested items
 
-Pass `ctx` to `Widgets.astro` to give every widget the same page data, and
-`chrome` to wrap every widget in the same markup. A widget that holds items
-renders its own `Widgets`.
+`Widgets.astro` allows you to inject page-level data into every widget via `ctx`, and standardize the visual shell of your widgets using `chrome`. It also supports complex, nested layouts where one widget acts as a container for others.
 
 <PageSheet
   difficulty={2}
@@ -18,113 +16,51 @@ renders its own `Widgets`.
   ]}
 />
 
-## Give every widget the page's data with ctx
+## Providing Page-Level Data with `ctx`
 
-astro-widget's `Widgets.astro` passes its `ctx` prop to every widget, as a prop
-named `ctx`, so data the whole page shares, such as which store the page is for,
-is written once. An Astro component runs once, top down, and has no context a
-widget could read from while it renders, so page data reaches a widget as a
-prop. Save this widget as `src/widgets/Stock.astro`. It renders a `stock` item's
-`copies` and reads the store's name from `ctx`:
+Astro components run once at build time and do not have a shared React-style context. To provide global data—such as the store's name, the current currency, or a user's locale—to every widget in a region, use the `ctx` prop on `<Widgets />`.
+
+`Widgets.astro` passes this object to every widget as a prop named `ctx`.
 
 ```astro file=libs/astro-widget/examples/src/widgets/Stock.astro region=stock
 
 ```
 
-Add `stock: Stock` to the registry in `src/registry.ts`, and import `Stock`
-from `./widgets/Stock.astro` there. In `src/pages/brass-birmingham.astro`, pass
-`ctx={{ store: 'Gothenburg' }}` to `<Widgets>`. Then add a `stock` item to
-`src/data/brass-birmingham.json`, with `"id": "stock"`, `"type": "stock"` and
-`"props": { "copies": 3 }`.
+In your page, you simply pass the data once: `<Widgets ctx={{ store: 'Gothenburg' }} items={items} registry={registry} />`. Every widget in that region now has access to the store name without it being duplicated in the CMS data for every single item.
 
-## Wrap every widget with chrome
+## Wrapping Widgets with `chrome`
 
-astro-widget's `chrome` prop holds one component, `chrome.item`, which
-`Widgets.astro` wraps around every widget. The chrome receives the item's
-`type`, `id` and `meta`, and none of its `props`. `meta` says where and how the
-item sits, such as its background, and `props` holds the widget's own data. Save
-this chrome as `src/chrome/Section.astro`. It puts each widget in a `<section>`
-whose class names the item's background:
+The `chrome` prop allows you to define a shared wrapper component that surrounds every widget. This is where you handle layout concerns—like adding a `<section>` tag, applying a background color, or setting a grid span—keeping the widget components themselves focused on their specific data.
+
+The `chrome.item` component receives the item's `type`, `id`, and `meta`, but **none of its `props`**.
 
 ```astro file=libs/astro-widget/examples/src/chrome/Section.astro region=section
 
 ```
 
-The chrome has to render `<slot />`, where Astro puts the widget it wraps. A
-chrome with no `<slot />` drops the widget, and Astro reports nothing.
+### Essential Rule: The `<slot />`
+A chrome component must render a `<slot />`. This is where Astro injects the actual widget. If you omit the `<slot />`, the widget inside the wrapper will simply disappear from the page.
 
-In `src/pages/brass-birmingham.astro`, import `Section` from
-`../chrome/Section.astro` and pass `chrome={{ item: Section }}` to `<Widgets>`
-beside `ctx`. Give the `stock` item
-in the JSON `"meta": { "background": "felt" }`. The test below renders that
-`stock` item through the container API, with `ctx` set to
-`{ store: 'Gothenburg' }` and `Section` as `chrome.item`:
+## Rendering Nested Items
 
-```ts file=libs/astro-widget/README.md region=ctx-and-chrome
+In some cases, a widget is not a leaf node but a container for other widgets (e.g., a "Featured Shelf" containing "Game Cards"). 
 
-```
+Unlike `@evanion/react-widget`, which renders children automatically, `Widgets.astro` passes the `children` items to the parent component as raw data. To render them, the parent widget must render its own `<Widgets />` component using its own registry.
 
-The `<section>` and its `id` came from the chrome, `bg-felt` from the item's
-`meta`, and `Gothenburg` from `ctx`. On your page the header and the price each
-get a `<section>` too.
-
-## Render items nested inside an item
-
-astro-widget's `Widgets.astro` does not render an item's `children`. It passes
-them to the widget as data, in a prop named `children`, because an Astro
-component takes rendered child content only through `<slot />`. A widget that
-holds items renders its own `Widgets` over them, through a registry of its own.
-Save the card the grid holds as `src/widgets/GameCard.astro`:
-
-```astro file=libs/astro-widget/examples/src/widgets/GameCard.astro region=game-card
-
-```
-
-`cardRegistry` maps `game-card` to `GameCard`. Save it as
-`src/card-registry.ts`:
-
-```ts file=libs/astro-widget/examples/src/card-registry.ts region=card-registry
-
-```
-
-Save the grid as `src/widgets/GameGrid.astro`. It renders its `title` as an
-`<h2>`, and its `children` through `cardRegistry`:
+### Example: A Game Grid
+A `GameGrid` widget might render a title and then a grid of children:
 
 ```astro file=libs/astro-widget/examples/src/widgets/GameGrid.astro region=game-grid
 
 ```
 
-Add `'game-grid': GameGrid` to `src/registry.ts`, and import `GameGrid` from
-`./widgets/GameGrid.astro` there.
-`cardRegistry` has a module of its own because `GameGrid` imports it. Inside
-`src/registry.ts`, which imports `GameGrid`, it would have `GameGrid` import a
-module that imports `GameGrid`.
+To make this work, you define a separate registry for the children (e.g., `cardRegistry`) and pass it to the nested `<Widgets />` call.
 
-Add a `game-grid` item to the JSON with
-`"props": { "title": "Also on the shelf" }` and a `children` list of `game-card`
-items, each with a `name` prop. The test below renders one with two children,
-Azul and Root:
+### The Registry Hierarchy
+Because the nested `<Widgets />` uses its own registry, it only renders children that match that specific registry. If a child item's type is not in the `cardRegistry`, it will be skipped, even if that type is supported by the page's main root registry.
 
-```ts file=libs/astro-widget/README.md region=nested
+## Syncing the Build Gate
 
-```
+If you add new widget types or nested containers, you must update your validation script. `validateItems` scans the entire tree, including all nested children.
 
-The grid's registry holds only `game-card`. A child of any other type renders
-nothing inside the grid, even when the page's own registry holds that type.
-
-## Add the new types to the build gate
-
-astro-widget's `validateItems` checks every item, the grid's children included,
-against the one `known` it is handed. In `scripts/check-content.ts`, the build
-gate from [Check CMS items before Astro renders them](../validation), add
-`'stock'`, `'game-grid'` and `'game-card'` to `known`, or the build stops on the
-new items as unknown types. Add `'game-grid': ['title']` to `required`, so a
-grid saved with no title stops the build.
-
-## What a bad save does to these widgets
-
-Your listing page now reads the store from `ctx`, wraps each widget in a
-`<section>`, and holds a grid of game cards, and one `known` list covers both
-registries. [What a bad CMS save reports and renders](../bad-items) goes through
-each fault `validateItems` reports and what `Widgets.astro` renders for it, and
-checks the grid's children against the grid's own registry.
+In your `scripts/check-content.ts` file, add your new types (e.g., `'game-grid'`, `'game-card'`) to the `known` list. You can also add them to the `required` map to ensure that a container like `game-grid` always has a `title` before the build is allowed to complete.
