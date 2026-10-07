@@ -31,17 +31,17 @@ The examples on these pages are set in Baize, a board game shop, and `<p>Brass: 
 
 ```
 
-`CartProvider` is first in the array, and its `div` is outermost. `ThemeProvider` needs a `theme`, so `provider()` pairs it with its props.
+`CartProvider` is first in the array, and its `div` is outermost. `ThemeProvider` needs a `theme`, so `provider()`, also from `@evanion/compose`, pairs it with its props.
 
 By treating your providers as data (a list) and not as structural JSX, you can reorder your entire app's context hierarchy by moving a line in an array.
 
-### RSC Compatibility
+## Rendering compose from a React Server Component
 
-Because `ComposeProvider` calls no hooks and creates no context of its own, a React Server Component can render it without a `'use client'` boundary. A provider you pass that calls `createContext` is still client code, and lives in a file marked `'use client'`.
+Because `ComposeProvider` from `@evanion/compose` calls no hooks and creates no context of its own, a React Server Component can render it without a `'use client'` boundary. A provider you pass that calls `createContext` is still client code, and lives in a file marked `'use client'`.
 
 ## The Compose Vocabulary
 
-To keep the `@evanion/compose` documentation clear, we use these terms to describe the composition process:
+Every later `@evanion/compose` page names the parts of a `providers` array with these four words:
 
 - **Provider**: Any React component that renders its `children`.
 - **Entry**: A single element within the `providers` array.
@@ -50,17 +50,19 @@ To keep the `@evanion/compose` documentation clear, we use these terms to descri
 
 ## Core Capabilities
 
-| Goal                              | Tool                                                    |
-| :-------------------------------- | :------------------------------------------------------ |
-| Organize root providers as a list | `ComposeProvider`                                       |
-| Assign props to a provider        | A tuple or `provider(component, props)`                 |
-| Catch prop errors at compile time | Inline arrays or `as const` declarations                |
-| Preserve type checks in wrappers  | `ComposeProviderProps<T>` with a `const` type parameter |
-| Use in React Server Components    | `ComposeProvider` (no hooks/context used)               |
+Each row names a job and the part of `@evanion/compose` that does it.
+
+| Goal                              | Tool                                                                                                                                   |
+| :-------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
+| Organize root providers as a list | `ComposeProvider`                                                                                                                      |
+| Assign props to a provider        | A tuple or `provider(component, props)`                                                                                                |
+| Catch prop errors at compile time | `provider()` in any array, or any entry in an array written inline or declared `as const` ([Where the check happens](./type-checking)) |
+| Preserve type checks in wrappers  | `ComposeProviderProps<T>` with a `const` type parameter ([Keeping the check](./keeping-the-check))                                     |
+| Use in React Server Components    | `ComposeProvider` (no hooks/context used)                                                                                              |
 
 ## When to Avoid Compose
 
-While powerful, `@evanion/compose` is not the right tool for every scenario:
+`@evanion/compose` is the wrong tool in three cases:
 
 - **Minimal Nesting**: If you only have one or two providers, manual nesting is often more readable.
 - **Dynamic Providers**: If the number or order of providers changes at runtime, React reconciles by position and remounts everything below the change, so that subtree loses its state.
