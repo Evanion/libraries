@@ -64,7 +64,7 @@ astro-widget's `Widgets.astro` renders what it can of a bad save, under the [fai
 | Missing/Repeated `id`, or no `props` | Widget renders (if type is known)                  | None                                                                                           |
 | `children` not a list                | Widget renders, and receives the value as it is    | `ERROR_MESSAGES.MALFORMED_ITEMS`, only if the widget passes the value to its own `<Widgets />` |
 
-The test below renders an `answer-wall` item, which the registry does not hold, and then the price. The `answer-wall` item renders nothing, and the price after it renders:
+The test below renders an `answer-wall` item and then the price through the Getting started registry, which holds `listing-header` and `price-box`. The `answer-wall` item renders nothing, and the price after it renders:
 
 ```ts file=libs/astro-widget/README.md region=skip-unknown
 

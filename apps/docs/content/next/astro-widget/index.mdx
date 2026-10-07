@@ -21,7 +21,7 @@ Writing a `switch` statement on the `type` string by hand is repetitive and erro
 
 `@evanion/astro-widget` finds each item's component in a **registry**, a map from each widget type, such as `'listing-header'`, to the `.astro` component that renders it. The `Widgets.astro` component takes your item array and the registry, and renders each item in order through its mapped component when Astro renders the page, so it sends no JavaScript to the browser.
 
-A page writes `<Widgets items={items} registry={registry} />`, and the test below renders the same component through Astro's container API, which renders a component outside a request, and gets its HTML back as a string, for two items from a listing page at Baize, the board game shop these pages are set in:
+A page renders its items with `<Widgets items={items} registry={registry} />`. The test below renders two items from a listing page at Baize, the board game shop these pages are set in, through a registry that maps `listing-header` and `price-box` to two `.astro` widgets the package keeps under `examples/src`. It calls Astro's container API, which renders a component outside a request and returns its HTML as a string. Your page does not use that API:
 
 ```ts file=libs/astro-widget/README.md region=overview
 
