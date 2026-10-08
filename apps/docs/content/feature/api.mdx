@@ -273,7 +273,7 @@ This is the single checker behind `createFeatures`, `parseFeatureConfig` and `fe
 
 ```
 
-Each `ConfigIssue` reports a `code`, a `message`, the `key` the issue is about (where applicable), and a JSON pointer in `path` for an issue that names a member; the three graph issues name a key and no member. The codes are closed at 18:
+Each `ConfigIssue` reports a `code`, a `message`, the `key` the issue is about (where applicable), and a JSON pointer in `path` for an issue that names a member; a `duplicate-feature` or `unknown-dependency` issue names a key, a `cycle` issue names none, and no graph issue names a member. The codes are closed at 18:
 
 | Group    | Codes                                                                                                                                          |
 | :------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
