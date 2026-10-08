@@ -146,6 +146,7 @@
       "test": {
         "dependsOn": [
           "^build",
+          "archives",
           "testing-data",
           "behaviour-data",
           "widget-renders"
