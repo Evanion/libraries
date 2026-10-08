@@ -4324,7 +4324,9 @@ Expected: PASS on the first run. This test locks a property the package already 
 
 Add to the `FeatureConfig.maxStale` docblock in `config.ts`, if it is not already there from Task 1, and to `libs/feature/README.md` under the heading Task 12 adds: the core evaluates the document it is handed, the party that fetches holds the clock, and no endpoint answers which variant a subject gets.
 
-- [ ] **Step 4: Open the follow-up issue**
+- [x] **Step 4: Open the follow-up issue**
+
+Opened as https://github.com/Evanion/libraries/issues/423.
 
 ```bash
 gh issue create \
