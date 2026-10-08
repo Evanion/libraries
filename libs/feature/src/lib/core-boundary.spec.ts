@@ -156,6 +156,12 @@ const RUNTIME_CALLS = [
  * reach the same host facility, and a rule that asked for the call parens
  * would pass the last two.
  *
+ * Two clauses read them. The identifier clause answers for all four, because
+ * `forEachChild` on a property access visits the name under it, so
+ * `globalThis.setTimeout` arrives as the identifier `setTimeout`. The element
+ * access clause answers for `globalThis['setTimeout']`, which holds the name
+ * in a string literal and leaves no identifier behind.
+ *
  * The parser is here for the same reason it is on the import scan: a docblock
  * that writes the word names nothing. `config.ts` documents the poller
  * `@evanion/feature-source` owns, so it is the file most likely to write
@@ -167,8 +173,12 @@ function runtimeNamesOf(source: ts.SourceFile): string[] {
   const found = new Set<string>();
 
   walk(source, (node) => {
-    if (ts.isPropertyAccessExpression(node) && watched.has(node.name.text)) {
-      found.add(node.name.text);
+    if (
+      ts.isElementAccessExpression(node) &&
+      ts.isStringLiteralLike(node.argumentExpression) &&
+      watched.has(node.argumentExpression.text)
+    ) {
+      found.add(node.argumentExpression.text);
       return;
     }
     if (ts.isIdentifier(node) && watched.has(node.text)) found.add(node.text);
@@ -635,8 +645,20 @@ describe('the timers and sockets the scan reports', () => {
   });
 
   it('reports a name a property access reaches', () => {
+    // The identifier under the access carries the name, so the scan reads
+    // `globalThis.setTimeout` without a clause for the host object.
     const root = tree({
       'poller.ts': 'globalThis.setTimeout(() => undefined, 1);\n',
+    });
+
+    expect(runtimeOffences(root)).toHaveLength(1);
+  });
+
+  it('reports a name a string-keyed access reaches', () => {
+    // `globalThis['setTimeout']` reaches the same timer and holds the name in
+    // a string literal, where the file has no identifier to read it from.
+    const root = tree({
+      'poller.ts': "globalThis['setTimeout'](() => undefined, 1);\n",
     });
 
     expect(runtimeOffences(root)).toHaveLength(1);
