@@ -122,15 +122,41 @@ export function seedPin({
 }
 
 /**
- * The version a dry run computes for a project with `root`'s tree at `sha`.
+ * The tag a dry run measured a project's commits from, or `null` when it read
+ * the current version from disk.
  *
- * Run in a detached worktree at that commit, sharing the workspace's installed
- * dependencies, so the tree nx reads is the pinned one and the history it
- * reads is the repository's. Every `node_modules` a project holds of its own is
- * shared too: nx loads each project's build config to compute the graph, and a
- * project that pins its own version of a tool resolves it from beside itself.
+ * @param {string} printed what `nx release version --dry-run` printed
+ * @param {string} name the project
  */
-export function dryRunAt(root, sha, name) {
+export function dryRunTag(printed, name) {
+  const output = stripVTControlCharacters(printed);
+  const escaped = name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+  const resolved = output.match(
+    new RegExp(
+      `^${escaped} .*Resolved the current version as \\S+ from git tag "([^"]+)"`,
+      'm',
+    ),
+  );
+  return resolved ? resolved[1] : null;
+}
+
+/**
+ * Runs `run` in a detached worktree of `root` at `sha`, with the environment nx
+ * runs under there.
+ *
+ * The worktree shares the workspace's installed dependencies, so the tree nx
+ * reads is the pinned one and the history it reads is the repository's. Every
+ * `node_modules` a project holds of its own is shared too: nx loads each
+ * project's build config to compute the graph, and a project that pins its own
+ * version of a tool resolves it from beside itself.
+ *
+ * @template T
+ * @param {string} root
+ * @param {string} sha
+ * @param {(dir: string, env: NodeJS.ProcessEnv) => T} run
+ * @returns {T}
+ */
+function atCommit(root, sha, run) {
   const dir = mkdtempSync(join(tmpdir(), 'docs-seed-'));
   const git = (...args) =>
     execFileSync('git', args, { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -154,26 +180,103 @@ export function dryRunAt(root, sha, name) {
       if (existsSync(dirname(join(dir, path))))
         symlinkSync(join(root, path), join(dir, path), 'dir');
 
-    return dryRunVersion(
-      execFileSync(
-        'npx',
-        ['nx', 'release', 'version', '--dry-run', `--projects=${name}`],
-        {
-          cwd: dir,
-          encoding: 'utf8',
-          maxBuffer: 64 * 1024 * 1024,
-          stdio: ['ignore', 'pipe', 'pipe'],
-          env: {
-            ...process.env,
-            NX_NO_CLOUD: 'true',
-            NX_DAEMON: 'false',
-            NX_CACHE_DIRECTORY: join(dir, '.nx', 'cache'),
-          },
-        },
-      ),
-      name,
-    );
+    return run(dir, {
+      ...process.env,
+      NX_NO_CLOUD: 'true',
+      NX_DAEMON: 'false',
+      NX_CACHE_DIRECTORY: join(dir, '.nx', 'cache'),
+    });
   } finally {
     git('worktree', 'remove', '--force', dir);
   }
+}
+
+/** What `nx release version --dry-run` prints for one project in `dir`. */
+function dryRunIn(dir, env, name) {
+  return execFileSync(
+    'npx',
+    ['nx', 'release', 'version', '--dry-run', `--projects=${name}`],
+    {
+      cwd: dir,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env,
+    },
+  );
+}
+
+/** The version a dry run computes for a project with `root`'s tree at `sha`. */
+export function dryRunAt(root, sha, name) {
+  return atCommit(root, sha, (dir, env) =>
+    dryRunVersion(dryRunIn(dir, env, name), name),
+  );
+}
+
+/**
+ * The version a dry run computes for a project with `root`'s tree at `sha`,
+ * and the commits since the tag it measured from that nx counts toward the
+ * project, each marked `tooling` when it changes tooling a library depends on
+ * and no library.
+ *
+ * `tools/repo-checks/src/tooling-commit-types.ts` lists the commits, in the
+ * same worktree. It holds the rule the commit-msg hook and CI apply to every
+ * new commit, so a commit the hook would reject today is marked here. It lists
+ * them only when the dry run computes a change, and from the tag the dry run
+ * printed, so the dry run still decides whether the version moved.
+ *
+ * @returns {{
+ *   version: string | null,
+ *   counted: { sha: string, header: string, tooling: boolean }[],
+ * }}
+ */
+export function releaseAt(root, sha, name) {
+  return atCommit(root, sha, (dir, env) => {
+    const printed = dryRunIn(dir, env, name);
+    const version = dryRunVersion(printed, name);
+    const tag = dryRunTag(printed, name);
+    if (version === null || tag === null) return { version, counted: [] };
+
+    const listed = execFileSync(
+      'node',
+      [
+        '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
+        join(root, 'tools', 'repo-checks', 'src', 'tooling-commit-types.ts'),
+        'counted',
+        tag,
+        name,
+      ],
+      {
+        cwd: dir,
+        encoding: 'utf8',
+        maxBuffer: 64 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env,
+      },
+    );
+    // The JSON is the last line: the graph's plugins print warnings first.
+    return { version, counted: JSON.parse(listed.trim().split('\n').at(-1)) };
+  });
+}
+
+/**
+ * What a dry run computes once the commits that change only tooling a library
+ * depends on are set aside.
+ *
+ * Every library depends on `@evanion/doc-examples`, so nx reads a `fix` there
+ * as a patch for every library. `tooling-commit-types.ts` refuses such a
+ * commit now, and the ones made before it would otherwise hold a released
+ * version's documentation at its tag. A computed version stands when nx counts
+ * any other commit, and when it counts none, since the change then came from
+ * something the commits do not show.
+ *
+ * @param {ReturnType<typeof releaseAt>} release
+ */
+export function withoutTooling({ version, counted }) {
+  const blocking = counted.filter((each) => !each.tooling);
+
+  if (version !== null && counted.length > 0 && blocking.length === 0)
+    return { version: null, ignored: counted, blocking };
+
+  return { version, ignored: [], blocking };
 }

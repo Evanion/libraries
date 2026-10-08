@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 import { PIN_FILE, gitAt, parsePins } from './archives.mjs';
-import { dryRunAt } from './seed.mjs';
+import { releaseAt, withoutTooling } from './seed.mjs';
 import { releaseLines, taggedPast } from './versions.mjs';
 
 /**
@@ -27,7 +27,10 @@ import { releaseLines, taggedPast } from './versions.mjs';
  * The guards are the pin file's own, asked before the pull request exists
  * rather than after: the version was released, the commit descends from its tag
  * and is on `main`, carries no tag of a later x.y, the reason is new, and
- * `nx release version --dry-run` at the commit computes no change.
+ * `nx release version --dry-run` at the commit computes no change. A change
+ * whose every counted commit only changes tooling a library depends on is set
+ * aside (`withoutTooling` in `seed.mjs`), and the pull request names those
+ * commits.
  */
 
 /**
@@ -42,7 +45,7 @@ import { releaseLines, taggedPast } from './versions.mjs';
  *   reason: string,
  *   git: ReturnType<typeof gitAt>,
  *   main: string,
- *   computed: (sha: string, name: string) => string | null,
+ *   computed: (sha: string, name: string) => ReturnType<typeof releaseAt>,
  * }} request
  */
 export function recutPin({
@@ -97,13 +100,19 @@ export function recutPin({
   if (taken.length > 0)
     throw new Error(`${taken.join(', ')} already gives that reason`);
 
+  let ignored = [];
   if (target !== tagged) {
-    const version = computed(target, entry.name);
-    if (version !== null)
+    const dryRun = computed(target, entry.name);
+    const settled = withoutTooling(dryRun);
+    if (settled.version !== null)
       throw new Error(
-        `nx release version --dry-run at ${sha} computes ${version}, so it is ` +
-          `not documentation of ${release.version}`,
+        `nx release version --dry-run at ${sha} computes ${settled.version}, so it is ` +
+          `not documentation of ${release.version}` +
+          settled.blocking
+            .map((each) => `\n  ${each.sha.slice(0, 8)} ${each.header}`)
+            .join(''),
       );
+    ignored = settled.ignored;
   }
 
   const held = pins[entry.slug]?.[segment];
@@ -121,6 +130,7 @@ export function recutPin({
   return {
     release,
     from: current,
+    ignored,
     pin: {
       version: release.version,
       tag: release.tag,
@@ -132,12 +142,31 @@ export function recutPin({
 }
 
 /** The pull request body: what is re-cut, why, and how the pages change. */
-export function recutBody({ entry, segment, release, from, pin, diff }) {
+export function recutBody({
+  entry,
+  segment,
+  release,
+  from,
+  pin,
+  ignored = [],
+  diff,
+}) {
+  const tooling =
+    ignored.length === 0
+      ? []
+      : [
+          'nx release version --dry-run computes a change at this commit, from these commits alone. Each changes tooling a library depends on and no library, so the re-cut does not count them:',
+          '',
+          ...ignored.map((each) => `- ${each.sha} ${each.header}`),
+          '',
+        ];
+
   return [
     `Re-cuts the documentation of \`${entry.name}\` ${release.version} (\`/${entry.slug}/\` or \`/${entry.slug}/${segment}/\`) from \`${pin.sha.slice(0, 7)}\`, where it is cut from \`${from.slice(0, 7)}\` today.`,
     '',
     `Reason: ${pin.reason}`,
     '',
+    ...tooling,
     'How the released pages change:',
     '',
     '````diff',
@@ -155,6 +184,8 @@ if (argv[1] && resolve(argv[1]) === fileURLToPath(import.meta.url)) {
       sha: { type: 'string', default: 'HEAD' },
       reason: { type: 'string' },
       body: { type: 'string' },
+      // Runs every guard and prints the body, and leaves the pin file as it is.
+      'dry-run': { type: 'boolean', default: false },
     },
   });
   const root = join(import.meta.dirname, '..', '..', '..');
@@ -174,11 +205,12 @@ if (argv[1] && resolve(argv[1]) === fileURLToPath(import.meta.url)) {
     reason: values.reason ?? '',
     git,
     main: git.commit('origin/main'),
-    computed: (sha, name) => dryRunAt(root, sha, name),
+    computed: (sha, name) => releaseAt(root, sha, name),
   });
 
   pins[entry.slug] = { ...pins[entry.slug], [values.segment]: recut.pin };
-  writeFileSync(path, `${JSON.stringify(pins, null, 2)}\n`);
+  if (!values['dry-run'])
+    writeFileSync(path, `${JSON.stringify(pins, null, 2)}\n`);
 
   const diff = execFileSync(
     'git',

@@ -11,6 +11,8 @@ import {
 } from '@nx/devkit';
 import { DEFAULT_CONVENTIONAL_COMMITS_CONFIG } from 'nx/src/command-line/release/config/conventional-commits';
 import { parseGitCommit } from 'nx/src/command-line/release/utils/git';
+import { filterAffected } from 'nx/src/project-graph/affected/affected-project-graph';
+import { calculateFileChanges } from 'nx/src/project-graph/file-utils';
 import {
   createProjectRootMappings,
   findMatchingProjects,
@@ -51,8 +53,11 @@ import {
  * that adds a dependency to the docs site stays a feat.
  *
  * `.husky/commit-msg` runs this over the staged files, and `.github/workflows/
- * ci.yml` runs it over a pull request's commits. The IO is passed in so the
- * rule can be asserted against fixture repositories and fixture graphs.
+ * ci.yml` runs it over a pull request's commits. `apps/docs/tools/seed.mjs`
+ * runs it over the commits a release's dry run counts, so a commit this rule
+ * would reject does not hold released documentation at its tag. The IO is
+ * passed in so the rule can be asserted against fixture repositories and
+ * fixture graphs.
  */
 
 /** What the rule needs from the workspace, beyond the commit itself. */
@@ -175,16 +180,20 @@ export function committedMessage(raw: string): string {
   return lines.join('\n').trim();
 }
 
-/** Whether nx reads `message` as bumping a version without being breaking. */
-function bumpsWithoutBreaking(message: string, bumps: Set<string>): boolean {
+/** How nx reads `message`, or null when it is no conventional commit. */
+function parsed(message: string) {
   const [header = '', ...body] = message.split('\n');
-  const commit = parseGitCommit({
+  return parseGitCommit({
     message: header,
     body: body.join('\n'),
     shortHash: '',
     author: { name: '', email: '' },
   });
+}
 
+/** Whether nx reads `message` as bumping a version without being breaking. */
+function bumpsWithoutBreaking(message: string, bumps: Set<string>): boolean {
+  const commit = parsed(message);
   return commit !== null && bumps.has(commit.type) && !commit.isBreaking;
 }
 
@@ -219,6 +228,44 @@ export async function violations(
   }
 
   return found;
+}
+
+/** A commit nx release counts toward a project's next version. */
+export interface Counted {
+  commit: Commit;
+  /** Whether the rule rejects it. */
+  tooling: boolean;
+}
+
+/**
+ * The commits in `commits` that nx release counts toward `project`'s next
+ * version, each with whether the rule rejects it.
+ *
+ * nx counts a commit toward a project when `affected` names the project for
+ * the commit's files (`getCommitsRelevantToProjects` in nx's `shared.js`). The
+ * commit raises the version when its type bumps one or it is breaking. A scope
+ * naming another project caps the raise at a patch and does not drop it
+ * (`determineSemverChange`).
+ */
+export async function countedCommits(
+  commits: Commit[],
+  project: string,
+  workspace: Workspace,
+  affected: (commit: Commit) => Promise<Set<string>>,
+): Promise<Counted[]> {
+  const bumping: Commit[] = [];
+
+  for (const commit of commits) {
+    const read = parsed(commit.message);
+    if (read === null) continue;
+    if (!workspace.bumps.has(read.type) && !read.isBreaking) continue;
+    if ((await affected(commit)).has(project)) bumping.push(commit);
+  }
+
+  const rejected = new Set(
+    (await violations(bumping, workspace)).map(({ commit }) => commit),
+  );
+  return bumping.map((commit) => ({ commit, tooling: rejected.has(commit) }));
 }
 
 function git(root: string, args: string[]): string {
@@ -269,6 +316,34 @@ export function rangeCommits(root: string, range: string): Commit[] {
   }));
 }
 
+let built: Promise<ProjectGraph> | undefined;
+
+/** This repository's project graph, built once per process. */
+function repositoryGraph(): Promise<ProjectGraph> {
+  built ??= createProjectGraphAsync({ exitOnError: false });
+  return built;
+}
+
+/**
+ * The projects nx release counts a commit toward in this repository: the
+ * `filterAffected` call nx's `resolveAffectedFilesPerCommitInProjectGraph`
+ * makes, over the commit's own diff.
+ */
+async function repositoryAffected(commit: Commit): Promise<Set<string>> {
+  const touched = calculateFileChanges(commit.files, {
+    base: `${commit.sha}^`,
+    head: commit.sha,
+  });
+  const affected = await filterAffected(
+    await repositoryGraph(),
+    touched,
+    undefined,
+    undefined,
+    false,
+  );
+  return new Set(Object.keys(affected.nodes));
+}
+
 /** This repository's workspace, with the graph built on first use. */
 export function repositoryWorkspace(root = workspaceRoot): Workspace {
   const nxJson: NxJsonConfiguration = parseJson(
@@ -280,7 +355,7 @@ export function repositoryWorkspace(root = workspaceRoot): Workspace {
   return {
     bumps: bumpingTypes(nxJson.release?.conventionalCommits),
     projects: async () => {
-      const graph = await createProjectGraphAsync({ exitOnError: false });
+      const graph = await repositoryGraph();
       const libraries = new Set(
         findMatchingProjects(
           Array.isArray(patterns) ? patterns : [patterns],
@@ -317,10 +392,34 @@ export function report(found: Violation[]): string {
   return lines.join('\n');
 }
 
-async function main(mode: string | undefined, argument: string | undefined) {
+async function main(
+  mode: string | undefined,
+  argument: string | undefined,
+  project: string | undefined,
+) {
+  // The commits since a tag that nx counts toward a project, as JSON.
+  if (mode === 'counted' && argument && project) {
+    const counted = await countedCommits(
+      rangeCommits(workspaceRoot, `${argument}..HEAD`),
+      project,
+      repositoryWorkspace(),
+      repositoryAffected,
+    );
+    console.log(
+      JSON.stringify(
+        counted.map(({ commit, tooling }) => ({
+          sha: commit.sha,
+          header: commit.message.split('\n')[0],
+          tooling,
+        })),
+      ),
+    );
+    return 0;
+  }
+
   if ((mode !== 'staged' && mode !== 'range') || !argument) {
     console.error(
-      'Usage: tooling-commit-types.ts staged <commit-msg file> | range <revision range>',
+      'Usage: tooling-commit-types.ts staged <commit-msg file> | range <revision range> | counted <tag> <project>',
     );
     return 2;
   }
@@ -337,5 +436,9 @@ async function main(mode: string | undefined, argument: string | undefined) {
 }
 
 if (import.meta.main) {
-  process.exitCode = await main(process.argv[2], process.argv[3]);
+  process.exitCode = await main(
+    process.argv[2],
+    process.argv[3],
+    process.argv[4],
+  );
 }

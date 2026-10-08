@@ -58,8 +58,15 @@ const versions = () =>
   }>('tools/versions.mjs');
 const seed = () =>
   load<{
-    dryRunAt: (root: string, sha: string, name: string) => string | null;
+    releaseAt: (root: string, sha: string, name: string) => Released;
+    withoutTooling: (release: Released) => { version: string | null };
   }>('tools/seed.mjs');
+
+/** What `releaseAt` in `apps/docs/tools/seed.mjs` returns. */
+interface Released {
+  version: string | null;
+  counted: { sha: string; header: string; tooling: boolean }[];
+}
 const cut = () =>
   load<{ surfaceFaults: (source: string) => string[] }>('tools/cut.mjs');
 
@@ -158,7 +165,7 @@ describe('the pin file', () => {
       'No origin/main in this checkout, so no pin can be shown to be on it.',
     ).not.toBeNull();
 
-    const { dryRunAt } = await seed();
+    const { releaseAt, withoutTooling } = await seed();
 
     expect(
       pinFaults({
@@ -167,7 +174,8 @@ describe('the pin file', () => {
         commit,
         isAncestor,
         main: main as string,
-        dryRunAt: (sha, name) => dryRunAt(workspaceRoot, sha, name),
+        dryRunAt: (sha, name) =>
+          withoutTooling(releaseAt(workspaceRoot, sha, name)).version,
         segmentOf,
         taggedPast: (name, version) => taggedPast(name, tags, version),
         releaseLines: (name) => releaseLines(name, tags),

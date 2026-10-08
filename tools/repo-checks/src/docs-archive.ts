@@ -33,7 +33,9 @@
  * - At a commit that is not the tag's, `nx release version --dry-run` computes
  *   the version the pin records. That is the seed predicate of § 5, and it
  *   holds a re-cut to the same standard: a commit that has changed the package
- *   is not documentation of the release before it.
+ *   is not documentation of the release before it. A change the dry run
+ *   computes from commits `tooling-commit-types.ts` rejects, and from no other
+ *   commit, has not changed the package, and does not count.
  *
  * The IO is passed in so the rules can be asserted against fixtures. This
  * repository's pins change with every release.
@@ -61,7 +63,9 @@ export interface PinInputs {
   main: string;
   /**
    * The version `nx release version --dry-run` computes for a package with
-   * the tree at a commit, or `null` when it computes no change.
+   * the tree at a commit, or `null` when it computes no change or every commit
+   * it counts changes only tooling a library depends on (`withoutTooling` in
+   * `apps/docs/tools/seed.mjs`).
    */
   dryRunAt: (sha: string, name: string) => string | null;
   /**
