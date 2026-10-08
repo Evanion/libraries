@@ -78,7 +78,7 @@ To ensure operators aren't stuck in a loop of fixing one error per deploy cycle,
 
 ```
 
-Each reported issue includes a `code` from a closed list of 18, the `message` that a thrown counterpart would carry, the `key` involved, and, for an issue that names a member, a JSON pointer in `path` to allow a UI to highlight the row. The three graph issues name a key and no member, so they carry no `path`.
+Each reported issue includes a `code` from a closed list of 18, the `message` that a thrown counterpart would carry, the `key` involved where the issue is about one, and, for an issue that names a member, a JSON pointer in `path` to allow a UI to highlight the row. A `duplicate-feature` or `unknown-dependency` issue names a key and a `cycle` issue names none, and no graph issue names a member, so none of the three carries a `path`.
 
 The checker trusts nothing about the argument. Since a caller hands it whatever `JSON.parse` returned from a control plane's body, the checker reads every member it walks and reports any it cannot read.
 
