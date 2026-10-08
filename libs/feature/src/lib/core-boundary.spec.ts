@@ -488,6 +488,22 @@ describe('the imports the scan reports', () => {
 });
 
 describe('the timers and sockets the scan reports', () => {
+  it('watches every name that starts a timer or opens a socket', () => {
+    // The list itself, written out. Every other case here reads
+    // `RUNTIME_CALLS` on both sides of its assertion, so deleting an entry
+    // shrinks the expectation with the scan and leaves the suite green while
+    // `reload.ts` opens a socket. This is the case that fails on the deletion.
+    expect([...RUNTIME_CALLS]).toEqual([
+      'setInterval',
+      'setTimeout',
+      'setImmediate',
+      'fetch',
+      'XMLHttpRequest',
+      'WebSocket',
+      'EventSource',
+    ]);
+  });
+
   it('reports every call a module names', () => {
     const root = tree({
       'poller.ts': [
