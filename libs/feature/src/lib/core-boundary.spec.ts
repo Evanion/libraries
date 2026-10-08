@@ -50,10 +50,12 @@ function walk(node: ts.Node, visit: (node: ts.Node) => void): void {
 /**
  * Every module specifier a file names, read off its syntax.
  *
- * Six clauses name one: `import 'pg'`, `from 'pg'`, `export … from 'pg'`,
- * `import('pg')`, `import('pg').Pool` in a type position, and `require('pg')`.
- * A scan that read one clause alone would pass a core that reached a driver
- * through any of the others.
+ * Seven clauses name one: `import 'pg'`, `from 'pg'`, `export … from 'pg'`,
+ * `import('pg')`, `import('pg').Pool` in a type position, `require('pg')` and
+ * `import pg = require('pg')`. A scan that read one clause alone would pass a
+ * core that reached a driver through any of the others. The import assignment
+ * carries a clause of its own because the parser gives it an external module
+ * reference and no call expression for the `require` clause to read.
  *
  * Each clause reads its specifier as a string literal of any quote form, which
  * is what `isStringLiteralLike` is for. A backtick with nothing substituted
@@ -421,6 +423,14 @@ describe('the imports the scan reports', () => {
 
   it('reports a specifier require names', () => {
     const root = tree({ 'store.cts': "const pg = require('pg');\n" });
+
+    expect(foreignImports(root).map((e) => e.specifier)).toEqual(['pg']);
+  });
+
+  it('reports a specifier an import assignment names', () => {
+    // `import pg = require('pg')` parses to an external module reference and
+    // no call expression, so the `require` clause does not reach it.
+    const root = tree({ 'store.cts': "import pg = require('pg');\n" });
 
     expect(foreignImports(root).map((e) => e.specifier)).toEqual(['pg']);
   });
