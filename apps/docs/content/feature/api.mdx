@@ -9,33 +9,46 @@ the adapter.
 
 ```ts
 function createFeatures<
-  const D extends Definitions,
+  const D extends DefinitionsOrConfig,
   O extends Record<
-    Exclude<keyof O, keyof FeatureOptions<AsSchema<InferSchema<D>>>>,
+    Exclude<
+      keyof O,
+      keyof FeatureOptions<AsSchema<InferSchema<DefinitionsOf<D>>>>
+    >,
     never
   >,
 >(
   definitions: D,
-  options?: O & FeatureOptions<AsSchema<InferSchema<D>>>,
-): Features<AsSchema<InferSchema<D>>, 'observe' extends keyof O ? true : false>;
+  options?: O & FeatureOptions<AsSchema<InferSchema<DefinitionsOf<D>>>>,
+): Features<
+  AsSchema<InferSchema<DefinitionsOf<D>>>,
+  'observe' extends keyof O ? true : false
+>;
 
 function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
-  definitions: readonly FeatureDefinition<
-    NoInfer<Extract<keyof S, FeatureKey>>
-  >[],
+  definitions: DefinitionsOrConfig<NoInfer<Extract<keyof S, FeatureKey>>>,
   options?: UnobservedOptions<S>,
 ): Features<S, false>;
 
 function createFeatures<S extends Record<keyof S, VariantInfo | never>>(
-  definitions: readonly FeatureDefinition<
-    NoInfer<Extract<keyof S, FeatureKey>>
-  >[],
+  definitions: DefinitionsOrConfig<NoInfer<Extract<keyof S, FeatureKey>>>,
   options: FeatureOptions<S>,
 ): Features<S, true>;
 ```
 
 Validates the dependency graph, deep-clones and freezes the configuration, and
 returns the store.
+
+The first parameter can be provided as either a bare definitions array or a
+whole document. A `@evanion/feature` author writing four flags in a file passes
+the array, while a process whose poller already fetched a document passes that
+document without unwrapping it. `DefinitionsOf<D>` recovers the array out of
+either form, which is what keeps the variant names inferred from a literal.
+
+When `createFeatures` is called over a document, it throws where
+`parseFeatureConfig` reports; both functions call one checker. A store built
+from a document lifts the envelope into `features.version` and
+`features.envelope`.
 
 | Overload        | Call shape                                              | What it checks                                                                                                                        |
 | --------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -133,18 +146,21 @@ built with no observer and `Features<Flags, true>` for one built with an
 observer. A function that takes either store names both parameters and stays
 generic over `Frozen`.
 
-| Member                           | Returns                                                          | Notes                                       |
-| -------------------------------- | ---------------------------------------------------------------- | ------------------------------------------- |
-| `keys`                           | `readonly (keyof S & FeatureKey)[]`                              | every key, in configuration order           |
-| `config`                         | `readonly FeatureDefinition<keyof S & FeatureKey>[]`             | the stored intent, deeply frozen            |
-| `definition(key)`                | `FeatureDefinition<keyof S & FeatureKey> \| undefined`           |                                             |
-| `dependants(key)`                | `readonly (keyof S & FeatureKey)[]`                              | transitive, in dependency order             |
-| `resolve(context?)`              | `FrozenWhenObserved<Frozen, Decisions<S>>`                       | a decision per feature; writes nothing      |
-| `isEnabled(key, context?)`       | `boolean`                                                        | `false` for an unknown key                  |
-| `variantOf(key, context?)`       | `S[K]['variant'] \| undefined`                                   | `undefined` for a key declaring no variants |
-| `valueOf(key, context?)`         | `S[K]['value'] \| undefined`                                     | `undefined` for a key declaring no variants |
-| `plan(context?)`                 | `FrozenWhenObserved<Frozen, Plan<S>>`                            | build-time partition                        |
-| `toggle(key, enabled, context?)` | `FrozenWhenObserved<Frozen, ToggleResult<keyof S & FeatureKey>>` | the only writer; reports `willDisable`      |
+| Member                           | Returns                                                          | Notes                                        |
+| -------------------------------- | ---------------------------------------------------------------- | -------------------------------------------- |
+| `keys`                           | `readonly (keyof S & FeatureKey)[]`                              | every key, in configuration order            |
+| `config`                         | `readonly FeatureDefinition<keyof S & FeatureKey>[]`             | the stored intent, deeply frozen             |
+| `version`                        | `string \| number \| undefined`                                  | the installed document's version             |
+| `envelope`                       | `ConfigEnvelope`                                                 | that document's members, deeply frozen       |
+| `definition(key)`                | `FeatureDefinition<keyof S & FeatureKey> \| undefined`           |                                              |
+| `dependants(key)`                | `readonly (keyof S & FeatureKey)[]`                              | transitive, in dependency order              |
+| `resolve(context?)`              | `FrozenWhenObserved<Frozen, Decisions<S>>`                       | a decision per feature; writes nothing       |
+| `isEnabled(key, context?)`       | `boolean`                                                        | `false` for an unknown key                   |
+| `variantOf(key, context?)`       | `S[K]['variant'] \| undefined`                                   | `undefined` for a key declaring no variants  |
+| `valueOf(key, context?)`         | `S[K]['value'] \| undefined`                                     | `undefined` for a key declaring no variants  |
+| `plan(context?)`                 | `FrozenWhenObserved<Frozen, Plan<S>>`                            | build-time partition                         |
+| `toggle(key, enabled, context?)` | `FrozenWhenObserved<Frozen, ToggleResult<keyof S & FeatureKey>>` | the only writer; reports `willDisable`       |
+| `reload(config)`                 | `ReloadResult`                                                   | installs a candidate document, or refuses it |
 
 `resolve`, `plan`, `variantOf`, `valueOf` and `toggle` all default `context.now`
 to `new Date()` at the call.
@@ -158,6 +174,12 @@ either sees what the decision for that key carries. Over the store
 
 Both answer `undefined` for a feature that resolved off. On a key whose schema
 entry is `never` the return type is `undefined` on its own.
+
+To install a new document, use `reload`, which is the only operation that
+writes to `version` and `envelope`. In contrast, a `toggle` leaves both members
+unchanged because they identify the document served by a publisher, whereas a
+toggle is a local write. If a candidate is refused, every member above remains
+at its previous value. See [Distribution](/feature/distribution).
 
 ## Core exports
 
@@ -197,6 +219,94 @@ import {
 `'weighted' | 'sticky' | 'fallback'`, with no `'pinned'` case: only `decide`
 knows which rule matched, so `decide` applies a pin on top of the assignment
 `assignVariant` returned. See [Variants](/feature/variants).
+
+## `serializeConfig(features, envelope?)`
+
+To write a `@evanion/feature` store out as one document, you use `serializeConfig()`. This function captures every definition, every rule with the `id` its author or its control plane gave it, and every variant with its name, weight, order and value.
+
+```ts signature
+function serializeConfig<S extends Record<keyof S, VariantInfo | never>>(
+  features: Features<S, boolean>,
+  envelope?: ConfigEnvelope,
+): FeatureConfig<keyof S & FeatureKey>;
+```
+
+The envelope defaults to `features.envelope`.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-document
+
+```
+
+This call takes no mode and it checks nothing. Because `configDigest` is the one writer of the `digest` member, `ConfigEnvelope` fences `digest` to `never`.
+
+The function handles dates and invalid types strictly. A `Date` at a window condition's `value` becomes its ISO 8601 string, but a `Date` at any other member throws `FeatureConfigError` naming the path. A value that holds itself, a `Map`, a `Set`, an `Error` and a non-finite `maxStale` throw the same way.
+
+See [Distribution](/feature/distribution) for what a document carries.
+
+## `configDigest(config)`
+
+To identify a specific configuration state, `configDigest()` returns a 32-character hex string over the text of a `@evanion/feature` document.
+
+```ts signature
+function configDigest(config: FeatureConfig): string;
+```
+
+Before the text is taken, the function sorts the keys, drops `undefined` properties, and removes the `digest` and `version` members. Four fixed murmur3 seeds widen the 32-bit hash to a 128-bit digest.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-digest
+
+```
+
+This ensures that two documents differing only in key order or whitespace state one configuration and digest the same. Because the digest survives a JSON hop, two processes that computed one digest hold one configuration. It is not a cryptographic digest.
+
+## `validateConfig(config)`
+
+To check for errors in a candidate `@evanion/feature` document without throwing exceptions, you use `validateConfig()`.
+
+```ts signature
+function validateConfig(config: FeatureConfig): ValidationResult;
+```
+
+This is the single checker behind `createFeatures`, `parseFeatureConfig` and `features.reload`, and it trusts nothing about its argument.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-validate
+
+```
+
+Each `ConfigIssue` reports a `code`, a `message`, the `key` the issue is about (where applicable), and a JSON pointer in `path` for an issue that names a member; the three graph issues name a key and no member. The codes are closed at 18:
+
+| Group    | Codes                                                                                                                                          |
+| :------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
+| Graph    | `duplicate-feature`, `unknown-dependency`, `cycle`                                                                                             |
+| Variants | `duplicate-variant`, `unknown-variant`, `invalid-weight`, `empty-variants`, `zero-weights`, `duplicate-variant-order`, `invalid-variant-order` |
+| Rules    | `duplicate-rule-id`, `invalid-instant`, `unknown-context-field`, `field-type-mismatch`                                                         |
+| Envelope | `unfenced-schema`, `missing-schema-version`, `unknown-member`, `digest-mismatch`                                                               |
+
+## `parseFeatureConfig(config, options?)`
+
+To build a `@evanion/feature` store from a document while reporting what was refused, you use `parseFeatureConfig()`.
+
+```ts signature
+function parseFeatureConfig<
+  S extends Record<keyof S, VariantInfo | never> = Record<
+    FeatureKey,
+    VariantInfo | never
+  >,
+>(
+  config: FeatureConfig<Extract<keyof S, FeatureKey>>,
+  options?: FeatureOptions<S>,
+):
+  | { ok: true; features: Features<S, boolean> }
+  | { ok: false; issues: readonly ConfigIssue[] };
+```
+
+This function differs from `createFeatures` over the same document in one way: it throws nothing.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-install
+
+```
+
+Because a document that arrived as JSON carries no literal, the compiler cannot infer variant names from it. Consequently, the caller must name the schema, such as `parseFeatureConfig<ShopFlags>(document)`. The options are the same `FeatureOptions` `createFeatures` takes, including `observe` and `correlateBy`.
 
 ## Types
 
