@@ -8,6 +8,8 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative } from 'node:path';
+
+import ts from 'typescript';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const ROOT = join(import.meta.dirname, '..');
@@ -30,14 +32,70 @@ function sources(directory: string): string[] {
   });
 }
 
+/** One source file, parsed. */
+function parse(path: string): ts.SourceFile {
+  return ts.createSourceFile(
+    path,
+    readFileSync(path, 'utf8'),
+    ts.ScriptTarget.Latest,
+  );
+}
+
+/** `node` and every node below it, tokens and trivia excluded. */
+function walk(node: ts.Node, visit: (node: ts.Node) => void): void {
+  visit(node);
+  ts.forEachChild(node, (child) => walk(child, visit));
+}
+
 /**
- * Every module specifier a file names.
+ * Every module specifier a file names, read off its syntax.
  *
- * Four forms name one: `from 'pg'`, `import 'pg'`, `import('pg')` and
- * `require('pg')`. A scan that read the first form alone would pass a core
- * that reached a driver through any of the other three.
+ * Six clauses name one: `import 'pg'`, `from 'pg'`, `export … from 'pg'`,
+ * `import('pg')`, `import('pg').Pool` in a type position, and `require('pg')`.
+ * A scan that read one clause alone would pass a core that reached a driver
+ * through any of the others.
+ *
+ * The parser is here because the text is not the code. `Converts from
+ * 'instant' to a Date` in a docblock, the import line an `@example` opens
+ * with, and `type Op = 'from' | 'in'` each put the word beside a quote without
+ * importing anything, and this package writes all three. A scan over raw text
+ * reports them as driver imports and names a module the file does not have.
  */
-const SPECIFIER = /\b(?:from|import|require)\b\s*\(?\s*['"]([^'"]+)['"]/g;
+function specifiersOf(source: ts.SourceFile): string[] {
+  const found: string[] = [];
+
+  const push = (node: ts.Node | undefined): void => {
+    if (node !== undefined && ts.isStringLiteralLike(node))
+      found.push(node.text);
+  };
+
+  walk(source, (node) => {
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+      push(node.moduleSpecifier);
+      return;
+    }
+    if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference)
+    ) {
+      push(node.moduleReference.expression);
+      return;
+    }
+    if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument)) {
+      push(node.argument.literal);
+      return;
+    }
+    if (!ts.isCallExpression(node)) return;
+    if (
+      node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+      (ts.isIdentifier(node.expression) && node.expression.text === 'require')
+    ) {
+      push(node.arguments[0]);
+    }
+  });
+
+  return found;
+}
 
 interface ForeignImport {
   readonly path: string;
@@ -48,10 +106,7 @@ interface ForeignImport {
 function foreignImports(directory: string): ForeignImport[] {
   return sources(directory)
     .flatMap((path) =>
-      [...readFileSync(path, 'utf8').matchAll(SPECIFIER)].map((match) => ({
-        path,
-        specifier: match[1] as string,
-      })),
+      specifiersOf(parse(path)).map((specifier) => ({ path, specifier })),
     )
     .filter((each) => !each.specifier.startsWith('.'));
 }
@@ -340,6 +395,61 @@ describe('the imports the scan reports', () => {
 
   it('reports no specifier a test file names', () => {
     const root = tree({ 'store.spec.ts': "import { Pool } from 'pg';\n" });
+
+    expect(foreignImports(root)).toEqual([]);
+  });
+
+  it('reports a specifier an export clause names', () => {
+    const root = tree({ 'store.ts': "export { Pool } from 'pg';\n" });
+
+    expect(foreignImports(root).map((e) => e.specifier)).toEqual(['pg']);
+  });
+
+  it('reports a specifier an import type names', () => {
+    const root = tree({
+      'store.ts': "export type P = import('pg').Pool;\n",
+    });
+
+    expect(foreignImports(root).map((e) => e.specifier)).toEqual(['pg']);
+  });
+
+  it('reports no specifier a docblock names', () => {
+    // The two shapes this package writes. `config.ts` documents an instant it
+    // converts from, and the `@example` fences on `features.ts` and
+    // `react/index.tsx` open with the import line a reader would type.
+    const root = tree({
+      'config.ts': [
+        "/** Converts from 'instant' to a Date. */",
+        '/**',
+        ' * @example',
+        " * import { createFeatures } from '@evanion/feature';",
+        ' */',
+        'export const one = 1;',
+      ].join('\n'),
+    });
+
+    expect(foreignImports(root)).toEqual([]);
+  });
+
+  it('reports no specifier a line comment names', () => {
+    const root = tree({
+      'store.ts':
+        "// A holder reads from 'now' onward.\nexport const one = 1;\n",
+    });
+
+    expect(foreignImports(root)).toEqual([]);
+  });
+
+  it('reports no specifier a string literal union names', () => {
+    const root = tree({ 'store.ts': "export type Op = 'from' | 'in';\n" });
+
+    expect(foreignImports(root)).toEqual([]);
+  });
+
+  it('reports no specifier a string carrying an import line names', () => {
+    const root = tree({
+      'store.ts': 'export const line = "import { a } from \'pg\'";\n',
+    });
 
     expect(foreignImports(root)).toEqual([]);
   });
