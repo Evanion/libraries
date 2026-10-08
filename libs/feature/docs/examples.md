@@ -1383,3 +1383,421 @@ forCustomer('cust-0107'); // -> '<p>Standard</p>'
 ```
 
 <!-- #endregion react-server -->
+
+## Distribution
+
+<!-- #region config-document -->
+
+```ts @import.meta.vitest
+import { createFeatures, serializeConfig } from '@evanion/feature';
+
+const features = createFeatures([
+  { key: 'new-checkout', enabled: true },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+]);
+
+const document = serializeConfig(features, {
+  version: '2026-10-08.1',
+  maxStale: 60_000,
+});
+
+document.version; // -> '2026-10-08.1'
+document.maxStale; // -> 60000
+document.features.length; // -> 2
+document.digest; // -> undefined
+```
+
+<!-- #endregion config-document -->
+
+<!-- #region config-document-rules -->
+
+```ts @import.meta.vitest
+import { createFeatures, serializeConfig } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [
+      {
+        id: 'after-launch',
+        when: [
+          {
+            field: 'now',
+            op: 'after',
+            value: new Date('2026-10-01T00:00:00.000Z'),
+          },
+        ],
+      },
+    ],
+  },
+]);
+
+const document = serializeConfig(features);
+
+document.features[0]?.rules?.[0]?.when?.[0]; // -> { field: 'now', op: 'after', value: '2026-10-01T00:00:00.000Z' }
+```
+
+<!-- #endregion config-document-rules -->
+
+<!-- #region config-digest -->
+
+```ts @import.meta.vitest
+import {
+  configDigest,
+  createFeatures,
+  serializeConfig,
+} from '@evanion/feature';
+
+const features = createFeatures([{ key: 'new-checkout', enabled: true }]);
+const document = serializeConfig(features, { version: 41 });
+
+const digest = configDigest(document);
+digest.length; // -> 32
+
+// `version` is outside the text, so a relabelled document digests the same.
+configDigest({ ...document, version: 42 }) === digest; // -> true
+
+// Every other member is inside it.
+configDigest({ ...document, maxStale: 60_000 }) === digest; // -> false
+```
+
+<!-- #endregion config-digest -->
+
+<!-- #region config-digest-hop -->
+
+```ts @import.meta.vitest
+import {
+  configDigest,
+  createFeatures,
+  serializeConfig,
+} from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+const features = createFeatures([{ key: 'new-checkout', enabled: true }]);
+const document = serializeConfig(features, { version: 41 });
+
+const arrived = JSON.parse(JSON.stringify(document)) as FeatureConfig;
+
+configDigest(arrived) === configDigest(document); // -> true
+```
+
+<!-- #endregion config-digest-hop -->
+
+<!-- #region config-validate -->
+
+```ts @import.meta.vitest
+import { validateConfig } from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+const candidate: FeatureConfig = {
+  version: 42,
+  features: [
+    { key: 'new-checkout', enabled: true },
+    { key: 'new-checkout', enabled: true },
+    { key: 'express-pickup', enabled: true, dependsOn: ['nowhere'] },
+  ],
+};
+
+const found = validateConfig(candidate);
+
+found.ok; // -> false
+found.ok ? [] : found.issues.map((issue) => issue.code); // -> ['duplicate-feature', 'unknown-dependency']
+found.ok ? [] : found.issues.map((issue) => issue.key); // -> ['new-checkout', 'express-pickup']
+```
+
+<!-- #endregion config-validate -->
+
+<!-- #region config-install -->
+
+```ts @import.meta.vitest
+import { parseFeatureConfig } from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+const served: FeatureConfig = {
+  version: '2026-10-08.1',
+  features: [
+    { key: 'new-checkout', enabled: true },
+    { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  ],
+};
+
+const installed = parseFeatureConfig(served);
+
+installed.ok; // -> true
+installed.ok && installed.features.version; // -> '2026-10-08.1'
+installed.ok && installed.features.isEnabled('express-pickup'); // -> true
+```
+
+<!-- #endregion config-install -->
+
+<!-- #region config-install-refused -->
+
+```ts @import.meta.vitest
+import { parseFeatureConfig } from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+const served: FeatureConfig = {
+  version: '2026-10-08.2',
+  features: [
+    { key: 'new-checkout', enabled: true },
+    { key: 'express-pickup', enabled: true, dependsOn: ['nowhere'] },
+  ],
+};
+
+const installed = parseFeatureConfig(served);
+
+installed.ok; // -> false
+installed.ok ? [] : installed.issues.map((issue) => issue.code); // -> ['unknown-dependency']
+```
+
+<!-- #endregion config-install-refused -->
+
+<!-- #region config-envelope -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures({
+  version: 'flags@41',
+  schemaVersion: '2026-10-01',
+  maxStale: 60_000,
+  features: [
+    { key: 'new-checkout', enabled: true },
+    { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  ],
+});
+
+features.version; // -> 'flags@41'
+features.envelope.schemaVersion; // -> '2026-10-01'
+features.envelope.maxStale; // -> 60000
+features.isEnabled('express-pickup'); // -> true
+```
+
+<!-- #endregion config-envelope -->
+
+<!-- #region config-reload -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures({
+  version: 41,
+  features: [
+    { key: 'new-checkout', enabled: true },
+    { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  ],
+});
+
+const installed = features.reload({
+  version: 42,
+  features: [
+    { key: 'new-checkout', enabled: true },
+    { key: 'express-pickup', enabled: false, dependsOn: ['new-checkout'] },
+  ],
+});
+
+installed; // -> { ok: true, version: 42, previousVersion: 41, changed: ['express-pickup'] }
+features.isEnabled('express-pickup'); // -> false
+```
+
+<!-- #endregion config-reload -->
+
+<!-- #region config-reload-refused -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures({
+  version: 41,
+  features: [{ key: 'new-checkout', enabled: true }],
+});
+
+const refused = features.reload({
+  version: 42,
+  features: [
+    { key: 'new-checkout', enabled: true },
+    { key: 'new-checkout', enabled: false },
+  ],
+});
+
+refused.ok; // -> false
+refused.ok ? undefined : refused.rejected; // -> 42
+features.version; // -> 41
+features.isEnabled('new-checkout'); // -> true
+```
+
+<!-- #endregion config-reload-refused -->
+
+<!-- #region config-reload-toggle -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures({
+  version: 41,
+  features: [{ key: 'new-checkout', enabled: true }],
+});
+
+features.toggle('new-checkout', false);
+features.isEnabled('new-checkout'); // -> false
+
+features.reload({
+  version: 42,
+  features: [{ key: 'new-checkout', enabled: true }],
+});
+
+features.isEnabled('new-checkout'); // -> true
+```
+
+<!-- #endregion config-reload-toggle -->
+
+<!-- #region config-schema -->
+
+```ts @import.meta.vitest
+import { validateConfig } from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+const typed: FeatureConfig = {
+  schemaVersion: '2026-10-01',
+  schema: {
+    context: { fields: { role: 'string', tier: 'string?' } },
+    features: {
+      'checkout-cta': {
+        variants: {
+          control: {
+            type: 'object',
+            properties: { label: { type: 'string' } },
+          },
+        },
+      },
+    },
+  },
+  features: [
+    {
+      key: 'checkout-cta',
+      enabled: true,
+      variantBy: 'targetingKey',
+      variantSeed: 'checkout-cta:variant',
+      variants: [
+        { name: 'control', weight: 100, order: 0, value: { label: 'Buy' } },
+      ],
+      rules: [
+        {
+          id: 'booksellers',
+          when: [{ field: 'role', op: 'eq', value: 'bookseller' }],
+        },
+      ],
+    },
+  ],
+};
+
+validateConfig(typed); // -> { ok: true }
+```
+
+<!-- #endregion config-schema -->
+
+<!-- #region config-schema-refused -->
+
+```ts @import.meta.vitest
+import { validateConfig } from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+const unversioned: FeatureConfig = {
+  schema: { context: { fields: { role: 'string' } } },
+  features: [{ key: 'new-checkout', enabled: true }],
+};
+
+const unfenced: FeatureConfig = {
+  schemaVersion: '2026-10-01',
+  schema: {
+    features: {
+      'checkout-cta': {
+        variants: { control: { anyOf: [{ type: 'string' }] } },
+      },
+    },
+  },
+  features: [{ key: 'new-checkout', enabled: true }],
+};
+
+const codes = (config: FeatureConfig) => {
+  const found = validateConfig(config);
+  return found.ok ? [] : found.issues.map((issue) => issue.code);
+};
+
+codes(unversioned); // -> ['missing-schema-version']
+codes(unfenced); // -> ['unfenced-schema']
+```
+
+<!-- #endregion config-schema-refused -->
+
+<!-- #region config-unknown-field -->
+
+```ts @import.meta.vitest
+import { validateConfig } from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+const candidate: FeatureConfig = {
+  schemaVersion: '2026-10-01',
+  schema: { context: { fields: { role: 'string' } } },
+  features: [
+    {
+      key: 'new-checkout',
+      enabled: true,
+      rules: [
+        { id: 'tiers', when: [{ field: 'tier', op: 'eq', value: 'gold' }] },
+      ],
+    },
+  ],
+};
+
+const found = validateConfig(candidate);
+
+found.ok ? [] : found.issues.map((issue) => issue.code); // -> ['unknown-context-field']
+```
+
+<!-- #endregion config-unknown-field -->
+
+<!-- #region config-unknown-member -->
+
+```ts @import.meta.vitest
+import { validateConfig } from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+// A control plane one release ahead of this holder.
+const candidate = {
+  features: [{ key: 'new-checkout', enabled: true, notBefore: '2026-11-01' }],
+} as unknown as FeatureConfig;
+
+const found = validateConfig(candidate);
+
+found.ok ? [] : found.issues.map((issue) => issue.code); // -> ['unknown-member']
+found.ok ? [] : found.issues.map((issue) => issue.path); // -> ['/features/0/notBefore']
+```
+
+<!-- #endregion config-unknown-member -->
+
+<!-- #region config-digest-verified -->
+
+```ts @import.meta.vitest
+import {
+  configDigest,
+  createFeatures,
+  serializeConfig,
+  validateConfig,
+} from '@evanion/feature';
+
+const features = createFeatures([{ key: 'new-checkout', enabled: true }]);
+const document = serializeConfig(features, { version: 41 });
+
+const published = { ...document, digest: configDigest(document) };
+
+validateConfig(published); // -> { ok: true }
+
+const edited = { ...published, maxStale: 60_000 };
+const found = validateConfig(edited);
+
+found.ok ? [] : found.issues.map((issue) => issue.code); // -> ['digest-mismatch']
+```
+
+<!-- #endregion config-digest-verified -->

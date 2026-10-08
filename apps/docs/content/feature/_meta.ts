@@ -31,6 +31,15 @@ import type { MetaRecord } from 'nextra';
  * tracking belongs at the render site, which a reader can only weigh once they
  * know that `resolve` decides every configured feature.
  *
+ * Distribution follows Observing because it is the only page where the
+ * configuration arrives from an external source. While every previous page
+ * writes definitions in a file, this one introduces a document served by a
+ * control plane, a reload that replaces it, and a digest two processes
+ * compare. A reader who has not yet met a decision, a variant, and a toggle
+ * result has nothing to compare a reloaded document against; the page's
+ * `changed` list names keys whose stored intent moved, which is the
+ * distinction Observing just taught.
+ *
  * Without this file Nextra orders the folder by filename, which opens the
  * section on the API reference. The labels drop the package name the pages
  * repeat: the section is already called Feature.
@@ -49,5 +58,6 @@ export default {
   react: 'React',
   'build-time': 'Build-time Planning',
   observing: 'Observing',
+  distribution: 'Distribution',
   api: 'API Reference',
 } satisfies MetaRecord;

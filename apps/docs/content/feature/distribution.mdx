@@ -1,0 +1,195 @@
+# Distribution
+
+<WorkshopNotice slug="feature" />
+
+A configuration reaches a process as one versioned document, and `parseFeatureConfig` turns that document into the store every other call reads.
+
+<PageSheet
+  difficulty={4}
+  read={12}
+  hands={20}
+  requires={[
+    ['Configuration', '../configuration'],
+    ['Variants', '../variants'],
+  ]}
+  unlocks={[['API reference', '../api']]}
+/>
+
+## What a Configuration Document Carries
+
+To move configuration across a boundary, `@evanion/feature` uses an envelope over a list of definitions. This envelope carries exactly six members; there is no bare-array form on the wire, ensuring a producer emitting JSON states the version and the schema beside the features without needing a wrapper assembled at the call site.
+
+| Member          | Type                        | What it is                                                                 |
+| :-------------- | :-------------------------- | :------------------------------------------------------------------------- |
+| `version`       | `string \| number`          | Opaque, compared with `!==`, never ordered.                                |
+| `digest`        | `string`                    | `configDigest` of this same document. A holder that finds one verifies it. |
+| `schema`        | `FeatureSchema`             | The typing contract, inline.                                               |
+| `schemaVersion` | `string`                    | The schema's own version. A publisher never rewrites a schema at a value.  |
+| `maxStale`      | `number`                    | Milliseconds. Advisory, and no entry point in this library reads it.       |
+| `features`      | `SerializedDefinition<F>[]` | The definitions, in the order a holder reads them.                         |
+
+If a seventh member is present, it is treated as an `unknown-member` issue and the whole document is refused. This strictness prevents a holder from dropping an unreadable member and evaluating the document as though the publisher had never sent it without reporting the failure.
+
+The envelope carries no `notBefore`, no `notAfter`, no `visibility` on a definition and no reduced serialization mode.
+
+## Writing a Live Store Out as a Document
+
+To serve a store to other processes, you can write it out as a document. The `serializeConfig` function handles this by converting a `@evanion/feature` store into a single document. Because `configDigest` is defined over the serialized form, a control plane that built its store from rows calls this function to produce the form required for the digest.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-document
+
+```
+
+The second parameter is the envelope, which defaults to `features.envelope`. Note that `digest` is not writable here: `configDigest` is the sole writer of that member, and a serializer that copied a digest from its caller would emit a document whose digest covers other bytes.
+
+When handling dates, a `Date` at a window condition's `value` is converted to its ISO 8601 string. This ensures that `toEpoch` reads both the `Date` and the string to one epoch, allowing a window to decide identically in the publisher and the holder.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-document-rules
+
+```
+
+A `Date` at any other member is refused with a `FeatureConfigError` naming the path to it. Since `evaluateCondition` compares an attribute condition's value with `===` and `valueOf` hands a variant value to the application untouched, a `Date` at either member would behave differently than the ISO string a holder receives. Authors who want these members to travel must write the ISO string in the definition.
+
+`serializeConfig` checks nothing else; it emits the stored document whole. Document-level refusal is the responsibility of `validateConfig`, `parseFeatureConfig` and `reload`.
+
+## How a Process Installs a Document
+
+To turn a document into a working store, you use `parseFeatureConfig`. This function builds a `@evanion/feature` store from a document and reports any issues it could not accept, though it throws nothing.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-install
+
+```
+
+While `createFeatures` also takes a document, it continues to throw. These two entry points differ based on who supplied the configuration: a literal that fails validation is treated as a programming error for the author to find in a stack trace, whereas a row that fails validation arrives via a poller in a process already serving traffic. In the latter case, the malformed row is reported, and the previous document continues to decide.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-envelope
+
+```
+
+A store built from a document lifts the envelope: `features.version` names the installed document and `features.envelope` holds its members, deeply frozen. Conversely, a store built from a bare array carries no version and an empty, frozen envelope, as an author writing four flags in a file owes no version, schema, or freshness claim.
+
+Because a document arriving as JSON carries no literal, the compiler cannot infer variant names from it. To get these names, the caller must name the schema: `parseFeatureConfig<ShopFlags>(document)`.
+
+## Every Refusal Reports Every Defect
+
+To ensure operators aren't stuck in a loop of fixing one error per deploy cycle, `validateConfig` reports every issue found in a document rather than just the first. This is the single checker used by every `@evanion/feature` entry point that reads a document.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-validate
+
+```
+
+Each reported issue includes a `code` from a closed list of 18, the `message` that a thrown counterpart would carry, the `key` involved, and, for an issue that names a member, a JSON pointer in `path` to allow a UI to highlight the row. The three graph issues name a key and no member, so they carry no `path`.
+
+The checker trusts nothing about the argument. Since a caller hands it whatever `JSON.parse` returned from a control plane's body, the checker reads every member it walks and reports any it cannot read.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-unknown-member
+
+```
+
+`parseFeatureConfig` returns these same issues on its refusal arm.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-install-refused
+
+```
+
+Documents reaching this checker are assumed to have come through a store and a code generator. Therefore, the document is refused unless every variant declares an `order` and every definition carrying variants declares a `variantBy` and a `variantSeed`. If a holder filled these gaps with defaults, it might compute a different variant assignment than the publisher without either process reporting the discrepancy. `createFeatures` reading a literal is the exception, where the array defines the order and defaults answer for omitted members.
+
+## Replacing a Document Without a Restart
+
+To update configuration without restarting a process, `features.reload` validates a candidate document and installs it by swapping one reference. It identifies the keys whose stored intent differs from the previous document.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-reload
+
+```
+
+The `changed` result diffs stored intent, not resolved values; for example, a key whose rule window opened because the clock moved is not named.
+
+If a candidate is refused, all internal references remain unchanged, and the store continues answering from the existing document.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-reload-refused
+
+```
+
+This design accepts a specific availability cost: a holder that refuses a document continues serving a stale one to avoid the alternative of dropping features and reporting nothing.
+
+Both arms of `ReloadResult` carry `version`, naming the document currently installed. The refusal arm also carries the candidate's version in `rejected` for logging purposes.
+
+## Why a Reload Discards a Local Toggle
+
+If you use `toggle` to write intent into a `@evanion/feature` store, be aware that the next reload replaces that write entirely. There is no merge.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-reload-toggle
+
+```
+
+The store's truth is the configuration source; a toggle is merely a local write against it. Merging the two would result in a store answering from two authorities with no record of which one decided. Operators seeking a durable toggle should write to the row and allow the poller to bring it back.
+
+A toggle does not touch `version` and `envelope`. These continue to name the document served by the publisher, which the next poll compares against. A caller wishing to serve what it toggled must pass a custom envelope to `serializeConfig`.
+
+## Comparing Two Versions, and Verifying a Digest
+
+A `@evanion/feature` consumer compares `version` using `!==` and never orders them. Ordering versions is avoided because both potential actions are incorrect: declining a lower version blocks critical 3am rollbacks, and accepting only higher versions breaks control planes serving shards with diverged counters. Instead, a consumer holding the wrong version simply fetches the document that version names.
+
+To verify the integrity of a document, `configDigest` returns 32 hex characters over the document's text, after removing `digest` and `version`.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-digest
+
+```
+
+These members are removed because a publisher without a version scheme writes the digest into both, yet holds neither value when computing the digest. If the text included either, a holder could never recompute the digest from the document it was served, and verification would always fail. However, `maxStale` and `schema` remain in the text alongside `features` and `schemaVersion`, so editing `maxStale` alone triggers a reload by all holders.
+
+Because the digest survives a JSON hop, it serves as proof: two processes that fetched the same document separately and computed one digest hold the same configuration.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-digest-hop
+
+```
+
+A holder that finds a `digest` on an incoming document recomputes it and reports `digest-mismatch` if they disagree.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-digest-verified
+
+```
+
+This is not a cryptographic digest. No security properties rely on the difficulty of finding collisions, and since Web Crypto's `digest` returns a promise, it cannot be used in the synchronous entry points of this library.
+
+## `maxStale` Travels, and Your Poller Is What Acts on It
+
+The `maxStale` member indicates how long the publisher believes a holder may keep a document, in milliseconds. This is purely advisory; no `@evanion/feature` entry point—including `resolve`, `plan`, `toggle`, `reload`, or `validateConfig`—reads or acts on it. A store built from a document with `maxStale: 1` resolves identically to one without it.
+
+The party performing the fetch is responsible for acting on this value. Your poller should track the fetch instant and decide whether to shorten the interval, log a warning, refuse to start, or serve a fallback document. This library maintains no clock authority.
+
+## The Schema's Two Vocabularies
+
+A `@evanion/feature` document defines its typing contract in `schema`, using two different notations for two different purposes. The engine reads a context field, compares it with a closed operator set, and checks it against the declared type at validation; it reads no variant value at all.
+
+`schema.context.fields` maps a field name to a flat `FieldType` string (`'string'`, `'number'`, `'boolean'`, or `'instant'`). These may include `[]` for arrays or `?` for optional fields. This structure allows a producer in any language to emit the schema via reflection.
+
+For variants, `schema.features[key].variants[name]` uses a JSON Schema 2020-12 object, enabling the use of tools like quicktype and openapi-generator to emit TypeScript, Swift, and Kotlin.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-schema
+
+```
+
+If a rule reads a context field not declared in the schema, it results in an `unknown-context-field` issue.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-unknown-field
+
+```
+
+The supported JSON Schema subset is restricted to `type`, `properties`, `required`, `items`, `enum`, `const`, `additionalProperties`, `$defs`, local `$ref` entries, `title`, and `description`. Other keywords like `allOf`, `anyOf`, `oneOf`, `not`, `unevaluatedProperties`, or external `$ref` URLs are refused as `unfenced-schema`. Additionally, an inline schema missing a `schemaVersion` triggers a `missing-schema-version` issue, as holders cannot cache a schema that names no value to cache it at.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-schema-refused
+
+```
+
+A document that carries neither `schema` nor `schemaVersion` declares no shapes and is considered legal.
+
+## Where the Adapter Lives, and What No Endpoint Answers
+
+`@evanion/feature` focuses solely on evaluating the document it is handed; it does not fetch documents. To keep the core lean, the package has no runtime dependencies and imports no drivers, sockets, or timers—a constraint enforced by `libs/feature/src/lib/core-boundary.spec.ts`. This ensures a browser bundle contains no Postgres driver and a React Native bundle contains no Node `http` imports.
+
+Adapters for databases, HTTP endpoints, or disk caches belong in the sibling package `@evanion/feature-source`, which is not written yet. Issue [#423](https://github.com/Evanion/libraries/issues/423) owns the adapter interface, a push source, and what a binding does with the advisory `maxStale`. Until then, the poller is your responsibility: fetch the document, call `parseFeatureConfig` at boot, and use `features.reload` on each poll.
+
+Finally, no endpoint in this library answers which variant a subject gets. Every process holds the rules and computes its own answer from the installed document. Two processes with the same digest will always agree on assignments without communication; no decision-bubbling path is provided or planned.
+
+[API reference](../api) carries the signature of each call this page used, and the full list of the 18 issue codes `validateConfig` reports.
