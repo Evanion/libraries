@@ -111,25 +111,51 @@ function foreignImports(directory: string): ForeignImport[] {
     .filter((each) => !each.specifier.startsWith('.'));
 }
 
-/** The calls that start a timer or open a socket. */
+/** The names that start a timer or open a socket. */
 const RUNTIME_CALLS = [
-  /setInterval/,
-  /setTimeout/,
-  /setImmediate/,
-  /\bfetch\(/,
-  /XMLHttpRequest/,
-  /WebSocket/,
-  /EventSource/,
-];
+  'setInterval',
+  'setTimeout',
+  'setImmediate',
+  'fetch',
+  'XMLHttpRequest',
+  'WebSocket',
+  'EventSource',
+] as const;
+
+/**
+ * Every timer or socket name a file reaches for, read off its syntax.
+ *
+ * A name counts wherever the code names it. `setInterval(…)`, `new
+ * WebSocket(…)`, `globalThis.setTimeout` and `const later = setTimeout` all
+ * reach the same host facility, and a rule that asked for the call parens
+ * would pass the last two.
+ *
+ * The parser is here for the same reason it is on the import scan: a docblock
+ * that writes the word names nothing. `config.ts` documents the poller
+ * `@evanion/feature-source` owns, so it is the file most likely to write
+ * `setInterval` in prose, and the sentence saying the core opens no
+ * `WebSocket` must not be the thing that fails the assertion.
+ */
+function runtimeNamesOf(source: ts.SourceFile): string[] {
+  const watched: ReadonlySet<string> = new Set(RUNTIME_CALLS);
+  const found = new Set<string>();
+
+  walk(source, (node) => {
+    if (ts.isPropertyAccessExpression(node) && watched.has(node.name.text)) {
+      found.add(node.name.text);
+      return;
+    }
+    if (ts.isIdentifier(node) && watched.has(node.text)) found.add(node.text);
+  });
+
+  return RUNTIME_CALLS.filter((name) => found.has(name));
+}
 
 /** Every timer or socket call the files under `directory` name. */
 function runtimeOffences(directory: string): string[] {
-  return sources(directory).flatMap((path) => {
-    const text = readFileSync(path, 'utf8');
-    return RUNTIME_CALLS.filter((pattern) => pattern.test(text)).map(
-      (pattern) => `${path}: ${String(pattern)}`,
-    );
-  });
+  return sources(directory).flatMap((path) =>
+    runtimeNamesOf(parse(path)).map((name) => `${path}: ${name}`),
+  );
 }
 
 /** The manifest members this file reads. */
@@ -475,11 +501,19 @@ describe('the timers and sockets the scan reports', () => {
       ].join('\n'),
     });
 
-    const patterns = runtimeOffences(root).map(
+    const names = runtimeOffences(root).map(
       (offence) => offence.split(': ')[1],
     );
 
-    expect(patterns).toEqual(RUNTIME_CALLS.map((pattern) => String(pattern)));
+    expect(names).toEqual([
+      'setInterval',
+      'setTimeout',
+      'setImmediate',
+      'fetch',
+      'XMLHttpRequest',
+      'WebSocket',
+      'EventSource',
+    ]);
   });
 
   it('names the file each offence came from', () => {
@@ -495,7 +529,7 @@ describe('the timers and sockets the scan reports', () => {
     expect(named(root, paths)).toEqual(['poller.ts']);
   });
 
-  it('reports one offence per pattern, not per occurrence', () => {
+  it('reports one offence per name, not per occurrence', () => {
     const root = tree({
       'poller.ts': 'setTimeout(a, 1);\nsetTimeout(b, 2);\n',
     });
@@ -509,12 +543,62 @@ describe('the timers and sockets the scan reports', () => {
     expect(runtimeOffences(root)).toEqual([]);
   });
 
+  it('reports a name a property access reaches', () => {
+    const root = tree({
+      'poller.ts': 'globalThis.setTimeout(() => undefined, 1);\n',
+    });
+
+    expect(runtimeOffences(root)).toHaveLength(1);
+  });
+
+  it('reports a name the module holds without calling it', () => {
+    // `const later = setTimeout; later(f, 1)` starts the same timer, so the
+    // reference is the boundary, not the parens after it.
+    const root = tree({ 'poller.ts': 'export const later = setTimeout;\n' });
+
+    expect(runtimeOffences(root)).toHaveLength(1);
+  });
+
   it('reports nothing from a module that names no call', () => {
     const root = tree({
       // The prose a docblock writes about a fetch is not a fetch. `maxStale`
       // is documented in the core and acted on by the party that fetches.
       'config.ts':
         '/** The poller performs the fetch. */\nexport const ms = 1;\n',
+    });
+
+    expect(runtimeOffences(root)).toEqual([]);
+  });
+
+  it('reports no call a docblock names', () => {
+    // Every name on the list, in the two sentences `config.ts` has the most
+    // reason to write: what the source package owns, and what this one does
+    // not do.
+    const root = tree({
+      'config.ts': [
+        '/**',
+        ' * The source package owns the WebSocket, the EventSource and the',
+        ' * XMLHttpRequest. No setInterval, setTimeout or setImmediate runs',
+        ' * here, and the core performs no fetch.',
+        ' */',
+        'export const ms = 1;',
+      ].join('\n'),
+    });
+
+    expect(runtimeOffences(root)).toEqual([]);
+  });
+
+  it('reports no call a line comment names', () => {
+    const root = tree({
+      'config.ts': '// No setTimeout runs in the core.\nexport const ms = 1;\n',
+    });
+
+    expect(runtimeOffences(root)).toEqual([]);
+  });
+
+  it('reports no call a string literal names', () => {
+    const root = tree({
+      'config.ts': "export const owner = 'WebSocket';\n",
     });
 
     expect(runtimeOffences(root)).toEqual([]);
