@@ -309,9 +309,11 @@ describe('twoslash fences', () => {
   // cache carries across sections. Each section gets the whole test timeout,
   // and a failure names the section it is in.
   const twoslasher = createTwoslasher();
-  const sections = Map.groupBy(fences, ({ page }) =>
-    dirname(page.replace(/:\d+$/, '')),
-  );
+  const sections = new Map<string, Fence[]>();
+  for (const fence of fences) {
+    const section = dirname(fence.page.replace(/:\d+$/, ''));
+    sections.set(section, [...(sections.get(section) ?? []), fence]);
+  }
 
   it.each([...sections.keys()])(
     'compiles in %s, and still produces every error it declares',
