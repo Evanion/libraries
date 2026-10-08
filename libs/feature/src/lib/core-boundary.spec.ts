@@ -55,6 +55,12 @@ function walk(node: ts.Node, visit: (node: ts.Node) => void): void {
  * A scan that read one clause alone would pass a core that reached a driver
  * through any of the others.
  *
+ * Each clause reads its specifier as a string literal of any quote form, which
+ * is what `isStringLiteralLike` is for. A backtick with nothing substituted
+ * into it is a specifier the bundler resolves, and a predicate narrowed to a
+ * plain string literal reports no module for the dynamic import that writes
+ * one.
+ *
  * The parser is here because the text is not the code. `Converts from
  * 'instant' to a Date` in a docblock, the import line an `@example` opens
  * with, and `type Op = 'from' | 'in'` each put the word beside a quote without
@@ -421,6 +427,17 @@ describe('the imports the scan reports', () => {
 
   it('reports a double-quoted specifier', () => {
     const root = tree({ 'store.ts': 'import { Pool } from "pg";\n' });
+
+    expect(foreignImports(root).map((e) => e.specifier)).toEqual(['pg']);
+  });
+
+  it('reports a backtick specifier', () => {
+    // A backtick with nothing substituted into it resolves like a quoted
+    // specifier, so a predicate narrowed to a plain string literal reports no
+    // module for a driver imported this way.
+    const root = tree({
+      'store.ts': 'export const open = () => import(`pg`);\n',
+    });
 
     expect(foreignImports(root).map((e) => e.specifier)).toEqual(['pg']);
   });
