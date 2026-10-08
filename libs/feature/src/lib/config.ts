@@ -209,6 +209,10 @@ export interface FeatureConfig<F extends FeatureKey = FeatureKey> {
    * `@evanion/feature-source` holds the poller, knows the fetch instant because
    * it performed the fetch, and shortens its interval, logs, refuses to start
    * or serves a fallback document. This library holds no clock authority.
+   *
+   * This library evaluates the document a caller hands it. No endpoint answers
+   * which variant a subject gets, so every holder computes its own answer from
+   * the rules the document carries.
    */
   readonly maxStale?: number;
   readonly features: readonly SerializedDefinition<F>[];
