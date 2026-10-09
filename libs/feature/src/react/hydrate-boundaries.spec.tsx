@@ -131,6 +131,24 @@ const PINNED = [
   },
 ] as const;
 
+/**
+ * The pinned split as a document one version behind states it: the same rule
+ * under the same id, and no variants at all.
+ *
+ * `ruleId` answers `'staff'` for both, so a set the newer document shipped
+ * names a rule this store holds. `decide` still assigns no variant here, so no
+ * context reaches the pin.
+ */
+const PINNED_FLAG = [
+  {
+    key: 'cta',
+    enabled: true,
+    rules: [
+      { id: 'staff', when: [{ field: 'group', op: 'eq', value: 'staff' }] },
+    ],
+  },
+] as const;
+
 /** The schema `parseFeatureConfig` builds the custom split's store at. */
 type Custom = { cta: { variant: 'blue' | 'green' } };
 
@@ -472,6 +490,47 @@ describe('FeatureProvider', () => {
     expect(reports.filter((report) => report.kind === 'missing-field')).toEqual(
       [],
     );
+  });
+
+  it('names the store gap for a pinned assignment on a key it declares with no variants', () => {
+    // Production, because § 4 gives the sufficiency check the pin on the
+    // grounds that it is the only check that runs here.
+    vi.stubEnv('NODE_ENV', 'production');
+    const shipped = createFeatures(PINNED).snapshot({
+      targetingKey: 'u-9',
+      group: 'staff',
+    });
+    // A store one document behind, holding the pinning rule under the same id
+    // and no variants to pin.
+    const store = createFeatures(PINNED_FLAG);
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={shipped as unknown as DecisionSet<{ cta: never }>}
+        // The rule's own field, so the rule is readable here and the pin check
+        // finds nothing to ask for. The gap is the store's.
+        context={{ group: 'staff' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    const missing = reports.find((report) => report.kind === 'missing-field');
+
+    expect(shipped.decisions.cta.assignment).toMatchObject({
+      source: 'pinned',
+      rule: 'staff',
+    });
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+    expect(missing).toMatchObject({
+      key: 'cta',
+      shipped: { variant: 'blue', source: 'pinned' },
+    });
+    expect(missing?.field).toBeUndefined();
+    expect(missing?.message).toContain('with no variants');
   });
 
   it('names no field for a sticky assignment the client context reproduces', () => {

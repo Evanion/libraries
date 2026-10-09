@@ -14,6 +14,7 @@ import type {
   FeatureKey,
   VariantInfo,
 } from '../lib/types.js';
+import type { VariantAssignment } from '../lib/variants.js';
 
 /** What a provider does when the shipped version is not the store's. */
 export type VersionMismatchPolicy = 'use-shipped' | 're-resolve';
@@ -172,10 +173,16 @@ function carries(context: EvaluationContext, field: string): boolean {
  * reports nothing. The wire carries whatever a producer sent, and no rule here
  * states what that one matched on. The version check names two stores that
  * disagree about the rules.
+ *
+ * `local` is the caller's `assignVariant` answer for the same definition and
+ * context. A store answering nothing there assigns no variant for the key at
+ * all, which {@link sufficiency} reports before it reaches this check, so the
+ * message always names the variant a client resolution would reach.
  */
 function pinSufficiency<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
   decision: AnyDecision,
+  local: VariantAssignment,
   context: EvaluationContext,
   observer: DivergenceObserver<FeatureKey> | undefined,
 ): void {
@@ -191,20 +198,13 @@ function pinSufficiency<F extends FeatureKey>(
   const [first] = unreadable;
   if (first === undefined) return;
 
-  const local = assignVariant(definition, context);
-  const would = local
-    ? ` and a client resolution would assign "${local.variant.name}" (source: ${local.source})`
-    : '';
-
   reportDivergence(observer, {
     kind: 'missing-field',
     key: decision.key,
     field: first,
     shipped: { variant: decision.variant, source: 'pinned' },
-    local: local
-      ? { variant: local.variant.name, source: local.source }
-      : undefined,
-    message: `feature "${String(decision.key)}": the server assigned variant "${String(decision.variant)}" off rule "${String(named)}", and this provider's context carries no ${unreadable.map((field) => `"${field}"`).join(', ')}, so that rule cannot match here${would}. Pass ${unreadable.join(', ')} to <FeatureProvider context={...}>.`,
+    local: { variant: local.variant.name, source: local.source },
+    message: `feature "${String(decision.key)}": the server assigned variant "${String(decision.variant)}" off rule "${String(named)}", and this provider's context carries no ${unreadable.map((field) => `"${field}"`).join(', ')}, so that rule cannot match here and a client resolution would assign "${local.variant.name}" (source: ${local.source}). Pass ${unreadable.join(', ')} to <FeatureProvider context={...}>.`,
   });
 }
 
@@ -284,16 +284,15 @@ function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
       continue;
     }
 
-    if (assignment.source === 'pinned') {
-      pinSufficiency(definition, decision, context, observer);
-      continue;
-    }
-
+    // The store gap is read before the source is, because a pin answers off
+    // this store's variants too. `decide` assigns a matching rule's own
+    // `variant` over what `assignVariant` answered, and it returns the
+    // decision with no variant at all where that call answered nothing
+    // (`evaluate.ts:236-237`), so a store declaring the key with no variants
+    // reproduces no pin either. § 4 names the production check as the only one
+    // that can report a pin, so routing a pin past this branch would leave the
+    // gap unnamed in a production bundle.
     const local = assignVariant(definition, context);
-    if (local && local.source !== 'fallback') continue;
-
-    const served = `feature "${key}": the server assigned variant "${String(decision.variant)}" by "${assignment.by}"`;
-
     if (!local) {
       reportDivergence(observer, {
         kind: 'missing-field',
@@ -303,6 +302,15 @@ function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
       });
       continue;
     }
+
+    if (assignment.source === 'pinned') {
+      pinSufficiency(definition, decision, local, context, observer);
+      continue;
+    }
+
+    if (local.source !== 'fallback') continue;
+
+    const served = `feature "${key}": the server assigned variant "${String(decision.variant)}" by "${assignment.by}"`;
 
     const by = local.by;
     const control = local.variant.name;
