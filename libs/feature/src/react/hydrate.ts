@@ -19,6 +19,24 @@ export type VersionMismatchPolicy = 'use-shipped' | 're-resolve';
 type AnyDecision = Decision<FeatureKey>;
 
 /**
+ * The instant a set states, or this process's clock where it states none a
+ * `Date` reads.
+ *
+ * `Features.snapshot` refuses to state an instant no `Date` reads
+ * (`features.ts:1029-1033`), and a set reaches a client as JSON with nothing
+ * re-validating it, so the consuming side absorbs whatever a broken producer
+ * sent. `new Date` of an unparsed string answers an invalid `Date`, which
+ * `evaluateCondition` reads as `false` for every `before`, `after` and
+ * `day-of-week` condition rather than raising (`conditions.ts:144`,
+ * `conditions.ts:151`). A resolution at that instant answers a time window no
+ * clock is inside, and under `'re-resolve'` the provider publishes it.
+ */
+function instantOf(now: string): Date {
+  const stated = new Date(now);
+  return Number.isNaN(stated.getTime()) ? new Date() : stated;
+}
+
+/**
  * A decision record at the erased key type.
  *
  * Both forms of `Decisions<S>` hold one decision per key, and every field this
@@ -180,7 +198,7 @@ export function publishedDecisions<
   // build carries one that may be days old, so the client's own clock answers.
   const settled: EvaluationContext =
     shipped.origin === 'render'
-      ? { ...context, now: context?.now ?? new Date(shipped.now) }
+      ? { ...context, now: context?.now ?? instantOf(shipped.now) }
       : { ...context };
 
   const sent = erasedSet(shipped.decisions);
