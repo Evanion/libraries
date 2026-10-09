@@ -129,6 +129,21 @@ function compared(
 }
 
 /**
+ * Whether a context carries a value at `field`.
+ *
+ * A bare index walks the prototype chain, so a rule or a bucketing field named
+ * `constructor` reads a function off `Object.prototype`. `evaluateCondition`
+ * guards the same read the same way (`conditions.ts:160-165`), and a context
+ * is caller data while a field name is config.
+ */
+function carries(context: EvaluationContext, field: string): boolean {
+  return (
+    Object.prototype.hasOwnProperty.call(context, field) &&
+    context[field] !== undefined
+  );
+}
+
+/**
  * Names every shipped decision this provider's context could not reproduce.
  *
  * It skips a decision whose own source is `'fallback'`, because that decision
@@ -150,6 +165,20 @@ function compared(
  * not, whatever the two variants are. The report names a context this process
  * cannot bucket with, which holds for the next subject even where the control
  * and the shipped variant coincide for this one.
+ *
+ * `field` names the field this provider needs and not the one the server used.
+ * The two are the same field for two processes holding one configuration, and
+ * they differ where the client store's `variantBy` names another field, where
+ * the assignment was `'sticky'` and the client carries no sticky map, and
+ * where the store declares the feature with no variants at all. Naming the
+ * server's field for those tells the developer to supply a value the engine
+ * here never reads.
+ *
+ * The message states which of the two the context did: a field it carries
+ * nothing at, or a field it carries a value at that `assignVariant` cannot
+ * bucket -- `null`, an object, a boolean. A store that assigns no variant for
+ * the feature at all names neither, because no context reproduces the shipped
+ * assignment and the fix is the document this store was built from.
  *
  * `'weighted'` and `'sticky'` are the two sources that reach the report, and
  * § 4's "a source other than `'fallback'`" would admit a third. A `'pinned'`
@@ -185,15 +214,40 @@ function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
     const local = definition ? assignVariant(definition, context) : undefined;
     if (local && local.source !== 'fallback') continue;
 
-    const control = local?.variant.name;
+    const key = String(decision.key);
+    const served = `feature "${key}": the server assigned variant "${String(decision.variant)}" by "${assignment.by}"`;
+    const shippedSide = {
+      variant: decision.variant,
+      source: assignment.source,
+    };
+
+    if (!local) {
+      const gap = definition
+        ? `this store declares feature "${key}" with no variants`
+        : `this store declares no feature "${key}"`;
+      reportDivergence(observer, {
+        kind: 'missing-field',
+        key: decision.key,
+        field: assignment.by,
+        shipped: shippedSide,
+        message: `${served}, and ${gap}, so this provider assigns no variant for it whatever its context carries. Reload the store from the document the server resolved against.`,
+      });
+      continue;
+    }
+
+    const by = local.by;
+    const control = local.variant.name;
+    const lacking = carries(context, by)
+      ? `carries no value at "${by}" that buckets a subject, so a client resolution would assign "${control}" (source: fallback). Pass a string or a number at ${by}`
+      : `carries no "${by}", so a client resolution would assign "${control}" (source: fallback). Pass ${by}`;
 
     reportDivergence(observer, {
       kind: 'missing-field',
       key: decision.key,
-      field: assignment.by,
-      shipped: { variant: decision.variant, source: assignment.source },
+      field: by,
+      shipped: shippedSide,
       local: { variant: control, source: 'fallback' },
-      message: `feature "${String(decision.key)}": the server assigned variant "${String(decision.variant)}" by "${assignment.by}", and this provider's context carries no "${assignment.by}", so a client resolution would assign "${String(control)}" (source: fallback). Pass ${assignment.by} to <FeatureProvider context={...}>.`,
+      message: `${served}, and this provider's context ${lacking} to <FeatureProvider context={...}>.`,
     });
   }
 }

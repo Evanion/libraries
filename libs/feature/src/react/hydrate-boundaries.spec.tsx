@@ -127,6 +127,9 @@ const PINNED = [
   },
 ] as const;
 
+/** The schema `parseFeatureConfig` builds the custom split's store at. */
+type Custom = { cta: { variant: 'blue' | 'green' } };
+
 /** A window every clock after 2020 is inside. */
 const OPEN = [
   {
@@ -155,6 +158,14 @@ function storeAt(version: string) {
 function openAt(version: string) {
   const parsed = parseFeatureConfig<OpenSale>(
     serializeConfig(createFeatures(OPEN), { version }),
+  );
+  if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+  return parsed.features;
+}
+
+function customAt(version: string) {
+  const parsed = parseFeatureConfig<Custom>(
+    serializeConfig(createFeatures(CUSTOM), { version }),
   );
   if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
   return parsed.features;
@@ -381,16 +392,18 @@ describe('FeatureProvider', () => {
       </FeatureProvider>,
     );
 
-    expect(
-      reports.filter((report) => report.kind === 'missing-field'),
-    ).toMatchObject([
-      {
-        key: 'cta',
-        field: 'accountId',
-        shipped: { source: 'weighted' },
-        local: { variant: 'green', source: 'fallback' },
-      },
-    ]);
+    const missing = reports.find((report) => report.kind === 'missing-field');
+
+    expect(missing).toMatchObject({
+      key: 'cta',
+      field: 'accountId',
+      shipped: { source: 'weighted' },
+      local: { variant: 'green', source: 'fallback' },
+    });
+    // The field is there. What it holds is what no engine buckets.
+    expect(missing?.message).toContain(
+      'carries no value at "accountId" that buckets a subject',
+    );
   });
 
   it('names no field for an assignment a rule pinned', () => {
@@ -446,7 +459,7 @@ describe('FeatureProvider', () => {
     );
   });
 
-  it('names no control for a shipped assignment on a feature this store lacks', () => {
+  it('names the store gap for a shipped assignment on a feature it lacks', () => {
     const store = storeAt('v1');
     const shipped = store.snapshot({ targetingKey: 'u-9' });
     // A server one version ahead ships a decision for a feature this document
@@ -470,21 +483,53 @@ describe('FeatureProvider', () => {
       <FeatureProvider
         features={store}
         decisions={ahead}
-        context={{}}
+        // The context carries the field the server bucketed on, so the only
+        // thing this provider cannot reproduce is a feature it never declared.
+        context={{ targetingKey: 'u-9' }}
         onDivergence={(report) => reports.push(report)}
       >
         <Cta />
       </FeatureProvider>,
     );
 
-    expect(reports.filter((report) => report.key === 'promo')).toMatchObject([
-      {
-        kind: 'missing-field',
-        field: 'targetingKey',
-        shipped: { variant: 'wide', source: 'weighted' },
-        local: { variant: undefined, source: 'fallback' },
-      },
-    ]);
+    const promo = reports.find((report) => report.key === 'promo');
+
+    expect(promo).toMatchObject({
+      kind: 'missing-field',
+      field: 'targetingKey',
+      shipped: { variant: 'wide', source: 'weighted' },
+    });
+    // No context reproduces the assignment, so the report names no local
+    // variant and asks for no field.
+    expect(promo?.local).toBeUndefined();
+    expect(promo?.message).toContain('declares no feature "promo"');
+    expect(promo?.message).not.toContain('carries no');
+  });
+
+  it('names the field this provider buckets on where the two stores differ', () => {
+    const shipped = storeAt('v1').snapshot({ targetingKey: 'u-9' });
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        // A client store whose `variantBy` names another field than the
+        // server's. The field a developer has to supply is this store's, and
+        // the server's is the one no engine here reads.
+        features={customAt('v1')}
+        decisions={shipped as unknown as DecisionSet<Custom>}
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    const missing = reports.find((report) => report.kind === 'missing-field');
+
+    expect(missing?.field).toBe('accountId');
+    expect(missing?.local).toEqual({ variant: 'green', source: 'fallback' });
+    expect(missing?.message).toContain('by "targetingKey"');
+    expect(missing?.message).toContain('carries no "accountId"');
   });
 
   it('publishes a shipped set that names no decision at all', () => {
