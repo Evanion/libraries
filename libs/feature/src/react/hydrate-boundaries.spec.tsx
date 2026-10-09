@@ -28,7 +28,8 @@ import type {
  * store gaps -- a key this store does not declare and a key it declares with
  * no variants, under a bucket and under a pin -- and each kind of field a
  * pinning rule reads: a date window the clock fills, an attribute, and a
- * rollout bucket the rule's `when` never names. A runtime that defines no
+ * rollout bucket the rule's `when` never names. A pin naming a rule this store
+ * does not hold reaches it too. A runtime that defines no
  * `process` and one whose `process` carries no `env` mount a provider too, a
  * re-render that writes a new observer prop counts what the checks send, and a
  * re-render that installs one over a context the provider already resolved
@@ -635,6 +636,46 @@ describe('FeatureProvider', () => {
     });
     expect(missing?.field).toBeUndefined();
     expect(missing?.message).toContain('with no variants');
+  });
+
+  it('names no field for a pinned assignment naming a rule this store lacks', () => {
+    // A store whose document states the split and no rules at all, against a
+    // set a server one version ahead pinned. The wire carries whatever a
+    // producer sent, and no rule here states what that one matched on, so the
+    // check asks for nothing and the version comparison names the two stores.
+    const store = storeAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const pinned = {
+      ...shipped,
+      decisions: {
+        cta: {
+          ...shipped.decisions.cta,
+          variant: 'blue' as const,
+          assignment: {
+            source: 'pinned',
+            by: 'targetingKey',
+            rule: 'staff',
+          },
+        },
+      },
+    } as unknown as DecisionSet<Split>;
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={pinned}
+        context={{}}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+    expect(reports.filter((report) => report.kind === 'missing-field')).toEqual(
+      [],
+    );
   });
 
   it('names no field for a sticky assignment the client context reproduces', () => {
