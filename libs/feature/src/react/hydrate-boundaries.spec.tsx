@@ -1,0 +1,741 @@
+import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import {
+  createFeatures,
+  parseFeatureConfig,
+  serializeConfig,
+} from '../index.js';
+import { createFeatureContext, FeatureProvider, useFeature } from './index.js';
+import type { DecisionSet, DivergenceReport } from '../index.js';
+
+/**
+ * The input classes the provider answers at its edges.
+ *
+ * `hydrate.spec.tsx` holds one case per outcome of § 3 and one per check of
+ * § 4. This file holds the boundaries of each: a set that carries a version
+ * against a store that carries none and the reverse, a set naming no decision
+ * at all, a set naming a decision this store cannot place, a set keyed on a
+ * prototype member, a set whose instant names no date, and the bound provider,
+ * which the shared one's cases never mount.
+ *
+ * Several cases hand the provider a set written out here rather than one
+ * `snapshot` produced. A set reaches a client as JSON and nothing re-validates
+ * it, so a server one version ahead ships a decision for a feature this store
+ * does not declare, a serializer ships a map missing a key, and a host with a
+ * broken clock ships an instant no `Date` reads. The cast on each one is what
+ * the wire does for free.
+ *
+ * Every instant a case depends on is written into the fixture. The one case
+ * that reads the host's clock asserts a comparison against a 2029 boundary,
+ * which holds on any host whose clock sits between 2026 and 2029.
+ */
+
+/** A split with two variants, which a document states in full. */
+const SPLIT = [
+  {
+    key: 'cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ],
+  },
+] as const;
+
+/** The schema `parseFeatureConfig` builds the split's store at. */
+type Split = { cta: { variant: 'control' | 'blue' } };
+
+/** A split and a flag, so a partial set can drop one of the two. */
+const PAIR = [
+  {
+    key: 'cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ],
+  },
+  { key: 'banner', enabled: true },
+] as const;
+
+/** The schema `parseFeatureConfig` builds the pair's store at. */
+type Pair = { cta: { variant: 'control' | 'blue' }; banner: never };
+
+/**
+ * A split that buckets on a field of its own, whose control is the second
+ * element of the array.
+ *
+ * Two constants a check could carry instead of reading the inputs are
+ * `'targetingKey'` for the field and the first array element for the control.
+ * Neither one is true here.
+ */
+const CUSTOM = [
+  {
+    key: 'cta',
+    enabled: true,
+    variantBy: 'accountId',
+    variants: [
+      { name: 'blue', weight: 50, order: 1 },
+      { name: 'green', weight: 50, order: 0 },
+    ],
+  },
+] as const;
+
+/** A window no clock between 2026 and 2029 is inside. */
+const SALE = [
+  {
+    key: 'sale',
+    enabled: true,
+    rules: [
+      {
+        id: 'window',
+        when: [{ field: 'now', op: 'after', value: '2030-01-01T00:00:00Z' }],
+      },
+    ],
+  },
+] as const;
+
+function storeAt(version: string) {
+  const parsed = parseFeatureConfig<Split>(
+    serializeConfig(createFeatures(SPLIT), { version }),
+  );
+  if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+  return parsed.features;
+}
+
+function pairAt(version: string) {
+  const parsed = parseFeatureConfig<Pair>(
+    serializeConfig(createFeatures(PAIR), { version }),
+  );
+  if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+  return parsed.features;
+}
+
+function Cta() {
+  return <span data-testid="cta">{useFeature('cta').variant}</span>;
+}
+
+function Banner() {
+  return (
+    <span data-testid="banner">{String(useFeature('banner').enabled)}</span>
+  );
+}
+
+function Sale() {
+  return <span data-testid="sale">{String(useFeature('sale').enabled)}</span>;
+}
+
+/** The set a store at `version` ships, with `cta` assigned the other variant. */
+function shippedBlue(version: string) {
+  const shipped = storeAt(version).snapshot({ targetingKey: 'u-9' });
+  return {
+    ...shipped,
+    decisions: { cta: { ...shipped.decisions.cta, variant: 'blue' as const } },
+  };
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe('FeatureProvider', () => {
+  it('renders the shipped answer where its own store resolves another one', () => {
+    // Both documents declare one split and differ in their version alone, so
+    // the two stores assign `u-9` the same variant and a provider that quietly
+    // resolved locally would render what the server sent. The override is what
+    // separates the two answers.
+    render(
+      <FeatureProvider
+        features={storeAt('v2')}
+        decisions={shippedBlue('v1')}
+        context={{ targetingKey: 'u-9' }}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+  });
+
+  it('renders the shipped answer under re-resolve when the two versions agree', () => {
+    render(
+      <FeatureProvider
+        features={storeAt('v1')}
+        decisions={shippedBlue('v1')}
+        context={{ targetingKey: 'u-9' }}
+        onVersionMismatch="re-resolve"
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+  });
+
+  it('reports a set carrying a version against a store carrying none', () => {
+    const store = createFeatures(SPLIT);
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={{ ...shipped, version: 'v1' }}
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(reports).toMatchObject([
+      {
+        kind: 'unversioned',
+        shipped: { version: 'v1' },
+        local: { version: undefined },
+      },
+    ]);
+  });
+
+  it('reports a store carrying a version against a set carrying none', () => {
+    const store = storeAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const unversioned: DecisionSet<Split> = {
+      now: shipped.now,
+      origin: shipped.origin,
+      decisions: shipped.decisions,
+    };
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={unversioned}
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(reports).toMatchObject([
+      {
+        kind: 'unversioned',
+        shipped: { version: undefined },
+        local: { version: 'v1' },
+      },
+    ]);
+  });
+
+  it('renders the shipped set under re-resolve when only the store is versioned', () => {
+    const shipped = shippedBlue('v1');
+    const unversioned: DecisionSet<Split> = {
+      now: shipped.now,
+      origin: shipped.origin,
+      decisions: shipped.decisions,
+    };
+
+    render(
+      <FeatureProvider
+        features={storeAt('v1')}
+        decisions={unversioned}
+        context={{ targetingKey: 'u-9' }}
+        onVersionMismatch="re-resolve"
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+  });
+
+  it('names the field a shipped assignment bucketed on and the control it would get', () => {
+    const store = createFeatures(CUSTOM);
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={store.snapshot({ accountId: 'a-1' })}
+        context={{}}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(
+      reports.filter((report) => report.kind === 'missing-field'),
+    ).toMatchObject([
+      {
+        key: 'cta',
+        field: 'accountId',
+        shipped: { source: 'weighted' },
+        local: { variant: 'green', source: 'fallback' },
+      },
+    ]);
+  });
+
+  it('names a sticky assignment the client context cannot reproduce', () => {
+    const store = storeAt('v1');
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={store.snapshot({
+          targetingKey: 'u-9',
+          stickyVariants: { cta: 'blue' },
+        })}
+        context={{}}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(
+      reports.filter((report) => report.kind === 'missing-field'),
+    ).toMatchObject([
+      {
+        key: 'cta',
+        field: 'targetingKey',
+        shipped: { variant: 'blue', source: 'sticky' },
+        local: { variant: 'control', source: 'fallback' },
+      },
+    ]);
+  });
+
+  it('names no control for a shipped assignment on a feature this store lacks', () => {
+    const store = storeAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    // A server one version ahead ships a decision for a feature this document
+    // does not declare. The wire carries it and the cast is what JSON does.
+    const ahead = {
+      ...shipped,
+      decisions: {
+        ...shipped.decisions,
+        promo: {
+          key: 'promo',
+          enabled: true,
+          reason: 'default-on',
+          variant: 'wide',
+          assignment: { source: 'weighted', by: 'targetingKey', bucket: 0.5 },
+        },
+      },
+    } as unknown as DecisionSet<Split>;
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={ahead}
+        context={{}}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(reports.filter((report) => report.key === 'promo')).toMatchObject([
+      {
+        kind: 'missing-field',
+        field: 'targetingKey',
+        shipped: { variant: 'wide', source: 'weighted' },
+        local: { variant: undefined, source: 'fallback' },
+      },
+    ]);
+  });
+
+  it('publishes a shipped set that names no decision at all', () => {
+    const store = createFeatures([]);
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={store.snapshot()}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <span data-testid="shell">rendered</span>
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('shell')).toHaveTextContent('rendered');
+    expect(reports.map((report) => report.kind)).toEqual(['unversioned']);
+  });
+
+  it('names no divergence for a key only its own store holds', () => {
+    const store = pairAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    // A serializer that ships the keys the page reads and no others.
+    const partial = {
+      ...shipped,
+      decisions: { cta: shipped.decisions.cta },
+    } as unknown as DecisionSet<Pair>;
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={partial}
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(reports).toEqual([]);
+  });
+
+  it('throws for a key the shipped set does not name', () => {
+    const store = pairAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const partial = {
+      ...shipped,
+      decisions: { cta: shipped.decisions.cta },
+    } as unknown as DecisionSet<Pair>;
+
+    expect(() =>
+      render(
+        <FeatureProvider
+          features={store}
+          decisions={partial}
+          context={{ targetingKey: 'u-9' }}
+        >
+          <Banner />
+        </FeatureProvider>,
+      ),
+    ).toThrow(/banner/);
+  });
+
+  it('reports a decision whose reason alone differs', () => {
+    const store = storeAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={{
+          ...shipped,
+          decisions: {
+            cta: { ...shipped.decisions.cta, reason: 'rule-match' },
+          },
+        }}
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(
+      reports.filter((report) => report.kind === 'decision-differs'),
+    ).toMatchObject([{ key: 'cta' }]);
+  });
+
+  it('names no divergence for a shipped key off the prototype chain', () => {
+    const store = storeAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    // `constructor` reads a function off `Object.prototype` under a bare
+    // index, and the diff would compare a decision against it.
+    const polluted = {
+      ...shipped,
+      decisions: {
+        ...shipped.decisions,
+        constructor: {
+          key: 'constructor',
+          enabled: true,
+          reason: 'default-on',
+        },
+      },
+    } as unknown as DecisionSet<Split>;
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={polluted}
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(reports).toEqual([]);
+  });
+
+  it('renders the shipped set when the instant it states names no date', () => {
+    const shipped = shippedBlue('v1');
+
+    render(
+      <FeatureProvider
+        features={storeAt('v1')}
+        decisions={{ ...shipped, now: 'the day before' }}
+        context={{ targetingKey: 'u-9' }}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+  });
+
+  it('renders through every check it runs with no observer installed', () => {
+    const store = createFeatures(CUSTOM);
+    const shipped = store.snapshot({ accountId: 'a-1' });
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={{
+          ...shipped,
+          decisions: {
+            cta: { ...shipped.decisions.cta, variant: 'blue' as const },
+          },
+        }}
+        context={{}}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+  });
+
+  it('keeps reporting after an observer throws', () => {
+    const store = createFeatures(CUSTOM);
+    const shipped = store.snapshot({ accountId: 'a-1' });
+    const seen: DivergenceReport['kind'][] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={{
+          ...shipped,
+          decisions: {
+            cta: { ...shipped.decisions.cta, variant: 'blue' as const },
+          },
+        }}
+        context={{}}
+        onDivergence={(report) => {
+          seen.push(report.kind);
+          throw new Error('observer');
+        }}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(seen).toHaveLength(3);
+    expect(new Set(seen)).toEqual(
+      new Set(['unversioned', 'missing-field', 'decision-differs']),
+    );
+  });
+
+  it('reads an explicit context instant over the one a render-origin set states', () => {
+    const store = createFeatures(SALE);
+    const shipped = store.snapshot({ now: new Date('2031-01-01T00:00:00Z') });
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        context={{ now: new Date('2029-01-01T00:00:00Z') }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Sale />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('sale')).toHaveTextContent('true');
+    expect(
+      reports.filter((report) => report.kind === 'decision-differs'),
+    ).toMatchObject([
+      { key: 'sale', shipped: { enabled: true }, local: { enabled: false } },
+    ]);
+  });
+
+  it('names the missing context field under NODE_ENV production', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const store = storeAt('v1');
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={store.snapshot({ targetingKey: 'u-9' })}
+        context={{}}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(
+      reports.filter((report) => report.kind === 'missing-field'),
+    ).toMatchObject([{ key: 'cta', field: 'targetingKey' }]);
+  });
+
+  it('reports the two versions under NODE_ENV production', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={storeAt('v2')}
+        decisions={shippedBlue('v1')}
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(reports.map((report) => report.kind)).toEqual(['config-version']);
+  });
+
+  it('renders what it resolves itself under re-resolve in NODE_ENV production', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+
+    render(
+      <FeatureProvider
+        features={storeAt('v2')}
+        decisions={shippedBlue('v1')}
+        context={{ targetingKey: 'u-9' }}
+        onVersionMismatch="re-resolve"
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('control');
+  });
+
+  it('publishes the set a re-render hands it', () => {
+    const store = storeAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const context = { targetingKey: 'u-9' };
+    const { rerender } = render(
+      <FeatureProvider features={store} decisions={shipped} context={context}>
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    rerender(
+      <FeatureProvider
+        features={store}
+        decisions={{
+          ...shipped,
+          decisions: {
+            cta: { ...shipped.decisions.cta, variant: 'blue' as const },
+          },
+        }}
+        context={context}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+  });
+
+  it('publishes what it resolves when a re-render changes the policy', () => {
+    const store = storeAt('v2');
+    const shipped = shippedBlue('v1');
+    const context = { targetingKey: 'u-9' };
+    const { rerender } = render(
+      <FeatureProvider features={store} decisions={shipped} context={context}>
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    rerender(
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        context={context}
+        onVersionMismatch="re-resolve"
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('control');
+  });
+});
+
+describe('createFeatureContext', () => {
+  it('publishes the shipped set through the bound provider', () => {
+    const bound = createFeatureContext(storeAt('v1'));
+
+    render(
+      <bound.FeatureProvider
+        decisions={shippedBlue('v1')}
+        context={{ targetingKey: 'u-9' }}
+      >
+        <Cta />
+      </bound.FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+  });
+
+  it('reports the two versions through the bound provider', () => {
+    const bound = createFeatureContext(storeAt('v1'));
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <bound.FeatureProvider
+        decisions={shippedBlue('v2')}
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </bound.FeatureProvider>,
+    );
+
+    expect(
+      reports.filter((report) => report.kind === 'config-version'),
+    ).toMatchObject([{ shipped: { version: 'v2' }, local: { version: 'v1' } }]);
+  });
+
+  it('compares the substituted store version and not the factory store one', () => {
+    const bound = createFeatureContext(storeAt('v1'));
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <bound.FeatureProvider
+        features={storeAt('v2')}
+        decisions={storeAt('v2').snapshot({ targetingKey: 'u-9' })}
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </bound.FeatureProvider>,
+    );
+
+    expect(reports).toEqual([]);
+  });
+
+  it('renders what the bound provider resolves itself under re-resolve', () => {
+    const bound = createFeatureContext(storeAt('v2'));
+
+    render(
+      <bound.FeatureProvider
+        decisions={shippedBlue('v1')}
+        context={{ targetingKey: 'u-9' }}
+        onVersionMismatch="re-resolve"
+      >
+        <Cta />
+      </bound.FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('control');
+  });
+});
