@@ -1,4 +1,4 @@
-import { decide, withVariant } from './evaluate.js';
+import { blockedDecision, decide, withVariant } from './evaluate.js';
 import { buildGraph } from './graph.js';
 import { assignVariant } from './variants.js';
 import { reportDivergence } from './divergence.js';
@@ -41,7 +41,9 @@ export interface ResolvePlanOptions<F extends FeatureKey = string> {
  * A `'deferred'` entry carrying a decision has its enablement settled and its
  * variant outstanding, so the enablement comes off the entry and only the
  * assignment is computed; a second run of the rules against a richer client
- * context can flip enablement, which would contradict the entry.
+ * context can flip enablement, which would contradict the entry. A parent that
+ * resolves off in this pass blocks such an entry all the same, because the
+ * entry settled the feature's own rules and not the graph above it.
  *
  * The walk is the dependency order, because a deferred parent puts its `needs`
  * on its dependants and a dependant resolved before its parent would read an
@@ -106,6 +108,16 @@ export function resolvePlan<S extends Record<keyof S, VariantInfo | never>>(
     if (entry.decision) {
       if (!entry.decision.enabled) {
         resolved.set(key, entry.decision);
+        continue;
+      }
+      // The entry settled this feature's own enablement. The cascade belongs
+      // to the graph, and a parent this plan left out or deferred resolves in
+      // this pass, so it is read here. Without this check a plan naming a
+      // subset of the store answers on for a feature under a parent that
+      // answered off, which `decide` produces for no context.
+      const blocked = blockedDecision(definition, resolved);
+      if (blocked) {
+        resolved.set(key, blocked);
         continue;
       }
       // The enablement alone comes off the entry. A hand-assembled plan or a

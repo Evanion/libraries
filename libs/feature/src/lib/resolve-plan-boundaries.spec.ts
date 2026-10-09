@@ -228,6 +228,49 @@ describe('resolvePlan', () => {
     });
   });
 
+  it('cascades a parent this pass resolved off onto a deferred entry carrying a decision', () => {
+    const features = createFeatures([
+      {
+        key: 'gate',
+        enabled: true,
+        rules: [
+          { id: 'beta', when: [{ field: 'beta', op: 'eq', value: true }] },
+        ],
+      },
+      {
+        key: 'cta',
+        enabled: true,
+        dependsOn: ['gate'],
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ] as const);
+    // The build knew `beta`, so `gate` is settled and `cta` carries its
+    // enablement with the split outstanding. This plan names `cta` alone, the
+    // way a build that plans a subset does, so `gate` re-decides here against
+    // a context that refutes the rule the build matched.
+    const plan = features.plan({ beta: true });
+
+    const decisions = resolvePlan(
+      features,
+      { cta: plan.cta },
+      { beta: false, targetingKey: 'u-0' },
+    );
+
+    expect(plan.cta.resolved).toBe('deferred');
+    expect(plan.cta.decision?.enabled).toBe(true);
+    expect(decisions.gate.enabled).toBe(false);
+    expect(decisions.cta).toEqual({
+      key: 'cta',
+      enabled: false,
+      reason: 'dependency-off',
+      blockedBy: 'gate',
+      cause: { key: 'gate', reason: 'no-rule-matched', rule: 'beta' },
+    });
+  });
+
   it('answers an empty set for a store holding no feature', () => {
     const features = createFeatures([]);
 
