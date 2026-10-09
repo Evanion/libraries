@@ -267,7 +267,9 @@ describe('reportDivergence', () => {
 });
 ```
 
-The fourth case records that the library writes the report, hands it over and reads no member of it afterwards. It asserts the mutation lands, which is the evidence that nothing downstream depends on the value.
+The fourth case records that the library hands the caller's own report to the observer: the observer writes `kind`, the caller's object carries the write, so no copy sat between them. The case constrains nothing about what the library does to the report once the observer returns, and a deep-equality assertion against the object the library was handed cannot constrain it either, because such an assertion compares the object with itself.
+
+One further case holds the output-only half, `leaves every member of the report as the observer saw it`: the observer deep-copies the report it was handed, and the assertion compares the caller's report against that copy after the call returns. A write to any member after the handover fails it, and so does a delete.
 
 - [ ] Write `libs/feature/src/lib/divergence.ts`:
 
