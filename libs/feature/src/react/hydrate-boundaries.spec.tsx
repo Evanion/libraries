@@ -530,6 +530,56 @@ describe('FeatureProvider', () => {
     expect(screen.getByTestId('sale')).toHaveTextContent('true');
   });
 
+  it('renders in a runtime that defines no process global', () => {
+    const store = storeAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    // The package ships as plain ESM, so a browser loading it through an
+    // import map holds no `process` and a shim may hold one with no `env`.
+    vi.stubGlobal('process', undefined);
+
+    try {
+      render(
+        <FeatureProvider
+          features={store}
+          decisions={shipped}
+          context={{ targetingKey: 'u-9' }}
+        >
+          <Cta />
+        </FeatureProvider>,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(screen.getByTestId('cta')).toHaveTextContent(
+      String(shipped.decisions.cta.variant),
+    );
+  });
+
+  it('renders in a runtime whose process carries no env', () => {
+    const store = storeAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    vi.stubGlobal('process', {});
+
+    try {
+      render(
+        <FeatureProvider
+          features={store}
+          decisions={shipped}
+          context={{ targetingKey: 'u-9' }}
+        >
+          <Cta />
+        </FeatureProvider>,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(screen.getByTestId('cta')).toHaveTextContent(
+      String(shipped.decisions.cta.variant),
+    );
+  });
+
   it('renders through every check it runs with no observer installed', () => {
     const store = createFeatures(CUSTOM);
     const shipped = store.snapshot({ accountId: 'a-1' });
