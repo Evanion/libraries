@@ -537,11 +537,11 @@ describe('Features.snapshot', () => {
 });
 
 /**
- * The other half of the rule `Features.snapshot` states: `snapshot` is the one
- * entry point that refuses a context, and every other one carries the `Date` it
- * was handed into the decision. A `Date` describing no instant reaches a
- * condition as a comparison that answers false, which `evaluateCondition`
- * already holds cases for, so each entry point below answers.
+ * The other half of the rule `Features.snapshot` states. `snapshot` states the
+ * instant on the wire and refuses a `Date` that describes none; every entry
+ * point below states no instant and carries that `Date` into the decision. It
+ * reaches a condition as a comparison that answers false, which
+ * `evaluateCondition` already holds cases for, so each one answers.
  */
 describe('the instant the total entry points carry', () => {
   /** A context whose `Date` names no instant. */
