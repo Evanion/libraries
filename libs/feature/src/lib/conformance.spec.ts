@@ -361,7 +361,7 @@ describe('the document the fixture publishes', () => {
       (decision) => (decision as { assignment?: unknown }).assignment,
     );
 
-    expect(assigned).toHaveLength(2);
+    expect(assigned).toHaveLength(3);
     expect(assigned).toMatchObject([
       {
         variant: expect.any(String),
@@ -371,7 +371,35 @@ describe('the document the fixture publishes', () => {
         variant: expect.any(String),
         assignment: { source: 'weighted', bucket: expect.any(Number) },
       },
+      {
+        variant: expect.any(String),
+        assignment: { source: 'fallback' },
+      },
     ]);
+  });
+
+  it('assigns a split whose bucketing field the context does not carry', () => {
+    const tour = fixture.config.features.find(
+      (definition) => definition.key === 'onboarding-tour',
+    );
+    const ordered = [...(tour?.variants ?? [])].sort(
+      (one, other) => (one.order ?? 0) - (other.order ?? 0),
+    );
+    const decision = fixture.decisions['onboarding-tour'] as {
+      variant?: string;
+      assignment?: { source?: string; by?: string; bucket?: number };
+    };
+
+    // Condition 3 of § 9 of `docs/specs/2026-09-23-feature-hydration.md`. A
+    // context carrying no `variantBy` field fixes what every implementation
+    // answers without one: the variant first in the bucketing order, under
+    // `assignment.source: 'fallback'` and with no bucket. The array lists that
+    // variant second, so a port handing back `variants[0]` disagrees.
+    expect(tour?.variantBy).toBe('tenantId');
+    expect(fixture.context['tenantId']).toBeUndefined();
+    expect(ordered[0]?.name).not.toBe(tour?.variants?.[0]?.name);
+    expect(decision.variant).toBe(ordered[0]?.name);
+    expect(decision.assignment).toEqual({ source: 'fallback', by: 'tenantId' });
   });
 
   it('decides one rollout against the subject and one for it', () => {
