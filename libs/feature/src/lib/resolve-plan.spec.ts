@@ -44,6 +44,27 @@ describe('resolvePlan', () => {
     );
   });
 
+  it('keeps the variant a settled entry decision carries', () => {
+    const features = createFeatures(SPLIT);
+    const plan = features.plan({ targetingKey: 'u-0' });
+
+    const decisions = resolvePlan(features, plan, { targetingKey: 'u-4711' });
+
+    expect(plan.cta.resolved).toBe(true);
+    expect(decisions.cta).toEqual({
+      key: 'cta',
+      enabled: true,
+      reason: 'default-on',
+      variant: 'blue',
+      value: { label: 'Get it' },
+      assignment: {
+        source: 'weighted',
+        by: 'targetingKey',
+        bucket: 0.6062106641475111,
+      },
+    });
+  });
+
   it('keeps enablement from a deferred entry and fills in the variant', () => {
     const features = createFeatures(SPLIT);
     const plan = features.plan({});
