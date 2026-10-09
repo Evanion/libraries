@@ -1110,6 +1110,33 @@ describe('FeatureProvider', () => {
     expect(seen.map((report) => report.kind)).toEqual(['unversioned']);
   });
 
+  it('delivers to the observer the last render installed', () => {
+    const store = createFeatures(SPLIT);
+    const shipped = {
+      ...store.snapshot({ targetingKey: 'u-9' }),
+      version: 'v1',
+    };
+    const first: DivergenceReport[] = [];
+    const second: DivergenceReport[] = [];
+    // A fresh context identity each render, which is an input the checks read
+    // again.
+    const tree = (onDivergence: DivergenceObserver) => (
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={onDivergence}
+      >
+        <Cta />
+      </FeatureProvider>
+    );
+
+    const { rerender } = render(tree((report) => first.push(report)));
+    rerender(tree((report) => second.push(report)));
+
+    expect(first.map((report) => report.kind)).toEqual(['unversioned']);
+    expect(second.map((report) => report.kind)).toEqual(['unversioned']);
+  });
 });
 
 describe('createFeatureContext', () => {
