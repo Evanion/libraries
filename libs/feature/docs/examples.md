@@ -412,6 +412,41 @@ Object.isFrozen(features.config); // -> true
 
 <!-- #endregion inspect -->
 
+## Shipping a Snapshot to the Client
+
+To share feature decisions from your server to the browser, you can generate a state object using `features.snapshot`. The set states the configuration version and the instant beside the decisions, so a client that reads it knows what produced them.
+
+When a request arrives on the server, you create a snapshot by providing the subject's targeting key and the instant to resolve at. `snapshot` reads its own clock when the caller names no instant. The set holds one decision per configured feature, and a serializer sends it to the client.
+
+<!-- #region snapshot -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50, value: { label: 'Get it' } },
+    ],
+  },
+]);
+
+// On the server, inside the request that renders the page.
+const set = features.snapshot({
+  targetingKey: 'cust-0042',
+  now: new Date('2026-11-01T09:00:00Z'),
+});
+
+set.now; // -> '2026-11-01T09:00:00.000Z'
+set.origin; // -> 'render'
+set.decisions['checkout-cta'].variant; // -> 'control'
+```
+
+<!-- #endregion snapshot -->
+
 ## Rollouts
 
 <!-- #region rollout -->
