@@ -1,0 +1,132 @@
+{
+  "note": "One served document, one build-time plan, one client context, and the decisions any implementation must finish the plan with. See docs/specs/2026-09-23-feature-hydration.md § 9.",
+  "config": {
+    "version": 1,
+    "features": [
+      {
+        "key": "checkout",
+        "enabled": true
+      },
+      {
+        "key": "pro-perks",
+        "enabled": true,
+        "rules": [
+          {
+            "id": "pro-plan",
+            "when": [
+              {
+                "field": "plan",
+                "op": "eq",
+                "value": "pro"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "launch-banner",
+        "enabled": true,
+        "freezeTimeAtBuild": true,
+        "variantBy": "tenantId",
+        "variantSeed": "banner-v2",
+        "variants": [
+          {
+            "name": "bold",
+            "weight": 60,
+            "order": 1,
+            "value": {
+              "headline": "The shelf is open"
+            }
+          },
+          {
+            "name": "control",
+            "weight": 40,
+            "order": 0,
+            "value": {
+              "headline": "Shop the shelf"
+            }
+          }
+        ],
+        "rules": [
+          {
+            "id": "launch-window",
+            "when": [
+              {
+                "field": "now",
+                "op": "after",
+                "value": "2026-05-01T00:00:00+02:00"
+              },
+              {
+                "field": "now",
+                "op": "before",
+                "value": "2026-07-01T00:00:00+02:00"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "digest": "0ae0e6ee7a6a7ff1f2c86ec6d765d0e8"
+  },
+  "plan": {
+    "checkout": {
+      "key": "checkout",
+      "resolved": true,
+      "needs": [],
+      "decision": {
+        "key": "checkout",
+        "enabled": true,
+        "reason": "default-on"
+      }
+    },
+    "pro-perks": {
+      "key": "pro-perks",
+      "resolved": "deferred",
+      "needs": ["plan"]
+    },
+    "launch-banner": {
+      "key": "launch-banner",
+      "resolved": "deferred",
+      "needs": ["tenantId"],
+      "decision": {
+        "key": "launch-banner",
+        "enabled": true,
+        "reason": "rule-match",
+        "rule": "launch-window"
+      }
+    }
+  },
+  "context": {
+    "now": "2026-06-01T12:05:00.000Z",
+    "plan": "pro",
+    "tenantId": "t-82"
+  },
+  "decisions": {
+    "checkout": {
+      "key": "checkout",
+      "enabled": true,
+      "reason": "default-on"
+    },
+    "pro-perks": {
+      "key": "pro-perks",
+      "enabled": true,
+      "reason": "rule-match",
+      "rule": "pro-plan"
+    },
+    "launch-banner": {
+      "key": "launch-banner",
+      "enabled": true,
+      "reason": "rule-match",
+      "rule": "launch-window",
+      "variant": "bold",
+      "assignment": {
+        "source": "weighted",
+        "by": "tenantId",
+        "bucket": 0.4330429485999048
+      },
+      "value": {
+        "headline": "The shelf is open"
+      }
+    }
+  }
+}

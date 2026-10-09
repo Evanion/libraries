@@ -6,9 +6,11 @@ import { configDigest } from './digest.js';
 import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 import { createFeatures } from './features.js';
 import { parseFeatureConfig } from './parse.js';
+import { resolvePlan } from './resolve-plan.js';
 import { serializeConfig } from './serialize.js';
 import type { FeatureConfig } from './config.js';
-import type { EvaluationContext } from './types.js';
+import type { AsSchema } from './features.js';
+import type { EvaluationContext, InferSchema, Plan } from './types.js';
 
 interface Fixture {
   config: FeatureConfig;
@@ -16,17 +18,34 @@ interface Fixture {
   decisions: Record<string, unknown>;
 }
 
-const fixture = JSON.parse(
-  readFileSync(
-    join(import.meta.dirname, '../../conformance/config-decisions.json'),
-    'utf8',
-  ),
-) as Fixture;
+/**
+ * The plan fixture, which states a build-time plan beside the three members a
+ * document fixture states.
+ *
+ * `plan` carries the schema `createFeatures` infers from a served document,
+ * which is the schema `resolvePlan` reads off the store this fixture builds.
+ * `Partial` is what a file on disk earns: the JSON names an entry per feature
+ * and the type system has read none of it, so every lookup answers `undefined`
+ * until a case asserts otherwise.
+ */
+interface PlanFixture extends Fixture {
+  plan: Partial<Plan<AsSchema<InferSchema<FeatureConfig['features']>>>>;
+}
 
-/** The context the fixture states, with its instant read as one. */
-function supplied(): EvaluationContext {
-  const { now, ...rest } = fixture.context;
-  return { ...rest, now: new Date(now) };
+/** One published fixture, read off the directory the tarball carries. */
+function published<T extends Fixture>(name: string): T {
+  return JSON.parse(
+    readFileSync(join(import.meta.dirname, '../../conformance', name), 'utf8'),
+  ) as T;
+}
+
+const fixture = published<Fixture>('config-decisions.json');
+const planFixture = published<PlanFixture>('plan-decisions.json');
+
+/** The context a fixture states, with its instant read as one. */
+function supplied(stated: Fixture['context'] = fixture.context) {
+  const { now, ...rest } = stated;
+  return { ...rest, now: new Date(now) } satisfies EvaluationContext;
 }
 
 /**
@@ -654,5 +673,87 @@ describe('the document the fixture publishes', () => {
     expect(Object.keys(fixture.decisions)).toHaveLength(
       fixture.config.features.length,
     );
+  });
+});
+
+describe('the published plan fixture', () => {
+  it('finishes the plan into the decisions it publishes', () => {
+    const features = createFeatures(planFixture.config);
+
+    const decisions = resolvePlan(
+      features,
+      planFixture.plan,
+      supplied(planFixture.context),
+    );
+
+    expect(JSON.parse(JSON.stringify(decisions))).toEqual(
+      planFixture.decisions,
+    );
+  });
+
+  it('carries a deferred entry the build settled a decision on', () => {
+    const deferred = Object.values(planFixture.plan).filter(
+      (entry) =>
+        entry !== undefined &&
+        entry.resolved === 'deferred' &&
+        entry.decision !== undefined,
+    );
+
+    // Rule 3 of § 5 of `docs/specs/2026-09-23-feature-hydration.md`, which is
+    // the case this file exists for. `planFeature` writes it for a feature
+    // whose rules the build instant settled and whose split the build context
+    // could not bucket, so `needs` names the bucketing field alone and the
+    // decision states enablement without a variant.
+    expect(deferred).toHaveLength(1);
+    expect(deferred[0]).toMatchObject({
+      key: 'launch-banner',
+      resolved: 'deferred',
+      needs: ['tenantId'],
+      decision: { enabled: true, reason: 'rule-match', rule: 'launch-window' },
+    });
+    expect(deferred[0]?.decision).not.toHaveProperty('variant');
+  });
+
+  it('keeps the enablement the plan settled through the client pass', () => {
+    const settled = planFixture.plan['launch-banner']?.decision;
+    const finished = planFixture.decisions['launch-banner'] as {
+      enabled: boolean;
+      reason: string;
+      rule: string;
+      assignment?: { source?: string; by?: string };
+    };
+
+    // The rules do not re-run. The client context carries `plan` as well as
+    // `tenantId`, so an engine that re-decided this feature would reach the
+    // same answer by another road and a port that dropped rule 3 would pass.
+    // The variant alone is computed, which the assignment reports.
+    expect(settled).toMatchObject({ enabled: true, reason: 'rule-match' });
+    expect(finished.enabled).toBe(settled?.enabled);
+    expect(finished.reason).toBe(settled?.reason);
+    expect(finished.rule).toBe(settled?.rule);
+    expect(finished.assignment).toMatchObject({
+      source: 'weighted',
+      by: 'tenantId',
+    });
+  });
+
+  it('passes the checker every holder runs before it installs', () => {
+    const result = parseFeatureConfig(planFixture.config);
+
+    // The digest rides along: `validateConfig` reports `digest-mismatch` for a
+    // document whose bytes the stated digest no longer covers, so a fixture
+    // hand-edited without a recomputed digest is refused here.
+    expect(result.ok === false && result.issues).toBeFalsy();
+    expect(result.ok).toBe(true);
+  });
+
+  it('carries an explicit offset on every instant it states', () => {
+    const text = JSON.stringify(planFixture);
+
+    // ECMA-262 reads a date-time string with no offset as local time, so an
+    // offsetless instant here would plan one way in Stockholm and another in
+    // Tokyo. Issue #284.
+    expect(offsetless(text)).toEqual([]);
+    expect(text).toMatch(INSTANT);
   });
 });
