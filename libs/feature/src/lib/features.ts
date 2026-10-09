@@ -131,10 +131,13 @@ export interface Features<
    * cannot recover either member from them. A set states both, so a server
    * states the instant once and no application passes `now` by hand.
    *
-   * It is the one entry point that refuses a context. `DecisionSet.now` is an
-   * ISO 8601 string and an invalid `Date` describes no instant, so a
-   * `context.now` holding one raises a `FeatureConfigError`. `resolve`, `plan`
-   * and `toggle` carry that `Date` into the decision and stay total.
+   * `DecisionSet.now` is an ISO 8601 string and an invalid `Date` describes no
+   * instant, so a `context.now` holding one raises a `FeatureConfigError`
+   * naming the field. `serializeConfig` refuses a `Date` a document cannot
+   * carry for the same reason (`serialize.ts:185-187`): a producer of wire
+   * output states a value the format admits or it states nothing. `resolve`,
+   * `plan` and `toggle` state no instant, so they carry that `Date` into the
+   * decision and stay total.
    */
   snapshot(
     context?: EvaluationContext,
