@@ -16,6 +16,26 @@ const KINDS: readonly DivergenceReport['kind'][] = [
   'decision-differs',
 ];
 
+/** A report that carries every member one declares. */
+const DIFFERS: DivergenceReport = {
+  kind: 'decision-differs',
+  key: 'cta',
+  field: 'tenantId',
+  shipped: {
+    version: 'v1',
+    enabled: true,
+    variant: 'control',
+    source: 'weighted',
+  },
+  local: {
+    version: 2,
+    enabled: false,
+    variant: 'treatment',
+    source: 'fallback',
+  },
+  message: 'the server and the client decided cta differently',
+};
+
 /** An observer that raises the value it was built with. */
 function raising(value: unknown): DivergenceObserver {
   return () => {
@@ -102,7 +122,13 @@ describe('reportDivergence', () => {
   });
 
   it('delivers the key, the field and both sides whole', () => {
-    const report: DivergenceReport = {
+    let atHandover: DivergenceReport | undefined;
+
+    reportDivergence((given) => {
+      atHandover = structuredClone(given);
+    }, structuredClone(DIFFERS));
+
+    expect(atHandover).toEqual({
       kind: 'decision-differs',
       key: 'cta',
       field: 'tenantId',
@@ -119,33 +145,11 @@ describe('reportDivergence', () => {
         source: 'fallback',
       },
       message: 'the server and the client decided cta differently',
-    };
-    const seen: DivergenceReport[] = [];
-
-    reportDivergence((given) => seen.push(given), report);
-
-    expect(seen).toEqual([report]);
+    });
   });
 
   it('leaves every member of the report as the observer saw it', () => {
-    const report: DivergenceReport = {
-      kind: 'decision-differs',
-      key: 'cta',
-      field: 'tenantId',
-      shipped: {
-        version: 'v1',
-        enabled: true,
-        variant: 'control',
-        source: 'weighted',
-      },
-      local: {
-        version: 2,
-        enabled: false,
-        variant: 'treatment',
-        source: 'fallback',
-      },
-      message: 'the server and the client decided cta differently',
-    };
+    const report: DivergenceReport = structuredClone(DIFFERS);
     let atHandover: DivergenceReport | undefined;
 
     reportDivergence((given) => {
