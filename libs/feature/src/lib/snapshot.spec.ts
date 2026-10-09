@@ -326,6 +326,28 @@ describe('Features.snapshot', () => {
     );
   });
 
+  it('answers the decisions the store decided when an observer rewrites them', () => {
+    let attempts = 0;
+    let refused = false;
+    const features = createFeatures(SPLIT, {
+      observe: (event) => {
+        if (event.type !== 'resolve') return;
+        attempts += 1;
+        try {
+          (event.decisions.cta as { enabled: boolean }).enabled = false;
+        } catch {
+          refused = true;
+        }
+      },
+    });
+
+    const set = features.snapshot({ targetingKey: 'u-4711' });
+
+    expect(attempts).toBe(1);
+    expect(refused).toBe(true);
+    expect(set.decisions.cta.enabled).toBe(true);
+  });
+
   it('names the instant the set states on the event it reports', () => {
     const seen: FeatureEvent<Schema>[] = [];
     const features = createFeatures(SPLIT, {
