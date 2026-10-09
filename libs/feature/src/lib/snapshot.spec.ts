@@ -247,6 +247,21 @@ describe('Features.snapshot', () => {
     expect(parsed.features.snapshot().version).toBe('v7');
   });
 
+  it('states the version for a toggle that turned a served feature on', () => {
+    const parsed = parseFeatureConfig(
+      serializeConfig(createFeatures([{ key: 'checkout', enabled: false }]), {
+        version: 'v7',
+      }),
+    );
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+    const written = parsed.features.toggle('checkout', true);
+    const set = parsed.features.snapshot();
+
+    expect(written.ok).toBe(true);
+    expect(set.version).toBe('v7');
+    expect(set.decisions.checkout.enabled).toBe(true);
+  });
+
   it('states no version for a toggle a store with no version carries', () => {
     const features = createFeatures(SPLIT);
     const written = features.toggle('cta', false);
