@@ -45,6 +45,13 @@ export interface SnapshotOptions {
    *
    * A build pipeline that writes a set into a bundle passes `'build'`, because
    * it is the party that knows the instant it stated is not a request's.
+   *
+   * The member states the provenance and moves no resolution. `snapshot`
+   * settles every feature the store holds at the instant the call read, and it
+   * reads no `freezeTimeAtBuild`, so a build-origin set states an answer for a
+   * `now`-dependent rule whose definition opted into no frozen window
+   * (`types.ts:188-193`). A pipeline that wants the client to decide such a
+   * rule calls `plan`, which defers it.
    */
   readonly origin?: DecisionOrigin;
 }

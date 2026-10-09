@@ -393,6 +393,30 @@ describe('Features.snapshot', () => {
     expect(seen).toEqual([]);
   });
 
+  it('settles a now-dependent rule the plan for the same instant defers', () => {
+    const features = createFeatures([
+      {
+        key: 'sale',
+        enabled: true,
+        rules: [
+          {
+            id: 'window',
+            when: [
+              { field: 'now', op: 'before', value: '2026-11-01T00:00:00Z' },
+            ],
+          },
+        ],
+      },
+    ]);
+    const buildTime = new Date('2026-10-01T00:00:00Z');
+
+    expect(features.plan({ now: buildTime }).sale.resolved).toBe('deferred');
+    expect(
+      features.snapshot({ now: buildTime }, { origin: 'build' }).decisions.sale
+        .enabled,
+    ).toBe(true);
+  });
+
   it('assigns the control the other side of the band buckets to', () => {
     const features = createFeatures(SPLIT);
 
