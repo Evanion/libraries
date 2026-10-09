@@ -198,7 +198,7 @@ describe('documentCopy', () => {
     expect([Object.getOwnPropertySymbols(copy), copy.key]).toEqual([[], 'cta']);
   });
 
-  it('copies one subtree twice where two pointers share it', () => {
+  it('writes one subtree once where two pointers share it', () => {
     const shared = { label: 'buy' };
 
     const copy = documentCopy({ left: shared, right: shared });
@@ -207,7 +207,53 @@ describe('documentCopy', () => {
       copy.left === copy.right,
       copy.left === shared,
       copy.right,
-    ]).toEqual([false, false, { label: 'buy' }]);
+    ]).toEqual([true, false, { label: 'buy' }]);
+  });
+
+  it('keeps the sharing structuredClone keeps at every level of a diamond', () => {
+    let source: Record<string, unknown> = { leaf: 'buy' };
+    for (let level = 0; level < 8; level += 1) {
+      source = { a: source, b: source };
+    }
+
+    const copy = documentCopy(source);
+    const cloned = structuredClone(source);
+    const shared = (held: Record<string, unknown>): boolean[] => {
+      const answers: boolean[] = [];
+      let at = held;
+      while ('a' in at) {
+        answers.push(at['a'] === at['b']);
+        at = at['a'] as Record<string, unknown>;
+      }
+      return answers;
+    };
+
+    expect(shared(copy)).toEqual(shared(cloned));
+  });
+
+  it('reads a shared subtree once and not once per pointer to it', () => {
+    // 2^12 pointers to one leaf over 25 objects. Without the memo the walk
+    // reads the leaf once per pointer and allocates a copy for each, which is
+    // the fan-out `canonical.ts:58` measures at 34ms memoized against 2.8s
+    // bare over a diamond of the same shape.
+    let reads = 0;
+    const leaf = new Proxy(
+      { label: 'buy' },
+      {
+        ownKeys(target) {
+          reads += 1;
+          return Reflect.ownKeys(target);
+        },
+      },
+    );
+    let source: Record<string, unknown> = { a: leaf, b: leaf };
+    for (let level = 0; level < 11; level += 1) {
+      source = { a: source, b: source };
+    }
+
+    const copy = documentCopy(source) as Record<string, unknown>;
+
+    expect([reads, copy['a'] === copy['b']]).toEqual([1, true]);
   });
 
   it('names the pointer an array holding itself closes at', () => {
