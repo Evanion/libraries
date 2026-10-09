@@ -364,10 +364,17 @@ library's message reaches the console ahead of React's hydration warning, which
 puts the cause immediately above the symptom. The library cannot suppress or
 annotate React's own message, and React exposes no API for that.
 
-The first check reads context sufficiency on mount. Every shipped decision carries
-`assignment.by`, naming the field it bucketed on, and `assignment.source`. When a
-shipped decision reports a source other than `'fallback'` and the provider's own
-`context` carries nothing at `assignment.by`, the provider reports:
+The first check reads context sufficiency on mount. Every shipped decision
+carries `assignment.by`, naming the field it bucketed on, `assignment.source`,
+and `assignment.rule` where a rule pinned the variant. For every shipped
+decision whose source is not `'fallback'`, the check asks whether a resolution
+over this provider's own `features` and `context` would reach the same
+assignment, and it answers from the inputs the assignment names without
+resolving anything.
+
+A `'weighted'` or `'sticky'` assignment answers off `assignVariant`, the call
+the engine makes for it. Where that call falls back, the provider reports the
+field `assignVariant` reads, which is this store's `variantBy`:
 
 ```
 feature "checkout-cta": the server assigned variant "blue" by "targetingKey",
@@ -376,15 +383,62 @@ would assign "control" (source: fallback). Pass targetingKey to
 <FeatureProvider context={...}>.
 ```
 
-This check reads the shipped decisions and the context, so it runs in production
-for one pass over the decision set.
+That field is `assignment.by` for two processes holding one configuration, and
+another field where the two documents declare different `variantBy` values. The
+field a developer has to supply is the one the engine here reads.
 
-The second check diffs the two decision sets in development. When
+A presence test over `context[assignment.by]` answers a different question.
+`assignVariant` buckets a string and a number and falls back for every other
+type, so a context carrying `null` at the bucketing field passes a presence
+test and reproduces nothing. And a `'sticky'` assignment is read off
+`context.stickyVariants` before the bucketing field is touched at all, so a
+context carrying the sticky map and no bucketing field reproduces the shipped
+assignment exactly. The message states which of the two the context did: a
+field it carries nothing at, or a field it carries a value at that no engine
+buckets.
+
+A `'pinned'` assignment answers off the rule. The engine writes a matching
+rule's own `variant` over whatever `assignVariant` answered, so the value at
+`assignment.by` decided nothing and asking for it changes no answer. The check
+reads the rule `assignment.rule` names out of this store and reports the fields
+its conditions and its rollout read that the context carries nothing at,
+because those are what this provider needs to reach the same pin. It never
+names `now`: every entry point fills it from the clock for a context carrying
+none, so a rule reading a date window is readable here whatever the context
+holds. A context carrying every one of the rule's fields reads the rule the way
+the server read it, and the two then differ only where the two documents
+differ, which is what the version check answers.
+
+A store that assigns no variant for a shipped key at all reports the gap and
+asks for no field. It declares no such feature, or declares it with no
+variants; either way no context reproduces the assignment and the fix is the
+document this store was built from.
+
+This check reads the shipped decisions, this store and the context, so it runs
+in production for one pass over the decision set. The pin is the case that
+needs it there: the second check does not run in production, so nothing else
+names a pin whose rule this client cannot evaluate.
+
+The second check diffs the two decision sets in development, for a provider an
+application installed an observer on. When `onDivergence` is present and
 `process.env.NODE_ENV !== 'production'`, the provider resolves locally against
 its own `features` and `context`, compares key by key, and reports every
-difference in `enabled`, `reason` or `variant` as `kind: 'decision-differs'` with
-both sides named. It still renders the shipped set. The extra resolution is one
-pass per mount and it never reaches a production bundle.
+difference in `enabled`, `reason` or `variant` as `kind: 'decision-differs'`
+with both sides named. It still renders the shipped set.
+
+The observer is a condition because the diff is the only reader of that
+resolution, and a resolution nobody reads is not free. A store built with
+`observe` emits a `'resolve'` event for it, and the event names decisions this
+provider never publishes, so an exposure pipeline reading those events records
+one subject twice under two variants.
+
+The extra resolution is one pass per mount and it never reaches a production
+bundle. A runtime that answers neither `process` nor `process.env` is read as
+production: the read raises there instead of answering, and the diff's cost on
+a served page outweighs a console message on a developer's machine. A developer
+running unbundled ESM who wants the diff supplies the global the read asks for,
+`globalThis.process = { env: { NODE_ENV: 'development' } }`, ahead of the
+provider's first render.
 
 ## 5. Partial hydration
 
@@ -630,9 +684,19 @@ without a signature change to anything this document defines.
 - `onVersionMismatch: 're-resolve'` renders the locally resolved decisions and
   reports the same mismatch.
 - A shipped decision with `assignment.source: 'weighted'` and a provider context
-  missing `assignment.by` reports `kind: 'missing-field'` naming the field.
+  missing `assignment.by` reports `kind: 'missing-field'` naming the field, and
+  a provider whose store buckets on another field reports that field instead.
+- A shipped decision with `assignment.source: 'pinned'` whose rule reads a field
+  the provider's context lacks reports `kind: 'missing-field'` naming that
+  field, under `NODE_ENV=production` as well.
+- A shipped decision for a key this store declares no variants for, or does not
+  declare at all, reports the gap and names no local variant.
 - The development diff reports `kind: 'decision-differs'` per differing key, and
-  does not run under `NODE_ENV=production`.
+  does not run under `NODE_ENV=production`, for a provider carrying no
+  `onDivergence`, or in a runtime that defines no `process`.
+- An observer installed after the mount receives every report the pass its
+  install triggered produces, and a provider handed a second observer delivers
+  that render's reports to it.
 - An `onDivergence` that throws does not fail the render.
 - `resolvePlan` uses a settled entry's decision without re-running its rules:
   mutate the store's rules between `plan()` and `resolvePlan` and assert the
