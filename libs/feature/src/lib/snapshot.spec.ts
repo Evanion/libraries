@@ -496,3 +496,79 @@ describe('Features.snapshot', () => {
     expect(set.decisions['__proto__']?.enabled).toBe(false);
   });
 });
+
+/**
+ * The other half of the rule `Features.snapshot` states: `snapshot` is the one
+ * entry point that refuses a context, and every other one carries the `Date` it
+ * was handed into the decision. A `Date` describing no instant reaches a
+ * condition as a comparison that answers false, which `evaluateCondition`
+ * already holds cases for, so each entry point below answers.
+ */
+describe('the instant the total entry points carry', () => {
+  /** A context whose `Date` names no instant. */
+  const NO_INSTANT = { now: new Date(Number.NaN), targetingKey: 'u-4711' };
+
+  it('resolves every feature for a context holding one', () => {
+    const features = createFeatures(SPLIT);
+
+    expect(features.resolve(NO_INSTANT).cta.enabled).toBe(true);
+  });
+
+  it('answers enablement for a context holding one', () => {
+    const features = createFeatures(SPLIT);
+
+    expect(features.isEnabled('cta', NO_INSTANT)).toBe(true);
+  });
+
+  it('assigns the variant the subject buckets to for a context holding one', () => {
+    const features = createFeatures(SPLIT);
+
+    expect(features.variantOf('cta', NO_INSTANT)).toBe('control');
+  });
+
+  it('answers the assigned variant value for a context holding one', () => {
+    const features = createFeatures(SPLIT);
+
+    expect(
+      features.valueOf('cta', { ...NO_INSTANT, targetingKey: 'u-1' }),
+    ).toEqual({
+      label: 'Get it',
+    });
+  });
+
+  it('partitions every feature for a context holding one', () => {
+    const features = createFeatures(SPLIT);
+
+    expect(features.plan(NO_INSTANT).cta.resolved).toBe(true);
+  });
+
+  it('writes the toggle a context holding one asks for', () => {
+    const features = createFeatures(SPLIT);
+
+    expect(features.toggle('cta', false, NO_INSTANT)).toEqual({
+      ok: true,
+      key: 'cta',
+      enabled: false,
+      willDisable: [],
+    });
+  });
+
+  it('answers a rule reading the instant as a condition no subject matches', () => {
+    const features = createFeatures([
+      {
+        key: 'sale',
+        enabled: true,
+        rules: [
+          {
+            id: 'window',
+            when: [
+              { field: 'now', op: 'after', value: '2020-01-01T00:00:00Z' },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    expect(features.resolve(NO_INSTANT).sale.enabled).toBe(false);
+  });
+});
