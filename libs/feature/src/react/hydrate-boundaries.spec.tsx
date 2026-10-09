@@ -7,7 +7,11 @@ import {
   serializeConfig,
 } from '../index.js';
 import { createFeatureContext, FeatureProvider, useFeature } from './index.js';
-import type { DecisionSet, DivergenceReport } from '../index.js';
+import type {
+  DecisionSet,
+  DivergenceObserver,
+  DivergenceReport,
+} from '../index.js';
 
 /**
  * The input classes the provider answers at its edges.
@@ -1078,6 +1082,34 @@ describe('FeatureProvider', () => {
 
     expect(screen.getByTestId('cta')).toHaveTextContent('control');
   });
+  it('delivers to an observer installed after the mount', () => {
+    const store = createFeatures(SPLIT);
+    // A store built from a literal carries no version, so every pass of the
+    // checks sends exactly one report.
+    const shipped = {
+      ...store.snapshot({ targetingKey: 'u-9' }),
+      version: 'v1',
+    };
+    const seen: DivergenceReport[] = [];
+    // A gate an application opens once consent lands, or a reporter it
+    // imports lazily.
+    const tree = (onDivergence?: DivergenceObserver) => (
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={onDivergence}
+      >
+        <Cta />
+      </FeatureProvider>
+    );
+
+    const { rerender } = render(tree());
+    rerender(tree((report) => seen.push(report)));
+
+    expect(seen.map((report) => report.kind)).toEqual(['unversioned']);
+  });
+
 });
 
 describe('createFeatureContext', () => {
