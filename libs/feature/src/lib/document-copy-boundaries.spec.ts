@@ -231,6 +231,37 @@ describe('documentCopy', () => {
     expect(shared(copy)).toEqual(shared(cloned));
   });
 
+  it('writes one array once where two pointers share it', () => {
+    const tags = ['checkout'];
+
+    const copy = documentCopy({ left: tags, right: tags });
+
+    expect([copy.left === copy.right, copy.left === tags, copy.left]).toEqual([
+      true,
+      false,
+      ['checkout'],
+    ]);
+  });
+
+  it('keeps the sharing structuredClone keeps at every level of a diamond of arrays', () => {
+    let source: unknown = 'buy';
+    for (let level = 0; level < 8; level += 1) source = [source, source];
+
+    const copy = documentCopy(source) as readonly unknown[];
+    const cloned = structuredClone(source) as readonly unknown[];
+    const shared = (held: readonly unknown[]): boolean[] => {
+      const answers: boolean[] = [];
+      let at = held;
+      while (Array.isArray(at[0])) {
+        answers.push(at[0] === at[1]);
+        at = at[0] as readonly unknown[];
+      }
+      return answers;
+    };
+
+    expect(shared(copy)).toEqual(shared(cloned));
+  });
+
   it('reads a shared subtree once and not once per pointer to it', () => {
     // 2^12 pointers to one leaf over 25 objects. Without the memo the walk
     // reads the leaf once per pointer and allocates a copy for each, which is
