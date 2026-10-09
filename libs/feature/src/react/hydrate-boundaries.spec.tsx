@@ -1195,13 +1195,18 @@ describe('FeatureProvider', () => {
       version: 'v1',
     };
     const seen: DivergenceReport[] = [];
+    // One context identity across both renders, so the observer's arrival is
+    // the only input the checks read that changed. A fresh literal each render
+    // recomputes the pass for the context and reports whether the provider
+    // reads the observer's presence or not.
+    const context = { targetingKey: 'u-9' };
     // A gate an application opens once consent lands, or a reporter it
     // imports lazily.
     const tree = (onDivergence?: DivergenceObserver) => (
       <FeatureProvider
         features={store}
         decisions={shipped}
-        context={{ targetingKey: 'u-9' }}
+        context={context}
         onDivergence={onDivergence}
       >
         <Cta />
