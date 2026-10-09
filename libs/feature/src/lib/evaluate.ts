@@ -144,6 +144,30 @@ function rootCause<F extends FeatureKey>(
   }
 }
 
+/**
+ * The decision a blocked parent forces on a feature, or `undefined` when every
+ * parent it depends on resolved on.
+ *
+ * The cascade is a property of the graph and not of the feature's own rules, so
+ * a caller that takes enablement from elsewhere -- a plan entry that settled it
+ * at build time -- still owes this check against the parents the current pass
+ * resolved.
+ */
+export function blockedDecision<F extends FeatureKey>(
+  definition: FeatureDefinition<F>,
+  resolved: ReadonlyMap<F, Decision<F>>,
+): Decision<F> | undefined {
+  const blocked = blockingParent(definition, resolved);
+  if (blocked === undefined) return undefined;
+  return {
+    key: definition.key,
+    enabled: false,
+    reason: 'dependency-off',
+    blockedBy: blocked,
+    cause: rootCause(blocked, resolved),
+  };
+}
+
 /** Copies an assignment onto a decision. A feature with no variants adds nothing. */
 export function withVariant<F extends FeatureKey>(
   decision: Decision<F>,
@@ -188,16 +212,8 @@ export function decide<F extends FeatureKey>(
     return { key: definition.key, enabled: false, reason: 'explicitly-off' };
   }
 
-  const blocked = blockingParent(definition, resolved);
-  if (blocked !== undefined) {
-    return {
-      key: definition.key,
-      enabled: false,
-      reason: 'dependency-off',
-      blockedBy: blocked,
-      cause: rootCause(blocked, resolved),
-    };
-  }
+  const blocked = blockedDecision(definition, resolved);
+  if (blocked) return blocked;
 
   const rules = definition.rules ?? [];
   if (rules.length === 0) {
