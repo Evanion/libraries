@@ -66,11 +66,14 @@ const ACCEPTED: Readonly<Record<string, string>> = {
     'sibling titles, and the verb that follows it is already indicative.',
 };
 
+/** What a build or an install wrote, which holds no test source. */
+const GENERATED = ['node_modules', 'dist', '.next', 'out'];
+
 /** Every test source under the workspace. */
 function testFiles(): string[] {
   function walk(dir: string): string[] {
     return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-      if (entry.name === 'node_modules' || entry.name === 'dist') return [];
+      if (GENERATED.includes(entry.name)) return [];
       const path = join(dir, entry.name);
       if (entry.isDirectory()) return walk(path);
       return TEST_FILE.test(entry.name) ? [path] : [];
