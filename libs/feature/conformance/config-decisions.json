@@ -2,7 +2,7 @@
   "note": "One document, one context, and the decisions any implementation must produce. See docs/specs/2026-09-23-feature-config-distribution.md § 9.",
   "config": {
     "version": 1,
-    "digest": "edf3b049c49af2a6d9e9016f213827f0",
+    "digest": "cce1b41ffe497cc63b52a81f7646e840",
     "features": [
       {
         "key": "checkout",
@@ -183,6 +183,30 @@
             }
           }
         ]
+      },
+      {
+        "key": "onboarding-tour",
+        "enabled": true,
+        "variantBy": "tenantId",
+        "variantSeed": "tour-v1",
+        "variants": [
+          {
+            "name": "tour",
+            "weight": 70,
+            "order": 1,
+            "value": {
+              "steps": 3
+            }
+          },
+          {
+            "name": "control",
+            "weight": 30,
+            "order": 0,
+            "value": {
+              "steps": 0
+            }
+          }
+        ]
       }
     ]
   },
@@ -303,6 +327,19 @@
       },
       "value": {
         "headline": "Every title your shelf is missing"
+      }
+    },
+    "onboarding-tour": {
+      "key": "onboarding-tour",
+      "enabled": true,
+      "reason": "default-on",
+      "variant": "control",
+      "assignment": {
+        "source": "fallback",
+        "by": "tenantId"
+      },
+      "value": {
+        "steps": 0
       }
     }
   }
