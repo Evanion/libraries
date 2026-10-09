@@ -1029,6 +1029,11 @@ export function createFeatures(
         'the Date at context/now names no instant, and a decision set states its instant as an ISO 8601 string',
       );
     }
+    // Read before the emit below, which calls an observer synchronously. A
+    // `reload` from inside that call assigns `installed` (`features.ts:1236`),
+    // and `DecisionSet.version` names the configuration the set's decisions
+    // resolved under, which the consumer's `!==` comparison relies on.
+    const version = installed.version;
     const decisions = frozenWhenObserved(resolveAll(evaluationContext));
 
     if (observed) {
@@ -1040,9 +1045,7 @@ export function createFeatures(
     }
 
     return frozenWhenObserved({
-      ...(installed.version === undefined
-        ? {}
-        : { version: installed.version }),
+      ...(version === undefined ? {} : { version }),
       now: evaluationContext.now.toISOString(),
       origin: options?.origin ?? 'render',
       decisions: decisions as Decisions<Record<FeatureKey, VariantInfo>>,

@@ -36,6 +36,30 @@ describe('Features.snapshot', () => {
     expect(set.version).toBe('v7');
   });
 
+  it('states the version the decisions resolved under when an observer reloads', () => {
+    let reload: ((document: FeatureConfig) => unknown) | undefined;
+    const parsed = parseFeatureConfig(served('v1'), {
+      observe: (event) => {
+        if (event.type !== 'resolve') return;
+        const pending = reload;
+        reload = undefined;
+        pending?.(
+          serializeConfig(createFeatures([{ key: 'cta', enabled: false }]), {
+            version: 'v2',
+          }),
+        );
+      },
+    });
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+    reload = (document) => parsed.features.reload(document);
+
+    const set = parsed.features.snapshot({ targetingKey: 'u-4711' });
+
+    expect(set.decisions.cta.enabled).toBe(true);
+    expect(set.version).toBe('v1');
+    expect(parsed.features.version).toBe('v2');
+  });
+
   it('states the instant it resolved at, as ISO 8601', () => {
     const features = createFeatures([{ key: 'checkout', enabled: true }]);
 
