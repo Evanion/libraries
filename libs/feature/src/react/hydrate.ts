@@ -37,6 +37,32 @@ function instantOf(now: string): Date {
 }
 
 /**
+ * Whether this bundle is a production one.
+ *
+ * `process` is a Node global. This package ships as plain ESM with no bundling
+ * step and no shim, so a browser loading `@evanion/feature/react` through an
+ * import map holds no `process` and reading one raises a `ReferenceError`, and
+ * a shim that supplies `process` without `env` raises a `TypeError`. Either
+ * one raises out of the provider's `useMemo`, so the whole tree fails to
+ * mount over a question about a bundle flag.
+ *
+ * The member chain is written out whole because a bundler's `define` matches
+ * the text `process.env.NODE_ENV` and substitutes the string. A guard that
+ * read `process.env` into a local first would defeat that substitution and
+ * leave a production bundle running the development diff. `try` keeps the text
+ * a bundler replaces and still answers for a runtime that defines neither
+ * half; it answers that it cannot prove production, which is the side
+ * `createEmitter` takes for the same read (`observe.ts:290-294`).
+ */
+function production(): boolean {
+  try {
+    return process.env.NODE_ENV === 'production';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * A decision record at the erased key type.
  *
  * Both forms of `Decisions<S>` hold one decision per key, and every field this
@@ -216,7 +242,7 @@ export function publishedDecisions<
   // store, which is the hydration divergence the spec's § 4 is about.
   const reResolve =
     diverged === 'config-version' && onVersionMismatch === 're-resolve';
-  const development = process.env.NODE_ENV !== 'production';
+  const development = !production();
   const local =
     reResolve || development ? features.resolve(settled) : undefined;
 
