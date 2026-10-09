@@ -13,10 +13,11 @@
  * Evaluation itself lives in the core. Nothing here decides anything.
  */
 
-import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import type { Context, ReactElement, ReactNode } from 'react';
 import { publishedDecisions } from './hydrate.js';
 import type { VersionMismatchPolicy } from './hydrate.js';
+import { reportDivergence } from '../lib/divergence.js';
 import type { DecisionSet } from '../lib/decision-set.js';
 import type {
   DivergenceObserver,
@@ -186,44 +187,77 @@ export interface FeatureProviderProps<
   children?: ReactNode;
 }
 
-/**
- * One observer identity for the life of a provider, calling whatever
- * `onDivergence` the last render passed.
- *
- * `publishedDecisions` reports from inside the memo body, because § 4 requires
- * both checks to report before React reconciles, so the memo's dependency list
- * decides how often each check runs. An observer prop written inline is a new
- * function on every render, and a memo depending on its identity re-ran the
- * sufficiency pass, re-resolved the store for the diff and re-sent every
- * report for a parent re-rendering on a keystroke. § 4 budgets one pass of
- * each per mount and § 3 reports `'unversioned'` once.
- *
- * The memo reads the prop's presence and not its identity, because
- * `publishedDecisions` asks whether an observer is installed and the value has
- * to turn `undefined` where the prop does.
- *
- * The ref is synced in an effect, which is where React permits a write to one.
- * A render that recomputes the memo therefore delivers to the observer the
- * last commit installed. The mount is the pass § 4 names and `useRef` holds
- * the mounting render's own prop, and an inline observer closing over a stable
- * sink reaches the same sink whichever commit it came from.
- */
-function useObserver<F extends FeatureKey>(
-  onDivergence: DivergenceObserver<F> | undefined,
-): DivergenceObserver<F> | undefined {
-  const latest = useRef(onDivergence);
-  useEffect(() => {
-    latest.current = onDivergence;
-  }, [onDivergence]);
-  const installed = onDivergence !== undefined;
+/** The pass no render has delivered, so a mount delivers its own. */
+const UNDELIVERED: readonly never[] = Object.freeze([]);
 
-  return useMemo(
-    () =>
-      installed
-        ? (report: DivergenceReport<F>) => latest.current?.(report)
-        : undefined,
-    [installed],
-  );
+/**
+ * The value a provider publishes, with one pass of the checks per set of
+ * inputs and every report of that pass handed to the observer the current
+ * render holds.
+ *
+ * § 4 requires both checks to report before React reconciles, so
+ * `publishedDecisions` runs inside the memo body and the memo's dependency
+ * list decides how often each check runs. An observer prop written inline is a
+ * new function on every render, and a memo depending on its identity re-ran
+ * the sufficiency pass, re-resolved the store for the diff and re-sent every
+ * report for a parent re-rendering on a keystroke. § 4 budgets one pass of
+ * each per mount and § 3 reports `'unversioned'` once. The memo therefore
+ * reads the prop's presence and not its identity, and presence is what
+ * `publishedDecisions` asks about: it resolves for the diff only where
+ * something reads the result.
+ *
+ * The memo collects rather than delivers, because the observer a pass belongs
+ * to is the prop of the render that produced it and the memo body holds the
+ * prop of the render that last re-ran. A provider whose `onDivergence` turns
+ * from `undefined` into a function re-runs both checks in that render, and
+ * every report of that pass belongs to the function that just arrived. The
+ * same holds for a render that swaps one sink for another.
+ *
+ * The state update is what stops a second delivery. Every pass of the memo
+ * builds its own array, so the array identity names the pass, and a render
+ * that delivers writes it back as state. React re-renders this component with
+ * that state before it commits, the memo holds its result, and the comparison
+ * then matches. A re-render that recomputes nothing reaches the same array and
+ * delivers nothing.
+ *
+ * React invokes a render twice under `StrictMode` and discards the first,
+ * which sends every report of a pass twice. An observer counts divergences and
+ * alters nothing (§ 7), so the duplicate costs a console line.
+ */
+function usePublished<S extends Record<keyof S, VariantInfo | never>>(
+  features: Features<S>,
+  context: EvaluationContext | undefined,
+  decisions: DecisionSet<S> | undefined,
+  onVersionMismatch: VersionMismatchPolicy,
+  onDivergence: DivergenceObserver<keyof S & FeatureKey> | undefined,
+): FeatureContextValue {
+  const installed = onDivergence !== undefined;
+  const published = useMemo(() => {
+    const reports: DivergenceReport<keyof S & FeatureKey>[] = [];
+    const value: FeatureContextValue = {
+      decisions: erased(
+        publishedDecisions(
+          features,
+          context,
+          decisions,
+          onVersionMismatch,
+          installed ? (report) => reports.push(report) : undefined,
+        ),
+      ),
+    };
+    return { value, reports };
+  }, [features, context, decisions, onVersionMismatch, installed]);
+
+  const [delivered, setDelivered] =
+    useState<readonly DivergenceReport<keyof S & FeatureKey>[]>(UNDELIVERED);
+  if (delivered !== published.reports) {
+    setDelivered(published.reports);
+    for (const report of published.reports) {
+      reportDivergence(onDivergence, report);
+    }
+  }
+
+  return published.value;
 }
 
 export function FeatureProvider<
@@ -236,20 +270,12 @@ export function FeatureProvider<
   onVersionMismatch = 'use-shipped',
   children,
 }: FeatureProviderProps<S>) {
-  const observer = useObserver(onDivergence);
-  const value = useMemo<FeatureContextValue>(
-    () => ({
-      decisions: erased(
-        publishedDecisions(
-          features,
-          context,
-          decisions,
-          onVersionMismatch,
-          observer,
-        ),
-      ),
-    }),
-    [features, context, decisions, onVersionMismatch, observer],
+  const value = usePublished(
+    features,
+    context,
+    decisions,
+    onVersionMismatch,
+    onDivergence,
   );
 
   return (
@@ -474,20 +500,12 @@ export function createFeatureContext<
       onVersionMismatch = 'use-shipped',
       children,
     }) {
-      const observer = useObserver(onDivergence);
-      const value = useMemo<FeatureContextValue>(
-        () => ({
-          decisions: erased(
-            publishedDecisions(
-              given ?? features,
-              context,
-              decisions,
-              onVersionMismatch,
-              observer,
-            ),
-          ),
-        }),
-        [given, context, decisions, onVersionMismatch, observer],
+      const value = usePublished(
+        given ?? features,
+        context,
+        decisions,
+        onVersionMismatch,
+        onDivergence,
       );
 
       return (
