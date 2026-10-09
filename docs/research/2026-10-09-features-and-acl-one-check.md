@@ -97,11 +97,11 @@ Same member, same unit, same owner. `Matrix.maxStale` (`libs/acl/src/types.ts:23
 
 Different: acl enforces it and feature declines to. acl's `expiryOf` (`hydrate-policy.ts:197`) settles `fetchedAt + min(document maxStale, options.maxStale)` once at construction; past it, `can`, `canMany`, `canFields` and `capabilities` answer `reason: 'stale-contract'` for every key, including a key the document does not hold (`hydrate-policy.ts:485-489`, and `types.ts:246-250` for why). Reporting `fetchedAt` against a document that states no budget throws `MissingFreshnessBudgetError` (`errors.ts:350`) rather than reading the absent field as zero, because zero "would expire every key for the life of the process, which is indistinguishable from the origin being down". A holder may tighten the owner's bound and never extend it (`hydrate-policy.ts:176-182`).
 
-feature's `config.ts:208-216` says the opposite in as many words: "Advisory, and no entry point in this library reads it… This library holds no clock authority." It names `@evanion/feature-source` as the binding that holds the poller, knows the fetch instant, and shortens its interval or serves a fallback.
+feature's `config.ts:208-216` says the opposite in as many words: "Advisory, and no entry point in this library reads it… This library holds no clock authority." It leaves the poller, the fetch instant, and the choice to shorten an interval or serve a fallback to whatever reads the document.
 
 Would a shared abstraction hold? No, and the asymmetry is the right one. A stale ACL grant is a revocation that did not take effect. A stale flag is a ramp that did not move. Paying acl's cost for the second — a throw at construction when a holder reports a fetch instant the publisher never budgeted for — would make a flag store refuse to start over a field nobody set.
 
-What is shared is a rule, not code: a freshness budget belongs to the document's owner, and a holder may only tighten it. That sentence is worth stating once and citing from both, and `@evanion/feature-source` is where feature would apply it if it ever does.
+What is shared is a rule, not code: a freshness budget belongs to the document's owner, and a holder may only tighten it. That sentence is worth stating once and citing from both, and whatever reads feature's document is where it would apply if it ever does.
 
 ## 7. acl's fail-closed default and luhn's construction-time refusal
 
@@ -139,7 +139,7 @@ Two of #219's three design worries resolve cleanly against the source. The `unev
 
 **Whether acl's security tiers already cover it.** I grepped `libs/acl/src/` including `libs/acl/src/security/` for `setTime` and `sealMutator` and found nothing. I did not read `tier1-prevented.test.ts`, `tier2-primitives.test.ts` or `tier3-contract.test.ts` end to end, so a test asserting this under another name would have been missed.
 
-**Whether `@evanion/feature-source` exists.** `libs/feature/src/lib/config.ts:210-213` names it as the holder of the poller and the party that acts on `maxStale`. There is no such project under `libs/` and no entry in `commitlint.config.js`'s `scope-enum`, so I read it as planned rather than shipped. Section 6's conclusion stands either way; where feature's freshness enforcement eventually lives does not.
+**Where freshness enforcement lives.** `libs/feature/src/lib/config.ts:210-213` leaves the poller and `maxStale` to whatever reads the document, and this repository ships no such reader. Section 6's conclusion stands either way; where feature's freshness enforcement eventually lives does not.
 
 **Whether a shared package could ship with no dependency edge.** I read `libs/acl/package.json`'s `exports` and `files` and `nx.json`'s `release` block, which puts every `libs/` project on npm and `internal/` outside it. I did not test whether the vite library build inlines a workspace import into `dist`, and I did not check whether the `@evanion/source` condition could be dropped for a shared module alone, which is the one thing that would make the `internal/` route viable.
 

@@ -171,8 +171,8 @@ const RUNTIME_CALLS = [
  * in a string literal and leaves no identifier behind.
  *
  * The parser is here for the same reason it is on the import scan: a docblock
- * that writes the word names nothing. `config.ts` documents the poller
- * `@evanion/feature-source` owns, so it is the file most likely to write
+ * that writes the word names nothing. `config.ts` documents the poller a
+ * reader of the document owns, so it is the file most likely to write
  * `setInterval` in prose, and the sentence saying the core opens no
  * `WebSocket` must not be the thing that fails the assertion.
  */
@@ -299,8 +299,8 @@ describe('the core', () => {
 
   it('starts no timer and opens no socket', () => {
     // The core holds no clock authority and performs no fetch. The party that
-    // fetches is the party that acts on `maxStale`, and it lives in
-    // `@evanion/feature-source`. § 1, § 9.
+    // fetches is the party that acts on `maxStale`, and it sits outside this
+    // library. § 1, § 9.
     expect(runtimeOffences(ROOT)).toEqual([]);
   });
 });

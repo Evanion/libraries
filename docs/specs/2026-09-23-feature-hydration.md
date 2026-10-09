@@ -171,8 +171,8 @@ to answer, or answered differently, because a number in the envelope said the
 document was old would give an application two failure modes for one
 configuration and no way to tell them apart at the call site.
 
-The platform binding in `@evanion/feature-source` owns the refetch schedule and
-the decision to reload. It performed the fetch, so it knows the fetch instant,
+Whatever reads the document owns the refetch schedule and the decision to
+reload. It performed the fetch, so it knows the fetch instant,
 and the envelope's `maxStale` reaches it as the advisory value the distribution
 spec § 1 makes it. The transport every product in the research uses for this is
 a conditional request. LaunchDarkly's server-side

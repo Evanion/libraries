@@ -205,10 +205,10 @@ export interface FeatureConfig<F extends FeatureKey = FeatureKey> {
    * How long the publisher believes a holder may keep this document, in
    * milliseconds. Advisory, and no entry point in this library reads it.
    *
-   * The party that fetches is the party that acts on it. A binding in
-   * `@evanion/feature-source` holds the poller, knows the fetch instant because
-   * it performed the fetch, and shortens its interval, logs, refuses to start
-   * or serves a fallback document. This library holds no clock authority.
+   * The party that fetches is the party that acts on it. Whatever reads the
+   * document holds the poller, knows the fetch instant because it performed the
+   * fetch, and shortens its interval, logs, refuses to start or serves a
+   * fallback document. This library holds no clock authority.
    *
    * This library evaluates the document a caller hands it. No endpoint answers
    * which variant a subject gets, so every holder computes its own answer from
