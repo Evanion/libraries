@@ -479,7 +479,7 @@ describe('a variant value the two hosts answer differently', () => {
   });
 });
 
-describe('the one member a definition carries a Date at', () => {
+describe('the one pointer a definition carries a Date at', () => {
   /**
    * § 8 of `docs/specs/2026-09-23-feature-config-distribution.md` decides this
    * one: "`FeatureDefinition` keeps `Instant` with its `Date` member, because
@@ -487,6 +487,12 @@ describe('the one member a definition carries a Date at', () => {
    * `conditions.ts` already handles it". Task 5's deliverable has a JSON-only
    * host build a store from a literal, and a literal whose rule opens a window
    * is the literal that decision is about.
+   *
+   * § 8 exempts `WindowCondition.value` and no second pointer.
+   * `serializeConfig` converts the `Date` at `/rules/<i>/when/<j>/value`
+   * through `documentRule`, and `serialized` refuses a `Date` at every other
+   * pointer and names it, so a copy that kept one elsewhere would build a store
+   * no publisher can serve.
    */
   const opens = () => [
     {
@@ -506,33 +512,86 @@ describe('the one member a definition carries a Date at', () => {
     },
   ];
 
-  it('carries the Date at a window boundary as a copy of the same instant', () => {
-    const source = {
-      op: 'before' as const,
-      value: new Date(1_700_000_000_000),
+  /** A definition whose one rule holds this condition. */
+  const windowed = (condition: unknown): unknown => ({
+    key: 'promo',
+    enabled: true,
+    rules: [{ when: [condition] }],
+  });
+
+  /** The condition a copy of such a definition holds. */
+  const conditionOf = (copy: unknown): Record<string, unknown> => {
+    const { rules } = copy as {
+      readonly rules: readonly { readonly when: readonly unknown[] }[];
     };
 
-    const copy = documentCopy(source);
+    return rules[0]?.when[0] as Record<string, unknown>;
+  };
+
+  it('carries the Date at a window boundary as a copy of the same instant', () => {
+    const boundary = new Date(1_700_000_000_000);
+
+    const copied = conditionOf(
+      documentCopy(windowed({ field: 'now', op: 'before', value: boundary })),
+    );
 
     expect([
-      copy.value instanceof Date,
-      copy.value === source.value,
-      copy.value.getTime(),
+      copied['value'] instanceof Date,
+      copied['value'] === boundary,
+      (copied['value'] as Date).getTime(),
     ]).toEqual([true, false, 1_700_000_000_000]);
   });
 
   it('refuses a Date at a condition value no window reads', () => {
     const thrown = raised(() =>
-      documentCopy({ field: 'tier', op: 'eq', value: new Date(0) }),
+      documentCopy(windowed({ field: 'tier', op: 'eq', value: new Date(0) })),
     );
 
-    expect(thrown).toBe('"/value" carries a Date, and a document carries none');
+    expect(thrown).toBe(
+      '"/rules/0/when/0/value" carries a Date, and a document carries none',
+    );
   });
 
   it('carries an invalid Date, which validateConditions is the reader of', () => {
-    const copy = documentCopy({ op: 'after' as const, value: new Date('x') });
+    const copied = conditionOf(
+      documentCopy(windowed({ field: 'now', op: 'after', value: new Date('x') })),
+    );
 
-    expect(Number.isNaN(copy.value.getTime())).toBe(true);
+    expect(Number.isNaN((copied['value'] as Date).getTime())).toBe(true);
+  });
+
+  it('refuses a Date under a variant value spelled like a window condition', () => {
+    const thrown = raised(() =>
+      documentCopy(
+        carrying({ op: 'after', value: new Date('2026-01-01T00:00:00.000Z') }),
+      ),
+    );
+
+    expect(thrown).toBe(
+      '"/variants/0/value/value" carries a Date, and a document carries none',
+    );
+  });
+
+  it('reports the same variant value the plain Date beside it is reported at', () => {
+    const document = {
+      version: 1,
+      features: [
+        carrying({ op: 'after', value: new Date('2026-01-01T00:00:00.000Z') }),
+      ],
+    } as unknown as FeatureConfig;
+
+    const result = onJsonOnlyHost(() => parseFeatureConfig(document));
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        message:
+          'feature "cta" carries a value no copy of the definition holds: ' +
+          '"/variants/0/value/value" carries a Date, and a document carries none',
+        key: 'cta',
+        path: '/features/0',
+      },
+    ]);
   });
 
   it('builds a store from the literal on both hosts and decides it alike', () => {

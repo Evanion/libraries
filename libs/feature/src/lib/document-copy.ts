@@ -28,7 +28,13 @@ function carried(value: object): boolean {
 }
 
 /**
- * Whether this object is the condition § 8 of
+ * The pointer of a condition a rule's `when` holds, relative to the definition
+ * the walk was handed.
+ */
+const CONDITION = /^\/rules\/\d+\/when\/\d+$/;
+
+/**
+ * Whether the object at this pointer is the condition § 8 of
  * `docs/specs/2026-09-23-feature-config-distribution.md` lets a `Date` reach.
  *
  * That section keeps `Instant` on `FeatureDefinition` with its `Date` member,
@@ -38,13 +44,28 @@ function carried(value: object): boolean {
  * epoch, so the two forms decide `before` and `after` alike, and
  * `serializeConfig` converts the `Date` to its ISO string on the way out.
  *
- * `documentCondition` at `serialize.ts:179` reads the same two operators off
- * the same member for the same reason. Neither reader asks whether the object
- * around them is a `Condition`, so a variant value shaped `{ op: 'after', value:
- * <Date> }` carries its `Date` here. `structuredClone` carries that value too,
- * which is the answer this agreeing with it is worth more than a narrower test.
+ * The pointer decides as much as the operator does. `serializeConfig` reaches a
+ * condition through `documentRule` at `serialize.ts:193`, so
+ * `/rules/<i>/when/<j>/value` is the one pointer whose `Date` it converts, and
+ * `serialized` at `serialize.ts:89` refuses a `Date` at every other pointer and
+ * names it. A `Date` this walk kept at any other pointer builds a store
+ * `serializeConfig` then refuses, naming that pointer: a variant value spelled
+ * `{ op: 'after', value: <Date> }` is no condition, and the plain `Date` at the
+ * same variant value is refused here already.
+ *
+ * The two construction paths and `unreadable`'s attribution loop each hand this
+ * walk one `FeatureDefinition`, and `envelopeOf` hands it the document's own
+ * members with `features` deleted, so a condition a rule holds is what reaches
+ * the pointer above.
+ *
+ * The gate reads no `field`. `WindowCondition` declares `field: 'now'`, and
+ * `validateConditions` at `conditions.ts:111`, `ruleId` at `rule-id.ts:57` and
+ * `documentCondition` at `serialize.ts:181` each read the operator and none of
+ * them reads the field, so a condition whose field is another string is a
+ * window to every reader in the library and is one here too.
  */
-function boundary(value: object): boolean {
+function boundary(value: object, at: string): boolean {
+  if (!CONDITION.test(at)) return false;
   const op = (value as { op?: unknown }).op;
   return op === 'before' || op === 'after';
 }
@@ -138,7 +159,7 @@ function walk(
     if (!carried(held)) throw refuse(at, named(held));
 
     const copy: Record<string, unknown> = {};
-    const window = boundary(held);
+    const window = boundary(held, at);
     for (const [member, element] of Object.entries(held)) {
       const pointer = `${at}/${escaped(member)}`;
       Object.defineProperty(copy, member, {
@@ -176,7 +197,7 @@ function walk(
  *
  * `configCopier` hands this to the literal path as well as the document path, so
  * the value it walks is a `FeatureDefinition` an author wrote and not only the
- * JSON a publisher served. `boundary` above is the one member where those two
+ * JSON a publisher served. `boundary` above is the one pointer where those two
  * disagree: § 8 of `docs/specs/2026-09-23-feature-config-distribution.md` decides
  * a `WindowCondition.value` keeps its `Date`, and a literal whose rule opens a
  * window builds a store on every host because of it.
