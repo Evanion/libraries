@@ -22,6 +22,11 @@ export { configDigest } from './lib/digest.js';
 export { ruleId } from './lib/rule-id.js';
 export { parseFeatureConfig } from './lib/parse.js';
 export type {
+  DecisionOrigin,
+  DecisionSet,
+  SnapshotOptions,
+} from './lib/decision-set.js';
+export type {
   DivergenceObserver,
   DivergenceReport,
   DivergenceSide,
