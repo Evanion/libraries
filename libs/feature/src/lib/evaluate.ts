@@ -145,7 +145,7 @@ function rootCause<F extends FeatureKey>(
 }
 
 /** Copies an assignment onto a decision. A feature with no variants adds nothing. */
-function withVariant<F extends FeatureKey>(
+export function withVariant<F extends FeatureKey>(
   decision: Decision<F>,
   assigned: VariantAssignment | undefined,
   source: VariantAssignment['source'] | 'pinned' = assigned?.source ??
