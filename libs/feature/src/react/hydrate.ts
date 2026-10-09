@@ -137,6 +137,13 @@ function compared(
  * not, whatever the two variants are. The report names a context this process
  * cannot bucket with, which holds for the next subject even where the control
  * and the shipped variant coincide for this one.
+ *
+ * `'weighted'` and `'sticky'` are the two sources that reach the report, and
+ * § 4's "a source other than `'fallback'`" would admit a third. A `'pinned'`
+ * assignment answers off a rule and not off the bucketing field, so naming
+ * that field for one tells the developer to pass a value that changes no
+ * answer. Decision 7 is what the skip follows: the check names a decision the
+ * client could not have reproduced.
  */
 function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
   features: Features<S>,
@@ -147,6 +154,14 @@ function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
   for (const decision of Object.values(shipped)) {
     const assignment = decision.assignment;
     if (!assignment || assignment.source === 'fallback') continue;
+    // A `'pinned'` assignment states the variant a rule's own `variant` member
+    // named, which the engine writes over whatever `assignVariant` answered
+    // (`evaluate.ts:240-252`). The value at `assignment.by` decided nothing,
+    // so a context that lacks it reproduces the pin wherever the rule still
+    // matches, and supplying it changes no answer where the rule does not. Only
+    // a full resolution answers whether the rule matches, which is what the
+    // development diff runs.
+    if (assignment.source === 'pinned') continue;
 
     const definition = features.definition(
       decision.key as keyof S & FeatureKey,

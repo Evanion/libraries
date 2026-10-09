@@ -96,6 +96,30 @@ const SALE = [
   },
 ] as const;
 
+/**
+ * A split a rule pins, so the variant comes off the rule and not off a bucket.
+ *
+ * The rule reads `group` and the bucketing field stays `targetingKey`, which
+ * is what a server holds and a client does not.
+ */
+const PINNED = [
+  {
+    key: 'cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ],
+    rules: [
+      {
+        id: 'staff',
+        when: [{ field: 'group', op: 'eq', value: 'staff' }],
+        variant: 'blue',
+      },
+    ],
+  },
+] as const;
+
 /** A window every clock after 2020 is inside. */
 const OPEN = [
   {
@@ -360,6 +384,31 @@ describe('FeatureProvider', () => {
         local: { variant: 'green', source: 'fallback' },
       },
     ]);
+  });
+
+  it('names no field for an assignment a rule pinned', () => {
+    const store = createFeatures(PINNED);
+    const shipped = store.snapshot({ targetingKey: 'u-9', group: 'staff' });
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        // The rule's own field, and not the bucketing field the pin ignored.
+        context={{ group: 'staff' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(shipped.decisions.cta.assignment?.source).toBe('pinned');
+    expect(shipped.decisions.cta.assignment?.by).toBe('targetingKey');
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+    expect(reports.filter((report) => report.kind === 'missing-field')).toEqual(
+      [],
+    );
   });
 
   it('names no field for a sticky assignment the client context reproduces', () => {
