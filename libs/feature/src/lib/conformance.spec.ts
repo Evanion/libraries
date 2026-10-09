@@ -723,10 +723,12 @@ describe('the published plan fixture', () => {
       assignment?: { source?: string; by?: string };
     };
 
-    // The rules do not re-run. The client context carries `plan` as well as
-    // `tenantId`, so an engine that re-decided this feature would reach the
-    // same answer by another road and a port that dropped rule 3 would pass.
-    // The variant alone is computed, which the assignment reports.
+    // Rule 3 of § 5 of `docs/specs/2026-09-23-feature-hydration.md` reads the
+    // enablement off the entry and computes the variant alone. The client
+    // context carries `plan` as well, so a port that re-ran the rules reaches
+    // the same enablement and this case does not separate the two. What it
+    // holds is the agreement between the entry and the published decisions,
+    // so a fixture whose two halves no longer state one answer is refused.
     expect(settled).toMatchObject({ enabled: true, reason: 'rule-match' });
     expect(finished.enabled).toBe(settled?.enabled);
     expect(finished.reason).toBe(settled?.reason);
@@ -740,9 +742,9 @@ describe('the published plan fixture', () => {
   it('passes the checker every holder runs before it installs', () => {
     const result = parseFeatureConfig(planFixture.config);
 
-    // The digest rides along: `validateConfig` reports `digest-mismatch` for a
-    // document whose bytes the stated digest no longer covers, so a fixture
-    // hand-edited without a recomputed digest is refused here.
+    // This covers the digest too. `validateConfig` reports `digest-mismatch`
+    // for a document whose bytes the stated digest no longer covers, so a
+    // fixture someone hand-edited without recomputing the digest fails here.
     expect(result.ok === false && result.issues).toBeFalsy();
     expect(result.ok).toBe(true);
   });
