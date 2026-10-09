@@ -539,11 +539,11 @@ describe('FeatureProvider', () => {
 
     expect(promo).toMatchObject({
       kind: 'missing-field',
-      field: 'targetingKey',
       shipped: { variant: 'wide', source: 'weighted' },
     });
     // No context reproduces the assignment, so the report names no local
     // variant and asks for no field.
+    expect(promo?.field).toBeUndefined();
     expect(promo?.local).toBeUndefined();
     expect(promo?.message).toContain('declares no feature "promo"');
     expect(promo?.message).not.toContain('carries no');
@@ -588,8 +588,10 @@ describe('FeatureProvider', () => {
       kind: 'missing-field',
       shipped: { variant: 'wide', source: 'weighted' },
     });
+    expect(banner?.field).toBeUndefined();
     expect(banner?.local).toBeUndefined();
     expect(banner?.message).toContain('with no variants');
+    expect(banner?.message).not.toContain('targetingKey');
   });
 
   it('names the field this provider buckets on where the two stores differ', () => {

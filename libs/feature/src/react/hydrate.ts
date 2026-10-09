@@ -233,17 +233,21 @@ function pinSufficiency<F extends FeatureKey>(
  *
  * `field` names the field this provider needs and not the one the server used.
  * The two are the same field for two processes holding one configuration, and
- * they differ where the client store's `variantBy` names another field, where
- * the assignment was `'sticky'` and the client carries no sticky map, and
- * where the store declares the feature with no variants at all. Naming the
- * server's field for those tells the developer to supply a value the engine
- * here never reads.
+ * they differ where the client store's `variantBy` names another field and
+ * where the assignment was `'sticky'` and the client carries no sticky map.
+ * Naming the server's field for those tells the developer to supply a value
+ * the engine here never reads.
  *
  * The message states which of the two the context did: a field it carries
  * nothing at, or a field it carries a value at that `assignVariant` cannot
- * bucket -- `null`, an object, a boolean. A store that assigns no variant for
- * the feature at all names neither, because no context reproduces the shipped
- * assignment and the fix is the document this store was built from.
+ * bucket -- `null`, an object, a boolean.
+ *
+ * A store that assigns no variant for the shipped key at all carries no
+ * `field` and names neither of those two. It declares no such feature, or it
+ * declares the feature with no variants; either way no context reproduces the
+ * assignment, and a report naming the server's bucketing field would send the
+ * developer after a value no engine here reads. The fix is the document this
+ * store was built from.
  *
  * A `'pinned'` assignment goes to {@link pinSufficiency}, which reads the
  * rule's fields instead of the bucketing field.
@@ -274,7 +278,6 @@ function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
       reportDivergence(observer, {
         kind: 'missing-field',
         key: decision.key,
-        field: assignment.by,
         shipped: shippedSide,
         message: `feature "${key}": the server shipped variant "${String(decision.variant)}" for it, and this store declares no feature "${key}", so this provider assigns no variant for it whatever its context carries. Reload the store from the document the server resolved against.`,
       });
@@ -295,9 +298,8 @@ function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
       reportDivergence(observer, {
         kind: 'missing-field',
         key: decision.key,
-        field: assignment.by,
         shipped: shippedSide,
-        message: `${served}, and this store declares feature "${key}" with no variants, so this provider assigns no variant for it whatever its context carries. Reload the store from the document the server resolved against.`,
+        message: `feature "${key}": the server assigned variant "${String(decision.variant)}" for it, and this store declares feature "${key}" with no variants, so this provider assigns no variant for it whatever its context carries. Reload the store from the document the server resolved against.`,
       });
       continue;
     }
