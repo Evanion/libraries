@@ -1,4 +1,6 @@
 import { reportDivergence } from '../lib/divergence.js';
+import { ruleFields } from '../lib/evaluate.js';
+import { ruleId } from '../lib/rule-id.js';
 import { assignVariant } from '../lib/variants.js';
 import type { DivergenceObserver } from '../lib/divergence.js';
 import type { DecisionSet } from '../lib/decision-set.js';
@@ -8,6 +10,7 @@ import type {
   Decision,
   Decisions,
   EvaluationContext,
+  FeatureDefinition,
   FeatureKey,
   VariantInfo,
 } from '../lib/types.js';
@@ -144,6 +147,68 @@ function carries(context: EvaluationContext, field: string): boolean {
 }
 
 /**
+ * Names a pinned assignment whose rule this provider's context cannot read.
+ *
+ * A `'pinned'` assignment states the variant a rule's own `variant` member
+ * named, which the engine writes over whatever `assignVariant` answered
+ * (`evaluate.ts:240-252`). The value at `assignment.by` decided nothing, so
+ * naming that field would ask the developer for a value that changes no
+ * answer. The rule decided, and the fields its conditions and its rollout read
+ * are what this provider has to carry to reach the same pin.
+ *
+ * It names the fields the context carries nothing at and nothing else. A
+ * context carrying every one of them reads the rule the way the server read
+ * it, and the two then differ only where the two configurations differ, which
+ * is what the version check and the development diff answer. Decision 7 is
+ * what the report follows: the client could not have reproduced a pin off a
+ * rule it cannot evaluate, and § 4 runs this check in production, where the
+ * diff does not run.
+ *
+ * `now` is never named. Every entry point fills it from the clock for a
+ * context carrying none (`features.ts:911`), so a rule reading a date window
+ * is readable here whatever the context holds.
+ *
+ * A pinned assignment naming no rule, or naming one this store does not hold,
+ * reports nothing. The wire carries whatever a producer sent, and no rule here
+ * states what that one matched on. The version check names two stores that
+ * disagree about the rules.
+ */
+function pinSufficiency<F extends FeatureKey>(
+  definition: FeatureDefinition<F>,
+  decision: AnyDecision,
+  context: EvaluationContext,
+  observer: DivergenceObserver<FeatureKey> | undefined,
+): void {
+  const named = decision.assignment?.rule;
+  const pinning = (definition.rules ?? []).find(
+    (rule) => ruleId(rule) === named,
+  );
+  if (!pinning) return;
+
+  const unreadable = ruleFields(pinning).filter(
+    (field) => field !== 'now' && !carries(context, field),
+  );
+  const [first] = unreadable;
+  if (first === undefined) return;
+
+  const local = assignVariant(definition, context);
+  const would = local
+    ? ` and a client resolution would assign "${local.variant.name}" (source: ${local.source})`
+    : '';
+
+  reportDivergence(observer, {
+    kind: 'missing-field',
+    key: decision.key,
+    field: first,
+    shipped: { variant: decision.variant, source: 'pinned' },
+    local: local
+      ? { variant: local.variant.name, source: local.source }
+      : undefined,
+    message: `feature "${String(decision.key)}": the server assigned variant "${String(decision.variant)}" off rule "${String(named)}", and this provider's context carries no ${unreadable.map((field) => `"${field}"`).join(', ')}, so that rule cannot match here${would}. Pass ${unreadable.join(', ')} to <FeatureProvider context={...}>.`,
+  });
+}
+
+/**
  * Names every shipped decision this provider's context could not reproduce.
  *
  * It skips a decision whose own source is `'fallback'`, because that decision
@@ -180,12 +245,8 @@ function carries(context: EvaluationContext, field: string): boolean {
  * the feature at all names neither, because no context reproduces the shipped
  * assignment and the fix is the document this store was built from.
  *
- * `'weighted'` and `'sticky'` are the two sources that reach the report, and
- * § 4's "a source other than `'fallback'`" would admit a third. A `'pinned'`
- * assignment answers off a rule and not off the bucketing field, so naming
- * that field for one tells the developer to pass a value that changes no
- * answer. Decision 7 is what the skip follows: the check names a decision the
- * client could not have reproduced.
+ * A `'pinned'` assignment goes to {@link pinSufficiency}, which reads the
+ * rule's fields instead of the bucketing field.
  */
 function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
   features: Features<S>,
@@ -196,41 +257,47 @@ function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
   for (const decision of Object.values(shipped)) {
     const assignment = decision.assignment;
     if (!assignment || assignment.source === 'fallback') continue;
-    // A `'pinned'` assignment states the variant a rule's own `variant` member
-    // named, which the engine writes over whatever `assignVariant` answered
-    // (`evaluate.ts:240-252`). The value at `assignment.by` decided nothing,
-    // so a context that lacks it reproduces the pin wherever the rule still
-    // matches, and supplying it changes no answer where the rule does not. Only
-    // a full resolution answers whether the rule matches, which is what the
-    // development diff runs.
-    if (assignment.source === 'pinned') continue;
 
+    const key = String(decision.key);
     const definition = features.definition(
       decision.key as keyof S & FeatureKey,
     );
-    // A server one version ahead ships a decision for a feature this store
-    // does not declare. There is no local assignment to compute, and the
-    // shipped one is still an answer this provider cannot reproduce.
-    const local = definition ? assignVariant(definition, context) : undefined;
-    if (local && local.source !== 'fallback') continue;
-
-    const key = String(decision.key);
-    const served = `feature "${key}": the server assigned variant "${String(decision.variant)}" by "${assignment.by}"`;
     const shippedSide = {
       variant: decision.variant,
       source: assignment.source,
     };
 
-    if (!local) {
-      const gap = definition
-        ? `this store declares feature "${key}" with no variants`
-        : `this store declares no feature "${key}"`;
+    // A server one version ahead ships a decision for a feature this store
+    // does not declare. There is no local assignment to compute, and the
+    // shipped one is still an answer this provider cannot reproduce.
+    if (!definition) {
       reportDivergence(observer, {
         kind: 'missing-field',
         key: decision.key,
         field: assignment.by,
         shipped: shippedSide,
-        message: `${served}, and ${gap}, so this provider assigns no variant for it whatever its context carries. Reload the store from the document the server resolved against.`,
+        message: `feature "${key}": the server shipped variant "${String(decision.variant)}" for it, and this store declares no feature "${key}", so this provider assigns no variant for it whatever its context carries. Reload the store from the document the server resolved against.`,
+      });
+      continue;
+    }
+
+    if (assignment.source === 'pinned') {
+      pinSufficiency(definition, decision, context, observer);
+      continue;
+    }
+
+    const local = assignVariant(definition, context);
+    if (local && local.source !== 'fallback') continue;
+
+    const served = `feature "${key}": the server assigned variant "${String(decision.variant)}" by "${assignment.by}"`;
+
+    if (!local) {
+      reportDivergence(observer, {
+        kind: 'missing-field',
+        key: decision.key,
+        field: assignment.by,
+        shipped: shippedSide,
+        message: `${served}, and this store declares feature "${key}" with no variants, so this provider assigns no variant for it whatever its context carries. Reload the store from the document the server resolved against.`,
       });
       continue;
     }
