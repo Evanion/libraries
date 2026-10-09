@@ -130,3 +130,9 @@ apps/docs/content/*
 !apps/docs/content/next/
 !apps/docs/content/testing/
 !apps/docs/content/feature/
+
+# Written by `graphify`: the extracted knowledge graph, the HTML view and report
+# built from it, and the sidecars an incremental run reads back. Not committed:
+# it describes the tree it scanned, and a committed copy is right until the next
+# commit changes the code it describes.
+graphify-out/
