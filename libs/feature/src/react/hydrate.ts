@@ -51,14 +51,27 @@ function instantOf(now: string): Date {
  * read `process.env` into a local first would defeat that substitution and
  * leave a production bundle running the development diff. `try` keeps the text
  * a bundler replaces and still answers for a runtime that defines neither
- * half; it answers that it cannot prove production, which is the side
- * `createEmitter` takes for the same read (`observe.ts:290-294`).
+ * half.
+ *
+ * A runtime that answers neither half answers `true`, because this read gates
+ * work and not a message. § 4 requires the development diff to stay out of
+ * production, and the runtime that cannot be read is a plain ESM deployment,
+ * which is as often a served production page as a developer's machine. The
+ * diff costs a second `features.resolve` per mount, a second `'resolve'` event
+ * on a store built with `observe`, and a `'decision-differs'` report for every
+ * key an observer then has to triage. A developer who wants the diff in a
+ * runtime with no `process` supplies one: `globalThis.process = { env: { NODE_ENV: 'development' } }`
+ * ahead of the provider's first render answers the read.
+ *
+ * `createEmitter` takes the other side for the same read
+ * (`observe.ts:290-294`), and it gates a `console.warn` that costs a line of
+ * output.
  */
 function production(): boolean {
   try {
     return process.env.NODE_ENV === 'production';
   } catch {
-    return false;
+    return true;
   }
 }
 
