@@ -300,6 +300,42 @@ describe('resolvePlan', () => {
     });
   });
 
+  it('cascades a parent this pass resolved off onto a settled entry', () => {
+    const features = createFeatures([
+      {
+        key: 'gate',
+        enabled: true,
+        rules: [
+          { id: 'beta', when: [{ field: 'beta', op: 'eq', value: true }] },
+        ],
+      },
+      { key: 'child', enabled: true, dependsOn: ['gate'] },
+    ] as const);
+    // The build knew `beta`, so both entries are settled. This plan names
+    // `child` alone, so `gate` re-decides here against a context that refutes
+    // the rule the build matched.
+    const plan = features.plan({ beta: true });
+
+    const decisions = resolvePlan(
+      features,
+      { child: plan.child },
+      {
+        beta: false,
+      },
+    );
+
+    expect(plan.child.resolved).toBe(true);
+    expect(plan.child.decision?.enabled).toBe(true);
+    expect(decisions.gate.enabled).toBe(false);
+    expect(decisions.child).toEqual({
+      key: 'child',
+      enabled: false,
+      reason: 'dependency-off',
+      blockedBy: 'gate',
+      cause: { key: 'gate', reason: 'no-rule-matched', rule: 'beta' },
+    });
+  });
+
   it('answers an empty set for a store holding no feature', () => {
     const features = createFeatures([]);
 
