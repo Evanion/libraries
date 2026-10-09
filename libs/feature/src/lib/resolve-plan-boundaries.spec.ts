@@ -86,6 +86,41 @@ describe('resolvePlan', () => {
     expect(decisions.cta).toEqual(decision);
   });
 
+  it('drops a carried variant and its value from a deferred entry it reassigns', () => {
+    const features = createFeatures(SPLIT);
+
+    const decisions = resolvePlan(
+      features,
+      {
+        cta: {
+          key: 'cta',
+          resolved: 'deferred',
+          needs: [],
+          decision: {
+            key: 'cta',
+            enabled: true,
+            reason: 'default-on',
+            variant: 'blue',
+            value: { label: 'Get it' },
+          },
+        },
+      },
+      { targetingKey: 'u-4711' },
+    );
+
+    expect(decisions.cta).toEqual({
+      key: 'cta',
+      enabled: true,
+      reason: 'default-on',
+      variant: 'control',
+      assignment: {
+        source: 'weighted',
+        by: 'targetingKey',
+        bucket: 0.44809214142151177,
+      },
+    });
+  });
+
   it('assigns the weighted variant and its value for a carried bucketing key', () => {
     const features = createFeatures(SPLIT);
 
