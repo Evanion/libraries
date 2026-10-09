@@ -182,6 +182,22 @@ describe('resolvePlan', () => {
     });
   });
 
+  it('resolves a dependant the plan names no entry for against its parent', () => {
+    // The gap this branch fills can stand over a dependant, and the cascade
+    // reads the parent this pass resolved a moment earlier. A parent map that
+    // did not carry `gate` would answer `dependency-off` here.
+    const features = createFeatures([
+      { key: 'gate', enabled: true },
+      { key: 'child', enabled: true, dependsOn: ['gate'] },
+    ]);
+
+    expect(resolvePlan(features, {}, {})['child']).toEqual({
+      key: 'child',
+      enabled: true,
+      reason: 'default-on',
+    });
+  });
+
   it('reads no plan entry off the prototype chain', () => {
     const features = createFeatures([{ key: 'constructor', enabled: true }]);
 
