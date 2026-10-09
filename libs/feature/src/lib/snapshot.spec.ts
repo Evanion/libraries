@@ -1,5 +1,6 @@
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
+import { FeatureConfigError } from './errors.js';
 import { createFeatures } from './features.js';
 import { parseFeatureConfig } from './parse.js';
 import { serializeConfig } from './serialize.js';
@@ -252,12 +253,29 @@ describe('Features.snapshot', () => {
     expect(features.snapshot().now).toBe('2026-03-04T05:06:07.008Z');
   });
 
-  it('raises on an instant no ISO 8601 string describes', () => {
+  it('names the field when the context holds an instant no string describes', () => {
     const features = createFeatures([{ key: 'checkout', enabled: true }]);
 
     expect(() => features.snapshot({ now: new Date(Number.NaN) })).toThrow(
-      RangeError,
+      FeatureConfigError,
     );
+    expect(() => features.snapshot({ now: new Date(Number.NaN) })).toThrow(
+      /context\/now/,
+    );
+  });
+
+  it('reports nothing for the call it refuses that instant on', () => {
+    const seen: FeatureEvent<Schema>[] = [];
+    const features = createFeatures(SPLIT, {
+      observe: (event) => {
+        seen.push(event as FeatureEvent<Schema>);
+      },
+    });
+
+    expect(() => features.snapshot({ now: new Date(Number.NaN) })).toThrow(
+      FeatureConfigError,
+    );
+    expect(seen).toEqual([]);
   });
 
   it('assigns the control the other side of the band buckets to', () => {

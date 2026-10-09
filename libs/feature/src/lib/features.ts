@@ -130,6 +130,11 @@ export interface Features<
    * `resolve` answers the decisions alone, and a consumer in another process
    * cannot recover either member from them. A set states both, so a server
    * states the instant once and no application passes `now` by hand.
+   *
+   * It is the one entry point that refuses a context. `DecisionSet.now` is an
+   * ISO 8601 string and an invalid `Date` describes no instant, so a
+   * `context.now` holding one raises a `FeatureConfigError`. `resolve`, `plan`
+   * and `toggle` carry that `Date` into the decision and stay total.
    */
   snapshot(
     context?: EvaluationContext,
@@ -1013,6 +1018,17 @@ export function createFeatures(
     options?: SnapshotOptions,
   ): DecisionSet<Record<FeatureKey, VariantInfo>, boolean> => {
     const evaluationContext = withNow(context);
+    // A set states its instant as an ISO 8601 string, which an invalid `Date`
+    // has none of: `toISOString` raises a bare `RangeError` naming neither the
+    // field nor the call. The refusal names the field the caller handed in, the
+    // way `documentCondition` names the path of a `Date` a document cannot
+    // carry (`serialize.ts:180-184`). The check runs before the resolution, so
+    // a refused call reports no event and resolves nothing.
+    if (Number.isNaN(evaluationContext.now.getTime())) {
+      throw new FeatureConfigError(
+        'the Date at context/now names no instant, and a decision set states its instant as an ISO 8601 string',
+      );
+    }
     const decisions = frozenWhenObserved(resolveAll(evaluationContext));
 
     if (observed) {
