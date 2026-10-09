@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { configCopier, documentCopy } from './document-copy.js';
 import { FeatureConfigError } from './errors.js';
+import { createFeatures } from './features.js';
 
 /** A definition whose one served variant carries `value`. */
 function carrying(value: unknown): unknown {
@@ -143,6 +144,52 @@ describe('configCopier', () => {
 
     try {
       expect(configCopier()).toBe(documentCopy);
+    } finally {
+      Reflect.set(globalThis, 'structuredClone', clone);
+    }
+  });
+});
+
+describe('the construction path on a host defining no structuredClone', () => {
+  it('builds a store from a literal with structuredClone deleted', () => {
+    // The third leg § 8 of `docs/specs/2026-09-23-feature-hydration.md`
+    // names. `parse.spec.ts` covers a document a holder accepts and one it
+    // refuses, `reload.spec.ts` covers the install, and `createFeatures` over a
+    // bare array takes the same copy and installs no envelope.
+    const clone = globalThis.structuredClone;
+    Reflect.deleteProperty(globalThis, 'structuredClone');
+
+    try {
+      const features = createFeatures([
+        { key: 'checkout', enabled: true },
+        { key: 'express', enabled: true, dependsOn: ['checkout'] },
+      ]);
+
+      expect(features.isEnabled('express')).toBe(true);
+    } finally {
+      Reflect.set(globalThis, 'structuredClone', clone);
+    }
+  });
+
+  it('throws the path out of a literal carrying a value no document holds', () => {
+    const clone = globalThis.structuredClone;
+    Reflect.deleteProperty(globalThis, 'structuredClone');
+
+    try {
+      const build = () =>
+        createFeatures([
+          {
+            key: 'cta',
+            enabled: true,
+            variantBy: 'targetingKey',
+            variantSeed: 'cta:variant',
+            variants: [{ name: 'blue', weight: 1, value: new Date() }],
+          },
+        ]);
+
+      expect(build).toThrow(
+        '"/variants/0/value" carries a Date, and a document carries none',
+      );
     } finally {
       Reflect.set(globalThis, 'structuredClone', clone);
     }
