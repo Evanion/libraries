@@ -14,9 +14,9 @@
 
 **Depends on:** #279 (configuration distribution) and #274 (variants), both merged to `main` at `855d9273`. Every interface this plan consumes from them is in the tree.
 
-## Six reconciliations against merged main
+## Seven reconciliations against merged main
 
-The spec was written before the distribution work landed. Four of its decisions are already satisfied by code on `main`, and three of its code snippets do not compile against the types that landed. Read this section before Task 1; it is why the task list is shorter than the decision list.
+The spec was written before the distribution work landed. Four of its decisions are already satisfied by code on `main`, three of its code snippets do not compile against the types that landed, and one of its Testing bullets asks for behaviour `main` refuses. Read this section before Task 1; it is why the task list is shorter than the decision list.
 
 ### Decisions 1, 2 and 3 are done, under another name
 
@@ -56,17 +56,32 @@ The spec header names it. `collectIssues` reports a `ConfigIssue` with a code, a
 
 `Features` and `Decisions` are generic over a schema, not over a key. Both constrain their parameter to `Record<keyof S, VariantInfo | never>`, so every signature the spec sketches with a `FeatureKey` parameter in that position is rejected by the compiler.
 
-| The spec writes                                                                    | It fails because                                                                                                           | This plan writes                                                                                                                 |
-| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `resolvePlan<F extends FeatureKey>(features: Features<F>, plan: Plan<F>, …)`       | `Features<string>` violates `S extends Record<keyof S, VariantInfo \| never>`; `Plan<string>` violates the same constraint | `resolvePlan<S extends Record<keyof S, VariantInfo \| never>>(features: Features<S>, plan: Plan<S> \| DeepReadonly<Plan<S>>, …)` |
-| `interface DecisionSet<F extends FeatureKey = string> { decisions: Decisions<F> }` | `Decisions<string>` violates the same constraint                                                                           | `interface DecisionSet<S extends Record<keyof S, VariantInfo \| never> = Schema, Frozen extends boolean = boolean>`              |
-| `hydrateFeatures<S>(document: unknown, options?): HydrateResult<S>`                | no `HydrateResult` type exists and none is wanted                                                                          | nothing; `parseFeatureConfig` already returns the union inline                                                                   |
+| The spec writes                                                                    | It fails because                                                                                                           | This plan writes                                                                                                                                   |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolvePlan<F extends FeatureKey>(features: Features<F>, plan: Plan<F>, …)`       | `Features<string>` violates `S extends Record<keyof S, VariantInfo \| never>`; `Plan<string>` violates the same constraint | `resolvePlan<S extends Record<keyof S, VariantInfo \| never>>(features: Features<S>, plan: Partial<Plan<S>> \| DeepReadonly<Partial<Plan<S>>>, …)` |
+| `interface DecisionSet<F extends FeatureKey = string> { decisions: Decisions<F> }` | `Decisions<string>` violates the same constraint                                                                           | `interface DecisionSet<S extends Record<keyof S, VariantInfo \| never> = Schema, Frozen extends boolean = boolean>`                                |
+| `hydrateFeatures<S>(document: unknown, options?): HydrateResult<S>`                | no `HydrateResult` type exists and none is wanted                                                                          | nothing; `parseFeatureConfig` already returns the union inline                                                                                     |
 
 `DivergenceReport<F extends FeatureKey = string>` as the spec writes it does compile, and Task 1 writes it unchanged.
 
+### The spec's variant-order Testing bullet is retired
+
+The Testing section asks that "a document whose variants carry no `order` at all
+hydrates, and the index default reproduces the authored walk". `main` refuses
+such a document. `parse.spec.ts:454`, `refuses a variant set whose order no
+document member declares`, asserts `invalid-variant-order` and no store, and
+pins the other half of the rule in the same case: the identical definitions
+passed to `createFeatures` as a literal build a store, because the index default
+is the literal path's rule and not a served document's. The variants spec's
+decision 11 is where `order` became a member a control plane writes on every
+variant, and the Global Constraints below state what a served document carries.
+No task implements the bullet.
+
 ### § 8's `structuredClone` claim contradicts merged main
 
-§ 8 says `hydrateFeatures` does not call `structuredClone` and asks for a test that runs it with the global deleted. `parseFeatureConfig` routes construction through `createFeatures` (`parse.ts:57-66`), and `createFeatures` calls `structuredClone` at `features.ts:789` per definition and at `features.ts:576` for the envelope. The merged comment states the reason: one construction path keeps one store shape in the package. Task 6 closes the gap on the document path alone and leaves the literal path on `structuredClone`.
+§ 8 says `hydrateFeatures` does not call `structuredClone` and asks for a test that runs it with the global deleted. `parseFeatureConfig` routes construction through `createFeatures` (`parse.ts:57-66`), and `createFeatures` calls `structuredClone` at `features.ts:783` per definition and at `features.ts:570` for the envelope. `unreadable` calls it a third time (`unreadable.ts:51`) to attribute a raise to the definition that produced it, and `reload` calls it twice more (`features.ts:1169`, and `features.ts:1181` through `envelopeOf`). The merged comment states the reason: one construction path keeps one store shape in the package.
+
+So § 8 names one of four call sites, and a store built on a host with no `structuredClone` would parse once and raise out of its next `reload`. Task 5 answers every call site the same way: each one asks `configCopier()` for the copier to run, which is the host's `structuredClone` where the host has one and `documentCopy` where it has none. One copier per host keeps the invariant `features.spec.ts:3558` holds, that `createFeatures` and `reload` say the same thing about the same document, and keeps every refusal message merged `main` asserts. Open question 5 is where the owner rules on the host-dependence this leaves.
 
 ## Global Constraints
 
@@ -83,9 +98,9 @@ Values copied from the spec. Where a value is a judgement this plan made because
   | a version | none                | `kind: 'unversioned'`, reported      |
   | none      | any                 | `kind: 'unversioned'`, reported once |
 
-- `onVersionMismatch` defaults to `'use-shipped'`. The other value is `'re-resolve'`. No third value (decision 6, § 3).
+- `onVersionMismatch` defaults to `'use-shipped'`. The other value is `'re-resolve'`. No third value (decision 6, § 3). `'re-resolve'` answers the second row of the table above and no other row, which ruling 8 argues.
 - `DecisionSet.now` is required and is an ISO 8601 string. `version` is optional and omitted for a store built from a literal. `origin` is `'render' | 'build'` (decision 4, § 3, § 6).
-- `origin: 'render'` supplies the default `now` for everything a consumer resolves locally. `origin: 'build'` does not, and the consumer reads its own clock for the deferred remainder. An explicit `context.now` wins over both, which keeps the precedence at `features.ts:895-898` unchanged (decision 9, § 6).
+- `origin: 'render'` supplies the default `now` for everything a consumer resolves locally. `origin: 'build'` does not, and the consumer reads its own clock for the deferred remainder. An explicit `context.now` wins over both, which keeps the precedence at `features.ts:889-892` unchanged (decision 9, § 6).
 - `DivergenceReport.kind` is exactly four values: `'config-version'`, `'unversioned'`, `'missing-field'`, `'decision-differs'`. No task adds a fifth (§ 7).
 - The library wraps every `onDivergence` call in `try`/`catch` and discards what the callback throws. Nothing in the library reads a report back, and no report alters a decision (decision 10, § 7).
 - `resolvePlan`, per entry (§ 5):
@@ -109,7 +124,7 @@ Values copied from the spec. Where a value is a judgement this plan made because
 - Verify each task with `npx nx run-many -t lint test typecheck -p feature repo-checks`. Do not run the full affected sweep; the land step and CI both run it.
 - Prose in doc comments and commit messages: no em-dashes, no "X rather than Y", no "instead of", no bold lead-ins, every sentence names who or what does the thing, no gerund phrase as a subject, no metaphor verb for a technical fact, no three-item rhythmic lists.
 
-## Rulings this plan makes where the spec is silent
+## Rulings this plan makes where the spec is silent or wrong
 
 Each one is also in the report's open questions, because the owner may want a different answer.
 
@@ -118,37 +133,41 @@ Each one is also in the report's open questions, because the owner may want a di
 3. **No `onDivergence` option on `parseFeatureConfig`.** § 2 types it as "notified for every divergence this store detects later", and no store detects divergence. The provider detects it and `resolvePlan` detects it, and each takes its own observer, which § 7 also says.
 4. **`snapshot` emits the existing `'resolve'` event.** `FeatureEvent` declares `resolve`, `is-enabled`, `plan` and `toggle` (`observe.ts:64-104`). A snapshot resolves every feature for one context, which is what a `resolve` event reports. No fifth event type.
 5. **`publishedDecisions` is not exported from either entry.** It is the provider's whole body, lifted into `src/react/hydrate.ts` so `index.tsx` stays a publisher. Keeping it unexported keeps it out of `doc-export-coverage`.
-6. **The provider reports from inside `useMemo`.** § 4 requires both checks to report before React reconciles, and the memo body is where the provider computes what it publishes. Under `StrictMode` a development render runs the body twice, so an observer counting reports sees two. The alternative, an effect, runs after reconciliation and reports the cause below the symptom.
+6. **`ResolvePlanOptions.now` carries a render-origin set's instant, and § 6 is wrong about how.** § 6 says `resolvePlan` reads a `'render'` set's `now` as the default for everything it resolves locally. `resolvePlan` takes a `Features` and a `Plan`, a `Plan` carries no instant, and nothing in § 5's signature hands `resolvePlan` a `DecisionSet`, so the surface the spec describes cannot do what § 6 says it does. This plan puts the instant on `ResolvePlanOptions.now`, and the caller writes `resolvePlan(features, plan, context, { now: new Date(set.now) })`. The spec is wrong here and not silent, so the owner may want the other answer: `resolvePlan` takes the set and reads the plan off a member of it, which changes the signature § 5 gives.
+7. **`'unversioned'` does not trigger re-resolution.** § 3's table has all four outcomes render the shipped decisions, and names `'re-resolve'` as the escape hatch for the cost it has just argued, a kill switch that waits for the next page load. That cost belongs to the row where two versions differ. An `'unversioned'` outcome proves nothing about the two configurations, and a provider that discarded the shipped set over it would discard it on every mount over a literal store, which is the SSR divergence § 4 is about. So `'re-resolve'` reads `kind: 'config-version'` and the other three rows render the shipped set.
+8. **The provider reports from inside `useMemo`.** § 4 requires both checks to report before React reconciles, and the memo body is where the provider computes what it publishes. Under `StrictMode` a development render runs the body twice, so an observer counting reports sees two. The alternative, an effect, runs after reconciliation and reports the cause below the symptom.
 
 ## Review Focus
 
 The input classes the spec implies, each with the task that owns its test.
 
-| Class                                                        | Input                                                                            | Owning task                                                            |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| An observer that throws                                      | `onDivergence` raising out of the callback, under a unit call and under a render | Task 1 (unit), Task 4 (render)                                         |
-| No observer at all                                           | `undefined` where an observer goes, on every reporting path                      | Task 1                                                                 |
-| A store with no version                                      | a store built from a literal, whose `snapshot` must omit the member              | Task 2                                                                 |
-| A store with a version                                       | a store parsed from a document, whose `snapshot` must carry it                   | Task 2                                                                 |
-| A caller stating the origin                                  | `snapshot(context, { origin: 'build' })`                                         | Task 2                                                                 |
-| A settled plan entry whose rules moved                       | `plan()`, then `reload` with different rules, then `resolvePlan`                 | Task 3                                                                 |
-| A deferred entry carrying a decision                         | enablement settled, variant outstanding                                          | Task 3                                                                 |
-| A deferred entry carrying none                               | a chain three deep, resolved in graph order                                      | Task 3                                                                 |
-| A plan that names no entry for a configured feature          | a partial plan, which resolves the gap in full                                   | Task 3                                                                 |
-| A plan keyed on a prototype member                           | `constructor` or `__proto__` as a feature key                                    | Task 3                                                                 |
-| A context missing a deferred entry's `needs`                 | reported as `missing-field`, then the engine's own fallback                      | Task 3                                                                 |
-| An instant a plan supplies                                   | `options.now` against `context.now` against the clock                            | Task 3                                                                 |
-| Two versions that differ                                     | `'v1'` shipped against `'v2'` held                                               | Task 4                                                                 |
-| One side carrying no version                                 | a set from a literal store against any store, and the reverse                    | Task 4                                                                 |
-| A mismatch under `'re-resolve'`                              | the provider renders what it resolved itself                                     | Task 4                                                                 |
-| An instant a render-origin set carries                       | the provider's local resolution reads it                                         | Task 4                                                                 |
-| A context missing the field a shipped assignment bucketed on | reported as `missing-field` with the control it would have assigned              | Task 5                                                                 |
-| A shipped decision that differs locally                      | in `enabled`, in `reason`, or in `variant`                                       | Task 5                                                                 |
-| A production bundle                                          | `NODE_ENV=production`, where the diff must not run                               | Task 5                                                                 |
-| A decision set keyed on a prototype member                   | `constructor` in the shipped map                                                 | Task 5                                                                 |
-| A document a holder must refuse                              | order defects, a digest that covers other bytes, an unreadable member            | existing `parse.spec.ts`; Task 6 re-runs them with the globals deleted |
-| A document carrying a value no copy reproduces               | a function, a symbol, a value nested past the stack                              | Task 6                                                                 |
-| A fixture a second implementation must reproduce             | a fallback assignment, and a deferred entry carrying a decision                  | Task 7                                                                 |
+| Class                                                        | Input                                                                            | Owning task                                                           |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| An observer that throws                                      | `onDivergence` raising out of the callback, under a unit call and under a render | Task 1 (unit), Task 4 (render)                                        |
+| No observer at all                                           | `undefined` where an observer goes, on every reporting path                      | Task 1                                                                |
+| A store with no version                                      | a store built from a literal, whose `snapshot` must omit the member              | Task 2                                                                |
+| A store with a version                                       | a store parsed from a document, whose `snapshot` must carry it                   | Task 2                                                                |
+| A caller stating the origin                                  | `snapshot(context, { origin: 'build' })`                                         | Task 2                                                                |
+| A settled plan entry whose rules moved                       | `plan()`, then `reload` with different rules, then `resolvePlan`                 | Task 3                                                                |
+| A deferred entry carrying a decision                         | enablement settled, variant outstanding                                          | Task 3                                                                |
+| A deferred entry carrying none                               | a chain three deep, resolved in graph order                                      | Task 3                                                                |
+| A plan that names no entry for a configured feature          | a partial plan, which resolves the gap in full                                   | Task 3                                                                |
+| A plan keyed on a prototype member                           | `constructor` or `__proto__` as a feature key                                    | Task 3                                                                |
+| A context missing a deferred entry's `needs`                 | reported as `missing-field`, then the engine's own fallback                      | Task 3                                                                |
+| An instant a plan supplies                                   | `options.now` against `context.now` against the clock                            | Task 3                                                                |
+| Two versions that differ                                     | `'v1'` shipped against `'v2'` held                                               | Task 4                                                                |
+| One side carrying no version                                 | a set from a literal store against any store, and the reverse                    | Task 4                                                                |
+| A mismatch under `'re-resolve'`                              | the provider renders what it resolved itself                                     | Task 4                                                                |
+| An instant a render-origin set carries                       | the provider's local resolution reads it                                         | Task 4                                                                |
+| An instant a build-origin set carries                        | the provider's local resolution reads its own clock over it                      | Task 4                                                                |
+| Neither side carrying a version, under `'re-resolve'`        | a literal store and its own snapshot, which renders the shipped set              | Task 4                                                                |
+| A context missing the field a shipped assignment bucketed on | reported as `missing-field` with the control it would have assigned              | Task 4                                                                |
+| A shipped decision that differs locally                      | in `enabled`, in `reason`, or in `variant`                                       | Task 4                                                                |
+| A production bundle                                          | `NODE_ENV=production`, where the diff must not run                               | Task 4                                                                |
+| A decision set keyed on a prototype member                   | `constructor` in the shipped map                                                 | Task 4                                                                |
+| A document a holder must refuse                              | order defects, a digest that covers other bytes, an unreadable member            | existing `parse.spec.ts`; Task 5 re-runs two with the globals deleted |
+| A document carrying a value no copy reproduces               | a function, a symbol, a value nested past the stack                              | Task 5 (`document-copy.spec.ts`)                                      |
+| A fixture a second implementation must reproduce             | a fallback assignment, and a deferred entry carrying a decision                  | Task 6                                                                |
 
 ---
 
@@ -353,7 +372,7 @@ export function parseFeatureConfig<S …>(config, options?):
   | { ok: false; issues: readonly ConfigIssue[] };
 ```
 
-Inside `createFeatures`, the implementation reads four locals that already exist: `withNow` (`features.ts:895`), `resolveAll` (`features.ts:949`), `frozenWhenObserved` (`features.ts:892`), `installed` (`features.ts:818`), plus `observed`, `emit` and `envelope`.
+Inside `createFeatures`, the implementation reads four locals that already exist: `withNow` (`features.ts:889`), `resolveAll` (`features.ts:943`), `frozenWhenObserved` (`features.ts:886`), `installed` (`features.ts:814`), plus `observed`, `emit` and `envelope`.
 
 **Interfaces produced:**
 
@@ -491,6 +510,8 @@ const snapshot = (
 
 The spread is what omits the member. A store built from a literal has `installed.version === undefined`, and `'version' in set` then answers `false`, so no consumer reads an `undefined` it has to tell apart from a version nobody stated.
 
+At the depth this sits at inside `createFeatures` the spread line is 82 columns, and prettier wraps it to `...(installed.version === undefined` / `? {}` / `: { version: installed.version }),`. The block above reads one line because prettier formats the fences in this file at their own indentation. Run `npx prettier --write libs/feature/src/lib/features.ts` after pasting it, because `prettier-formatting.test.ts` fails on the unwrapped line and nothing in `eslint` reads formatting.
+
 - [ ] Add `snapshot,` to the returned object, between `plan,` and `toggle,`.
 
 - [ ] Write `libs/feature/src/lib/snapshot.spec.ts`:
@@ -577,7 +598,9 @@ describe('Features.snapshot', () => {
   it('reports one resolve event to a store that observes', () => {
     const seen: string[] = [];
     const features = createFeatures(SPLIT, {
-      observe: (event) => seen.push(event.type),
+      observe: (event) => {
+        seen.push(event.type);
+      },
     });
 
     features.snapshot({ targetingKey: 'u-4711' });
@@ -750,7 +773,7 @@ function withVariant<F extends FeatureKey>(
 
 // libs/feature/src/lib/graph.ts
 export function buildGraph<F extends FeatureKey>(
-  nodes: readonly GraphNode<F>[],
+  definitions: readonly FeatureDefinition<F>[],
 ): FeatureGraph<F>;                   // `.order` is the dependency order
 
 // libs/feature/src/lib/variants.ts
@@ -788,11 +811,13 @@ export interface ResolvePlanOptions<F extends FeatureKey = string> {
 
 export function resolvePlan<S extends Record<keyof S, VariantInfo | never>>(
   features: Features<S>,
-  plan: Plan<S> | DeepReadonly<Plan<S>>,
+  plan: Partial<Plan<S>> | DeepReadonly<Partial<Plan<S>>>,
   context?: EvaluationContext,
   options?: ResolvePlanOptions<keyof S & FeatureKey>,
 ): Decisions<S>;
 ```
+
+`Partial` and not `Plan<S>`. A plan that names no entry for a configured feature is an input class the Review Focus table gives this task, the rule for it is rule 2 below, and the two cases that state it pass `{}`. `Plan<S>` requires one entry per key, so `resolvePlan(features, {}, {})` is rejected with "Argument of type '{}' is not assignable to parameter of type 'Plan<...>'". A build pipeline that plans a subset of the configured features hands `resolvePlan` the same partial object those two cases hand it.
 
 ### Steps
 
@@ -1084,7 +1109,7 @@ export interface ResolvePlanOptions<F extends FeatureKey = string> {
  */
 export function resolvePlan<S extends Record<keyof S, VariantInfo | never>>(
   features: Features<S>,
-  plan: Plan<S> | DeepReadonly<Plan<S>>,
+  plan: Partial<Plan<S>> | DeepReadonly<Partial<Plan<S>>>,
   context?: EvaluationContext,
   options?: ResolvePlanOptions<keyof S & FeatureKey>,
 ): Decisions<S> {
@@ -1257,9 +1282,11 @@ decisions['checkout-cta'].assignment?.source; // -> 'weighted'
 
 ---
 
-## Task 4: The provider takes a decision set and compares the two versions
+## Task 4: The provider takes a decision set, compares the two versions and runs the two SSR checks
 
-**Deliverable:** `FeatureProviderProps.decisions` becomes a `DecisionSet`, `onDivergence` and `onVersionMismatch` are new props, and the provider renders the shipped decisions on a mismatch unless the application asked for the opposite.
+**Deliverable:** `FeatureProviderProps.decisions` becomes a `DecisionSet`, `onDivergence` and `onVersionMismatch` are new props, the provider renders the shipped decisions on a mismatch unless the application asked for the opposite, `sufficiency` names every shipped decision whose bucketing field this provider's context lacks, and `diff` names every key whose local answer differs in development alone.
+
+This is the largest task in the plan at around 570 lines added. The two checks live in the same file as the body that calls them, and splitting them would ship a task whose `sufficiency` and `diff` are no-op stubs that read none of their parameters, which is seven lint warnings sitting in a diff for the length of one review.
 
 **Files:**
 
@@ -1284,6 +1311,19 @@ readonly version: string | number | undefined;
 resolve(context?: EvaluationContext): FrozenWhenObserved<Frozen, Decisions<S>>;
 // libs/feature/src/react/index.tsx
 function erased<S …>(resolved: Decisions<S> | DeepReadonly<Decisions<S>>): AnyDecisions;
+// libs/feature/src/lib/variants.ts
+export function bucketingOrder(
+  variants: readonly VariantSpec[],
+): readonly VariantSpec[];
+// libs/feature/src/lib/features.ts
+definition(key: keyof S & FeatureKey): FeatureDefinition<keyof S & FeatureKey> | undefined;
+// libs/feature/src/lib/types.ts
+assignment?: {
+  source: 'weighted' | 'pinned' | 'sticky' | 'fallback';
+  by: string;
+  bucket?: number;
+  rule?: string;
+};
 ```
 
 **Interfaces produced:**
@@ -1308,15 +1348,13 @@ onDivergence?: DivergenceObserver<keyof S & FeatureKey>;
 onVersionMismatch?: VersionMismatchPolicy;
 ```
 
-Task 5 adds `sufficiency` and `diff` to this same file. This task writes `publishedDecisions` with the two call sites already in place and the two functions stubbed to no-ops, so the signature does not move between tasks.
-
 ### Steps
 
 - [ ] Write `libs/feature/src/react/hydrate.spec.tsx`:
 
 ```tsx
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createFeatures,
@@ -1338,7 +1376,7 @@ const SPLIT = [
 ] as const;
 
 /** The document a control plane at `version` serves, with every member stated. */
-function served(version: string): FeatureConfig {
+function served(version: string): FeatureConfig<'cta'> {
   return serializeConfig(createFeatures(SPLIT), { version });
 }
 
@@ -1350,9 +1388,26 @@ function storeAt(version: string) {
   return parsed.features;
 }
 
+const SALE = [
+  {
+    key: 'sale',
+    enabled: true,
+    rules: [
+      {
+        id: 'window',
+        when: [{ field: 'now', op: 'after', value: '2030-01-01T00:00:00Z' }],
+      },
+    ],
+  },
+] as const;
+
 function Cta() {
   const decision = useFeature('cta');
   return <span data-testid="cta">{decision.variant}</span>;
+}
+
+function Sale() {
+  return <span data-testid="sale">{String(useFeature('sale').enabled)}</span>;
 }
 
 describe('FeatureProvider', () => {
@@ -1375,7 +1430,7 @@ describe('FeatureProvider', () => {
     expect(screen.getByTestId('cta')).toHaveTextContent(
       String(shipped.decisions.cta.variant),
     );
-    expect(reports.map((report) => report.kind)).toContain('config-version');
+    expect(reports.map((report) => report.kind)).toEqual(['config-version']);
   });
 
   it('names both versions on the report it sends', () => {
@@ -1399,10 +1454,36 @@ describe('FeatureProvider', () => {
 
   it('renders what it resolves itself under re-resolve', () => {
     const shipped = storeAt('v1').snapshot({ targetingKey: 'u-9' });
+    const reports: DivergenceReport[] = [];
 
     render(
       <FeatureProvider
         features={storeAt('v2')}
+        decisions={{
+          ...shipped,
+          decisions: { cta: { ...shipped.decisions.cta, variant: 'blue' } },
+        }}
+        context={{ targetingKey: 'u-9' }}
+        onVersionMismatch="re-resolve"
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('control');
+    expect(
+      reports.filter((report) => report.kind === 'config-version'),
+    ).toMatchObject([{ shipped: { version: 'v1' }, local: { version: 'v2' } }]);
+  });
+
+  it('renders the shipped set under re-resolve when neither side is versioned', () => {
+    const store = createFeatures(SPLIT);
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+
+    render(
+      <FeatureProvider
+        features={store}
         decisions={{
           ...shipped,
           decisions: { cta: { ...shipped.decisions.cta, variant: 'blue' } },
@@ -1414,7 +1495,7 @@ describe('FeatureProvider', () => {
       </FeatureProvider>,
     );
 
-    expect(screen.getByTestId('cta')).toHaveTextContent('control');
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
   });
 
   it('reports a set and a store that cannot be compared', () => {
@@ -1482,47 +1563,190 @@ describe('FeatureProvider', () => {
     expect(screen.getByTestId('cta')).toBeInTheDocument();
   });
 
-  it('reads the instant a render-origin set carries', () => {
-    const store = createFeatures([
-      {
-        key: 'sale',
-        enabled: true,
-        rules: [
-          {
-            id: 'window',
-            when: [
-              { field: 'now', op: 'after', value: '2030-01-01T00:00:00Z' },
-            ],
-          },
-        ],
-      },
-    ]);
+  it('resolves locally at the instant a render-origin set carries', () => {
+    const store = createFeatures(SALE);
     const shipped = store.snapshot({ now: new Date('2031-01-01T00:00:00Z') });
-
-    function Sale() {
-      return (
-        <span data-testid="sale">{String(useFeature('sale').enabled)}</span>
-      );
-    }
+    const reports: DivergenceReport[] = [];
 
     render(
-      <FeatureProvider features={store} decisions={shipped} context={{}}>
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        context={{}}
+        onDivergence={(report) => reports.push(report)}
+      >
         <Sale />
       </FeatureProvider>,
     );
 
     expect(shipped.origin).toBe('render');
     expect(screen.getByTestId('sale')).toHaveTextContent('true');
+    expect(
+      reports.filter((report) => report.kind === 'decision-differs'),
+    ).toEqual([]);
+  });
+
+  it('resolves locally at its own clock for a build-origin set', () => {
+    const store = createFeatures(SALE);
+    const shipped = store.snapshot(
+      { now: new Date('2031-01-01T00:00:00Z') },
+      { origin: 'build' },
+    );
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        context={{}}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Sale />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('sale')).toHaveTextContent('true');
+    expect(
+      reports.filter((report) => report.kind === 'decision-differs'),
+    ).toMatchObject([
+      { key: 'sale', shipped: { enabled: true }, local: { enabled: false } },
+    ]);
   });
 });
 ```
 
-The third case overrides the shipped variant to `'blue'` so the two answers differ, then asserts the provider rendered `'control'`, which is what the client store resolves for `u-9`.
+The third case overrides the shipped variant to `'blue'` so the two answers differ, then asserts the provider rendered `'control'`, which is what the client store resolves for `u-9`. The fourth is the counterpart ruling 7 argues: the same override over a store and a set that carry no version renders `'blue'`, because `'re-resolve'` answers a version mismatch and an `'unversioned'` outcome is not one.
+
+The last two cases read the settled instant through the diff, because that is where it shows. The provider renders the shipped decisions either way, so the origin changes nothing a component can read; it changes what the local resolution answers, and the diff compares the two. A `'render'` set resolved at 2031 has the provider resolve at 2031 too, so the two agree and no `decision-differs` lands. A `'build'` set carrying the same instant has the provider read its own clock, which is before the 2030 boundary, so the local answer is off against a shipped answer that is on.
+
+- [ ] Add the five cases over the two checks to the same file, inside the `describe`:
+
+```tsx
+it('names the context field a shipped assignment bucketed on', () => {
+  const store = storeAt('v1');
+  const reports: DivergenceReport[] = [];
+
+  render(
+    <FeatureProvider
+      features={store}
+      decisions={store.snapshot({ targetingKey: 'u-9' })}
+      context={{}}
+      onDivergence={(report) => reports.push(report)}
+    >
+      <Cta />
+    </FeatureProvider>,
+  );
+
+  const missing = reports.find((report) => report.kind === 'missing-field');
+
+  expect(missing?.field).toBe('targetingKey');
+  expect(missing?.local).toEqual({ variant: 'control', source: 'fallback' });
+});
+
+it('names no field for a shipped decision that already fell back', () => {
+  const store = storeAt('v1');
+  const reports: DivergenceReport[] = [];
+
+  render(
+    <FeatureProvider
+      features={store}
+      decisions={store.snapshot({})}
+      context={{}}
+      onDivergence={(report) => reports.push(report)}
+    >
+      <Cta />
+    </FeatureProvider>,
+  );
+
+  expect(reports.filter((report) => report.kind === 'missing-field')).toEqual(
+    [],
+  );
+});
+
+it('names every key whose local answer differs from the shipped one', () => {
+  const store = storeAt('v1');
+  const shipped = store.snapshot({ targetingKey: 'u-9' });
+  const reports: DivergenceReport[] = [];
+
+  render(
+    <FeatureProvider
+      features={store}
+      decisions={{
+        ...shipped,
+        decisions: { cta: { ...shipped.decisions.cta, enabled: false } },
+      }}
+      context={{ targetingKey: 'u-9' }}
+      onDivergence={(report) => reports.push(report)}
+    >
+      <Cta />
+    </FeatureProvider>,
+  );
+
+  expect(
+    reports.filter((report) => report.kind === 'decision-differs'),
+  ).toHaveLength(1);
+});
+
+it('names both sides of a decision that differs', () => {
+  const store = storeAt('v1');
+  const shipped = store.snapshot({ targetingKey: 'u-9' });
+  const reports: DivergenceReport[] = [];
+
+  render(
+    <FeatureProvider
+      features={store}
+      decisions={{
+        ...shipped,
+        decisions: { cta: { ...shipped.decisions.cta, variant: 'blue' } },
+      }}
+      context={{ targetingKey: 'u-9' }}
+      onDivergence={(report) => reports.push(report)}
+    >
+      <Cta />
+    </FeatureProvider>,
+  );
+
+  expect(
+    reports.find((report) => report.kind === 'decision-differs'),
+  ).toMatchObject({
+    key: 'cta',
+    shipped: { variant: 'blue' },
+    local: { variant: 'control' },
+  });
+});
+
+it('runs no decision diff under NODE_ENV production', () => {
+  vi.stubEnv('NODE_ENV', 'production');
+  const store = storeAt('v1');
+  const shipped = store.snapshot({ targetingKey: 'u-9' });
+  const reports: DivergenceReport[] = [];
+
+  render(
+    <FeatureProvider
+      features={store}
+      decisions={{
+        ...shipped,
+        decisions: { cta: { ...shipped.decisions.cta, enabled: false } },
+      }}
+      context={{ targetingKey: 'u-9' }}
+      onDivergence={(report) => reports.push(report)}
+    >
+      <Cta />
+    </FeatureProvider>,
+  );
+  vi.unstubAllEnvs();
+
+  expect(
+    reports.filter((report) => report.kind === 'decision-differs'),
+  ).toEqual([]);
+});
+```
 
 - [ ] Write `libs/feature/src/react/hydrate.ts`:
 
 ```ts
 import { reportDivergence } from '../lib/divergence.js';
+import { bucketingOrder } from '../lib/variants.js';
 import type { DivergenceObserver } from '../lib/divergence.js';
 import type { DecisionSet } from '../lib/decision-set.js';
 import type { Features } from '../lib/features.js';
@@ -1553,20 +1777,23 @@ function erasedSet(decisions: unknown): Record<string, AnyDecision> {
 }
 
 /**
- * Whether the two sides have proved they hold one configuration, reporting
- * through `observer` when they have not.
+ * What the two sides failed to prove about the configuration they hold,
+ * reported through `observer`, and `undefined` where they proved it.
  *
  * `!==` and nothing else. A publisher with no version scheme sets `version` to
  * the digest, which `configDigest` strips before it canonicalises, so this
  * comparison then reads two digests and means the two processes hold one
  * configuration. An ordered comparison would act on an order neither value
  * carries.
+ *
+ * The kind travels back because `'re-resolve'` answers one of the two kinds.
+ * `publishedDecisions` reads it and nothing else does.
  */
-function agreed(
+function compared(
   shippedVersion: string | number | undefined,
   storeVersion: string | number | undefined,
   observer: DivergenceObserver<FeatureKey> | undefined,
-): boolean {
+): 'config-version' | 'unversioned' | undefined {
   if (shippedVersion === undefined || storeVersion === undefined) {
     reportDivergence(observer, {
       kind: 'unversioned',
@@ -1575,7 +1802,7 @@ function agreed(
       message:
         'these decisions and this store cannot be compared: one of the two carries no config version, so this provider cannot tell whether the two processes hold one configuration. Serve the document with a version and hand serializeConfig its envelope.',
     });
-    return false;
+    return 'unversioned';
   }
 
   if (shippedVersion !== storeVersion) {
@@ -1585,16 +1812,19 @@ function agreed(
       local: { version: storeVersion },
       message: `these decisions were resolved under config version ${String(shippedVersion)} and this store holds ${String(storeVersion)}, so the two processes hold different configurations. Reload the store from the document the server used, or pass onVersionMismatch: 're-resolve'.`,
     });
-    return false;
+    return 'config-version';
   }
 
-  return true;
+  return undefined;
 }
 
 /**
  * Names every shipped decision this provider's context could not reproduce.
  *
- * Task 5 writes the body.
+ * It skips a decision whose own source is `'fallback'`, because that decision
+ * states the server could not bucket either and the two processes agree. It
+ * reads the control off `bucketingOrder(variants)[0]`, which is the variant a
+ * context carrying no usable value gets.
  */
 function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
   features: Features<S>,
@@ -1602,20 +1832,70 @@ function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
   shipped: Record<string, AnyDecision>,
   observer: DivergenceObserver<FeatureKey> | undefined,
 ): void {
-  return;
+  for (const decision of Object.values(shipped)) {
+    const assignment = decision.assignment;
+    if (!assignment || assignment.source === 'fallback') continue;
+    if (context[assignment.by] !== undefined) continue;
+
+    const definition = features.definition(
+      decision.key as keyof S & FeatureKey,
+    );
+    const variants = definition?.variants;
+    const control = variants ? bucketingOrder(variants)[0]?.name : undefined;
+
+    reportDivergence(observer, {
+      kind: 'missing-field',
+      key: decision.key,
+      field: assignment.by,
+      shipped: { variant: decision.variant, source: assignment.source },
+      local: { variant: control, source: 'fallback' },
+      message: `feature "${String(decision.key)}": the server assigned variant "${String(decision.variant)}" by "${assignment.by}", and this provider's context carries no "${assignment.by}", so a client resolution would assign "${String(control)}" (source: fallback). Pass ${assignment.by} to <FeatureProvider context={...}>.`,
+    });
+  }
 }
 
 /**
  * Names every key whose local answer differs from the shipped one.
  *
- * Task 5 writes the body.
+ * The `hasOwnProperty` guard is what keeps a shipped set keyed `constructor`
+ * from reading a function off `Object.prototype` and comparing a decision
+ * against it. `useFeature` and `assignVariant` guard the same read the same
+ * way.
  */
 function diff(
   shipped: Record<string, AnyDecision>,
   local: Record<string, AnyDecision>,
   observer: DivergenceObserver<FeatureKey> | undefined,
 ): void {
-  return;
+  for (const [key, sent] of Object.entries(shipped)) {
+    const here = Object.prototype.hasOwnProperty.call(local, key)
+      ? local[key]
+      : undefined;
+    if (!here) continue;
+    if (
+      sent.enabled === here.enabled &&
+      sent.reason === here.reason &&
+      sent.variant === here.variant
+    ) {
+      continue;
+    }
+
+    reportDivergence(observer, {
+      kind: 'decision-differs',
+      key: sent.key,
+      shipped: {
+        enabled: sent.enabled,
+        variant: sent.variant,
+        source: sent.assignment?.source,
+      },
+      local: {
+        enabled: here.enabled,
+        variant: here.variant,
+        source: here.assignment?.source,
+      },
+      message: `feature "${String(sent.key)}": the shipped decision is ${sent.enabled ? 'on' : 'off'} (${sent.reason})${sent.variant === undefined ? '' : ` as "${sent.variant}"`} and this provider resolves ${here.enabled ? 'on' : 'off'} (${here.reason})${here.variant === undefined ? '' : ` as "${here.variant}"`}. React reports the DOM difference this causes and names no cause.`,
+    });
+  }
 }
 
 /**
@@ -1651,14 +1931,20 @@ export function publishedDecisions<
       : { ...context };
 
   const sent = erasedSet(shipped.decisions);
-  const agree = agreed(shipped.version, features.version, observer);
+  const diverged = compared(shipped.version, features.version, observer);
 
   sufficiency(features, settled, sent, observer);
 
   // One local resolution at most, and only when something reads it. The
   // development diff reads it, and so does a `'re-resolve'` provider whose two
-  // versions did not agree.
-  const reResolve = !agree && onVersionMismatch === 're-resolve';
+  // versions differ.
+  //
+  // `'re-resolve'` answers a version mismatch. An `'unversioned'` outcome
+  // proves nothing about the two configurations, and a provider that discarded
+  // the shipped set over it would discard it on every mount over a literal
+  // store, which is the hydration divergence § 4 is about.
+  const reResolve =
+    diverged === 'config-version' && onVersionMismatch === 're-resolve';
   const development = process.env.NODE_ENV !== 'production';
   const local =
     reResolve || development ? features.resolve(settled) : undefined;
@@ -1801,263 +2087,34 @@ export type {
 
 ---
 
-## Task 5: The two SSR checks
+## Task 5: Construction copies without a host `structuredClone`
 
-**Deliverable:** `sufficiency` names every shipped decision whose bucketing field this provider's context lacks, in production. `diff` names every key whose local answer differs, in development only.
-
-**Files:**
-
-- `libs/feature/src/react/hydrate.ts` (edit: two function bodies)
-- `libs/feature/src/react/hydrate.spec.tsx` (edit: five cases)
-
-**Interfaces consumed:**
-
-```ts
-// libs/feature/src/lib/variants.ts
-export function bucketingOrder(
-  variants: readonly VariantSpec[],
-): readonly VariantSpec[];
-// libs/feature/src/lib/features.ts
-definition(key: keyof S & FeatureKey): FeatureDefinition<keyof S & FeatureKey> | undefined;
-// libs/feature/src/lib/types.ts
-assignment?: {
-  source: 'weighted' | 'pinned' | 'sticky' | 'fallback';
-  by: string;
-  bucket?: number;
-  rule?: string;
-};
-```
-
-**Interfaces produced:** none. Both functions are already declared and called by Task 4.
-
-### Steps
-
-- [ ] Add five cases to `libs/feature/src/react/hydrate.spec.tsx`:
-
-```tsx
-it('names the context field a shipped assignment bucketed on', () => {
-  const store = storeAt('v1');
-  const reports: DivergenceReport[] = [];
-
-  render(
-    <FeatureProvider
-      features={store}
-      decisions={store.snapshot({ targetingKey: 'u-9' })}
-      context={{}}
-      onDivergence={(report) => reports.push(report)}
-    >
-      <Cta />
-    </FeatureProvider>,
-  );
-
-  const missing = reports.find((report) => report.kind === 'missing-field');
-
-  expect(missing?.field).toBe('targetingKey');
-  expect(missing?.local).toEqual({ variant: 'control', source: 'fallback' });
-});
-
-it('names no field for a shipped decision that already fell back', () => {
-  const store = storeAt('v1');
-  const reports: DivergenceReport[] = [];
-
-  render(
-    <FeatureProvider
-      features={store}
-      decisions={store.snapshot({})}
-      context={{}}
-      onDivergence={(report) => reports.push(report)}
-    >
-      <Cta />
-    </FeatureProvider>,
-  );
-
-  expect(reports.filter((report) => report.kind === 'missing-field')).toEqual(
-    [],
-  );
-});
-
-it('names every key whose local answer differs from the shipped one', () => {
-  const store = storeAt('v1');
-  const shipped = store.snapshot({ targetingKey: 'u-9' });
-  const reports: DivergenceReport[] = [];
-
-  render(
-    <FeatureProvider
-      features={store}
-      decisions={{
-        ...shipped,
-        decisions: { cta: { ...shipped.decisions.cta, enabled: false } },
-      }}
-      context={{ targetingKey: 'u-9' }}
-      onDivergence={(report) => reports.push(report)}
-    >
-      <Cta />
-    </FeatureProvider>,
-  );
-
-  expect(
-    reports.filter((report) => report.kind === 'decision-differs'),
-  ).toHaveLength(1);
-});
-
-it('names both sides of a decision that differs', () => {
-  const store = storeAt('v1');
-  const shipped = store.snapshot({ targetingKey: 'u-9' });
-  const reports: DivergenceReport[] = [];
-
-  render(
-    <FeatureProvider
-      features={store}
-      decisions={{
-        ...shipped,
-        decisions: { cta: { ...shipped.decisions.cta, variant: 'blue' } },
-      }}
-      context={{ targetingKey: 'u-9' }}
-      onDivergence={(report) => reports.push(report)}
-    >
-      <Cta />
-    </FeatureProvider>,
-  );
-
-  expect(
-    reports.find((report) => report.kind === 'decision-differs'),
-  ).toMatchObject({
-    key: 'cta',
-    shipped: { variant: 'blue' },
-    local: { variant: 'control' },
-  });
-});
-
-it('runs no decision diff under NODE_ENV production', () => {
-  vi.stubEnv('NODE_ENV', 'production');
-  const store = storeAt('v1');
-  const shipped = store.snapshot({ targetingKey: 'u-9' });
-  const reports: DivergenceReport[] = [];
-
-  render(
-    <FeatureProvider
-      features={store}
-      decisions={{
-        ...shipped,
-        decisions: { cta: { ...shipped.decisions.cta, enabled: false } },
-      }}
-      context={{ targetingKey: 'u-9' }}
-      onDivergence={(report) => reports.push(report)}
-    >
-      <Cta />
-    </FeatureProvider>,
-  );
-  vi.unstubAllEnvs();
-
-  expect(
-    reports.filter((report) => report.kind === 'decision-differs'),
-  ).toEqual([]);
-});
-```
-
-The import at the top of the file gains `vi`.
-
-- [ ] Write the `sufficiency` body in `libs/feature/src/react/hydrate.ts`:
-
-```ts
-function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
-  features: Features<S>,
-  context: EvaluationContext,
-  shipped: Record<string, AnyDecision>,
-  observer: DivergenceObserver<FeatureKey> | undefined,
-): void {
-  for (const decision of Object.values(shipped)) {
-    const assignment = decision.assignment;
-    if (!assignment || assignment.source === 'fallback') continue;
-    if (context[assignment.by] !== undefined) continue;
-
-    const definition = features.definition(
-      decision.key as keyof S & FeatureKey,
-    );
-    const variants = definition?.variants;
-    const control = variants ? bucketingOrder(variants)[0]?.name : undefined;
-
-    reportDivergence(observer, {
-      kind: 'missing-field',
-      key: decision.key,
-      field: assignment.by,
-      shipped: { variant: decision.variant, source: assignment.source },
-      local: { variant: control, source: 'fallback' },
-      message: `feature "${String(decision.key)}": the server assigned variant "${String(decision.variant)}" by "${assignment.by}", and this provider's context carries no "${assignment.by}", so a client resolution would assign "${String(control)}" (source: fallback). Pass ${assignment.by} to <FeatureProvider context={...}>.`,
-    });
-  }
-}
-```
-
-It skips a decision whose own source is `'fallback'`, because that decision already states the server could not bucket either and the two processes agree. It reads the control off `bucketingOrder(variants)[0]`, which is the variant a context carrying no usable value gets.
-
-Add the import at the top of the file: `import { bucketingOrder } from '../lib/variants.js';`
-
-- [ ] Write the `diff` body:
-
-```ts
-function diff(
-  shipped: Record<string, AnyDecision>,
-  local: Record<string, AnyDecision>,
-  observer: DivergenceObserver<FeatureKey> | undefined,
-): void {
-  for (const [key, sent] of Object.entries(shipped)) {
-    const here = Object.prototype.hasOwnProperty.call(local, key)
-      ? local[key]
-      : undefined;
-    if (!here) continue;
-    if (
-      sent.enabled === here.enabled &&
-      sent.reason === here.reason &&
-      sent.variant === here.variant
-    ) {
-      continue;
-    }
-
-    reportDivergence(observer, {
-      kind: 'decision-differs',
-      key: sent.key,
-      shipped: {
-        enabled: sent.enabled,
-        variant: sent.variant,
-        source: sent.assignment?.source,
-      },
-      local: {
-        enabled: here.enabled,
-        variant: here.variant,
-        source: here.assignment?.source,
-      },
-      message: `feature "${String(sent.key)}": the shipped decision is ${sent.enabled ? 'on' : 'off'} (${sent.reason})${sent.variant === undefined ? '' : ` as "${sent.variant}"`} and this provider resolves ${here.enabled ? 'on' : 'off'} (${here.reason})${here.variant === undefined ? '' : ` as "${here.variant}"`}. React reports the DOM difference this causes and names no cause.`,
-    });
-  }
-}
-```
-
-The `hasOwnProperty` guard is what keeps a shipped set keyed `constructor` from reading a function off `Object.prototype` and comparing a decision against it. `useFeature` and `assignVariant` guard the same read the same way.
-
-- [ ] Verify: `npx nx run-many -t lint test typecheck -p feature repo-checks`
-
----
-
-## Task 6: The document path copies without `structuredClone`
-
-**Deliverable:** `parseFeatureConfig` builds a store without calling `structuredClone`, so a JavaScript host providing `JSON` and nothing else can hydrate. The literal path keeps `structuredClone`.
+**Deliverable:** Every copy a construction path makes asks `configCopier()` which copier to run. A host providing `structuredClone` keeps it at all four call sites and answers every document exactly as merged `main` does. A host providing `JSON` and nothing else runs `documentCopy`, so it can hydrate, reload, and build a store from a literal.
 
 **Files:**
 
-- `libs/feature/src/lib/features.ts` (edit: the copy at :789, the envelope copy at :576, and a branch on which form the caller passed)
 - `libs/feature/src/lib/document-copy.ts` (new)
 - `libs/feature/src/lib/document-copy.spec.ts` (new)
-- `libs/feature/src/lib/parse.spec.ts` (edit: one case)
+- `libs/feature/src/lib/features.ts` (edit: three copy sites, `envelopeOf` at :570, the definition copy at :783, and `reload`'s definition copy at :1169)
+- `libs/feature/src/lib/unreadable.ts` (edit: the copier the attribution loop runs)
+- `libs/feature/src/lib/parse.spec.ts` (edit: two cases added)
+- `libs/feature/src/lib/reload.spec.ts` (edit: one case added)
 
 **Interfaces consumed:**
 
 ```ts
 // libs/feature/src/lib/features.ts
-function isDocument(
-  value: DefinitionsOrConfig,
-): value is FeatureConfig<FeatureKey>;
 function deepFreeze<T>(value: T, walked?: WeakSet<object>): T;
+// libs/feature/src/lib/errors.ts
+export class FeatureConfigError extends Error {
+  constructor(message: string);
+}
+// libs/feature/src/lib/unreadable.ts
+export function unreadable(
+  raise: unknown,
+  features: readonly unknown[],
+): readonly ConfigIssue[];
+export function unreadableText(raise: unknown): string;
 ```
 
 **Interfaces produced:**
@@ -2065,29 +2122,34 @@ function deepFreeze<T>(value: T, walked?: WeakSet<object>): T;
 ```ts
 // libs/feature/src/lib/document-copy.ts
 /**
- * A copy of a value a document carries, built from `JSON`-shaped members
- * alone. Raises `FeatureConfigError` for a member no document can carry.
+ * A copy of a configuration value, built from `JSON`-shaped members alone.
+ * Raises `FeatureConfigError` naming the path for a member no document carries.
  */
 export function documentCopy<T>(value: T): T;
+
+/** The copier a construction path runs on this host. */
+export function configCopier(): <T>(value: T) => T;
 ```
+
+Neither name reaches `src/index.ts`, so neither needs an allowance entry.
+
+### Why one copier per host and not one copier per entry point
+
+An earlier draft of this task ran `documentCopy` on the document path and left `structuredClone` on the literal path. Three merged cases refuse that split. `features.spec.ts:3558`, `throws the text a reload of the same definition reports`, computes the text `createFeatures` throws for a document whose variant value holds a symbol and asserts `reload` reports that same text for the same document; `features.spec.ts:3483` does it again for a function at a fenced schema keyword; and `parse.spec.ts:645` pins the composed message a document's function produces. Two copiers over one document give two texts, and those three cases hold `createFeatures` and `reload` to saying the same thing about the same bytes.
+
+Running `documentCopy` on every host regardless is the other coherent rule, and it costs more than this task is worth. `reload.spec.ts` reloads candidates whose variant `value` holds a `Date`, a `Set`, a `Map`, a `RegExp`, an `ArrayBuffer` and a cycle, which `structuredClone` carries into the diff and `documentCopy` refuses. Nine of those cases would turn from `ok: true` with a `changed` list into refusals, and the diff's readings for those six types would keep coverage from the installed side alone. Open question 5 is where the owner rules on it; this task implements the capability check and changes no merged answer on a host carrying `structuredClone`.
 
 ### Steps
 
-- [ ] Write `libs/feature/src/lib/document-copy.spec.ts`. The behaviour to pin, case by case: it copies a nested object and array by value, so a later write to the source moves nothing in the copy; it copies a `null` and each primitive; it raises `FeatureConfigError` naming the path for a function, a symbol, a `Date` and a cycle, which is the set `structuredClone` either refuses or carries in a shape a document cannot hold; it raises for a value nested past the depth `JSON.stringify` handles, matching the `RangeError` the existing path reports through `unreadableText`.
+- [ ] Write `libs/feature/src/lib/document-copy.spec.ts`. The behaviour to pin, case by case: `documentCopy` copies a nested object and array by value, so a later write to the source moves nothing in the copy; it copies a `null`, each primitive and an empty object; it raises `FeatureConfigError` naming the path for a function, a symbol, a `Date`, a `RegExp`, a `Map`, a typed array and a cycle, which is the set `structuredClone` either refuses or carries in a shape no document holds; it raises for a value nested past the depth its own walk handles, probed against itself the way `nestedPast` probes `structuredClone` at `parse.spec.ts:126`, with `nestedPast(documentCopy)` local to this file; and `configCopier()` answers `structuredClone` where the global is a function and `documentCopy` where `Reflect.deleteProperty(globalThis, 'structuredClone')` has run. `digest.spec.ts:430` is the shape for the deletion and restoration, and the restore belongs in a `finally`.
 
-  Read `libs/feature/src/lib/unreadable.ts` and `parse.spec.ts:335-360` first. Those three cases (`reports a variant value no structured clone of the document carries`, `reports a variant value nested past the stack a clone of it needs`, `reports the digest it cannot take of a document no text names`) state the messages the refusal already produces, and this task keeps them.
+- [ ] Write `libs/feature/src/lib/document-copy.ts`. A document is JSON, so the copier handles an object, an array and a primitive, and refuses everything else by raising the typed error `errors.ts:3-11` promises every refusal over a supplied configuration is. It walks with an explicit `WeakSet` for the cycle check, because `JSON.parse(JSON.stringify(value))` loses the path a refusal has to name and turns a `Date` into a string the engine would then compare against an `Instant` it did not receive. The message names the path and the thing: `` `"/variants/0/value" carries a function, and a document carries none` ``, where the leading segment is relative to the value `documentCopy` was handed and the noun is `typeof value` for a primitive and the constructor's name for an object. A value nested past the walk's own depth raises the host's `RangeError`, which `unreadableText` carries the way it carries `structuredClone`'s today, so that one raise is no `FeatureConfigError`.
 
-- [ ] Write `libs/feature/src/lib/document-copy.ts`. A document is JSON, so the copier handles an object, an array and a primitive, and refuses everything else by raising the typed error `errors.ts` promises every refusal over a supplied configuration is. It walks with an explicit `WeakSet` for the cycle check, because `JSON.parse(JSON.stringify(value))` loses the path a refusal has to name and turns a `Date` into a string the engine would then compare against an `Instant` it did not receive.
+- [ ] Edit `libs/feature/src/lib/features.ts`. `envelopeOf` at :570 is called for a document and nothing else (`:815` and `:1181`), so it reads `configCopier()` with no branch. The definition copy at :783 and `reload`'s definition copy at :1169 read it too. Each one stays inside the existing `try`, which is what turns a raise into the typed `FeatureConfigError` the literal path throws and the issue `parseFeatureConfig` and `reload` report. Correct the three comments that name `structuredClone` as the caller: `:561`, `:767` and `:1154` each say which raise reaches the catch, and the copier the host supplies is what raises it.
 
-- [ ] Edit `libs/feature/src/lib/features.ts`. `createFeatures` already computes `isDocument(definitions)` for `collectIssues`'s `arrayIsOrder` option at :760. Bind that once above the copy and branch both copies on it:
+- [ ] Edit `libs/feature/src/lib/unreadable.ts`. The attribution loop at :51 calls `structuredClone(definition)` to find the definition that produced the raise. On a host with no such global the loop raises out of `parseFeatureConfig`, which that entry point promises never to do, and out of `reload`, which § 7 of the distribution spec answers with a result either way. The loop reads `configCopier()` once above it and runs that. The docblock states `structuredClone`'s refusals in three sentences; it gains one naming the other copier and what it refuses.
 
-```ts
-const copy = isDocument(definitions) ? documentCopy : structuredClone;
-```
-
-Then `:789` becomes `supplied.map((definition) => deepFreeze(copy(definition)))` and `envelopeOf` takes the copier as a parameter. Keep both calls inside the existing `try`, which turns a raise into the typed `FeatureConfigError` `parseFeatureConfig` reports.
-
-- [ ] Add one case to `libs/feature/src/lib/parse.spec.ts`:
+- [ ] Add two cases to `libs/feature/src/lib/parse.spec.ts`:
 
 ```ts
 it('builds a store with TextEncoder and structuredClone deleted from globalThis', () => {
@@ -2111,15 +2173,42 @@ it('builds a store with TextEncoder and structuredClone deleted from globalThis'
     Reflect.set(globalThis, 'structuredClone', clone);
   }
 });
+
+it('reports a document it refuses with the same two globals deleted', () => {
+  const encoder = globalThis.TextEncoder;
+  const clone = globalThis.structuredClone;
+  Reflect.deleteProperty(globalThis, 'TextEncoder');
+  Reflect.deleteProperty(globalThis, 'structuredClone');
+
+  try {
+    const result = parseFeatureConfig(carrying(() => 1));
+
+    expect(result.ok === false && result.issues).toEqual([
+      {
+        code: 'unknown-member',
+        message:
+          'feature "cta" carries a value no copy of the definition holds: ' +
+          '"/variants/0/value" carries a function, and a document carries none',
+        key: 'cta',
+        path: '/features/0',
+      },
+    ]);
+  } finally {
+    Reflect.set(globalThis, 'TextEncoder', encoder);
+    Reflect.set(globalThis, 'structuredClone', clone);
+  }
+});
 ```
 
-`digest.spec.ts:430` is the same shape for `configDigest`; copy its structure so the two read alike.
+The second case is the half the happy path cannot see. `parseFeatureConfig` promises a report for every document it refuses, and the attribution loop is the one place the refusal path asks the host for a copier, so a loop still reading `structuredClone` raises here and answers the first case fine. The message is the one the step above specifies for `documentCopy`, composed by `unreadable`'s own wrapper.
 
-- [ ] Verify: `npx nx run-many -t lint test typecheck -p feature repo-checks`. `parse.spec.ts` has 50 cases over this path and every one of them has to stay green; a change that passes the new case and breaks `reports a variant value no structured clone of the document carries` has moved the refusal, not the copier.
+- [ ] Add one case to `libs/feature/src/lib/reload.spec.ts`, in the same shape, asserting that a store installs a candidate with both globals deleted and answers the candidate's decision afterwards. `reload` is the atomic install § 7 of `docs/specs/2026-09-23-feature-config-distribution.md` owns, and a store that hydrates on a host and cannot take a second document from it is a store a poller cannot drive.
+
+- [ ] Verify: `npx nx run-many -t lint test typecheck -p feature repo-checks`. `parse.spec.ts` has 50 cases over this path and `reload.spec.ts` has the diff's whole surface, and every one of them has to stay green on this host, because `configCopier()` answers `structuredClone` here. A case that moved means the call site reads `documentCopy` unconditionally.
 
 ---
 
-## Task 7: The two shared conformance fixtures
+## Task 6: The two shared conformance fixtures
 
 **Deliverable:** The cross-implementation suite gains the two cases § 9 names that it does not already hold: a context carrying no `variantBy` field, and a `'deferred'` plan entry carrying a decision.
 
@@ -2142,7 +2231,7 @@ The existing suite already covers two of § 9's four cases. `the published cross
 
 ### Steps
 
-- [ ] Add a feature to `libs/feature/conformance/config-decisions.json` whose `variantBy` names a field the fixture's context does not carry, so its decision publishes `assignment.source: 'fallback'` and the variant first in the bucketing order. The fixture's context is `{ targetingKey: 'u-4711', now: '2026-06-01T12:00:00.000Z', plan: 'pro', accountId: 'acct-9' }`, so `variantBy: 'tenantId'` is unbucketable.
+- [ ] Add a feature to `libs/feature/conformance/config-decisions.json` whose `variantBy` names a field the fixture's context does not carry, so its decision publishes `assignment.source: 'fallback'` and the variant first in the bucketing order. The fixture's context is `{ targetingKey: 'u-4711', now: '2026-06-01T12:00:00.000Z', plan: 'pro', accountId: 'acct-9' }`, so `variantBy: 'tenantId'` is unbucketable. The feature states `variantBy`, `variantSeed` and an `order` on every variant, by the Global Constraint above: a served document states all three, or the checker refuses it.
 
 - [ ] Recompute the fixture's `digest` and write the new decision into `decisions`. `conformance.spec.ts:209` (`states the digest of the document it carries`) and :213 both fail until both are right. Read :296 and :303 before editing; the fixture is held to passing the checker every holder runs, and to stating a digest of that document and no other.
 
@@ -2162,6 +2251,8 @@ The existing suite already covers two of § 9's four cases. `the published cross
 2. **`HydrateOptions.version`.** Decision 4 gives the hydration options a `version` override. `FeatureOptions.version` already exists on the same options object and means the version an event reports. This plan drops the override and has a caller spread the document. Say if you want the override, and say which of the two members keeps the name.
 3. **`HydrateOptions.onDivergence`.** § 2 types it as the observer "for every divergence this store detects later", and no store detects divergence. This plan drops it and leaves the observer on the provider and on `resolvePlan`. A store-held observer is possible: `Features` would carry the member and `publishedDecisions` would fall back to it when the prop is absent. That is one more field on the store and one more precedence rule.
 4. **`snapshot`'s `origin`.** Nothing in the spec's surface can produce `origin: 'build'`, so this plan gives `snapshot` an options parameter. The alternative is a separate entry point that takes a `Plan` and writes a `'build'` set.
-5. **§ 8 against the merged construction path.** Task 6 splits the copier, so `parseFeatureConfig` stops going through `structuredClone` and `createFeatures` keeps it. A caller who hands `parseFeatureConfig` a live object holding a `Date` or a cycle gets a refusal where it previously got a store. That caller is handing a document path a value no document carries, so the refusal looks right, and it is a behaviour change on merged code. The alternative is to drop § 8's `globalThis` test and record it as not met.
+5. **§ 8 against the merged construction path.** Task 5 has every construction path ask `configCopier()` which copier to run, so a host carrying `structuredClone` keeps it everywhere and a host carrying none copies the configuration as JSON and refuses the rest. Nothing changes on Node, every refusal message merged `main` asserts stays, and `reload` works on the JSON-only host too. The cost is that one input class answers differently per host: a caller who hands `parseFeatureConfig` a live object holding a `Date` builds a store on Node and reads a refusal on a native client. The two alternatives both cost more. Running `documentCopy` on every host regardless refuses that input everywhere, which is the coherent rule, and it turns nine `reload.spec.ts` cases from `ok: true` into refusals and leaves the reload diff's readings for `Date`, `Set`, `Map`, `RegExp` and a cycle reachable from the installed side alone. Dropping § 8 leaves the native client unable to hydrate at all.
 6. **Reporting from inside `useMemo`.** Under `StrictMode` a development render runs the memo body twice, so an observer counting reports sees two per mount. The spec requires the report to land before React reconciles, which rules out an effect. A ref that remembers what it already reported would deduplicate and would also hide a genuine second divergence after a prop change.
-7. **The development diff's home.** The spec's own "Where I am guessing" asks whether it belongs in the library at all. It is the only place this design reads `process.env.NODE_ENV`, and it doubles the resolution work on mount in development. A `@evanion/feature/devtools` entry would keep the core free of it and would add an import every application has to remember.
+7. **`resolvePlan` and a render-origin instant.** § 6 says `resolvePlan` reads a `'render'` set's `now`, and § 5 gives `resolvePlan` no parameter that could carry one. This plan answers with `ResolvePlanOptions.now` and leaves the caller to write `{ now: new Date(set.now) }`. The alternative is a signature that takes the `DecisionSet` itself, which is a change to § 5.
+8. **`'unversioned'` under `onVersionMismatch: 're-resolve'`.** This plan scopes re-resolution to `kind: 'config-version'`, so a provider over a literal store renders the shipped set whatever the prop says. The alternative has `'re-resolve'` answer every outcome that is not agreement, which makes a literal store re-resolve on every mount.
+9. **The development diff's home.** The spec's own "Where I am guessing" asks whether it belongs in the library at all. It is the only place this design reads `process.env.NODE_ENV`, and it doubles the resolution work on mount in development. A `@evanion/feature/devtools` entry would keep the core free of it and would add an import every application has to remember.
