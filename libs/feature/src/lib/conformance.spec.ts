@@ -426,6 +426,30 @@ describe('the document the fixture publishes', () => {
     expect(decision.assignment).toEqual({ source: 'fallback', by: 'tenantId' });
   });
 
+  it('splits the fallback variant off the lightest and the first-named', () => {
+    const tour = fixture.config.features.find(
+      (definition) => definition.key === 'onboarding-tour',
+    );
+    const ordered = [...(tour?.variants ?? [])].sort(
+      (one, other) => (one.order ?? 0) - (other.order ?? 0),
+    );
+    const [first, ...rest] = ordered;
+
+    // The guard under the case above. `order` is one of three rules a port can
+    // mistake for the fallback rule, and the other two are the lightest
+    // variant and the alphabetically first one. A fixture whose order-0
+    // variant is also one of those publishes a decision such a port
+    // reproduces, so this feature's order-0 variant carries the larger weight
+    // and the later name, and every rule but `order` names its sibling.
+    expect(rest).not.toHaveLength(0);
+    expect(rest.map((variant) => variant.weight < (first?.weight ?? 0))).toEqual(
+      rest.map(() => true),
+    );
+    expect(rest.map((variant) => variant.name < (first?.name ?? ''))).toEqual(
+      rest.map(() => true),
+    );
+  });
+
   it('pairs the fallback variant with the value that variant declares', () => {
     const tour = fixture.config.features.find(
       (definition) => definition.key === 'onboarding-tour',

@@ -2,7 +2,7 @@
   "note": "One document, one context, and the decisions any implementation must produce. See docs/specs/2026-09-23-feature-config-distribution.md § 9.",
   "config": {
     "version": 1,
-    "digest": "cce1b41ffe497cc63b52a81f7646e840",
+    "digest": "cb1b57c45161cae302bf9115e20669a9",
     "features": [
       {
         "key": "checkout",
@@ -191,16 +191,16 @@
         "variantSeed": "tour-v1",
         "variants": [
           {
-            "name": "tour",
-            "weight": 70,
+            "name": "guided",
+            "weight": 30,
             "order": 1,
             "value": {
               "steps": 3
             }
           },
           {
-            "name": "control",
-            "weight": 30,
+            "name": "skip",
+            "weight": 70,
             "order": 0,
             "value": {
               "steps": 0
@@ -333,7 +333,7 @@
       "key": "onboarding-tour",
       "enabled": true,
       "reason": "default-on",
-      "variant": "control",
+      "variant": "skip",
       "assignment": {
         "source": "fallback",
         "by": "tenantId"
