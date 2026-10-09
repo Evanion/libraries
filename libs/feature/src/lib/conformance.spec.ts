@@ -426,7 +426,7 @@ describe('the document the fixture publishes', () => {
     expect(decision.assignment).toEqual({ source: 'fallback', by: 'tenantId' });
   });
 
-  it('splits the fallback variant off the lightest and the first-named', () => {
+  it('splits the fallback variant off every extreme of weight and of name', () => {
     const tour = fixture.config.features.find(
       (definition) => definition.key === 'onboarding-tour',
     );
@@ -434,20 +434,22 @@ describe('the document the fixture publishes', () => {
       (one, other) => (one.order ?? 0) - (other.order ?? 0),
     );
     const [first, ...rest] = ordered;
+    const weight = first?.weight ?? 0;
+    const name = first?.name ?? '';
 
-    // The guard under the case above. `order` is one of three rules a port can
-    // mistake for the fallback rule, and the other two are the lightest
-    // variant and the alphabetically first one. A fixture whose order-0
-    // variant is also one of those publishes a decision such a port
-    // reproduces, so this feature's order-0 variant carries the larger weight
-    // and the later name, and every rule but `order` names its sibling.
-    expect(rest).not.toHaveLength(0);
-    expect(rest.map((variant) => variant.weight < (first?.weight ?? 0))).toEqual(
-      rest.map(() => true),
-    );
-    expect(rest.map((variant) => variant.name < (first?.name ?? ''))).toEqual(
-      rest.map(() => true),
-    );
+    // The guard under the case above. Four rules besides `order` pick a
+    // variant out of a set without reading the bucketing walk: the lightest,
+    // the heaviest, the alphabetically first and the alphabetically last. A
+    // fixture whose order-0 variant is any of those publishes a fallback that
+    // a port implementing that rule reproduces, so this feature declares three
+    // variants and its order-0 variant is the middle one by weight and by
+    // name. Two variants cannot satisfy this: whichever one carries order 0 is
+    // an extreme of both.
+    expect(rest.length).toBeGreaterThan(1);
+    expect(rest.some((variant) => variant.weight < weight)).toBe(true);
+    expect(rest.some((variant) => variant.weight > weight)).toBe(true);
+    expect(rest.some((variant) => variant.name < name)).toBe(true);
+    expect(rest.some((variant) => variant.name > name)).toBe(true);
   });
 
   it('pairs the fallback variant with the value that variant declares', () => {
