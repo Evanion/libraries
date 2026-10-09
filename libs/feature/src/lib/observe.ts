@@ -1,3 +1,4 @@
+import { isThenable } from './thenable.js';
 import type {
   Decisions,
   FeatureKey,
@@ -209,20 +210,6 @@ export type UnobservedOptions<
     VariantInfo | never
   >,
 > = FeatureOptions<S> & { observe?: undefined };
-
-/**
- * Reads whether a value is a thenable.
- *
- * An observer that returns a promise-like object gets a rejection handler. An
- * observer that returns a plain value gets none.
- */
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { then?: unknown }).then === 'function'
-  );
-}
 
 /**
  * Reads the text a failure is keyed on.
