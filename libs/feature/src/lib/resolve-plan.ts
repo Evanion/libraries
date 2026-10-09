@@ -104,11 +104,19 @@ export function resolvePlan<S extends Record<keyof S, VariantInfo | never>>(
 
     // Rule 3. Enablement is settled and the variant alone is outstanding.
     if (entry.decision) {
+      if (!entry.decision.enabled) {
+        resolved.set(key, entry.decision);
+        continue;
+      }
+      // The enablement alone comes off the entry. A hand-assembled plan or a
+      // deserialized wire payload can carry an assignment under a deferred
+      // entry, and `withVariant` writes `value` only when the variant it
+      // assigns declares one, so a carried `value` would outlive the variant
+      // it belongs to.
+      const { variant, value, assignment, ...enablement } = entry.decision;
       resolved.set(
         key,
-        entry.decision.enabled
-          ? withVariant(entry.decision, assignVariant(definition, settled))
-          : entry.decision,
+        withVariant(enablement, assignVariant(definition, settled)),
       );
       continue;
     }
