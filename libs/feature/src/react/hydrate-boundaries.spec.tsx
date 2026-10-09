@@ -679,6 +679,7 @@ describe('FeatureProvider', () => {
   it('renders in a runtime that defines no process global', () => {
     const store = storeAt('v1');
     const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const reports: DivergenceReport[] = [];
     // The package ships as plain ESM, so a browser loading it through an
     // import map holds no `process` and a shim may hold one with no `env`.
     vi.stubGlobal('process', undefined);
@@ -689,6 +690,10 @@ describe('FeatureProvider', () => {
           features={store}
           decisions={shipped}
           context={{ targetingKey: 'u-9' }}
+          // The guard sits behind `observer !== undefined`, so a provider
+          // mounted without an observer never reaches the read this case is
+          // about.
+          onDivergence={(report) => reports.push(report)}
         >
           <Cta />
         </FeatureProvider>,
@@ -697,6 +702,7 @@ describe('FeatureProvider', () => {
       vi.unstubAllGlobals();
     }
 
+    expect(reports).toEqual([]);
     expect(screen.getByTestId('cta')).toHaveTextContent(
       String(shipped.decisions.cta.variant),
     );
@@ -705,6 +711,7 @@ describe('FeatureProvider', () => {
   it('renders in a runtime whose process carries no env', () => {
     const store = storeAt('v1');
     const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const reports: DivergenceReport[] = [];
     vi.stubGlobal('process', {});
 
     try {
@@ -713,6 +720,7 @@ describe('FeatureProvider', () => {
           features={store}
           decisions={shipped}
           context={{ targetingKey: 'u-9' }}
+          onDivergence={(report) => reports.push(report)}
         >
           <Cta />
         </FeatureProvider>,
@@ -721,6 +729,7 @@ describe('FeatureProvider', () => {
       vi.unstubAllGlobals();
     }
 
+    expect(reports).toEqual([]);
     expect(screen.getByTestId('cta')).toHaveTextContent(
       String(shipped.decisions.cta.variant),
     );
