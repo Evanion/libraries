@@ -554,3 +554,57 @@ describe('the one member a definition carries a Date at', () => {
     );
   });
 });
+
+describe('an array whose prototype is not the one a document carries', () => {
+  /**
+   * The object branch's prototype gate is pinned three times above, and
+   * `Array.isArray` reaches the array branch before `carried` is consulted. So
+   * the prototype of an array is never refused and has to be replaced, which
+   * is what `structuredClone` does with both of these.
+   */
+  it("builds a plain array off an author's own Array subclass", () => {
+    class Rows extends Array {}
+    const source = { dependsOn: Rows.from(['checkout']) };
+
+    const copy = documentCopy(source);
+    const cloned = structuredClone(source);
+
+    expect([
+      Object.getPrototypeOf(copy.dependsOn) === Array.prototype,
+      copy.dependsOn.constructor.name,
+      cloned.dependsOn.constructor.name,
+      [...copy.dependsOn],
+    ]).toEqual([true, 'Array', 'Array', ['checkout']]);
+  });
+
+  it('builds an array where the source names another species to build with', () => {
+    const source = ['checkout'];
+    Reflect.set(source, 'constructor', {
+      [Symbol.species]: function hijacked(length: number) {
+        return { length, hijacked: true };
+      },
+    });
+
+    const copy = documentCopy({ dependsOn: source });
+
+    expect([Array.isArray(copy.dependsOn), copy.dependsOn]).toEqual([
+      true,
+      ['checkout'],
+    ]);
+  });
+
+  it('materializes a hole in a sparse array the way structuredClone does', () => {
+    const dependsOn: unknown[] = [];
+    dependsOn[0] = 'checkout';
+    dependsOn[2] = 'express';
+    const source = { dependsOn };
+
+    const copy = documentCopy(source);
+    const cloned = structuredClone(source);
+
+    expect([copy.dependsOn, 1 in copy.dependsOn]).toEqual([
+      cloned.dependsOn,
+      1 in cloned.dependsOn,
+    ]);
+  });
+});

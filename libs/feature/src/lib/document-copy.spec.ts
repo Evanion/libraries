@@ -15,15 +15,24 @@ function carrying(value: unknown): unknown {
   };
 }
 
+/** An array nested `depth` levels deep over a number. */
+function nested(depth: number): unknown {
+  let value: unknown = 1;
+  for (let at = 0; at < depth; at += 1) value = [value];
+  return value;
+}
+
 /** A value nested deeper than `recurse` walks on the runtime this runs on. */
 function nestedPast(recurse: (value: unknown) => unknown): unknown {
   for (let depth = 2_000; depth <= 512_000; depth *= 2) {
-    let value: unknown = 1;
-    for (let at = 0; at < depth; at += 1) value = [value];
     try {
-      recurse(value);
+      recurse(nested(depth));
     } catch {
-      return value;
+      // Twice the depth that overflowed, and not that depth. `documentCopy`
+      // spends one frame per level, so the first depth to overflow sits inside
+      // the margin V8 moves when it optimizes the walk over that very run, and
+      // the value a caller probed with then copies fine on the next call.
+      return nested(depth * 2);
     }
   }
   throw new Error(

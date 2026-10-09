@@ -81,6 +81,17 @@ function refuse(at: string, noun: string): FeatureConfigError {
  * carrying a member named `__proto__` hands `JSON.parse` an own member and an
  * assignment through it would set the copy's prototype.
  *
+ * The array branch writes into an array literal and not into what `held.map`
+ * returns. `Array.prototype.map` constructs its result through
+ * ArraySpeciesCreate, so it hands back an instance of an author's `Array`
+ * subclass and hands back no array at all for a source whose
+ * `constructor[Symbol.species]` returns something else. `carried` below never
+ * sees either, because `Array.isArray` accepted the source first, so the
+ * prototype of an array is replaced here rather than refused there, which is
+ * what `structuredClone` does with both. Setting `length` and skipping an index
+ * the source does not hold keeps a hole in a sparse array a hole, which is what
+ * `structuredClone` does too and what `map` did.
+ *
  * The recursion is one frame per level. A value nested deeper than the stack
  * holds raises the host's `RangeError` out of here, which `unreadableText`
  * carries the way it carries `structuredClone`'s.
@@ -109,9 +120,18 @@ function walk(
   open.add(held);
   try {
     if (Array.isArray(held)) {
-      const elements = (held as readonly unknown[]).map((element, index) =>
-        walk(element, `${at}/${String(index)}`, open, done),
-      );
+      const source = held as readonly unknown[];
+      const elements: unknown[] = [];
+      elements.length = source.length;
+      for (let index = 0; index < source.length; index += 1) {
+        if (!(index in source)) continue;
+        elements[index] = walk(
+          source[index],
+          `${at}/${String(index)}`,
+          open,
+          done,
+        );
+      }
       done.set(held, elements);
       return elements;
     }
