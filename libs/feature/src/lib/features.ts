@@ -131,12 +131,6 @@ export interface Features<
    * cannot recover either member from them. A set states both, so a server
    * states the instant once and no application passes `now` by hand.
    *
-   * A set states a version for a store deciding from the document it installed.
-   * A `toggle` that moves a decision takes the version off the sets that follow
-   * it, because a consumer compares the member to prove both processes hold one
-   * configuration and the toggled rules are no publisher's. A `reload` that
-   * installs brings the version back.
-   *
    * It is the one entry point that refuses a context. `DecisionSet.now` is an
    * ISO 8601 string and an invalid `Date` describes no instant, so a
    * `context.now` holding one raises a `FeatureConfigError`. `resolve`, `plan`
@@ -848,24 +842,6 @@ export function createFeatures(
     // same document with an `unknown-member` issue carrying this same text.
     throw new FeatureConfigError(unreadableText(raise));
   }
-  /**
-   * Whether a `toggle` moved a decision off the document `installed` names.
-   *
-   * `DecisionSet.version` states the configuration that produced the decisions
-   * it carries, and a consumer compares it with `!==` to prove the two
-   * processes hold one configuration. A toggled store decides from rules no
-   * publisher served, so `snapshot` states no version while this is set and the
-   * consumer reports `unversioned` over the decisions it was shipped.
-   *
-   * `version` and `envelope` keep naming the installed document either way.
-   * They report what a publisher served and what the next poll compares
-   * against, which a local write does not move.
-   *
-   * A `reload` that installs clears it, because the install discards the write.
-   * A refused `reload` leaves it, because the write still stands.
-   */
-  let toggledOffInstalled = false;
-
   // The store-level lookup, which the public `definition` member answers with.
   // A caller asking for one definition wants the one the store holds now, so
   // this reads the references and binds nothing.
@@ -1053,14 +1029,10 @@ export function createFeatures(
       );
     }
     // Read before the emit below, which calls an observer synchronously. A
-    // `reload` from inside that call assigns `installed` (`features.ts:1236`),
+    // `reload` from inside that call assigns `installed` (`features.ts:1253`),
     // and `DecisionSet.version` names the configuration the set's decisions
     // resolved under, which the consumer's `!==` comparison relies on.
-    //
-    // A toggled store states nothing here. The document `installed` names did
-    // not produce these decisions, and a consumer that read its version would
-    // compare two labels that agree over two configurations that do not.
-    const version = toggledOffInstalled ? undefined : installed.version;
+    const version = installed.version;
     const decisions = frozenWhenObserved(resolveAll(evaluationContext));
 
     if (observed) {
@@ -1146,12 +1118,6 @@ export function createFeatures(
     // `graph`, `index` and `keys` carry over: a write moves `enabled` and
     // touches neither the key nor `dependsOn`.
     config = written;
-    // Set for a write that moves the decision and not for one that restates
-    // it. A toggle writes `enabled` and touches nothing else, so a write of
-    // the value the document already carries leaves the store deciding from the
-    // installed document and `snapshot` keeps stating its version.
-    if (current.enabled !== enabled) toggledOffInstalled = true;
-
     // `installed` is not touched. § 6 declares `version` the installed
     // document's version and `reload` the one writer of the member: a toggle
     // that dropped it would answer `previousVersion: undefined` on the next
@@ -1285,7 +1251,6 @@ export function createFeatures(
     index = next.index;
     keys = next.keys;
     installed = next.envelope;
-    toggledOffInstalled = false;
 
     return {
       ok: true,

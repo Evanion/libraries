@@ -193,15 +193,15 @@ describe('Features.snapshot', () => {
     expect(parsed.features.snapshot().version).toBe('v1');
   });
 
-  it('states no version for a store a toggle moved off the served document', () => {
+  it('states the version of the document a toggle wrote onto', () => {
     const parsed = parseFeatureConfig(served('v7'));
     if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
     const written = parsed.features.toggle('cta', false);
 
     expect(written.ok).toBe(true);
-    expect(
-      'version' in parsed.features.snapshot({ targetingKey: 'u-4711' }),
-    ).toBe(false);
+    expect(parsed.features.snapshot({ targetingKey: 'u-4711' }).version).toBe(
+      'v7',
+    );
     expect(parsed.features.version).toBe('v7');
   });
 
@@ -224,7 +224,7 @@ describe('Features.snapshot', () => {
     expect(parsed.features.snapshot().version).toBe('v8');
   });
 
-  it('keeps stating no version when a refused reload leaves the toggle standing', () => {
+  it('keeps the version when a refused reload leaves a toggle standing', () => {
     const parsed = parseFeatureConfig(served('v7'));
     if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
     parsed.features.toggle('cta', false);
@@ -234,7 +234,7 @@ describe('Features.snapshot', () => {
     });
 
     expect(refused.ok).toBe(false);
-    expect('version' in parsed.features.snapshot()).toBe(false);
+    expect(parsed.features.snapshot().version).toBe('v7');
   });
 
   it('states no version for a toggle a store with no version carries', () => {
