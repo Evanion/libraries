@@ -644,6 +644,38 @@ describe('FeatureProvider', () => {
     expect(screen.getByTestId('sale')).toHaveTextContent('true');
   });
 
+  it('runs no diff in a runtime that defines no process global', () => {
+    const store = storeAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const reports: DivergenceReport[] = [];
+    // A runtime that answers neither half of the read is as often a served
+    // production page as a developer's machine, and the diff's second
+    // resolution is the cost § 4 keeps out of production.
+    vi.stubGlobal('process', undefined);
+
+    try {
+      render(
+        <FeatureProvider
+          features={store}
+          decisions={{
+            ...shipped,
+            decisions: {
+              cta: { ...shipped.decisions.cta, reason: 'rule-match' },
+            },
+          }}
+          context={{ targetingKey: 'u-9' }}
+          onDivergence={(report) => reports.push(report)}
+        >
+          <Cta />
+        </FeatureProvider>,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(reports).toEqual([]);
+  });
+
   it('renders in a runtime that defines no process global', () => {
     const store = storeAt('v1');
     const shipped = store.snapshot({ targetingKey: 'u-9' });
