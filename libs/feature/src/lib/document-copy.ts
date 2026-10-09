@@ -64,13 +64,18 @@ function refuse(at: string, noun: string): FeatureConfigError {
 }
 
 /**
- * One level of the copy, with the pointer it reached and the walk's ancestors.
+ * One level of the copy, with the pointer it reached and the walk's two memos.
  *
- * The ancestors are the chain this call sits under and not every object the
- * walk has met, so a subtree two pointers share is copied twice and a value
- * holding itself is refused. A document is JSON and JSON states no sharing, so
- * the duplicate reproduces the bytes a publisher served; a cycle reaches no
- * document at all, and the refusal names the pointer the walk closed at.
+ * `open` holds the chain this call sits under and `done` holds what the walk has
+ * already written, which are two different questions. A value holding itself is
+ * in `open` and the refusal names the pointer the walk closed at. A value two
+ * pointers reach is written once and the second pointer reads `done`: a diamond
+ * 26 levels deep holds 53 objects and fans out to 2^26 copies without the memo,
+ * and `canonical` at `canonical.ts:58` and `serialized` at `serialize.ts:134`
+ * memoize the same graph for the same reason. `structuredClone` preserves the
+ * sharing and `deepFreeze` memoizes over it, so this copier agrees with the
+ * three readers around it and the store holds one object where the caller held
+ * one.
  *
  * Each member is written with `Object.defineProperty`, because a document
  * carrying a member named `__proto__` hands `JSON.parse` an own member and an
@@ -80,7 +85,12 @@ function refuse(at: string, noun: string): FeatureConfigError {
  * holds raises the host's `RangeError` out of here, which `unreadableText`
  * carries the way it carries `structuredClone`'s.
  */
-function walk(value: unknown, at: string, ancestors: WeakSet<object>): unknown {
+function walk(
+  value: unknown,
+  at: string,
+  open: WeakSet<object>,
+  done: Map<object, unknown>,
+): unknown {
   if (value === null) return null;
   const kind = typeof value;
   if (
@@ -94,13 +104,16 @@ function walk(value: unknown, at: string, ancestors: WeakSet<object>): unknown {
   if (kind !== 'object') throw refuse(at, kind);
 
   const held = value as object;
-  if (ancestors.has(held)) throw refuse(at, 'cycle');
-  ancestors.add(held);
+  if (open.has(held)) throw refuse(at, 'cycle');
+  if (done.has(held)) return done.get(held);
+  open.add(held);
   try {
     if (Array.isArray(held)) {
-      return (held as readonly unknown[]).map((element, index) =>
-        walk(element, `${at}/${String(index)}`, ancestors),
+      const elements = (held as readonly unknown[]).map((element, index) =>
+        walk(element, `${at}/${String(index)}`, open, done),
       );
+      done.set(held, elements);
+      return elements;
     }
     if (!carried(held)) throw refuse(at, named(held));
 
@@ -112,15 +125,16 @@ function walk(value: unknown, at: string, ancestors: WeakSet<object>): unknown {
         value:
           window && member === 'value' && element instanceof Date
             ? new Date(element.getTime())
-            : walk(element, pointer, ancestors),
+            : walk(element, pointer, open, done),
         writable: true,
         enumerable: true,
         configurable: true,
       });
     }
+    done.set(held, copy);
     return copy;
   } finally {
-    ancestors.delete(held);
+    open.delete(held);
   }
 }
 
@@ -148,7 +162,12 @@ function walk(value: unknown, at: string, ancestors: WeakSet<object>): unknown {
  * window builds a store on every host because of it.
  */
 export function documentCopy<T>(value: T): T {
-  return walk(value, '', new WeakSet<object>()) as T;
+  return walk(
+    value,
+    '',
+    new WeakSet<object>(),
+    new Map<object, unknown>(),
+  ) as T;
 }
 
 /**
