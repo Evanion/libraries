@@ -237,6 +237,16 @@ describe('Features.snapshot', () => {
     expect(parsed.features.snapshot().version).toBe('v7');
   });
 
+  it('states the version for a toggle that restored the installed value', () => {
+    const parsed = parseFeatureConfig(served('v7'));
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+    parsed.features.toggle('cta', false);
+    const restored = parsed.features.toggle('cta', true);
+
+    expect(restored.ok).toBe(true);
+    expect(parsed.features.snapshot().version).toBe('v7');
+  });
+
   it('states no version for a toggle a store with no version carries', () => {
     const features = createFeatures(SPLIT);
     const written = features.toggle('cta', false);
