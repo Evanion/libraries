@@ -586,8 +586,9 @@ function changedKeys(
  * path. `reload` answers either with an `unknown-member` issue and the
  * construction path rethrows as a `FeatureConfigError` carrying the same text.
  *
- * This runs for a document and nothing else, which `:815` and `:1181` are the
- * two callers of, so it reads the copier with no branch on what it was handed.
+ * The two callers are `createFeatures` behind its `isDocument` gate and
+ * `reload`, so a document is the only thing this is ever handed and it reads
+ * the copier with no branch.
  */
 function envelopeOf(document: FeatureConfig<FeatureKey>): ConfigEnvelope {
   const members: Record<string, unknown> = { ...document };
