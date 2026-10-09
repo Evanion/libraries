@@ -24,10 +24,15 @@ import type {
  * which the shared one's cases never mount.
  *
  * The sufficiency check reaches each of the four assignment sources here, and
- * a context carrying an unusable value at the bucketing field. A runtime that
- * defines no `process` and one whose `process` carries no `env` mount a
- * provider too, and a re-render that writes a new observer prop counts what
- * the checks send.
+ * a context carrying an unusable value at the bucketing field. It reaches both
+ * store gaps -- a key this store does not declare and a key it declares with
+ * no variants, under a bucket and under a pin -- and each kind of field a
+ * pinning rule reads: a date window the clock fills, an attribute, and a
+ * rollout bucket the rule's `when` never names. A runtime that defines no
+ * `process` and one whose `process` carries no `env` mount a provider too, a
+ * re-render that writes a new observer prop counts what the checks send, and a
+ * re-render that installs one over a context the provider already resolved
+ * counts what that observer receives.
  *
  * Several cases hand the provider a set written out here rather than one
  * `snapshot` produced. A set reaches a client as JSON and nothing re-validates
@@ -145,6 +150,37 @@ const PINNED_FLAG = [
     enabled: true,
     rules: [
       { id: 'staff', when: [{ field: 'group', op: 'eq', value: 'staff' }] },
+    ],
+  },
+] as const;
+
+/**
+ * A split pinned by a rule that reads three fields of three kinds: a date
+ * window, an attribute, and a rollout bucket on a field of its own.
+ *
+ * The clock fills `now` for a context carrying none, so the window is readable
+ * wherever the rule is. `group` and `deviceId` are not, and `deviceId` reaches
+ * the rule's field list only through its `rollout` and never through `when`.
+ * The rollout is at 100%, so a context carrying all three matches.
+ */
+const PIN_WINDOW = [
+  {
+    key: 'cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ],
+    rules: [
+      {
+        id: 'staff-window',
+        when: [
+          { field: 'now', op: 'after', value: '2020-01-01T00:00:00Z' },
+          { field: 'group', op: 'eq', value: 'staff' },
+        ],
+        rollout: { percent: 100, by: 'deviceId' },
+        variant: 'blue',
+      },
     ],
   },
 ] as const;
@@ -465,6 +501,74 @@ describe('FeatureProvider', () => {
     });
     expect(missing?.message).toContain('off rule "staff"');
     expect(missing?.message).toContain('carries no "group"');
+  });
+
+  it("names a pinning rule's rollout field and never its date window", () => {
+    const store = createFeatures(PIN_WINDOW);
+    // A build-origin set, so the provider settles the context at its own clock
+    // and the stated instant never reaches it. The context the checks read
+    // carries no `now` at all, which is the input class the `now` filter
+    // answers.
+    const shipped = store.snapshot(
+      { targetingKey: 'u-9', group: 'staff', deviceId: 'd-1' },
+      { origin: 'build' },
+    );
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        // The rule's attribute field and not its rollout field, so the one
+        // thing this provider cannot read is the bucket the rollout needs.
+        context={{ group: 'staff' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    const missing = reports.find((report) => report.kind === 'missing-field');
+
+    expect(shipped.origin).toBe('build');
+    expect(shipped.decisions.cta.assignment).toMatchObject({
+      source: 'pinned',
+      rule: 'staff-window',
+    });
+    expect(missing).toMatchObject({ key: 'cta', field: 'deviceId' });
+    // Every entry point fills `now` from the clock, so a rule reading a date
+    // window is readable here and the report asks for nothing it can fill.
+    expect(missing?.message).toContain('carries no "deviceId"');
+    expect(missing?.message).not.toContain('now');
+    expect(missing?.message).toContain('Pass deviceId to');
+  });
+
+  it('names every field a pinning rule reads that the context carries nothing at', () => {
+    const store = createFeatures(PIN_WINDOW);
+    const shipped = store.snapshot(
+      { targetingKey: 'u-9', group: 'staff', deviceId: 'd-1' },
+      { origin: 'build' },
+    );
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        // Neither of the rule's two readable fields. A report naming one of
+        // them sends the developer back for a second round on the other.
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    const missing = reports.find((report) => report.kind === 'missing-field');
+
+    expect(missing?.field).toBe('deviceId');
+    expect(missing?.message).toContain('carries no "deviceId", "group"');
+    expect(missing?.message).toContain('Pass deviceId, group to');
   });
 
   it('names no field for an assignment a rule pinned', () => {
