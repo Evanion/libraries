@@ -127,6 +127,34 @@ describe('reportDivergence', () => {
     expect(seen).toEqual([report]);
   });
 
+  it('leaves every member of the report as the observer saw it', () => {
+    const report: DivergenceReport = {
+      kind: 'decision-differs',
+      key: 'cta',
+      field: 'tenantId',
+      shipped: {
+        version: 'v1',
+        enabled: true,
+        variant: 'control',
+        source: 'weighted',
+      },
+      local: {
+        version: 2,
+        enabled: false,
+        variant: 'treatment',
+        source: 'fallback',
+      },
+      message: 'the server and the client decided cta differently',
+    };
+    let atHandover: DivergenceReport | undefined;
+
+    reportDivergence((given) => {
+      atHandover = structuredClone(given);
+    }, report);
+
+    expect(report).toEqual(atHandover);
+  });
+
   it('delivers a numeric key at zero', () => {
     const report: DivergenceReport<number> = {
       kind: 'missing-field',
