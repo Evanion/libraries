@@ -42,8 +42,10 @@ export interface ResolvePlanOptions<F extends FeatureKey = string> {
  * variant outstanding, so the enablement comes off the entry and only the
  * assignment is computed; a second run of the rules against a richer client
  * context can flip enablement, which would contradict the entry. A parent that
- * resolves off in this pass blocks such an entry all the same, because the
- * entry settled the feature's own rules and not the graph above it.
+ * resolves off in this pass blocks a settled entry and a deferred one alike,
+ * because an entry settled the feature's own rules and not the graph above it,
+ * and a set naming a feature on under a parent it names off contradicts
+ * itself.
  *
  * The walk is the dependency order, because a deferred parent puts its `needs`
  * on its dependants and a dependant resolved before its parent would read an
@@ -87,7 +89,15 @@ export function resolvePlan<S extends Record<keyof S, VariantInfo | never>>(
     // Rule 1. The build settled this one and nothing re-runs.
     if (entry.resolved !== 'deferred') {
       if (entry.decision) {
-        resolved.set(key, entry.decision);
+        // The entry settled this feature's own rules against the parent map
+        // the build held. The cascade belongs to this pass, because a parent
+        // this plan left out or deferred resolves here, so an enabled decision
+        // is read against it. Without this check a plan naming a subset of the
+        // store answers on for a feature under a parent that answered off.
+        const blocked = entry.decision.enabled
+          ? blockedDecision(definition, resolved)
+          : undefined;
+        resolved.set(key, blocked ?? entry.decision);
         continue;
       }
       resolved.set(key, decide(definition, settled, resolved));
