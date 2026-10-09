@@ -338,7 +338,7 @@ export interface FeatureConfig<F extends FeatureKey = string> {
    * milliseconds. Advisory, and no entry point in this library reads it.
    *
    * The party that fetches is the party that acts on it. A binding in
-   * `@evanion/feature-source` holds the poller, knows the fetch instant because
+   * Whatever reads the document holds the poller, knows the fetch instant because
    * it performed the fetch, and shortens its interval, logs, refuses to start
    * or serves a fallback document. This library holds no clock authority.
    */
@@ -4239,7 +4239,7 @@ git commit -m "feat(feature): re-export the document types from the react entry"
 - Consumes: nothing from the library's own source.
 - Produces: a failing build for a core that grows a dependency, a driver import, a socket or a timer.
 
-Decisions 13, 14 and 15 are architectural and this task is what keeps them true. Decision 13 says every adapter that reads configuration from a database, an HTTP endpoint or a disk cache lives in `@evanion/feature-source`, and the core imports no driver, opens no socket and starts no timer. Decision 14 says local evaluation is the default. Decision 15 says no endpoint answers which variant a subject gets, which is a rule about what this repository does not add.
+Decisions 13, 14 and 15 are architectural and this task is what keeps them true. Decision 13 says every adapter that reads configuration from a database, an HTTP endpoint or a disk cache sits outside this library, and the core imports no driver, opens no socket and starts no timer. Decision 14 says local evaluation is the default. Decision 15 says no endpoint answers which variant a subject gets, which is a rule about what this repository does not add.
 
 This plan creates no `libs/feature-source`. The spec designs no adapter interface, its own closing section records that one poller serving every adapter is a guess and that no push source has been written, and a new directory under `libs/` is a released package that `docs-navigation.test.ts`, `commitlint-scope-enum.test.ts`, `coverage-config.test.ts`, `typecheck-config.test.ts` and `security-register.test.ts` all have opinions about. Step 4 opens the issue that owns it.
 
@@ -4307,7 +4307,7 @@ describe('the core', () => {
 
     // The core holds no clock authority and performs no fetch. The party that
     // fetches is the party that acts on `maxStale`, and it lives in
-    // `@evanion/feature-source`. § 1, § 9.
+    // library. § 1, § 9.
     expect(offences).toEqual([]);
   });
 });

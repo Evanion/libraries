@@ -8,8 +8,8 @@ Packages: `@evanion/feature` gains four exports (`serializeConfig`,
 `ReloadResult`), six envelope members (`version`, `digest`, `schema`,
 `schemaVersion`, `maxStale`, `features`) and two `Features` members (`reload`,
 `version`). `@evanion/feature/react` re-exports the types and changes no
-runtime. A new sibling package `@evanion/feature-source` holds every adapter
-that reads configuration from somewhere, and § 9 argues why the core holds none.
+runtime. Every adapter that reads configuration from somewhere sits outside
+this library, and § 9 argues why the core holds none.
 Depends on: `docs/specs/2026-09-11-feature-toggles.md` (decision 5, the store
 holds intent and resolution is never written back, which § 6 is bounded by; its
 "Static and runtime evaluation" split, which § 9 keeps);
@@ -154,8 +154,8 @@ serialization at all, for the reason decision 2 states.
     document, the envelope's own members included, and the refusal names the
     path. § 8.
 13. Every adapter that reads configuration from a database, an HTTP endpoint or
-    a disk cache lives in `@evanion/feature-source`. The core imports no driver,
-    opens no socket and starts no timer. § 9.
+    a disk cache sits outside this library. The core imports no driver, opens
+    no socket and starts no timer. § 9.
 14. Local evaluation is the default and this package optimises for it. Every
     process holds the rules and computes its own answer, browsers and mobile
     clients included. § 9.
@@ -225,10 +225,9 @@ how long the publisher believes a holder may keep this document. `resolve`,
 `plan`, `toggle`, `reload` and `validateConfig` all ignore it. `Reason` gains no
 member for it, and no decision this library returns mentions it.
 
-The party that fetches is the party that acts on it. A platform binding in
-`@evanion/feature-source` holds the poller, knows the fetch instant because it
-performed the fetch, and can shorten its interval, log, refuse to start or serve
-a fallback document. This library holds no clock authority and performs no
+The party that fetches is the party that acts on it. Whatever reads the document
+holds the poller, knows the fetch instant because it performed the fetch, and can
+shorten its interval, log, refuse to start or serve a fallback document. This library holds no clock authority and performs no
 fetch. It could only compare two numbers a caller handed it and then impose one
 policy on every holder, and both available policies are wrong for somebody.
 Answering off for every key breaks a native client that went offline for a
@@ -671,7 +670,7 @@ overwrites it, silently, on the next poll.
 The honest position is that a toggle is a local write against a store whose truth
 is elsewhere, and this document states that in the `toggle` docblock. An
 operator who wants a durable toggle writes the row and lets the poller bring it
-back, which is what `@evanion/feature-source` exposes at § 9. The core's
+back, which is the reader's to expose. The core's
 `toggle` keeps its meaning for a process whose configuration is a literal, which
 is every use of it today.
 
@@ -919,14 +918,8 @@ bucketing, hashing or ordering has to be checked against both.
 ### Where the adapter lives
 
 The core reads no database, opens no socket and starts no timer. Every adapter
-lives in a sibling package:
-
-```
-libs/feature-source/
-```
-
-`nx.json:151` sets `"projects": ["libs/*"]`, so a directory under `libs/`
-publishes and this needs no configuration edit.
+sits outside this library, in the application that reads the document or in a
+package that application chooses. This repository ships none.
 `docs/specs/2026-09-21-acl-matrix-introspection.md` puts `@evanion/acl-introspect`
 in a sibling for the same reason, and the reason is what each package's consumers
 can afford to carry. A browser bundle of `@evanion/feature` must not contain a

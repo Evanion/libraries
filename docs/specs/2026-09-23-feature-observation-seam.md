@@ -428,9 +428,9 @@ by default and their defaults are a live question for their users. This package
 evaluates in the caller's process and the identifier reaches the caller's own
 callback, so the same question does not arise.
 
-One case reopens it, and it is not this document. If `@evanion/feature-source`
-ever supplies a first-party observer that posts to a hosted control plane, then
-the library becomes the transport, the subject identifier leaves the box on the
+One case reopens it, and it is not this document. If this library ever supplies
+a first-party observer that posts to a hosted control plane, then it becomes the
+transport, the subject identifier leaves the box on the
 library's own code path, and the default is a decision that package has to make
 for itself. The question belongs there.
 
@@ -811,9 +811,8 @@ Nothing here is implemented, so this is what the seam owes.
 - § 4.2 is settled and is no longer a guess. The owner ruled that the subject
   identifier travels by default, because the value on the event is the value the
   application supplied a moment earlier and the library evaluates in that
-  application's own process. The question moves to
-  `@evanion/feature-source` if a first-party observer there ever posts to a
-  hosted control plane.
+  application's own process. The question returns only if this library ever
+  supplies a first-party observer that posts to a hosted control plane.
 - That `isEnabled` warrants its own event. The alternative is one event type
   for every entry point, with the entry point as a member on it. The argument in § 2.2 is about honesty toward an
   auditor, and an auditor of a feature flag stream may not exist. If nobody

@@ -136,3 +136,8 @@ apps/docs/content/*
 # it describes the tree it scanned, and a committed copy is right until the next
 # commit changes the code it describes.
 graphify-out/
+
+# Written by `git worktree add`: the worktrees an agent works in, one per lane.
+# Not committed: a worktree is a checkout of this repository, and committing one
+# records it as a gitlink to a commit no clone can resolve.
+.wt/
