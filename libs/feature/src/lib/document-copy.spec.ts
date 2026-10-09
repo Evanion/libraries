@@ -40,10 +40,11 @@ function cyclic(): unknown {
 
 describe('documentCopy', () => {
   it('copies a nested object by value', () => {
-    const source = { variants: [{ name: 'blue', value: { label: 'buy' } }] };
+    const value = { label: 'buy' };
+    const source = { variants: [{ name: 'blue', value }] };
 
     const copy = documentCopy(source);
-    source.variants[0]!.value.label = 'moved';
+    value.label = 'moved';
 
     expect(copy.variants[0]?.value.label).toBe('buy');
   });
