@@ -28,13 +28,46 @@ function carried(value: object): boolean {
 }
 
 /**
- * The pointer of a condition a rule's `when` holds, relative to the definition
- * the walk was handed.
+ * How far along `rules[i].when[j]` the walk has come.
+ *
+ * `root` is the value `documentCopy` was handed, `rules` is that value's
+ * `rules` member, `rule` is an element of it, `when` is that element's `when`
+ * member and `condition` is an element of it. `off` is every other position,
+ * and a walk that reaches `off` stays there, so a condition's own members are
+ * `off` and an object nested under one is no condition itself.
+ *
+ * The walk carries the place rather than matching the pointer it built, because
+ * the memo in `walk` is keyed on it. A pattern over the pointer answers for the
+ * object the walk stands at and says nothing about the place a second pointer
+ * reached the same object at.
  */
-const CONDITION = /^\/rules\/\d+\/when\/\d+$/;
+type Place = 'root' | 'rules' | 'rule' | 'when' | 'condition' | 'off';
+
+/** The place a named member of an object standing at `place` sits at. */
+function memberPlace(place: Place, name: string): Place {
+  if (place === 'root' && name === 'rules') return 'rules';
+  if (place === 'rule' && name === 'when') return 'when';
+  return 'off';
+}
 
 /**
- * Whether the object at this pointer is the condition § 8 of
+ * The place an element of an array standing at `place` sits at.
+ *
+ * An array element is the only step that advances the chain, so `rules` and
+ * `when` both have to be arrays for a condition to be reached. `types.ts`
+ * declares `Rule[]` and `Condition[]`, and `validateConditions` at
+ * `conditions.ts:97` reads both as arrays, so the members of the object
+ * `JSON.parse` hands back for `{"rules":{"0":...}}` are no rules and a `Date`
+ * under one is refused.
+ */
+function elementPlace(place: Place): Place {
+  if (place === 'rules') return 'rule';
+  if (place === 'when') return 'condition';
+  return 'off';
+}
+
+/**
+ * Whether the object at this place is the condition § 8 of
  * `docs/specs/2026-09-23-feature-config-distribution.md` lets a `Date` reach.
  *
  * That section keeps `Instant` on `FeatureDefinition` with its `Date` member,
@@ -44,7 +77,7 @@ const CONDITION = /^\/rules\/\d+\/when\/\d+$/;
  * epoch, so the two forms decide `before` and `after` alike, and
  * `serializeConfig` converts the `Date` to its ISO string on the way out.
  *
- * The pointer decides as much as the operator does. `serializeConfig` reaches a
+ * The place decides as much as the operator does. `serializeConfig` reaches a
  * condition through `documentRule` at `serialize.ts:193`, so
  * `/rules/<i>/when/<j>/value` is the one pointer whose `Date` it converts, and
  * `serialized` at `serialize.ts:89` refuses a `Date` at every other pointer and
@@ -56,7 +89,7 @@ const CONDITION = /^\/rules\/\d+\/when\/\d+$/;
  * The two construction paths and `unreadable`'s attribution loop each hand this
  * walk one `FeatureDefinition`, and `envelopeOf` hands it the document's own
  * members with `features` deleted, so a condition a rule holds is what reaches
- * the pointer above.
+ * the place above.
  *
  * The gate reads no `field`. `WindowCondition` declares `field: 'now'`, and
  * `validateConditions` at `conditions.ts:111`, `ruleId` at `rule-id.ts:57` and
@@ -64,10 +97,25 @@ const CONDITION = /^\/rules\/\d+\/when\/\d+$/;
  * them reads the field, so a condition whose field is another string is a
  * window to every reader in the library and is one here too.
  */
-function boundary(value: object, at: string): boolean {
-  if (!CONDITION.test(at)) return false;
+function boundary(value: object, place: Place): boolean {
+  if (place !== 'condition') return false;
   const op = (value as { op?: unknown }).op;
   return op === 'before' || op === 'after';
+}
+
+/** What the walk has written, one map per place a value can stand at. */
+type Written = Record<Place, Map<object, unknown>>;
+
+/** The six maps a walk starts with. */
+function written(): Written {
+  return {
+    root: new Map<object, unknown>(),
+    rules: new Map<object, unknown>(),
+    rule: new Map<object, unknown>(),
+    when: new Map<object, unknown>(),
+    condition: new Map<object, unknown>(),
+    off: new Map<object, unknown>(),
+  };
 }
 
 /** The constructor's name, for the refusal that names what arrived. */
@@ -85,7 +133,8 @@ function refuse(at: string, noun: string): FeatureConfigError {
 }
 
 /**
- * One level of the copy, with the pointer it reached and the walk's two memos.
+ * One level of the copy, with the pointer and the place it reached and the
+ * walk's two memos.
  *
  * `open` holds the chain this call sits under and `done` holds what the walk has
  * already written, which are two different questions. A value holding itself is
@@ -97,6 +146,16 @@ function refuse(at: string, noun: string): FeatureConfigError {
  * sharing and `deepFreeze` memoizes over it, so this copier agrees with the
  * three readers around it and the store holds one object where the caller held
  * one.
+ *
+ * `done` is keyed on the place as well as the object, because `boundary` reads
+ * the place. One condition object a definition holds at `rules[0].when[0]` and
+ * again at `variants[0].value` is two copies: the first keeps its `Date` and
+ * the second is refused, which is what § 8 decides for each of those two
+ * pointers. A single memo over both would hand the second pointer the copy the
+ * first one wrote, and the order the definition lists `rules` and `variants` in
+ * would then decide whether the whole definition is refused. Within one place
+ * the copy is the same whichever pointer reached the object, so the memo still
+ * collapses the diamond.
  *
  * Each member is written with `Object.defineProperty`, because a document
  * carrying a member named `__proto__` hands `JSON.parse` an own member and an
@@ -120,8 +179,9 @@ function refuse(at: string, noun: string): FeatureConfigError {
 function walk(
   value: unknown,
   at: string,
+  place: Place,
   open: WeakSet<object>,
-  done: Map<object, unknown>,
+  done: Written,
 ): unknown {
   if (value === null) return null;
   const kind = typeof value;
@@ -137,11 +197,13 @@ function walk(
 
   const held = value as object;
   if (open.has(held)) throw refuse(at, 'cycle');
-  if (done.has(held)) return done.get(held);
+  const kept = done[place];
+  if (kept.has(held)) return kept.get(held);
   open.add(held);
   try {
     if (Array.isArray(held)) {
       const source = held as readonly unknown[];
+      const inside = elementPlace(place);
       const elements: unknown[] = [];
       elements.length = source.length;
       for (let index = 0; index < source.length; index += 1) {
@@ -149,30 +211,31 @@ function walk(
         elements[index] = walk(
           source[index],
           `${at}/${String(index)}`,
+          inside,
           open,
           done,
         );
       }
-      done.set(held, elements);
+      kept.set(held, elements);
       return elements;
     }
     if (!carried(held)) throw refuse(at, named(held));
 
     const copy: Record<string, unknown> = {};
-    const window = boundary(held, at);
+    const window = boundary(held, place);
     for (const [member, element] of Object.entries(held)) {
       const pointer = `${at}/${escaped(member)}`;
       Object.defineProperty(copy, member, {
         value:
           window && member === 'value' && element instanceof Date
             ? new Date(element.getTime())
-            : walk(element, pointer, open, done),
+            : walk(element, pointer, memberPlace(place, member), open, done),
         writable: true,
         enumerable: true,
         configurable: true,
       });
     }
-    done.set(held, copy);
+    kept.set(held, copy);
     return copy;
   } finally {
     open.delete(held);
@@ -203,12 +266,7 @@ function walk(
  * window builds a store on every host because of it.
  */
 export function documentCopy<T>(value: T): T {
-  return walk(
-    value,
-    '',
-    new WeakSet<object>(),
-    new Map<object, unknown>(),
-  ) as T;
+  return walk(value, '', 'root', new WeakSet<object>(), written()) as T;
 }
 
 /**
