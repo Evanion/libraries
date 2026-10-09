@@ -19,6 +19,12 @@ import type { DecisionSet, DivergenceReport } from '../index.js';
  * prototype member, a set whose instant names no date, and the bound provider,
  * which the shared one's cases never mount.
  *
+ * The sufficiency check reaches each of the four assignment sources here, and
+ * a context carrying an unusable value at the bucketing field. A runtime that
+ * defines no `process` and one whose `process` carries no `env` mount a
+ * provider too, and a re-render that writes a new observer prop counts what
+ * the checks send.
+ *
  * Several cases hand the provider a set written out here rather than one
  * `snapshot` produced. A set reaches a client as JSON and nothing re-validates
  * it, so a server one version ahead ships a decision for a feature this store
@@ -26,9 +32,10 @@ import type { DecisionSet, DivergenceReport } from '../index.js';
  * broken clock ships an instant no `Date` reads. The cast on each one is what
  * the wire does for free.
  *
- * Every instant a case depends on is written into the fixture. The one case
- * that reads the host's clock asserts a comparison against a 2029 boundary,
- * which holds on any host whose clock sits between 2026 and 2029.
+ * Every instant a case depends on is written into the fixture. Two cases read
+ * the host's clock: one asserts a comparison against a 2029 boundary, which
+ * holds on any host whose clock sits between 2026 and 2029, and the other
+ * against a window that opened in 2020.
  */
 
 /** A split with two variants, which a document states in full. */
