@@ -70,6 +70,31 @@ describe('resolvePlan', () => {
     });
   });
 
+  it('keeps the variant a settled entry carries although it resolved false', () => {
+    const features = createFeatures(SPLIT);
+    // `resolved` separates the rules at `'deferred'` and nowhere else. A plan
+    // `features.plan` builds sets `resolved` from the decision's own
+    // enablement, so this pairing takes a hand-assembled plan: a settled entry
+    // whose flag reads false and whose decision reads on. Rule 1 answers it
+    // verbatim, while Rule 3 over the same decision strips the variant and
+    // buckets again, which this context would answer `control`.
+    const decision = {
+      key: 'cta',
+      enabled: true,
+      reason: 'default-on',
+      variant: 'blue',
+      value: { label: 'Get it' },
+    } as const;
+
+    const decisions = resolvePlan(
+      features,
+      { cta: { key: 'cta', resolved: false, needs: [], decision } },
+      { targetingKey: 'u-4711' },
+    );
+
+    expect(decisions.cta).toEqual(decision);
+  });
+
   it('keeps a deferred entry that resolved off and assigns it no variant', () => {
     const features = createFeatures(SPLIT);
     const decision = {
