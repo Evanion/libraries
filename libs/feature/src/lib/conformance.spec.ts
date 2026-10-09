@@ -799,6 +799,28 @@ function withoutDecision(
   ) as PlanFixture['plan'];
 }
 
+/**
+ * The plan a port that reads a settled entry as a deferred one reads.
+ *
+ * Rule 1 of § 5 of `docs/specs/2026-09-23-feature-hydration.md` takes a settled
+ * entry's decision whole, and rule 3 takes its enablement and buckets the split
+ * again. A port carrying one branch for both reads a settled entry the way this
+ * transform states it, so what it answers is what `resolvePlan` answers over
+ * this output.
+ */
+function asDeferred(
+  plan: PlanFixture['plan'],
+  key: string,
+  field: string,
+): PlanFixture['plan'] {
+  return Object.fromEntries(
+    Object.entries(plan).map(([named, entry]) => {
+      if (named !== key) return [named, entry];
+      return [named, { ...entry, resolved: 'deferred', needs: [field] }];
+    }),
+  ) as PlanFixture['plan'];
+}
+
 describe('the published plan fixture', () => {
   it('finishes the plan into the decisions it publishes', () => {
     const features = createFeatures(planFixture.config);
@@ -835,6 +857,38 @@ describe('the published plan fixture', () => {
       decision: { enabled: true, reason: 'rule-match', rule: 'launch-window' },
     });
     expect(deferred[0]?.decision).not.toHaveProperty('variant');
+  });
+
+  it('carries a settled entry whose decision holds the split the build bucketed', () => {
+    const settled = Object.values(planFixture.plan).filter(
+      (entry) =>
+        entry !== undefined &&
+        entry.resolved === true &&
+        entry.decision?.assignment !== undefined,
+    );
+
+    // Rule 1 of § 5 of `docs/specs/2026-09-23-feature-hydration.md` takes a
+    // settled entry's decision whole, variant included. `shipping-promo`
+    // buckets on `region`, which the build context carries and the client
+    // context does not, so rule 1 and rule 3 answer differently for it: rule 1
+    // publishes the weighted assignment the build settled and rule 3 would
+    // bucket again and reach the control as a fallback. Without an entry of
+    // this shape the fixture states nothing about which branch a port runs
+    // over a settled entry, because the other two settled entries declare no
+    // variants and the two branches agree on every one of those.
+    expect(settled).toHaveLength(1);
+    expect(settled[0]).toMatchObject({
+      key: 'shipping-promo',
+      resolved: true,
+      needs: [],
+      decision: {
+        enabled: true,
+        variant: 'threshold',
+        assignment: { source: 'weighted', by: 'region' },
+      },
+    });
+    expect(planFixture.context).not.toHaveProperty('region');
+    expect(planFixture.buildContext.region).toBe('eu-west');
   });
 
   it('keeps the enablement the plan settled through the client pass', () => {
@@ -936,6 +990,37 @@ describe('the published plan fixture', () => {
     expect(planFixture.decisions['preorder-badge']).toMatchObject({
       enabled: true,
       reason: 'rule-match',
+    });
+  });
+
+  it('publishes a settled assignment a re-bucketed entry does not reproduce', () => {
+    const rebucketed = finishedOver(
+      asDeferred(planFixture.plan, 'shipping-promo', 'region'),
+    ) as Record<
+      string,
+      { variant: string; assignment: { source: string }; value: unknown }
+    >;
+
+    // Rule 1's assignment half, held on its own. The build bucketed
+    // `shipping-promo` on a `region` the server resolves per request and the
+    // browser never sees, and the published decision is the build's. A port
+    // that runs rule 3's body over this entry -- enablement off the entry, the
+    // split bucketed again -- hands the subject the control over a context
+    // carrying no `region`, which flips the variant between the server tree
+    // and the hydrated one.
+    expect(rebucketed['shipping-promo']).toMatchObject({
+      enabled: true,
+      variant: 'control',
+      assignment: { source: 'fallback', by: 'region' },
+      value: { copy: 'Shipping from 4.90' },
+    });
+    expect(rebucketed['shipping-promo']?.assignment).not.toHaveProperty(
+      'bucket',
+    );
+    expect(planFixture.decisions['shipping-promo']).toMatchObject({
+      variant: 'threshold',
+      assignment: { source: 'weighted', by: 'region' },
+      value: { copy: 'Free shipping over 50' },
     });
   });
 
