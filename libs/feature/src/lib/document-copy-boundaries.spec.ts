@@ -583,6 +583,23 @@ describe('the one pointer a definition carries a Date at', () => {
     );
   });
 
+  it('refuses a Date at a second member of a window condition', () => {
+    const thrown = raised(() =>
+      documentCopy(
+        windowed({
+          field: 'now',
+          op: 'after',
+          value: new Date(0),
+          recordedAt: new Date(0),
+        }),
+      ),
+    );
+
+    expect(thrown).toBe(
+      '"/rules/0/when/0/recordedAt" carries a Date, and a document carries none',
+    );
+  });
+
   it('carries an invalid Date, which validateConditions is the reader of', () => {
     const copied = conditionOf(
       documentCopy(windowed({ field: 'now', op: 'after', value: new Date('x') })),
