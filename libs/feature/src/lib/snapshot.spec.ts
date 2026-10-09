@@ -55,7 +55,7 @@ describe('Features.snapshot', () => {
 
     const set = parsed.features.snapshot({ targetingKey: 'u-4711' });
 
-    expect(set.decisions.cta.enabled).toBe(true);
+    expect(set.decisions.cta?.enabled).toBe(true);
     expect(set.version).toBe('v1');
     expect(parsed.features.version).toBe('v2');
   });
