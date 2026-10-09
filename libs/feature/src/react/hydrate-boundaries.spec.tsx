@@ -406,6 +406,45 @@ describe('FeatureProvider', () => {
     );
   });
 
+  it('names the rule field a pin needs under NODE_ENV production', () => {
+    // The pin is the one case a context change fixes that the development
+    // diff cannot report, because the diff does not run here.
+    vi.stubEnv('NODE_ENV', 'production');
+    const store = createFeatures(PINNED);
+    const shipped = store.snapshot({ targetingKey: 'u-9', group: 'staff' });
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        // The bucketing field the pin ignored, and not the field the pinning
+        // rule read. The rule cannot match here, so this client resolves the
+        // other variant.
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    const missing = reports.find((report) => report.kind === 'missing-field');
+
+    expect(shipped.decisions.cta.assignment).toMatchObject({
+      source: 'pinned',
+      by: 'targetingKey',
+      rule: 'staff',
+    });
+    expect(missing).toMatchObject({
+      key: 'cta',
+      field: 'group',
+      shipped: { variant: 'blue', source: 'pinned' },
+      local: { source: 'weighted' },
+    });
+    expect(missing?.message).toContain('off rule "staff"');
+    expect(missing?.message).toContain('carries no "group"');
+  });
+
   it('names no field for an assignment a rule pinned', () => {
     const store = createFeatures(PINNED);
     const shipped = store.snapshot({ targetingKey: 'u-9', group: 'staff' });
