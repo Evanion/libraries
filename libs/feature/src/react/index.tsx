@@ -15,6 +15,10 @@
 
 import { createContext, useContext, useMemo } from 'react';
 import type { Context, ReactElement, ReactNode } from 'react';
+import { publishedDecisions } from './hydrate.js';
+import type { VersionMismatchPolicy } from './hydrate.js';
+import type { DecisionSet } from '../lib/decision-set.js';
+import type { DivergenceObserver } from '../lib/divergence.js';
 import type { Features } from '../lib/features.js';
 import type { DeepReadonly, FrozenWhenObserved } from '../lib/observe.js';
 import type {
@@ -74,6 +78,14 @@ export type {
  * widening only holds at the constraint.
  */
 export type AnyDecisions = Readonly<Record<FeatureKey, Decision<FeatureKey>>>;
+
+export type { VersionMismatchPolicy } from './hydrate.js';
+export type { DecisionOrigin, DecisionSet } from '../lib/decision-set.js';
+export type {
+  DivergenceObserver,
+  DivergenceReport,
+  DivergenceSide,
+} from '../lib/divergence.js';
 
 interface FeatureContextValue {
   decisions: AnyDecisions;
@@ -149,24 +161,51 @@ export interface FeatureProviderProps<
    */
   context?: EvaluationContext;
   /**
-   * Decisions resolved elsewhere -- a server render, or the build-time snapshot
-   * from `plan()`. Supplied decisions are used as they are; `features` and
-   * `context` are then only a fallback for what the snapshot does not cover.
+   * Decisions resolved elsewhere, as the versioned set `Features.snapshot`
+   * produces. A server render hands the client the set it resolved, and this
+   * provider publishes it.
    *
-   * Both forms are accepted, because a store carrying an observer answers the
-   * deeply readonly one. The provider reads these decisions and writes none of
-   * them.
+   * The set states the config version it was resolved under and the instant it
+   * was resolved at, so this provider can tell whether the two processes hold
+   * one configuration and can resolve the remainder at the server's instant.
    */
-  decisions?: Decisions<S> | DeepReadonly<Decisions<S>>;
+  decisions?: DecisionSet<S>;
+  /** Notified for every divergence this provider detects. Alters no decision. */
+  onDivergence?: DivergenceObserver<keyof S & FeatureKey>;
+  /**
+   * What to render when the shipped version is not the store's. Defaults to
+   * `'use-shipped'`.
+   *
+   * An application that runs no experiment and cares about revocation latency
+   * passes `'re-resolve'`.
+   */
+  onVersionMismatch?: VersionMismatchPolicy;
   children?: ReactNode;
 }
 
 export function FeatureProvider<
   S extends Record<keyof S, VariantInfo | never>,
->({ features, context, decisions, children }: FeatureProviderProps<S>) {
+>({
+  features,
+  context,
+  decisions,
+  onDivergence,
+  onVersionMismatch = 'use-shipped',
+  children,
+}: FeatureProviderProps<S>) {
   const value = useMemo<FeatureContextValue>(
-    () => ({ decisions: erased(decisions ?? features.resolve(context)) }),
-    [features, context, decisions],
+    () => ({
+      decisions: erased(
+        publishedDecisions(
+          features,
+          context,
+          decisions,
+          onVersionMismatch,
+          onDivergence,
+        ),
+      ),
+    }),
+    [features, context, decisions, onVersionMismatch, onDivergence],
   );
 
   return (
@@ -233,7 +272,19 @@ export interface BoundFeatureProviderProps<
 > {
   features?: Features<S, Frozen>;
   context?: EvaluationContext;
-  decisions?: Decisions<S> | DeepReadonly<Decisions<S>>;
+  /**
+   * Decisions resolved elsewhere, as the versioned set `Features.snapshot`
+   * produces. A server render hands the client the set it resolved, and this
+   * provider publishes it.
+   */
+  decisions?: DecisionSet<S, Frozen>;
+  /** Notified for every divergence this provider detects. Alters no decision. */
+  onDivergence?: DivergenceObserver<keyof S & FeatureKey>;
+  /**
+   * What to render when the shipped version is not the store's. Defaults to
+   * `'use-shipped'`.
+   */
+  onVersionMismatch?: VersionMismatchPolicy;
   children?: ReactNode;
 }
 
@@ -371,12 +422,27 @@ export function createFeatureContext<
   const BoundContext = createContext<FeatureContextValue | null>(null);
 
   return {
-    FeatureProvider({ features: given, context, decisions, children }) {
+    FeatureProvider({
+      features: given,
+      context,
+      decisions,
+      onDivergence,
+      onVersionMismatch = 'use-shipped',
+      children,
+    }) {
       const value = useMemo<FeatureContextValue>(
         () => ({
-          decisions: erased(decisions ?? (given ?? features).resolve(context)),
+          decisions: erased(
+            publishedDecisions(
+              given ?? features,
+              context,
+              decisions,
+              onVersionMismatch,
+              onDivergence,
+            ),
+          ),
         }),
-        [given, context, decisions],
+        [given, context, decisions, onVersionMismatch, onDivergence],
       );
 
       return (
