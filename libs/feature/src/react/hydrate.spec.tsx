@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import {
   createFeatures,
@@ -232,6 +232,15 @@ describe('FeatureProvider', () => {
   });
 
   it('resolves locally at its own clock for a build-origin set', () => {
+    // The assertion below is that the local answer is off, which the SALE
+    // window decides against the clock the provider reads. An unpinned clock
+    // would turn the case green through 2029 and fail it from 2030 with no
+    // code change, so the clock is a fixture here too.
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-03-04T05:06:07.008Z'));
     const store = createFeatures(SALE);
     const shipped = store.snapshot(
       { now: new Date('2031-01-01T00:00:00Z') },
