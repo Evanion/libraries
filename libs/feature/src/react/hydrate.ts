@@ -1,5 +1,5 @@
 import { reportDivergence } from '../lib/divergence.js';
-import { bucketingOrder } from '../lib/variants.js';
+import { assignVariant } from '../lib/variants.js';
 import type { DivergenceObserver } from '../lib/divergence.js';
 import type { DecisionSet } from '../lib/decision-set.js';
 import type { Features } from '../lib/features.js';
@@ -119,9 +119,24 @@ function compared(
  * Names every shipped decision this provider's context could not reproduce.
  *
  * It skips a decision whose own source is `'fallback'`, because that decision
- * states the server could not bucket either and the two processes agree. It
- * reads the control off `bucketingOrder(variants)[0]`, which is the variant a
- * context carrying no usable value gets.
+ * states the server could not bucket either and the two processes agree.
+ *
+ * The local side is `assignVariant` over this provider's own context, which is
+ * the call the engine makes for the same decision, so the check answers from
+ * the engine's rule rather than from a second reading of it. A bare
+ * `context[assignment.by] !== undefined` answers a different question in two
+ * ways. `assignVariant` buckets a `string` and a `number` and falls back for
+ * every other type (`variants.ts:585-589`), so a context carrying `null` at
+ * the bucketing field -- which `EvaluationContext`'s index signature admits --
+ * passes a presence test and reproduces nothing. And a `'sticky'` assignment
+ * is read off `context.stickyVariants` before the bucketing field is touched
+ * at all (`variants.ts:571-583`), so a context carrying the sticky map and no
+ * bucketing field reproduces the shipped assignment exactly.
+ *
+ * It reports wherever the local assignment falls back and the shipped one did
+ * not, whatever the two variants are. The report names a context this process
+ * cannot bucket with, which holds for the next subject even where the control
+ * and the shipped variant coincide for this one.
  */
 function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
   features: Features<S>,
@@ -132,13 +147,17 @@ function sufficiency<S extends Record<keyof S, VariantInfo | never>>(
   for (const decision of Object.values(shipped)) {
     const assignment = decision.assignment;
     if (!assignment || assignment.source === 'fallback') continue;
-    if (context[assignment.by] !== undefined) continue;
 
     const definition = features.definition(
       decision.key as keyof S & FeatureKey,
     );
-    const variants = definition?.variants;
-    const control = variants ? bucketingOrder(variants)[0]?.name : undefined;
+    // A server one version ahead ships a decision for a feature this store
+    // does not declare. There is no local assignment to compute, and the
+    // shipped one is still an answer this provider cannot reproduce.
+    const local = definition ? assignVariant(definition, context) : undefined;
+    if (local && local.source !== 'fallback') continue;
+
+    const control = local?.variant.name;
 
     reportDivergence(observer, {
       kind: 'missing-field',

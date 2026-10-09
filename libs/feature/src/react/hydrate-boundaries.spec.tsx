@@ -332,6 +332,64 @@ describe('FeatureProvider', () => {
     ]);
   });
 
+  it('names the field for a context carrying no usable value at it', () => {
+    const store = createFeatures(CUSTOM);
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={store.snapshot({ accountId: 'a-1' })}
+        // `EvaluationContext` admits any value at a bucketing field, and a
+        // client reads one off a session that holds no account. The engine
+        // buckets a string and a number and falls back for every other type.
+        context={{ accountId: null }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(
+      reports.filter((report) => report.kind === 'missing-field'),
+    ).toMatchObject([
+      {
+        key: 'cta',
+        field: 'accountId',
+        shipped: { source: 'weighted' },
+        local: { variant: 'green', source: 'fallback' },
+      },
+    ]);
+  });
+
+  it('names no field for a sticky assignment the client context reproduces', () => {
+    const store = storeAt('v1');
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={store.snapshot({
+          targetingKey: 'u-9',
+          stickyVariants: { cta: 'blue' },
+        })}
+        // Both sides read the sticky map off the same cookie while
+        // `targetingKey` is a server-side id the client does not carry. The
+        // engine reads the map before it reads the bucketing field, so this
+        // context assigns `blue` with source `'sticky'` too.
+        context={{ stickyVariants: { cta: 'blue' } }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+    expect(reports.filter((report) => report.kind === 'missing-field')).toEqual(
+      [],
+    );
+  });
+
   it('names no control for a shipped assignment on a feature this store lacks', () => {
     const store = storeAt('v1');
     const shipped = store.snapshot({ targetingKey: 'u-9' });
