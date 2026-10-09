@@ -193,6 +193,58 @@ describe('Features.snapshot', () => {
     expect(parsed.features.snapshot().version).toBe('v1');
   });
 
+  it('states no version for a store a toggle moved off the served document', () => {
+    const parsed = parseFeatureConfig(served('v7'));
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+    const written = parsed.features.toggle('cta', false);
+
+    expect(written.ok).toBe(true);
+    expect(
+      'version' in parsed.features.snapshot({ targetingKey: 'u-4711' }),
+    ).toBe(false);
+    expect(parsed.features.version).toBe('v7');
+  });
+
+  it('states the version a toggle that moved no decision left in place', () => {
+    const parsed = parseFeatureConfig(served('v7'));
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+    const written = parsed.features.toggle('cta', true);
+
+    expect(written.ok).toBe(true);
+    expect(parsed.features.snapshot().version).toBe('v7');
+  });
+
+  it('states the version again once a reload discarded the toggle', () => {
+    const parsed = parseFeatureConfig(served('v7'));
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+    parsed.features.toggle('cta', false);
+    const accepted = parsed.features.reload(served('v8'));
+
+    expect(accepted.ok).toBe(true);
+    expect(parsed.features.snapshot().version).toBe('v8');
+  });
+
+  it('keeps stating no version when a refused reload leaves the toggle standing', () => {
+    const parsed = parseFeatureConfig(served('v7'));
+    if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+    parsed.features.toggle('cta', false);
+    const refused = parsed.features.reload({
+      version: 'v8',
+      features: [{ key: 'cta', enabled: true, dependsOn: ['absent'] }],
+    });
+
+    expect(refused.ok).toBe(false);
+    expect('version' in parsed.features.snapshot()).toBe(false);
+  });
+
+  it('states no version for a toggle a store with no version carries', () => {
+    const features = createFeatures(SPLIT);
+    const written = features.toggle('cta', false);
+
+    expect(written.ok).toBe(true);
+    expect('version' in features.snapshot()).toBe(false);
+  });
+
   it('resolves against the document a reload installed', () => {
     const parsed = parseFeatureConfig(
       serializeConfig(createFeatures([{ key: 'checkout', enabled: true }]), {
