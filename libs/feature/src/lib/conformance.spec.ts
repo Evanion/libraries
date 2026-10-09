@@ -1104,21 +1104,37 @@ describe('the published plan fixture', () => {
       ),
     );
 
-    const decisions = resolvePlan(features, planFixture.plan, dated);
+    const clocks = [
+      planFixture.buildContext.now,
+      planFixture.context.now,
+      '1999-01-01T00:00:00Z',
+      '2099-01-01T00:00:00Z',
+    ];
+    const finished = [
+      ...clocks.map((stated) =>
+        resolvePlan(features, planFixture.plan, dated, {
+          now: new Date(stated),
+        }),
+      ),
+      resolvePlan(features, planFixture.plan, dated),
+    ];
 
     // What the plan buys: every feature whose answer the clock decides was
     // settled at the build instant, so the client needs no clock to finish
-    // the plan. The filter is this case's own guard -- a rule on `now` added
-    // to a feature that does not freeze time would make the published
-    // decisions depend on the host clock, and this case would start failing
-    // somewhere other than here.
+    // the plan. The four instants span both windows the build froze -- one
+    // inside them, one past them, one decades either side -- and the fifth
+    // pass states none and gets the host clock, so a pass that re-runs a
+    // settled entry's rules disagrees on one of the five. The filter is this
+    // case's own guard: a rule on `now` added to a feature that does not
+    // freeze time would make the published decisions depend on the clock, and
+    // this case would start failing somewhere other than here.
     expect(now).toBeTypeOf('string');
     expect(onNow.map((definition) => definition.freezeTimeAtBuild)).toEqual(
       onNow.map(() => true),
     );
-    expect(JSON.parse(JSON.stringify(decisions))).toEqual(
-      planFixture.decisions,
-    );
+    expect(
+      finished.map((decisions) => JSON.parse(JSON.stringify(decisions))),
+    ).toEqual(finished.map(() => planFixture.decisions));
   });
 
   it('states the digest of the document it carries', () => {
