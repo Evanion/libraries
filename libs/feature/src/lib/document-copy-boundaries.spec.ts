@@ -600,6 +600,84 @@ describe('the one pointer a definition carries a Date at', () => {
     );
   });
 
+  it('refuses the Date a variant value shares with a window condition', () => {
+    // The walk memoizes per place and not per object, so one condition object
+    // a definition reaches from both pointers is copied twice: § 8 keeps the
+    // `Date` at the condition and refuses it at the variant value. A single
+    // memo over both hands the second pointer the first one's copy, and the
+    // order the definition lists its members in then decides the answer.
+    const condition = {
+      field: 'now',
+      op: 'after',
+      value: new Date('2026-01-01T00:00:00.000Z'),
+    };
+    const variants = [{ name: 'blue', weight: 1, order: 0, value: condition }];
+    const rules = [{ when: [condition] }];
+    const refusal =
+      '"/variants/0/value/value" carries a Date, and a document carries none';
+
+    expect([
+      raised(() =>
+        documentCopy({
+          key: 'promo',
+          enabled: true,
+          rules,
+          ...TRAVELS,
+          variants,
+        }),
+      ),
+      raised(() =>
+        documentCopy({
+          key: 'promo',
+          enabled: true,
+          ...TRAVELS,
+          variants,
+          rules,
+        }),
+      ),
+    ]).toEqual([refusal, refusal]);
+  });
+
+  it('refuses the Date in a condition array a variant value shares', () => {
+    const when = [{ field: 'now', op: 'before', value: new Date(0) }];
+
+    const thrown = raised(() =>
+      documentCopy({
+        key: 'promo',
+        enabled: true,
+        rules: [{ when }],
+        ...TRAVELS,
+        variants: [{ name: 'blue', weight: 1, order: 0, value: when }],
+      }),
+    );
+
+    expect(thrown).toBe(
+      '"/variants/0/value/0/value" carries a Date, and a document carries none',
+    );
+  });
+
+  it('writes one copy of a condition two rules hold', () => {
+    const condition = {
+      field: 'now',
+      op: 'before',
+      value: new Date(1_700_000_000_000),
+    };
+
+    const copy = documentCopy({
+      key: 'promo',
+      enabled: true,
+      rules: [{ when: [condition] }, { when: [condition] }],
+    });
+    const first = copy.rules[0]?.when[0];
+    const second = copy.rules[1]?.when[0];
+
+    expect([
+      first === second,
+      first?.value instanceof Date,
+      first?.value === condition.value,
+    ]).toEqual([true, true, false]);
+  });
+
   it('carries an invalid Date, which validateConditions is the reader of', () => {
     const copied = conditionOf(
       documentCopy(
