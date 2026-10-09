@@ -602,10 +602,61 @@ describe('the one pointer a definition carries a Date at', () => {
 
   it('carries an invalid Date, which validateConditions is the reader of', () => {
     const copied = conditionOf(
-      documentCopy(windowed({ field: 'now', op: 'after', value: new Date('x') })),
+      documentCopy(
+        windowed({ field: 'now', op: 'after', value: new Date('x') }),
+      ),
     );
 
     expect(Number.isNaN((copied['value'] as Date).getTime())).toBe(true);
+  });
+
+  it('carries the string and the number form of a window boundary', () => {
+    const iso = conditionOf(
+      documentCopy(
+        windowed({
+          field: 'now',
+          op: 'after',
+          value: '2026-01-01T00:00:00.000Z',
+        }),
+      ),
+    );
+    const epoch = conditionOf(
+      documentCopy(
+        windowed({ field: 'now', op: 'before', value: 1_700_000_000_000 }),
+      ),
+    );
+
+    expect([iso['value'], epoch['value']]).toEqual([
+      '2026-01-01T00:00:00.000Z',
+      1_700_000_000_000,
+    ]);
+  });
+
+  it('decides a literal whose boundary is an ISO string on a host with no structuredClone', () => {
+    const literal = () => [
+      {
+        key: 'promo' as const,
+        enabled: true,
+        rules: [
+          {
+            when: [
+              {
+                field: 'now' as const,
+                op: 'after' as const,
+                value: '2026-01-01T00:00:00.000Z',
+              },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const there = onJsonOnlyHost(() => createFeatures(literal()));
+
+    expect([
+      there.isEnabled('promo', { now: new Date('2026-06-01T00:00:00.000Z') }),
+      there.isEnabled('promo', { now: new Date('2025-06-01T00:00:00.000Z') }),
+    ]).toEqual([true, false]);
   });
 
   it('refuses a Date under a variant value spelled like a window condition', () => {
