@@ -754,6 +754,44 @@ describe('the one pointer a definition carries a Date at', () => {
     ]);
   });
 
+  it('refuses a Date under an object at a window condition value', () => {
+    // A condition's own members sit off the chain, so the object at a window
+    // condition's `value` is no window itself. `windowFault` at
+    // `conditions.ts:53` reads no fault off an object, so a copy that kept
+    // this `Date` would build a store `serialized` at `serialize.ts:95` then
+    // refuses, and the host would hold a document no publisher can serve.
+    const thrown = raised(() =>
+      documentCopy(
+        windowed({
+          field: 'now',
+          op: 'after',
+          value: { op: 'before', value: new Date(0) },
+        }),
+      ),
+    );
+
+    expect(thrown).toBe(
+      '"/rules/0/when/0/value/value" carries a Date, and a document carries none',
+    );
+  });
+
+  it('refuses a Date under an object at a second member of a window condition', () => {
+    const thrown = raised(() =>
+      documentCopy(
+        windowed({
+          field: 'now',
+          op: 'after',
+          value: new Date(0),
+          window: { op: 'after', value: new Date(0) },
+        }),
+      ),
+    );
+
+    expect(thrown).toBe(
+      '"/rules/0/when/0/window/value" carries a Date, and a document carries none',
+    );
+  });
+
   it('carries an invalid Date, which validateConditions is the reader of', () => {
     const copied = conditionOf(
       documentCopy(
