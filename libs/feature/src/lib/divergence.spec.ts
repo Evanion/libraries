@@ -195,4 +195,56 @@ describe('reportDivergence', () => {
 
     expect(() => reportDivergence(observer, REPORT)).not.toThrow();
   });
+
+  it('discards the rejection from an async observer', async () => {
+    const unhandled: unknown[] = [];
+    const collect = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', collect);
+
+    try {
+      reportDivergence(async () => {
+        await Promise.resolve();
+        throw new Error('observer');
+      }, REPORT);
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      process.off('unhandledRejection', collect);
+    }
+
+    expect(unhandled).toEqual([]);
+  });
+
+  it('hands a rejection handler to a thenable an observer answers', () => {
+    const rejectionHandlers: unknown[] = [];
+    const thenable = {
+      then(_onFulfilled: unknown, onRejected: unknown) {
+        rejectionHandlers.push(onRejected);
+      },
+    };
+
+    reportDivergence(() => thenable, REPORT);
+
+    expect(rejectionHandlers).toEqual([expect.any(Function)]);
+  });
+
+  it('keeps what the observer did before it rejected', async () => {
+    const seen: DivergenceReport[] = [];
+    const unhandled: unknown[] = [];
+    const collect = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', collect);
+
+    try {
+      reportDivergence(async (report) => {
+        seen.push(report);
+        await Promise.resolve();
+        throw new Error('observer');
+      }, REPORT);
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      process.off('unhandledRejection', collect);
+    }
+
+    expect(seen).toEqual([REPORT]);
+    expect(unhandled).toEqual([]);
+  });
 });
