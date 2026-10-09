@@ -1192,6 +1192,23 @@ describe('createFeatureContext', () => {
     expect(reports).toEqual([]);
   });
 
+  it('renders the shipped set through the bound provider on a mismatch', () => {
+    // The bound provider states no policy of its own, so this holds the
+    // default both providers answer a mismatch with.
+    const bound = createFeatureContext(storeAt('v2'));
+
+    render(
+      <bound.FeatureProvider
+        decisions={shippedBlue('v1')}
+        context={{ targetingKey: 'u-9' }}
+      >
+        <Cta />
+      </bound.FeatureProvider>,
+    );
+
+    expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+  });
+
   it('renders what the bound provider resolves itself under re-resolve', () => {
     const bound = createFeatureContext(storeAt('v2'));
 

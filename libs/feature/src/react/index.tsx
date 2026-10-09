@@ -191,6 +191,18 @@ export interface FeatureProviderProps<
 const UNDELIVERED: readonly never[] = Object.freeze([]);
 
 /**
+ * What a provider does about a version mismatch where an application states
+ * nothing.
+ *
+ * One constant for both providers. A wrong experiment result is the failure
+ * that produces no error, no warning and no way to notice afterwards, and a
+ * stale kill switch produces a complaint within minutes (§ 3), so the two
+ * providers cannot hold different answers and a second literal is a second
+ * answer waiting to drift.
+ */
+const ON_MISMATCH: VersionMismatchPolicy = 'use-shipped';
+
+/**
  * The value a provider publishes, with one pass of the checks per set of
  * inputs and every report of that pass handed to the observer the current
  * render holds.
@@ -228,9 +240,10 @@ function usePublished<S extends Record<keyof S, VariantInfo | never>>(
   features: Features<S>,
   context: EvaluationContext | undefined,
   decisions: DecisionSet<S> | undefined,
-  onVersionMismatch: VersionMismatchPolicy,
+  onVersionMismatch: VersionMismatchPolicy | undefined,
   onDivergence: DivergenceObserver<keyof S & FeatureKey> | undefined,
 ): FeatureContextValue {
+  const policy = onVersionMismatch ?? ON_MISMATCH;
   const installed = onDivergence !== undefined;
   const published = useMemo(() => {
     const reports: DivergenceReport<keyof S & FeatureKey>[] = [];
@@ -240,13 +253,13 @@ function usePublished<S extends Record<keyof S, VariantInfo | never>>(
           features,
           context,
           decisions,
-          onVersionMismatch,
+          policy,
           installed ? (report) => reports.push(report) : undefined,
         ),
       ),
     };
     return { value, reports };
-  }, [features, context, decisions, onVersionMismatch, installed]);
+  }, [features, context, decisions, policy, installed]);
 
   const [delivered, setDelivered] =
     useState<readonly DivergenceReport<keyof S & FeatureKey>[]>(UNDELIVERED);
@@ -267,7 +280,7 @@ export function FeatureProvider<
   context,
   decisions,
   onDivergence,
-  onVersionMismatch = 'use-shipped',
+  onVersionMismatch,
   children,
 }: FeatureProviderProps<S>) {
   const value = usePublished(
@@ -497,7 +510,7 @@ export function createFeatureContext<
       context,
       decisions,
       onDivergence,
-      onVersionMismatch = 'use-shipped',
+      onVersionMismatch,
       children,
     }) {
       const value = usePublished(
