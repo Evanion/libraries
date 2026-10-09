@@ -678,6 +678,82 @@ describe('the one pointer a definition carries a Date at', () => {
     ]).toEqual([true, true, false]);
   });
 
+  it('carries the Date at a window the second rule opens at its second condition', () => {
+    const boundary = new Date(1_700_000_000_000);
+
+    const copy = documentCopy({
+      key: 'promo',
+      enabled: true,
+      rules: [
+        { when: [{ field: 'tier', op: 'eq', value: 'pro' }] },
+        {
+          when: [
+            { field: 'tier', op: 'eq', value: 'pro' },
+            { field: 'now', op: 'after', value: boundary },
+          ],
+        },
+      ],
+    });
+    const opened = copy.rules[1]?.when[1];
+
+    expect([
+      opened?.value instanceof Date,
+      opened?.value === boundary,
+      (opened?.value as Date).getTime(),
+    ]).toEqual([true, false, 1_700_000_000_000]);
+  });
+
+  it('names the index of the array member a Date arrived at', () => {
+    // Every other refusal in this file arrives at index 0, which a pointer
+    // built as `${at}/0` reports as well as the index does. The third case
+    // reads both halves at once: the gate reaches `/rules/1/when/1`, so the
+    // `Date` at `value` is kept and `recordedAt` beside it is what raises.
+    expect([
+      raised(() =>
+        documentCopy({
+          key: 'cta',
+          enabled: true,
+          ...TRAVELS,
+          variants: [
+            { name: 'blue', weight: 1, order: 0, value: 'blue' },
+            { name: 'green', weight: 1, order: 1, value: new Date(0) },
+          ],
+        }),
+      ),
+      raised(() =>
+        documentCopy({
+          key: 'checkout',
+          enabled: true,
+          dependsOn: ['promo', 'cta', new Date(0)],
+        }),
+      ),
+      raised(() =>
+        documentCopy({
+          key: 'promo',
+          enabled: true,
+          rules: [
+            { when: [{ field: 'tier', op: 'eq', value: 'pro' }] },
+            {
+              when: [
+                { field: 'tier', op: 'eq', value: 'pro' },
+                {
+                  field: 'now',
+                  op: 'after',
+                  value: new Date(0),
+                  recordedAt: new Date(0),
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    ]).toEqual([
+      '"/variants/1/value" carries a Date, and a document carries none',
+      '"/dependsOn/2" carries a Date, and a document carries none',
+      '"/rules/1/when/1/recordedAt" carries a Date, and a document carries none',
+    ]);
+  });
+
   it('carries an invalid Date, which validateConditions is the reader of', () => {
     const copied = conditionOf(
       documentCopy(
