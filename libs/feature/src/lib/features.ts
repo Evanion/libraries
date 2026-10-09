@@ -1,4 +1,5 @@
 import { validateConditions } from './conditions.js';
+import { configCopier } from './document-copy.js';
 import { instantEpoch } from './instant.js';
 import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
@@ -579,16 +580,21 @@ function changedKeys(
  * `serializeConfig` emits the move, and an unfrozen envelope takes a write
  * through the `envelope` getter that carries `version` with it.
  *
- * `structuredClone` raises `DataCloneError` for a leaf it cannot carry, which
- * `reload` answers with an `unknown-member` issue and the construction path
- * rethrows as a `FeatureConfigError` carrying the same text.
+ * `configCopier` answers which copier this host runs, and either one raises
+ * over a leaf no document carries: `structuredClone` raises `DataCloneError`
+ * naming the leaf, and `documentCopy` raises `FeatureConfigError` naming the
+ * path. `reload` answers either with an `unknown-member` issue and the
+ * construction path rethrows as a `FeatureConfigError` carrying the same text.
+ *
+ * This runs for a document and nothing else, which `:815` and `:1181` are the
+ * two callers of, so it reads the copier with no branch on what it was handed.
  */
 function envelopeOf(document: FeatureConfig<FeatureKey>): ConfigEnvelope {
   const members: Record<string, unknown> = { ...document };
   delete members['features'];
   delete members['digest'];
 
-  return deepFreeze(structuredClone(members)) as ConfigEnvelope;
+  return deepFreeze(configCopier()(members)) as ConfigEnvelope;
 }
 
 /**
@@ -787,6 +793,9 @@ export function createFeatures(
   // value nested deeper than the stack holds clears the checker and raises
   // `DataCloneError` or `RangeError` out of this walk, and `deepFreeze` hands
   // `Object.freeze` a typed array holding elements and raises `TypeError`.
+  // `configCopier` answers which copier this host runs, and `documentCopy`
+  // raises `FeatureConfigError` naming the path where `structuredClone` raises
+  // `DataCloneError` naming the leaf.
   //
   // The two paths answer such a value differently, which is the split the
   // `UNCOPYABLE` docblock in `parse.spec.ts` draws. A bare array is the
@@ -800,8 +809,9 @@ export function createFeatures(
   // `reload` keys the same issue on the same definition for the same bytes.
   let config: readonly FeatureDefinition<FeatureKey>[];
   try {
+    const copier = configCopier();
     config = Object.freeze(
-      supplied.map((definition) => deepFreeze(structuredClone(definition))),
+      supplied.map((definition) => deepFreeze(copier(definition))),
     );
   } catch (raise) {
     if (!isDocument(definitions)) throw raise;
@@ -1209,7 +1219,10 @@ export function createFeatures(
     // `collectIssues` declares nothing about a variant `value`, which
     // `SerializedVariantSpec` types `unknown`, so a function, a symbol or a
     // value nested deeper than the stack holds clears the checker and raises
-    // `DataCloneError` or `RangeError` out of the walk below. Decision 11 answers a candidate with
+    // out of the walk below: `structuredClone` raises `DataCloneError` or
+    // `RangeError`, and `documentCopy`, which `configCopier` answers with on a
+    // host defining no such global, raises `FeatureConfigError` naming the
+    // path. Decision 11 answers a candidate with
     // a result, and every assignment the store reads sits after this block, so
     // the report leaves the installed document deciding.
     let next: {
@@ -1221,11 +1234,10 @@ export function createFeatures(
       envelope: ConfigEnvelope;
     };
     try {
+      const copier = configCopier();
       const nextConfig = Object.freeze(
         candidate.features.map((definition) =>
-          deepFreeze(
-            structuredClone(definition) as FeatureDefinition<FeatureKey>,
-          ),
+          deepFreeze(copier(definition) as FeatureDefinition<FeatureKey>),
         ),
       );
       next = {

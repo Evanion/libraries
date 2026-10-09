@@ -695,6 +695,53 @@ describe('the copy a document asks the construction path for', () => {
     expect(build).toThrow('() => 1 could not be cloned.');
     expect(build).not.toThrow(FeatureConfigError);
   });
+
+  it('builds a store with TextEncoder and structuredClone deleted from globalThis', () => {
+    // § 8 of `docs/specs/2026-09-23-feature-hydration.md` runs this on a native
+    // client embedding a JavaScript engine with no DOM, which provides `JSON`
+    // and neither of these.
+    const encoder = globalThis.TextEncoder;
+    const clone = globalThis.structuredClone;
+    Reflect.deleteProperty(globalThis, 'TextEncoder');
+    Reflect.deleteProperty(globalThis, 'structuredClone');
+
+    try {
+      const parsed = parseFeatureConfig({
+        version: 'v1',
+        features: [{ key: 'checkout', enabled: true }],
+      });
+
+      expect(parsed.ok && parsed.features.isEnabled('checkout')).toBe(true);
+    } finally {
+      Reflect.set(globalThis, 'TextEncoder', encoder);
+      Reflect.set(globalThis, 'structuredClone', clone);
+    }
+  });
+
+  it('reports a document it refuses with the same two globals deleted', () => {
+    const encoder = globalThis.TextEncoder;
+    const clone = globalThis.structuredClone;
+    Reflect.deleteProperty(globalThis, 'TextEncoder');
+    Reflect.deleteProperty(globalThis, 'structuredClone');
+
+    try {
+      const result = parseFeatureConfig(carrying(() => 1));
+
+      expect(result.ok === false && result.issues).toEqual([
+        {
+          code: 'unknown-member',
+          message:
+            'feature "cta" carries a value no copy of the definition holds: ' +
+            '"/variants/0/value" carries a function, and a document carries none',
+          key: 'cta',
+          path: '/features/0',
+        },
+      ]);
+    } finally {
+      Reflect.set(globalThis, 'TextEncoder', encoder);
+      Reflect.set(globalThis, 'structuredClone', clone);
+    }
+  });
 });
 
 /**

@@ -316,6 +316,37 @@ describe('reload', () => {
     });
     expect(features.isEnabled('child')).toBe(false);
   });
+
+  it('installs a candidate with TextEncoder and structuredClone deleted from globalThis', () => {
+    // § 7 of `docs/specs/2026-09-23-feature-config-distribution.md` owns this
+    // as the atomic install, and § 8 of
+    // `docs/specs/2026-09-23-feature-hydration.md` runs the holder on a native
+    // client providing `JSON` and neither global. A store that hydrates there
+    // and takes no second document is a store no poller drives.
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+    const encoder = globalThis.TextEncoder;
+    const clone = globalThis.structuredClone;
+    Reflect.deleteProperty(globalThis, 'TextEncoder');
+    Reflect.deleteProperty(globalThis, 'structuredClone');
+
+    try {
+      const result = features.reload({
+        version: 42,
+        features: [{ key: 'checkout', enabled: false }],
+      });
+
+      expect(result).toEqual({
+        ok: true,
+        version: 42,
+        previousVersion: undefined,
+        changed: ['checkout'],
+      });
+      expect(features.isEnabled('checkout')).toBe(false);
+    } finally {
+      Reflect.set(globalThis, 'TextEncoder', encoder);
+      Reflect.set(globalThis, 'structuredClone', clone);
+    }
+  });
 });
 
 describe('reload, the candidate it reads as a served document', () => {

@@ -1,4 +1,5 @@
 import type { ConfigIssue, SerializedDefinition } from './config.js';
+import { configCopier } from './document-copy.js';
 import type { FeatureKey } from './types.js';
 
 /**
@@ -9,7 +10,10 @@ import type { FeatureKey } from './types.js';
  * for a function or a symbol and raises a `DOMException` over either, it
  * recurses once per level so a value nested deeper than the stack holds raises
  * `RangeError`, and `deepFreeze` hands `Object.freeze` a typed array holding
- * elements, which raises a `TypeError`.
+ * elements, which raises a `TypeError`. `documentCopy`, which `configCopier`
+ * answers with where the host defines no `structuredClone`, raises
+ * `FeatureConfigError` naming the path for each of those and for a `Date`, a
+ * `Map` and every other value JSON holds no form of.
  *
  * The checker is asked nothing about them. Decision 11 gives it the document
  * the publisher served and the literal an author wrote, and a question about
@@ -46,9 +50,10 @@ export function unreadable(
   features: readonly unknown[],
 ): readonly ConfigIssue[] {
   const text = unreadableText(raise);
+  const copier = configCopier();
   for (const [at, definition] of features.entries()) {
     try {
-      structuredClone(definition);
+      copier(definition);
       continue;
     } catch {
       // The checker passed before the construction path ran, so every
