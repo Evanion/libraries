@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createFeatures } from './features.js';
 import { resolvePlan } from './resolve-plan.js';
+import type { Decision } from './types.js';
 import type { DivergenceReport } from './divergence.js';
 import type { FeatureEvent } from './observe.js';
 
@@ -118,6 +119,34 @@ describe('resolvePlan', () => {
         by: 'targetingKey',
         bucket: 0.44809214142151177,
       },
+    });
+  });
+
+  it('drops a carried variant and its assignment from an entry for a split-less feature', () => {
+    const features = createFeatures([{ key: 'cta', enabled: true }]);
+    // The one input where the strip is observable: a feature declaring no
+    // variants, where `assignVariant` answers nothing and `withVariant` hands
+    // back what it was given. A typed plan cannot carry these three fields for
+    // such a feature, a wire payload can, and `resolvePlan` answers for the
+    // store it holds rather than the configuration the payload was written
+    // against.
+    const decision: Decision<'cta'> = {
+      key: 'cta',
+      enabled: true,
+      reason: 'default-on',
+      variant: 'blue',
+      value: { label: 'Get it' },
+      assignment: { source: 'weighted', by: 'targetingKey', bucket: 0.6 },
+    };
+
+    const decisions = resolvePlan(features, {
+      cta: { key: 'cta', resolved: 'deferred', needs: [], decision },
+    });
+
+    expect(decisions.cta).toEqual({
+      key: 'cta',
+      enabled: true,
+      reason: 'default-on',
     });
   });
 
