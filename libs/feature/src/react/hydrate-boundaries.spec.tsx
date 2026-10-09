@@ -549,6 +549,49 @@ describe('FeatureProvider', () => {
     expect(promo?.message).not.toContain('carries no');
   });
 
+  it('names the store gap for a shipped assignment on a key it declares with no variants', () => {
+    const store = pairAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    // A server one version ahead declares `banner` with variants and ships an
+    // assignment for it. This store holds the key and no variants, so its own
+    // engine assigns no variant for it whatever the context carries.
+    const ahead = {
+      ...shipped,
+      decisions: {
+        ...shipped.decisions,
+        banner: {
+          ...shipped.decisions.banner,
+          variant: 'wide',
+          assignment: { source: 'weighted', by: 'targetingKey', bucket: 0.5 },
+        },
+      },
+    } as unknown as DecisionSet<Pair>;
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={ahead}
+        // The context carries the field the server bucketed on, so the only
+        // thing this provider cannot reproduce is a variant set it never
+        // declared.
+        context={{ targetingKey: 'u-9' }}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Banner />
+      </FeatureProvider>,
+    );
+
+    const banner = reports.find((report) => report.key === 'banner');
+
+    expect(banner).toMatchObject({
+      kind: 'missing-field',
+      shipped: { variant: 'wide', source: 'weighted' },
+    });
+    expect(banner?.local).toBeUndefined();
+    expect(banner?.message).toContain('with no variants');
+  });
+
   it('names the field this provider buckets on where the two stores differ', () => {
     const shipped = storeAt('v1').snapshot({ targetingKey: 'u-9' });
     const reports: DivergenceReport[] = [];
