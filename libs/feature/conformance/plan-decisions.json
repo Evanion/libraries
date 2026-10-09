@@ -1,5 +1,5 @@
 {
-  "note": "One served document, one build-time plan, one client context, and the decisions any implementation must finish the plan with. See docs/specs/2026-09-23-feature-hydration.md § 9.",
+  "note": "One served document, the context a build planned it at, the plan that build published, one client context, and the decisions any implementation must finish the plan with. See docs/specs/2026-09-23-feature-hydration.md § 9.",
   "config": {
     "version": 1,
     "features": [
@@ -59,14 +59,34 @@
               {
                 "field": "now",
                 "op": "before",
-                "value": "2026-07-01T00:00:00+02:00"
+                "value": "2026-06-01T13:30:00+02:00"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "preorder-badge",
+        "enabled": true,
+        "freezeTimeAtBuild": true,
+        "rules": [
+          {
+            "id": "preorder-window",
+            "when": [
+              {
+                "field": "now",
+                "op": "before",
+                "value": "2026-06-01T14:00:00+02:00"
               }
             ]
           }
         ]
       }
     ],
-    "digest": "0ae0e6ee7a6a7ff1f2c86ec6d765d0e8"
+    "digest": "4a8def22c151d27796284552a3288426"
+  },
+  "buildContext": {
+    "now": "2026-06-01T11:00:00.000Z"
   },
   "plan": {
     "checkout": {
@@ -93,6 +113,17 @@
         "enabled": true,
         "reason": "rule-match",
         "rule": "launch-window"
+      }
+    },
+    "preorder-badge": {
+      "key": "preorder-badge",
+      "resolved": true,
+      "needs": [],
+      "decision": {
+        "key": "preorder-badge",
+        "enabled": true,
+        "reason": "rule-match",
+        "rule": "preorder-window"
       }
     }
   },
@@ -127,6 +158,12 @@
       "value": {
         "headline": "The shelf is open"
       }
+    },
+    "preorder-badge": {
+      "key": "preorder-badge",
+      "enabled": true,
+      "reason": "rule-match",
+      "rule": "preorder-window"
     }
   }
 }

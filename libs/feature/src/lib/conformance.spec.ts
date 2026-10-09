@@ -27,8 +27,13 @@ interface Fixture {
  * `Partial` is what a file on disk earns: the JSON names an entry per feature
  * and the type system has read none of it, so every lookup answers `undefined`
  * until a case asserts otherwise.
+ *
+ * `buildContext` is the context the publisher planned at. A holder reproduces
+ * the plan from it rather than trusting the file, and it carries the build
+ * instant and nothing else, which is what leaves two entries deferred.
  */
 interface PlanFixture extends Fixture {
+  buildContext: Fixture['context'];
   plan: Partial<Plan<AsSchema<InferSchema<FeatureConfig['features']>>>>;
 }
 
@@ -421,6 +426,93 @@ describe('the document the fixture publishes', () => {
     expect(decision.assignment).toEqual({ source: 'fallback', by: 'tenantId' });
   });
 
+  it('pairs the fallback variant with the value that variant declares', () => {
+    const tour = fixture.config.features.find(
+      (definition) => definition.key === 'onboarding-tour',
+    );
+    const ordered = [...(tour?.variants ?? [])].sort(
+      (one, other) => (one.order ?? 0) - (other.order ?? 0),
+    );
+    const decision = fixture.decisions['onboarding-tour'] as {
+      value?: unknown;
+    };
+
+    // The variant and its value travel together. A port that walks the
+    // bucketing order for the name and reads `variants[0].value` for the
+    // payload publishes `control` with the tour's three steps, which renders
+    // the experience the control exists to withhold.
+    expect(decision.value).toEqual(ordered[0]?.value);
+    expect(decision.value).not.toEqual(tour?.variants?.[0]?.value);
+  });
+
+  it('prints a bucket on every assignment a field settled and on no other', () => {
+    const printed = Object.values(fixture.decisions)
+      .map(
+        (decision) =>
+          (
+            decision as {
+              assignment?: { source: string; bucket?: number };
+            }
+          ).assignment,
+      )
+      .filter((assignment) => assignment !== undefined)
+      .map((assignment) => [assignment.source, 'bucket' in assignment]);
+
+    // `withVariant` writes `bucket` only where a bucketing value produced one,
+    // so the member's presence is the one place a reader can see which
+    // assignments the context decided. A port that prints the number it
+    // happened to compute, or omits it everywhere, disagrees on one of these
+    // three.
+    expect(printed).toEqual([
+      ['weighted', true],
+      ['weighted', true],
+      ['fallback', false],
+    ]);
+  });
+
+  it('falls back on a split a port reading the default field would settle', () => {
+    const defaulted = decisionsOver(fieldsDefaulted(fixture.config)) as Record<
+      string,
+      { assignment?: { source?: string } }
+    >;
+
+    // `onboarding-tour` buckets on `tenantId`, which this context does not
+    // carry, while it does carry `targetingKey`. A port that never reads
+    // `variantBy` settles the split on the default field and publishes a
+    // weighted assignment, so the fallback here is an answer only a port that
+    // reads the stated field reaches.
+    expect(fixture.context[DEFAULT_ROLLOUT_FIELD]).toBeTypeOf('string');
+    expect(defaulted['onboarding-tour']?.assignment?.source).toBe('weighted');
+  });
+
+  it('decides the same for a context stating the bucketing field as undefined', () => {
+    const decisions = createFeatures(fixture.config).resolve({
+      ...supplied(),
+      tenantId: undefined,
+    });
+
+    // A field a context carries as `undefined` is a field it does not carry.
+    // `assignVariant` reads the value, not the key, so the fallback this
+    // fixture publishes is what a subject whose tenant is unknown gets however
+    // the caller spelled the absence.
+    expect(JSON.parse(JSON.stringify(decisions))).toEqual(fixture.decisions);
+  });
+
+  it('decides something else for a bucketing field carried as an empty string', () => {
+    const decisions = createFeatures(fixture.config).resolve({
+      ...supplied(),
+      tenantId: '',
+    });
+
+    // `''` is a value the subject carries and not an absence, so the split
+    // settles on the hash of the empty string and the assignment is weighted.
+    // A port that reads a falsy field as a missing one publishes the fallback
+    // here and ships one bucket of every tenant the wrong experience.
+    expect(JSON.parse(JSON.stringify(decisions))).not.toEqual(
+      fixture.decisions,
+    );
+  });
+
   it('decides one rollout against the subject and one for it', () => {
     const refused = fixture.decisions['new-nav'] as {
       enabled: boolean;
@@ -676,6 +768,37 @@ describe('the document the fixture publishes', () => {
   });
 });
 
+/**
+ * What an engine finishes one plan into, for the plan fixture's client context.
+ *
+ * The two transforms below each drop one rule `resolvePlan` applies, so what
+ * this answers over them is what a port that never implemented that rule
+ * answers. A fixture such a port reproduces holds nothing about the rule.
+ */
+function finishedOver(plan: PlanFixture['plan']): unknown {
+  const features = createFeatures(planFixture.config);
+  return JSON.parse(
+    JSON.stringify(resolvePlan(features, plan, supplied(planFixture.context))),
+  );
+}
+
+/** The plan a port that reads no entry at all reads. */
+const PLAN_IGNORED: PlanFixture['plan'] = {};
+
+/** The plan a port that keeps no decision the build settled for one key reads. */
+function withoutDecision(
+  plan: PlanFixture['plan'],
+  key: string,
+): PlanFixture['plan'] {
+  return Object.fromEntries(
+    Object.entries(plan).map(([named, entry]) => {
+      if (named !== key) return [named, entry];
+      const { decision, ...rest } = entry ?? {};
+      return [named, rest];
+    }),
+  ) as PlanFixture['plan'];
+}
+
 describe('the published plan fixture', () => {
   it('finishes the plan into the decisions it publishes', () => {
     const features = createFeatures(planFixture.config);
@@ -757,5 +880,148 @@ describe('the published plan fixture', () => {
     // Tokyo. Issue #284.
     expect(offsetless(text)).toEqual([]);
     expect(text).toMatch(INSTANT);
+  });
+
+  it('plans the entries it publishes, for the build context it states', () => {
+    const features = createFeatures(planFixture.config);
+
+    const planned = features.plan(supplied(planFixture.buildContext));
+
+    // The plan is the half of this fixture no engine is handed, so a holder
+    // that cannot reproduce it is trusting a hand-written file. The build
+    // context carries the instant alone, which is what defers `pro-perks` on
+    // `plan` and `launch-banner` on `tenantId`.
+    expect(JSON.parse(JSON.stringify(planned))).toEqual(planFixture.plan);
+  });
+
+  it('names the members a holder reads, and no other', () => {
+    // § 9 defines a fixture as one document, one context and the expected
+    // decisions. A plan fixture adds the plan a build published and the
+    // context it was planned at, because a holder that cannot reproduce the
+    // plan is trusting a file nothing checks.
+    expect(Object.keys(planFixture).sort()).toEqual([
+      'buildContext',
+      'config',
+      'context',
+      'decisions',
+      'note',
+      'plan',
+    ]);
+  });
+
+  it('publishes decisions a pass that read no plan entry does not reach', () => {
+    // The case this fixture exists for. A port that hands back
+    // `features.resolve(context)` implements none of the three rules, and a
+    // fixture it reproduces holds nothing about any of them. `preorder-badge`
+    // is what separates the two: the build froze its window, the client
+    // instant has passed that window, and the published decision is the one
+    // the build settled.
+    expect(finishedOver(PLAN_IGNORED)).not.toEqual(planFixture.decisions);
+    expect(finishedOver(planFixture.plan)).toEqual(planFixture.decisions);
+  });
+
+  it('publishes a settled decision a re-decided entry does not reproduce', () => {
+    const redecided = finishedOver(
+      withoutDecision(planFixture.plan, 'preorder-badge'),
+    ) as Record<string, { enabled: boolean; reason: string }>;
+
+    // Rule 1, held on its own. `preorder-badge` resolved at build time and the
+    // published decision is the build's. A port that re-runs its rules against
+    // the client context answers off, because the window the build froze has
+    // closed by the instant the client states.
+    expect(redecided['preorder-badge']).toMatchObject({
+      enabled: false,
+      reason: 'no-rule-matched',
+    });
+    expect(planFixture.decisions['preorder-badge']).toMatchObject({
+      enabled: true,
+      reason: 'rule-match',
+    });
+  });
+
+  it('publishes a deferred enablement a re-decided entry does not reproduce', () => {
+    const redecided = finishedOver(
+      withoutDecision(planFixture.plan, 'launch-banner'),
+    ) as Record<string, { enabled: boolean; reason: string }>;
+
+    // Rule 3, held on its own. The entry settled enablement and deferred the
+    // split, so the client computes the assignment and reads enablement off
+    // the entry. A port that re-runs the rules to get the enablement it needs
+    // for the assignment answers off and ships no banner at all.
+    expect(redecided['launch-banner']).toMatchObject({
+      enabled: false,
+      reason: 'no-rule-matched',
+    });
+    expect(planFixture.decisions['launch-banner']).toMatchObject({
+      enabled: true,
+      reason: 'rule-match',
+    });
+  });
+
+  it('closes every frozen window between the build instant and the client one', () => {
+    const frozen = planFixture.config.features.filter(
+      (definition) => definition.freezeTimeAtBuild,
+    );
+    const closings = frozen.map((definition) =>
+      definition.rules
+        ?.flatMap((rule) => rule.when ?? [])
+        .find((condition) => condition.op === 'before'),
+    );
+    const built = new Date(planFixture.buildContext.now).getTime();
+    const rendered = new Date(planFixture.context.now).getTime();
+
+    // Every case above rests on these inequalities, and a window widened past
+    // the client instant would retire them while leaving them green.
+    // `freezeTimeAtBuild` is what entitles an entry to the build's answer:
+    // without it `planFeature` reads no `now` and defers the feature instead.
+    expect(frozen.map((definition) => definition.key)).toEqual([
+      'launch-banner',
+      'preorder-badge',
+    ]);
+    expect(
+      closings.map((condition) => {
+        const closesAt = new Date(String(condition?.value)).getTime();
+        return built < closesAt && rendered >= closesAt;
+      }),
+    ).toEqual(closings.map(() => true));
+  });
+
+  it('finishes the plan to the same decisions under any client clock', () => {
+    const features = createFeatures(planFixture.config);
+    const { now, ...dated } = planFixture.context;
+    const onNow = [...planFixture.config.features].filter((definition) =>
+      (definition.rules ?? []).some((rule) =>
+        (rule.when ?? []).some((condition) => condition.field === 'now'),
+      ),
+    );
+
+    const decisions = resolvePlan(features, planFixture.plan, dated);
+
+    // What the plan buys: every feature whose answer the clock decides was
+    // settled at the build instant, so the client needs no clock to finish
+    // the plan. The filter is this case's own guard -- a rule on `now` added
+    // to a feature that does not freeze time would make the published
+    // decisions depend on the host clock, and this case would start failing
+    // somewhere other than here.
+    expect(now).toBeTypeOf('string');
+    expect(onNow.map((definition) => definition.freezeTimeAtBuild)).toEqual(
+      onNow.map(() => true),
+    );
+    expect(JSON.parse(JSON.stringify(decisions))).toEqual(
+      planFixture.decisions,
+    );
+  });
+
+  it('states the digest of the document it carries', () => {
+    expect(planFixture.config.digest).toBe(configDigest(planFixture.config));
+  });
+
+  it('states a digest of this document and of no other', () => {
+    const moved: FeatureConfig = {
+      ...planFixture.config,
+      features: [...planFixture.config.features].reverse(),
+    };
+
+    expect(configDigest(moved)).not.toBe(planFixture.config.digest);
   });
 });
