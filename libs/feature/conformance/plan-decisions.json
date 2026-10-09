@@ -81,12 +81,37 @@
             ]
           }
         ]
+      },
+      {
+        "key": "shipping-promo",
+        "enabled": true,
+        "variantBy": "region",
+        "variantSeed": "shipping-v1",
+        "variants": [
+          {
+            "name": "threshold",
+            "weight": 30,
+            "order": 1,
+            "value": {
+              "copy": "Free shipping over 50"
+            }
+          },
+          {
+            "name": "control",
+            "weight": 70,
+            "order": 0,
+            "value": {
+              "copy": "Shipping from 4.90"
+            }
+          }
+        ]
       }
     ],
-    "digest": "4a8def22c151d27796284552a3288426"
+    "digest": "1a675c8430adb22bbc18aba8b06d5790"
   },
   "buildContext": {
-    "now": "2026-06-01T11:00:00.000Z"
+    "now": "2026-06-01T11:00:00.000Z",
+    "region": "eu-west"
   },
   "plan": {
     "checkout": {
@@ -124,6 +149,25 @@
         "enabled": true,
         "reason": "rule-match",
         "rule": "preorder-window"
+      }
+    },
+    "shipping-promo": {
+      "key": "shipping-promo",
+      "resolved": true,
+      "needs": [],
+      "decision": {
+        "key": "shipping-promo",
+        "enabled": true,
+        "reason": "default-on",
+        "variant": "threshold",
+        "assignment": {
+          "source": "weighted",
+          "by": "region",
+          "bucket": 0.9558700083289295
+        },
+        "value": {
+          "copy": "Free shipping over 50"
+        }
       }
     }
   },
@@ -164,6 +208,20 @@
       "enabled": true,
       "reason": "rule-match",
       "rule": "preorder-window"
+    },
+    "shipping-promo": {
+      "key": "shipping-promo",
+      "enabled": true,
+      "reason": "default-on",
+      "variant": "threshold",
+      "assignment": {
+        "source": "weighted",
+        "by": "region",
+        "bucket": 0.9558700083289295
+      },
+      "value": {
+        "copy": "Free shipping over 50"
+      }
     }
   }
 }
