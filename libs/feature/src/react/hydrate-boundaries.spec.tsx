@@ -1084,6 +1084,33 @@ describe('FeatureProvider', () => {
     expect(screen.getByTestId('cta')).toHaveTextContent('control');
   });
 
+  it('runs no diff under re-resolve with an observer in NODE_ENV production', () => {
+    // The one production input class that resolves locally and holds an
+    // observer to report to. `'re-resolve'` resolves for what it publishes,
+    // and the development diff reads the same resolution, so the production
+    // gate is the only thing between the two.
+    vi.stubEnv('NODE_ENV', 'production');
+    const reports: DivergenceReport[] = [];
+
+    render(
+      <FeatureProvider
+        features={storeAt('v2')}
+        decisions={shippedBlue('v1')}
+        context={{ targetingKey: 'u-9' }}
+        onVersionMismatch="re-resolve"
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    // The two sides differ on `cta`: the set ships `blue` and this store
+    // resolves `control`, which is a `'decision-differs'` report in
+    // development and nothing here.
+    expect(screen.getByTestId('cta')).toHaveTextContent('control');
+    expect(reports.map((report) => report.kind)).toEqual(['config-version']);
+  });
+
   it('reports once across a re-render that writes a new observer', () => {
     const store = storeAt('v1');
     const shipped = store.snapshot({ targetingKey: 'u-9' });
