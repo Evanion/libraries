@@ -96,9 +96,34 @@ const SALE = [
   },
 ] as const;
 
+/** A window every clock after 2020 is inside. */
+const OPEN = [
+  {
+    key: 'sale',
+    enabled: true,
+    rules: [
+      {
+        id: 'window',
+        when: [{ field: 'now', op: 'after', value: '2020-01-01T00:00:00Z' }],
+      },
+    ],
+  },
+] as const;
+
+/** The schema `parseFeatureConfig` builds the open window's store at. */
+type OpenSale = { sale: never };
+
 function storeAt(version: string) {
   const parsed = parseFeatureConfig<Split>(
     serializeConfig(createFeatures(SPLIT), { version }),
+  );
+  if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+  return parsed.features;
+}
+
+function openAt(version: string) {
+  const parsed = parseFeatureConfig<OpenSale>(
+    serializeConfig(createFeatures(OPEN), { version }),
   );
   if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
   return parsed.features;
@@ -483,6 +508,26 @@ describe('FeatureProvider', () => {
     );
 
     expect(screen.getByTestId('cta')).toHaveTextContent('blue');
+  });
+
+  it('resolves at its own clock under re-resolve when the stated instant names no date', () => {
+    const shipped = openAt('v1').snapshot({});
+
+    render(
+      <FeatureProvider
+        features={openAt('v2')}
+        decisions={{ ...shipped, now: 'the day before' }}
+        context={{}}
+        onVersionMismatch="re-resolve"
+      >
+        <Sale />
+      </FeatureProvider>,
+    );
+
+    // The window opened in 2020 and the provider publishes what it resolved
+    // itself. An invalid `Date` for the default instant answers every
+    // condition on `now` with `false`, so the window would read closed.
+    expect(screen.getByTestId('sale')).toHaveTextContent('true');
   });
 
   it('renders through every check it runs with no observer installed', () => {
