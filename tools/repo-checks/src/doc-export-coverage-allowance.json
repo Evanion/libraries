@@ -50,6 +50,7 @@
       "ReadonlyDate",
       "Reason",
       "ReloadResult",
+      "ResolvePlanOptions",
       "RolloutSpec",
       "Rule",
       "RuleOutcome",
@@ -80,6 +81,7 @@
       "evaluateCondition",
       "inRollout",
       "murmur3",
+      "resolvePlan",
       "ruleId",
       "useFeature",
       "useFeatureEnabled",
@@ -94,6 +96,7 @@
       "canonical",
       "evaluateCondition",
       "murmur3",
+      "resolvePlan",
       "ruleId",
       "useFeatures",
       "variantSeedOf"

@@ -21,6 +21,8 @@ export { canonical } from './lib/canonical.js';
 export { configDigest } from './lib/digest.js';
 export { ruleId } from './lib/rule-id.js';
 export { parseFeatureConfig } from './lib/parse.js';
+export { resolvePlan } from './lib/resolve-plan.js';
+export type { ResolvePlanOptions } from './lib/resolve-plan.js';
 export type {
   DecisionOrigin,
   DecisionSet,
