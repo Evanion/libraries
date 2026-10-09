@@ -21,8 +21,7 @@ export interface DecisionSet<
    * The config version that produced these.
    *
    * Absent for a store built from a literal, which carries no version to
-   * state, and absent for a store a local `toggle` moved off the document it
-   * installed. A consumer compares it with `!==` and orders nothing.
+   * state. A consumer compares it with `!==` and orders nothing.
    */
   readonly version?: string | number;
   /** The instant they were resolved at, ISO 8601. */
