@@ -447,6 +447,51 @@ set.decisions['checkout-cta'].variant; // -> 'control'
 
 <!-- #endregion snapshot -->
 
+## Finishing a Build-Time Plan on the Client
+
+To finalize which features a user sees, you use `resolvePlan`.
+
+A build pipeline has the configuration and no subject, so `features.plan` settles every feature the configuration alone decides and defers the rest. Each deferred entry names the context fields it still needs.
+
+In the client, where the subject is known, `resolvePlan` takes that plan plus a context and answers one decision per configured feature. The resolution follows three paths based on the entry's state:
+
+- **Settled:** A settled entry's decision passes through untouched and its rules do not run again.
+- **Partially Settled:** A deferred entry whose enablement is settled keeps that enablement and gets its variant assigned.
+- **Unsettled:** A deferred entry carrying no decision goes through the rules against the client context.
+
+Because plans are generated at different stages, `resolvePlan` handles the passage of time differently to ensure consistency across the UI. If a plan was built by a server render, it states an instant seconds old. To prevent a window boundary from moving half the tree between the two calls, the caller passes that instant as `resolvePlan(features, plan, context, { now: new Date(set.now) })`. If a plan was built at build time, the stated instant may be days old. In this case, the caller passes no instant, and `resolvePlan` reads the client's own clock.
+
+<!-- #region resolve-plan -->
+
+```ts @import.meta.vitest
+import { createFeatures, resolvePlan } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ],
+  },
+]);
+
+// At build time, with no subject to bucket on.
+const plan = features.plan({ now: new Date('2026-11-01T00:00:00Z') });
+
+plan['checkout-cta'].resolved; // -> 'deferred'
+plan['checkout-cta'].needs; // -> ['targetingKey']
+
+// In the client, where the subject is known.
+const decisions = resolvePlan(features, plan, { targetingKey: 'cust-0042' });
+
+decisions['checkout-cta'].variant; // -> 'control'
+decisions['checkout-cta'].assignment?.source; // -> 'weighted'
+```
+
+<!-- #endregion resolve-plan -->
+
 ## Rollouts
 
 <!-- #region rollout -->
