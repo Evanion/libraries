@@ -100,7 +100,7 @@ describe('FeatureProvider', () => {
   });
 
   it('accepts decisions resolved elsewhere, such as a build snapshot', () => {
-    const snapshot = createFeatures(definitions).resolve(inWindow);
+    const snapshot = createFeatures(definitions).snapshot(inWindow);
 
     render(
       <FeatureProvider

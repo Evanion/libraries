@@ -87,7 +87,7 @@ describe('the provider', () => {
     // The server-render handoff the react page documents. An observed store
     // answers the deeply readonly form, and a prop typed on the mutable form
     // alone refuses it.
-    const decisions = observed.resolve({ targetingKey: 'u1' });
+    const decisions = observed.snapshot({ targetingKey: 'u1' });
     const element: ReactElement = (
       <FeatureProvider features={observed} decisions={decisions} />
     );
@@ -104,7 +104,7 @@ describe('the provider', () => {
 
   it('takes them on the bound provider too', () => {
     const bound = createFeatureContext(observed);
-    const decisions = observed.resolve({ targetingKey: 'u1' });
+    const decisions = observed.snapshot({ targetingKey: 'u1' });
     const element: ReactElement = (
       <bound.FeatureProvider decisions={decisions} />
     );

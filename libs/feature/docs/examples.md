@@ -1157,7 +1157,7 @@ function Cta({ customerId }: { customerId: string }) {
 
 // app/page.tsx, a Server Component
 function Page({ customerId }: { customerId: string }) {
-  const decisions = features.resolve({ targetingKey: customerId });
+  const decisions = features.snapshot({ targetingKey: customerId });
 
   return (
     <FeatureProvider decisions={decisions}>
@@ -1323,15 +1323,18 @@ function Checkout() {
   return <p>{useFeatureEnabled('express-pickup') ? 'Express' : 'Standard'}</p>;
 }
 
-const fromServer = features.resolve();
-fromServer['express-pickup'] = {
+const fromServer = features.snapshot();
+fromServer.decisions['express-pickup'] = {
   key: 'express-pickup',
   enabled: false,
   reason: 'explicitly-off',
 };
-// A snapshot shipped as JSON reaches the provider unchecked.
+// A set shipped as JSON reaches the provider unchecked.
 const snapshot = JSON.parse(
-  JSON.stringify({ 'gift-cards': fromServer['gift-cards'] }),
+  JSON.stringify({
+    ...fromServer,
+    decisions: { 'gift-cards': fromServer.decisions['gift-cards'] },
+  }),
 );
 
 const served = (
@@ -1403,7 +1406,7 @@ forCustomer('cust-0042'); // -> '<button type="button">Buy</button>'
 /** @jsxRuntime classic */
 import * as React from 'react';
 import { createFeatures } from '@evanion/feature';
-import type { Decisions } from '@evanion/feature';
+import type { DecisionSet } from '@evanion/feature';
 import { FeatureProvider, useFeatureEnabled } from '@evanion/feature/react';
 import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -1419,7 +1422,7 @@ const features = createFeatures([
     rules: [{ id: 'a-share', rollout: { percent: 25 } }],
   },
 ]);
-type ShopDecisions = Decisions<{ 'express-pickup': never }>;
+type ShopDecisions = DecisionSet<{ 'express-pickup': never }>;
 
 // app/flags.tsx, a client module ('use client')
 function Flags({
@@ -1444,7 +1447,7 @@ function Layout({
   customerId: string;
   children: ReactNode;
 }) {
-  const decisions = features.resolve({ targetingKey: customerId });
+  const decisions = features.snapshot({ targetingKey: customerId });
   // Props crossing into a client module are serialised; JSON is the same test.
   const sent: ShopDecisions = JSON.parse(JSON.stringify(decisions));
 
