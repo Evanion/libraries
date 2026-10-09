@@ -13,12 +13,15 @@
  * Evaluation itself lives in the core. Nothing here decides anything.
  */
 
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef } from 'react';
 import type { Context, ReactElement, ReactNode } from 'react';
 import { publishedDecisions } from './hydrate.js';
 import type { VersionMismatchPolicy } from './hydrate.js';
 import type { DecisionSet } from '../lib/decision-set.js';
-import type { DivergenceObserver } from '../lib/divergence.js';
+import type {
+  DivergenceObserver,
+  DivergenceReport,
+} from '../lib/divergence.js';
 import type { Features } from '../lib/features.js';
 import type { DeepReadonly, FrozenWhenObserved } from '../lib/observe.js';
 import type {
@@ -183,6 +186,46 @@ export interface FeatureProviderProps<
   children?: ReactNode;
 }
 
+/**
+ * One observer identity for the life of a provider, calling whatever
+ * `onDivergence` the last render passed.
+ *
+ * `publishedDecisions` reports from inside the memo body, because § 4 requires
+ * both checks to report before React reconciles, so the memo's dependency list
+ * decides how often each check runs. An observer prop written inline is a new
+ * function on every render, and a memo depending on its identity re-ran the
+ * sufficiency pass, re-resolved the store for the diff and re-sent every
+ * report for a parent re-rendering on a keystroke. § 4 budgets one pass of
+ * each per mount and § 3 reports `'unversioned'` once.
+ *
+ * The memo reads the prop's presence and not its identity, because
+ * `publishedDecisions` asks whether an observer is installed and the value has
+ * to turn `undefined` where the prop does.
+ *
+ * The ref is synced in an effect, which is where React permits a write to one.
+ * A render that recomputes the memo therefore delivers to the observer the
+ * last commit installed. The mount is the pass § 4 names and `useRef` holds
+ * the mounting render's own prop, and an inline observer closing over a stable
+ * sink reaches the same sink whichever commit it came from.
+ */
+function useObserver<F extends FeatureKey>(
+  onDivergence: DivergenceObserver<F> | undefined,
+): DivergenceObserver<F> | undefined {
+  const latest = useRef(onDivergence);
+  useEffect(() => {
+    latest.current = onDivergence;
+  }, [onDivergence]);
+  const installed = onDivergence !== undefined;
+
+  return useMemo(
+    () =>
+      installed
+        ? (report: DivergenceReport<F>) => latest.current?.(report)
+        : undefined,
+    [installed],
+  );
+}
+
 export function FeatureProvider<
   S extends Record<keyof S, VariantInfo | never>,
 >({
@@ -193,6 +236,7 @@ export function FeatureProvider<
   onVersionMismatch = 'use-shipped',
   children,
 }: FeatureProviderProps<S>) {
+  const observer = useObserver(onDivergence);
   const value = useMemo<FeatureContextValue>(
     () => ({
       decisions: erased(
@@ -201,11 +245,11 @@ export function FeatureProvider<
           context,
           decisions,
           onVersionMismatch,
-          onDivergence,
+          observer,
         ),
       ),
     }),
-    [features, context, decisions, onVersionMismatch, onDivergence],
+    [features, context, decisions, onVersionMismatch, observer],
   );
 
   return (
@@ -430,6 +474,7 @@ export function createFeatureContext<
       onVersionMismatch = 'use-shipped',
       children,
     }) {
+      const observer = useObserver(onDivergence);
       const value = useMemo<FeatureContextValue>(
         () => ({
           decisions: erased(
@@ -438,11 +483,11 @@ export function createFeatureContext<
               context,
               decisions,
               onVersionMismatch,
-              onDivergence,
+              observer,
             ),
           ),
         }),
-        [given, context, decisions, onVersionMismatch, onDivergence],
+        [given, context, decisions, onVersionMismatch, observer],
       );
 
       return (

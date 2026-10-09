@@ -844,6 +844,57 @@ describe('FeatureProvider', () => {
     expect(screen.getByTestId('cta')).toHaveTextContent('control');
   });
 
+  it('reports once across a re-render that writes a new observer', () => {
+    const store = storeAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const context = {};
+    const reports: DivergenceReport[] = [];
+    // An observer prop written inline, which a parent re-rendering on a
+    // keystroke hands the provider as a new function every time.
+    const tree = () => (
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        context={context}
+        onDivergence={(report) => reports.push(report)}
+      >
+        <Cta />
+      </FeatureProvider>
+    );
+
+    const { rerender } = render(tree());
+    const mounted = reports.length;
+    rerender(tree());
+    rerender(tree());
+
+    expect(mounted).toBe(1);
+    expect(reports).toHaveLength(mounted);
+  });
+
+  it('reports again when a re-render changes the context', () => {
+    const store = storeAt('v1');
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const reports: DivergenceReport[] = [];
+    const observe = (report: DivergenceReport) => reports.push(report);
+    const tree = (context: Record<string, unknown>) => (
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        context={context}
+        onDivergence={observe}
+      >
+        <Cta />
+      </FeatureProvider>
+    );
+
+    const { rerender } = render(tree({}));
+    // A context identity the provider has not resolved yet, which is an input
+    // the checks have to read again.
+    rerender(tree({}));
+
+    expect(reports).toHaveLength(2);
+  });
+
   it('publishes the set a re-render hands it', () => {
     const store = storeAt('v1');
     const shipped = store.snapshot({ targetingKey: 'u-9' });
