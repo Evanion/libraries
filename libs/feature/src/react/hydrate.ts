@@ -274,13 +274,21 @@ export function publishedDecisions<
   // proves nothing about the two configurations, and a provider that discarded
   // the shipped set over it would discard it on every mount over a literal
   // store, which is the hydration divergence the spec's § 4 is about.
+  //
+  // `diff` is the only reader of a development resolution and
+  // `reportDivergence` returns on its first line for an observer that is not
+  // there (`divergence.ts:62`), so a provider mounted without `onDivergence`
+  // would resolve for nobody. That resolution is not free: a store built with
+  // `observe` emits a `'resolve'` event for it (`features.ts:1298-1308`), and
+  // the event names decisions this provider never publishes, so an exposure
+  // pipeline reading those events would record one subject twice under two
+  // variants.
   const reResolve =
     diverged === 'config-version' && onVersionMismatch === 're-resolve';
-  const development = !production();
-  const local =
-    reResolve || development ? features.resolve(settled) : undefined;
+  const diffing = observer !== undefined && !production();
+  const local = reResolve || diffing ? features.resolve(settled) : undefined;
 
-  if (development && local) diff(sent, erasedSet(local), observer);
+  if (diffing && local) diff(sent, erasedSet(local), observer);
   if (reResolve && local) return local;
 
   return shipped.decisions as Decisions<S> | DeepReadonly<Decisions<S>>;

@@ -687,6 +687,31 @@ describe('FeatureProvider', () => {
     );
   });
 
+  it('emits no resolve event for an observed store with no observer installed', () => {
+    const events: string[] = [];
+    const store = createFeatures(SPLIT, {
+      observe: (event) => {
+        events.push(event.type);
+      },
+    });
+    const shipped = store.snapshot({ targetingKey: 'u-9' });
+    const produced = events.length;
+
+    render(
+      <FeatureProvider
+        features={store}
+        decisions={shipped}
+        context={{ targetingKey: 'u-9' }}
+      >
+        <Cta />
+      </FeatureProvider>,
+    );
+
+    // Nothing reads a development resolution here, and the event it emits
+    // names decisions this provider never publishes.
+    expect(events).toHaveLength(produced);
+  });
+
   it('renders through every check it runs with no observer installed', () => {
     const store = createFeatures(CUSTOM);
     const shipped = store.snapshot({ accountId: 'a-1' });
