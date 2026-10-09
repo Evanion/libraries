@@ -58,6 +58,52 @@ describe('resolvePlan', () => {
     expect(decisions.cta.variant).toBe('control');
   });
 
+  it('keeps a deferred entry decision a client context would decide against', () => {
+    const features = createFeatures([
+      {
+        key: 'cta',
+        enabled: true,
+        rules: [
+          { id: 'pro', when: [{ field: 'plan', op: 'eq', value: 'pro' }] },
+        ],
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ] as const);
+    const plan = features.plan({ plan: 'pro' });
+
+    const decisions = resolvePlan(features, plan, {
+      plan: 'free',
+      targetingKey: 'u-0',
+    });
+
+    expect(plan.cta).toEqual({
+      key: 'cta',
+      resolved: 'deferred',
+      needs: ['targetingKey'],
+      decision: {
+        key: 'cta',
+        enabled: true,
+        reason: 'rule-match',
+        rule: 'pro',
+      },
+    });
+    expect(decisions.cta).toEqual({
+      key: 'cta',
+      enabled: true,
+      reason: 'rule-match',
+      rule: 'pro',
+      variant: 'blue',
+      assignment: {
+        source: 'weighted',
+        by: 'targetingKey',
+        bucket: 0.6062106641475111,
+      },
+    });
+  });
+
   it('resolves a deferred entry carrying no decision in full', () => {
     const features = createFeatures([
       {
