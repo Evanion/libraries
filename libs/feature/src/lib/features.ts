@@ -16,6 +16,7 @@ import type {
   UnobservedOptions,
 } from './observe.js';
 import type { ConfigEnvelope, FeatureConfig, ReloadResult } from './config.js';
+import type { DecisionSet, SnapshotOptions } from './decision-set.js';
 import type {
   Decision,
   Decisions,
@@ -122,6 +123,18 @@ export interface Features<
    * through the same `decide` as `resolve`.
    */
   plan(context?: EvaluationContext): FrozenWhenObserved<Frozen, Plan<S>>;
+  /**
+   * Every decision for one context, with the configuration version and the
+   * instant that produced them.
+   *
+   * `resolve` answers the decisions alone, and a consumer in another process
+   * cannot recover either member from them. A set states both, so a server
+   * states the instant once and no application passes `now` by hand.
+   */
+  snapshot(
+    context?: EvaluationContext,
+    options?: SnapshotOptions,
+  ): DecisionSet<S, Frozen>;
   /**
    * Writes intent, and reports which dependants go off with it.
    *
@@ -995,6 +1008,31 @@ export function createFeatures(
     return partition;
   };
 
+  const snapshot = (
+    context?: EvaluationContext,
+    options?: SnapshotOptions,
+  ): DecisionSet<Record<FeatureKey, VariantInfo>, boolean> => {
+    const evaluationContext = withNow(context);
+    const decisions = frozenWhenObserved(resolveAll(evaluationContext));
+
+    if (observed) {
+      emit({
+        type: 'resolve',
+        ...envelope(evaluationContext),
+        decisions,
+      } as FeatureEvent<Record<FeatureKey, VariantInfo>>);
+    }
+
+    return frozenWhenObserved({
+      ...(installed.version === undefined
+        ? {}
+        : { version: installed.version }),
+      now: evaluationContext.now.toISOString(),
+      origin: options?.origin ?? 'render',
+      decisions: decisions as Decisions<Record<FeatureKey, VariantInfo>>,
+    });
+  };
+
   const toggle = (
     key: FeatureKey,
     enabled: boolean,
@@ -1285,6 +1323,7 @@ export function createFeatures(
     valueOf: (key, context) =>
       resolveAll(withNow(context))[key]?.value as never,
     plan,
+    snapshot,
     toggle,
     reload,
   };
