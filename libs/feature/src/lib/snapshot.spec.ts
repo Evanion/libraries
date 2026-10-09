@@ -354,6 +354,20 @@ describe('Features.snapshot', () => {
     expect(features.snapshot().now).toBe('2026-03-04T05:06:07.008Z');
   });
 
+  it('reads the clock again for a second call that names no instant', () => {
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-04T09:00:00.000Z'));
+    const features = createFeatures([{ key: 'checkout', enabled: true }]);
+    const morning = features.snapshot();
+    vi.setSystemTime(new Date('2026-03-04T17:30:00.000Z'));
+
+    expect(morning.now).toBe('2026-03-04T09:00:00.000Z');
+    expect(features.snapshot().now).toBe('2026-03-04T17:30:00.000Z');
+  });
+
   it('names the field when the context holds an instant no string describes', () => {
     const features = createFeatures([{ key: 'checkout', enabled: true }]);
 
