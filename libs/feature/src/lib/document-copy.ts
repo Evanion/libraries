@@ -27,6 +27,28 @@ function carried(value: object): boolean {
   return proto === Object.prototype || proto === null;
 }
 
+/**
+ * Whether this object is the condition § 8 of
+ * `docs/specs/2026-09-23-feature-config-distribution.md` lets a `Date` reach.
+ *
+ * That section keeps `Instant` on `FeatureDefinition` with its `Date` member,
+ * "because `new Date('2026-10-01')` in a literal is what an author writes and
+ * `conditions.ts` already handles it", and `types.ts:22` types the member
+ * `string | number | Date`. `toEpoch` reads a `Date` and an ISO string to one
+ * epoch, so the two forms decide `before` and `after` alike, and
+ * `serializeConfig` converts the `Date` to its ISO string on the way out.
+ *
+ * `documentCondition` at `serialize.ts:179` reads the same two operators off
+ * the same member for the same reason. Neither reader asks whether the object
+ * around them is a `Condition`, so a variant value shaped `{ op: 'after', value:
+ * <Date> }` carries its `Date` here. `structuredClone` carries that value too,
+ * which is the answer this agreeing with it is worth more than a narrower test.
+ */
+function boundary(value: object): boolean {
+  const op = (value as { op?: unknown }).op;
+  return op === 'before' || op === 'after';
+}
+
 /** The constructor's name, for the refusal that names what arrived. */
 function named(value: object): string {
   const name = (value as { constructor?: { name?: unknown } }).constructor
@@ -83,9 +105,14 @@ function walk(value: unknown, at: string, ancestors: WeakSet<object>): unknown {
     if (!carried(held)) throw refuse(at, named(held));
 
     const copy: Record<string, unknown> = {};
+    const window = boundary(held);
     for (const [member, element] of Object.entries(held)) {
+      const pointer = `${at}/${escaped(member)}`;
       Object.defineProperty(copy, member, {
-        value: walk(element, `${at}/${escaped(member)}`, ancestors),
+        value:
+          window && member === 'value' && element instanceof Date
+            ? new Date(element.getTime())
+            : walk(element, pointer, ancestors),
         writable: true,
         enumerable: true,
         configurable: true,
@@ -112,6 +139,13 @@ function walk(value: unknown, at: string, ancestors: WeakSet<object>): unknown {
  * `Date` into a string the engine then compares against an `Instant` it did not
  * receive. So the walk is explicit, and the path it carries is relative to the
  * value the caller handed over.
+ *
+ * `configCopier` hands this to the literal path as well as the document path, so
+ * the value it walks is a `FeatureDefinition` an author wrote and not only the
+ * JSON a publisher served. `boundary` above is the one member where those two
+ * disagree: § 8 of `docs/specs/2026-09-23-feature-config-distribution.md` decides
+ * a `WindowCondition.value` keeps its `Date`, and a literal whose rule opens a
+ * window builds a store on every host because of it.
  */
 export function documentCopy<T>(value: T): T {
   return walk(value, '', new WeakSet<object>()) as T;

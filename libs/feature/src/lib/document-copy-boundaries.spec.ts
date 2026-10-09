@@ -5,6 +5,7 @@ import { configCopier, documentCopy } from './document-copy.js';
 import { FeatureConfigError } from './errors.js';
 import { createFeatures } from './features.js';
 import { parseFeatureConfig } from './parse.js';
+import { serializeConfig } from './serialize.js';
 import { validateConfig } from './validate.js';
 
 /**
@@ -429,5 +430,81 @@ describe('a variant value the two hosts answer differently', () => {
         path: '/features/0',
       },
     ]);
+  });
+});
+
+describe('the one member a definition carries a Date at', () => {
+  /**
+   * § 8 of `docs/specs/2026-09-23-feature-config-distribution.md` decides this
+   * one: "`FeatureDefinition` keeps `Instant` with its `Date` member, because
+   * `new Date('2026-10-01')` in a literal is what an author writes and
+   * `conditions.ts` already handles it". Task 5's deliverable has a JSON-only
+   * host build a store from a literal, and a literal whose rule opens a window
+   * is the literal that decision is about.
+   */
+  const opens = () => [
+    {
+      key: 'promo' as const,
+      enabled: true,
+      rules: [
+        {
+          when: [
+            {
+              field: 'now' as const,
+              op: 'after' as const,
+              value: new Date('2026-01-01T00:00:00.000Z'),
+            },
+          ],
+        },
+      ],
+    },
+  ];
+
+  it('carries the Date at a window boundary as a copy of the same instant', () => {
+    const source = {
+      op: 'before' as const,
+      value: new Date(1_700_000_000_000),
+    };
+
+    const copy = documentCopy(source);
+
+    expect([
+      copy.value instanceof Date,
+      copy.value === source.value,
+      copy.value.getTime(),
+    ]).toEqual([true, false, 1_700_000_000_000]);
+  });
+
+  it('refuses a Date at a condition value no window reads', () => {
+    const thrown = raised(() =>
+      documentCopy({ field: 'tier', op: 'eq', value: new Date(0) }),
+    );
+
+    expect(thrown).toBe('"/value" carries a Date, and a document carries none');
+  });
+
+  it('carries an invalid Date, which validateConditions is the reader of', () => {
+    const copy = documentCopy({ op: 'after' as const, value: new Date('x') });
+
+    expect(Number.isNaN(copy.value.getTime())).toBe(true);
+  });
+
+  it('builds a store from the literal on both hosts and decides it alike', () => {
+    const here = createFeatures(opens());
+    const there = onJsonOnlyHost(() => createFeatures(opens()));
+
+    expect([
+      here.isEnabled('promo', { now: new Date('2026-06-01T00:00:00.000Z') }),
+      there.isEnabled('promo', { now: new Date('2026-06-01T00:00:00.000Z') }),
+      there.isEnabled('promo', { now: new Date('2025-06-01T00:00:00.000Z') }),
+    ]).toEqual([true, true, false]);
+  });
+
+  it('serializes the literal built on either host to the one document', () => {
+    const there = onJsonOnlyHost(() => createFeatures(opens()));
+
+    expect(serializeConfig(there)).toEqual(
+      serializeConfig(createFeatures(opens())),
+    );
   });
 });
