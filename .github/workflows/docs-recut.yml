@@ -69,7 +69,7 @@ jobs:
       # recut.mjs refuses a line that was never released, a commit that does not
       # descend from its tag or is not on main, a reason another pin gives, and
       # a commit `nx release version --dry-run` versions as another release. It
-      # writes the pin and the pull request body, and nothing else.
+      # writes the pin and the summary body, and nothing else.
       - name: Re-cut
         id: recut
         env:
@@ -86,7 +86,7 @@ jobs:
             --slug "$SLUG" --segment "$SEGMENT" --sha "$target" --reason "$REASON" \
             --body "$RUNNER_TEMP/body.md"
           echo "short=${target:0:7}" >> "$GITHUB_OUTPUT"
-            cat "$RUNNER_TEMP/body.md" >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/body.md" >> "$GITHUB_STEP_SUMMARY"
 
       # The commit runs the repository's hooks like any other: the pre-commit
       # hook lints the affected projects through nx, and commitlint holds a body
@@ -111,7 +111,7 @@ jobs:
             -m "$(printf '%s\n' "$REASON" | fold -s -w 100)" \
             -m "Dispatched by @$ACTOR." \
             -- apps/docs/archives.json
-          for attempt in 1 2 3; do
+          for _ in 1 2 3; do
             if git push origin HEAD:main; then exit 0; fi
             git fetch origin main
             git rebase origin/main
