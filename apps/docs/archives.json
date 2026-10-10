@@ -6,13 +6,20 @@
       "sha": "d50a1c697033ad7fb721e4c478ba602ff04cd781",
       "path": "apps/docs/content/widget",
       "reason": "0.2.0's pages were at content/widget/, before the section took the package's name and the core took the slug"
+    },
+    "v0.3": {
+      "version": "0.3.0",
+      "tag": "@evanion/react-widget@0.3.0",
+      "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
+      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
     }
   },
   "acl": {
     "v0.1": {
       "version": "0.1.0",
       "tag": "@evanion/acl@0.1.0",
-      "sha": "d618051d725fb1c757969c41361d128396d3a697"
+      "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
+      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
     }
   },
   "urn": {
@@ -20,30 +27,60 @@
       "version": "1.1.1",
       "tag": "@evanion/urn@1.1.1",
       "sha": "c2979eaf0cc95ae74d8c06f74c93d7e44a91c7e6"
+    },
+    "v2": {
+      "version": "2.1.0",
+      "tag": "@evanion/urn@2.1.0",
+      "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
+      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
     }
   },
   "widget": {
     "v0.1": {
       "version": "0.1.0",
       "tag": "@evanion/widget@0.1.0",
-      "sha": "7b41c85a298b23f60e522328d691d61b2934c9f2",
-      "reason": "seed: @evanion/widget@0.1.0 carries no pages, and nx release version --dry-run computes 0.1.1 at this SHA"
+      "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
+      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
     }
   },
   "luhn": {
     "v3": {
       "version": "3.0.0",
       "tag": "@evanion/luhn@3.0.0",
-      "sha": "7b41c85a298b23f60e522328d691d61b2934c9f2",
-      "reason": "seed: @evanion/luhn@3.0.0 carries no pages, and nx release version --dry-run computes 3.0.1 at this SHA"
+      "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
+      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
     }
   },
   "token": {
     "v0.1": {
       "version": "0.1.0",
       "tag": "@evanion/token@0.1.0",
-      "sha": "7b41c85a298b23f60e522328d691d61b2934c9f2",
-      "reason": "seed: @evanion/token@0.1.0 carries no pages, and nx release version --dry-run computes 0.1.1 at this SHA"
+      "sha": "77650ee21e217600d390db7da6db144ac55c8cc0",
+      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+    }
+  },
+  "compose": {
+    "v2": {
+      "version": "2.1.0",
+      "tag": "@evanion/compose@2.1.0",
+      "sha": "77650ee21e217600d390db7da6db144ac55c8cc0",
+      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+    }
+  },
+  "nestjs-correlation-id": {
+    "v2": {
+      "version": "2.1.0",
+      "tag": "@evanion/nestjs-correlation-id@2.1.0",
+      "sha": "77650ee21e217600d390db7da6db144ac55c8cc0",
+      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+    }
+  },
+  "react-acl": {
+    "v0.1": {
+      "version": "0.1.0",
+      "tag": "@evanion/react-acl@0.1.0",
+      "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
+      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
     }
   }
 }
