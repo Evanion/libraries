@@ -71,8 +71,8 @@ be about the thing they installed.
    under a notice until its next x.y.0 release.
 6. An archived page keeps its values frozen and states the commit that produced
    them. Probes freeze rather than strip; playgrounds strip. Amends decision 7.
-7. A `workflow_dispatch` re-cuts one pinned version by opening a pull request that
-   changes one line of the pin file. It never pushes.
+7. A `workflow_dispatch` re-cuts one pinned version by committing one line of the
+   pin file to `main`. Amended 2026-10-11, see § 7.
 8. Internal links within a package section are relative. The 63 absolute ones are
    fixed at the source before any version directory exists.
 9. The two widget renderers stay at flat sibling slugs.
@@ -341,22 +341,26 @@ indefinitely, silently.
 ## 7. The re-cut
 
 `workflow_dispatch` with `slug`, `segment`, `sha` (default: current `main`) and a
-required non-empty `reason`. It opens a pull request changing one line of
-`archives.json`. It does not push.
+required non-empty `reason`. It commits the one-line change to `archives.json`
+and pushes it to `main` over the release deploy key, the way the Release
+workflow pushes its pin commit.
 
-That is the integrity answer. The ruleset's pull-request requirement becomes the
-control, no deploy-key bypass is involved, and the diff is the audit record —
-GitHub's own history says who asked, when, and why.
+Amended 2026-10-11 by the owner: the first design opened a pull request and
+never pushed, so the ruleset's pull-request requirement was the control. A
+workflow does not go through pull requests, and the repository does not let
+GitHub Actions open one. The control is now the dispatch: only someone with
+write access can start it, the guards below refuse a commit the release does
+not describe, and the commit names who dispatched it, when and why. The run's
+summary carries the diff the pull request body carried.
 
 Guards on the input:
 
 - The new SHA is a descendant of the tag's SHA and an ancestor of `main`. Stops
   pinning released documentation to an unrelated or unreviewed commit.
 - `(slug, segment)` names a version that was actually released.
-- The PR body renders `git diff <pinned-sha> <new-sha> -- apps/docs/content/<slug>/`
-  inline. This is the part that stops a quiet rewrite: a reviewer sees exactly how
-  the released documentation is about to change without going to look, and a
-  re-cut whose diff is 400 lines is visibly not a typo fix.
+- The run summary renders `git diff <pinned-sha> <new-sha> -- apps/docs/content/<slug>/`
+  inline, so the record of a re-cut shows exactly how the released documentation
+  changed, and a re-cut whose diff is 400 lines is visibly not a typo fix.
 - A repo-check asserts every pin whose SHA is not its tag's SHA carries a
   non-empty `reason`, and that reasons are unique — a copy-pasted justification is
   the failure mode.
