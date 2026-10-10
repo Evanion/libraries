@@ -4,7 +4,7 @@
 
 **Goal:** `@evanion/feature` and `@evanion/react-feature` are two released packages with no entry in `tools/repo-checks/src/doc-export-coverage-allowance.json`, a documentation section a reader can go from a first toggle to a multi-process deployment inside, and a library whose public surface sits in Nest, Express, Next, React Router and Astro without the application writing a workaround.
 
-**Architecture:** `libs/feature/src/react/**` becomes `libs/react-feature`, which is the shape this repository already uses for `acl`/`react-acl` and `widget`/`react-widget`. The 439 lines of decision-set adoption that sit inside that React directory move down into the core first, because every non-React framework needs them and after the extraction the core would hold none of it. The core gains a context-bound caller so a Nest service, an Express handler and an Astro middleware settle one clock per request the way `access.authorize(subject)` lets `apps/storefront-rsc` settle one actor per page view. The documentation allowance empties one subject at a time, each slice a page's worth of `##` headings and reference directives. The guide set then grows from 10 pages to 24, and the release flip moves the whole finished set under `content/next/`.
+**Architecture:** `libs/feature/src/react/**` becomes `libs/react-feature`, which is the shape this repository already uses for `acl`/`react-acl` and `widget`/`react-widget`. The 439 lines of decision-set adoption that sit inside that React directory move down into the core first, because every non-React framework needs them and after the extraction the core would hold none of it. The core gains a context-bound caller so a Nest service, an Express handler and an Astro middleware settle one clock per request the way `access.authorize(subject)` lets `apps/storefront-rsc` settle one actor per page view. The documentation allowance empties one subject at a time, each slice a page's worth of `##` headings and reference directives. The guide set then grows from 10 pages to 23, and the release flip moves the whole finished set under `content/next/`.
 
 **Tech Stack:** TypeScript 6, Vitest with `typecheck`, Nx 23.3.0, Nextra, Vite with rolldown for the React package's build and `tsc` for the core's.
 
@@ -39,11 +39,11 @@ Exact values. Every one of them is read off the tree at `origin/main` `77650ee2`
 - `@evanion/react-feature` declares `"@evanion/feature": "0.0.1"` under `dependencies` (exact, no caret) and `"react": "^18.0.0 || ^19.0.0"` under `peerDependencies`, non-optional. `tools/repo-checks/src/released-pins.test.ts` holds the first; decision 9 of `docs/specs/2026-09-13-widget-api-unification.md` and decision 6 of the adapters spec hold the second.
 - `libs/feature/package.json` loses `peerDependencies`, `peerDependenciesMeta`, the `./react` entry of `exports`, and the `react` keyword. After Task 1 it declares no peer at all.
 - `libs/feature/src/lib/core-boundary.spec.ts` asserts `Object.keys(manifest().peerDependencies ?? {})` equals `['react']` and that `sources(ROOT)` contains `react/index.tsx`. Task 1 rewrites both, and the `describe('the react entry')` block and the `react` exemption in `unallowedImports` come out with them. The fixture cases under `describe('the exemption the scan allows')` that prove the exemption's path handling go with the exemption.
-- `scripts/verify-packaging.mjs` carries the two-entry assertions for `@evanion/feature` at lines 744 to 810. Task 1 replaces them with the pair assertions the acl block at 812 to 843 already makes, and adds `['libs/react-feature', '@evanion/react-feature']` to `LIBS` at line 42. The fixture import lines at 189 and 408 change specifier.
+- `scripts/verify-packaging.mjs` carries the two-entry assertions for `@evanion/feature` at lines 744 to 810. Task 1c replaces them with the pair assertions the acl block at 812 to 843 already makes, and adds `['libs/react-feature', '@evanion/react-feature']` to `LIBS` at line 42. The fixture import lines at 189 and 408 change specifier.
 - `tools/repo-checks/src/doc-export-coverage.test.ts` asserts four things per published name: an `##` heading on the package's API reference spelling the name, a `twoslash` fence, a `file=` fence or a `<!-- reference … example=… -->` directive that names a callable export, a docblock on the declaration, and no allowance entry that is no longer needed. Its heading regex is `/^##\s+`([^`]+)`/gm`and it takes the name up to the first`(`, `<`or space. Its directive regex requires`example=` to count a name as exercised.
 - The reference directive grammar is `/^<!--\s*reference\s+(@?[\w./-]+)#([\w$]+)(?:\s+example=([\w-]+))?\s*-->\s*$/`, one per line, under the heading. `tools/doc-examples/src/mdx-reference-loader.mjs` resolves the name through the package's `dist/`, so `npx nx run-many -t build` runs before a page carrying a new directive is checked.
 - `tools/repo-checks/src/doc-behaviour.test.ts` requires a `describe` spelling every non-error callable export exactly, at any depth, and carries no allowance. The six React names already have theirs in `libs/feature/src/react/react.spec.tsx` and `entry-surface.spec.tsx`; they travel with the files.
-- `tools/repo-checks/src/doc-fence-allowance.json` records `{"feature": 12}`. The number only goes down. Every fence a new page adds is a `file=… region=…` reference to a region under `libs/feature/docs/examples.md`, `libs/react-feature/docs/examples.md` or an `apps/` source, a `twoslash` fence, a `mermaid` fence, a shell fence, or a block tagged `signature`, `no-run`, `anti-example`, `fails-type-check` or `elided`. `libs/react-feature` opens its own entry at `0` by having no unexplained fence.
+- `tools/repo-checks/src/doc-fence-allowance.json` records `{"feature": 12}`, and all 12 are bare ` ```ts ` blocks in `apps/docs/content/feature/api.mdx`, at lines 10, 186, 315, 331, 348, 375, 421, 471, 492, 502, 533 and 751. The number only goes down, and `doc-fence.test.ts` fails on an allowance above the real count, so Task 3 takes it to 11 and Tasks 5, 6 and 7 take it down from there. Every fence a new page adds is a `file=… region=…` reference to a region under `libs/feature/docs/examples.md`, `libs/react-feature/docs/examples.md` or an `apps/` source, a `twoslash` fence, a `mermaid` fence, a shell fence, or a block tagged `signature`, `no-run`, `anti-example`, `fails-type-check` or `elided`. `libs/react-feature` opens its own entry at `0` by having no unexplained fence.
 - `tools/repo-checks/src/doc-domain.test.ts` fails a section whose fenced code names `post`, `comment`, `invoice`, `article` or `blog` as a domain object. Every example is set in the game shop. `doc-domain-allowance.json` is `{}` and stays `{}`.
 - `tools/repo-checks/src/doc-floor.test.ts` requires an overview, a `getting-started`, an `api` and a demonstration page of every `documented: true` section, and a section of more than five pages owes the demonstration role a page of its own. `feature`'s demonstration is `rollouts`; `react-feature`'s is `getting-started`, which the five-page allowance permits and which `react-acl` already takes.
 - `tools/repo-checks/src/docs-navigation.test.ts` asserts `workshop` equals `private` in the manifest, one `familyId` per group, no `familyId` of one package, exactly one `framework: 'universal'` member per family, a hue from `categorical` in `@evanion/baize-ui/tokens` distinct across groups, and `documented` against the content directory.
@@ -102,10 +102,13 @@ Answered against `apps/shop-api` (Nest 11), `apps/storefront` (Astro SSR), `apps
 3. **The bound caller is `features.for(context?)` and memoises nothing.** `acl`'s `Authorized` evaluates on every `can`, so a `toggle` or a `reload` between two calls is visible through the handle. A handle that cached its decisions would hide both.
 4. **`features.for` settles `now` once and carries no other state.** `context.now ?? new Date()` is read at the `for` call, and every method on the handle resolves at that instant. An explicit `now` on the context passed to `for` wins, which keeps the precedence at `features.ts:922` unchanged and keeps a test able to pin the clock.
 5. **`snapshot` writes a `Date` at a window condition's `value` as its ISO 8601 string and refuses nothing.** `serializeConfig` converts there and throws for a `Date` at any other member, which is ruling 4 of `docs/superpowers/plans/2026-09-29-feature-config-distribution.md`. A throw inside `snapshot` would fail a request over an explanation field, so `snapshot` converts the one member a document can carry and leaves every other value alone. The pitfalls page names the variant `value` a reader chose.
-6. **`@evanion/react-feature` re-exports the document types and `VersionMismatchPolicy`.** `libs/feature/src/react/index.tsx:50-71` re-exports 20 document types so a component file imports one specifier, and `entry-surface.spec.tsx` holds the parity. The rule carries across the package boundary unchanged, and `VersionMismatchPolicy` joins it because the type names a provider prop while the core owns the behaviour.
-7. **The names half of the entry parity check moves to `tools/repo-checks`.** `libs/feature/src/react/entry-surface.spec.tsx` reads `../index.ts` and `../lib/config.ts` off disk with the TypeScript parser. After the split those files belong to another project, and a cross-project disk read is what `tools/repo-checks` is for. The runtime half, which reads the module namespace a bundler builds, stays in `libs/react-feature`.
+6. **`@evanion/react-feature` re-exports the document types, `VersionMismatchPolicy`, and every core type its own public declarations name.** `libs/feature/src/react/index.tsx:50-71` re-exports 20 document types so a component file imports one specifier, and `entry-surface.spec.tsx` holds the parity. The rule carries across the package boundary unchanged, and `VersionMismatchPolicy` joins it because the type names a provider prop while the core owns the behaviour.
+
+   The rule reaches further than the entry does today. `FeatureProviderProps`, `BoundFeatureProviderProps`, `BoundVariant`, `FeatureContext`, `AnyDecisions`, `createFeatureContext`, `useFeature` and `useVariant` name `Features`, `EvaluationContext`, `Decisions`, `Decision`, `FeatureKey`, `VariantInfo`, `FrozenWhenObserved` and `Schema` between them, and the react entry re-exports none of the eight. Today that costs nothing, because both entries belong to one package. After Task 1 a reader writing one `FeatureProviderProps` annotation imports two specifiers. `libs/react-acl/src/index.tsx:16-33` re-exports exactly the core types its own declarations name, 20 of them, which is why its `api.mdx` carries 27 `##` headings for nine own declarations. Task 3 adds the eight named clauses and their headings, which takes `@evanion/react-feature`'s published surface from 37 names to 45.
+
+7. **The names half of the entry parity check moves to `tools/repo-checks`.** `libs/feature/src/react/entry-surface.spec.tsx` reads `../index.ts` and `../lib/config.ts` off disk with the TypeScript parser. After the split those files belong to another project, and a cross-project disk read is what `tools/repo-checks` is for. Task 1b carries it. The runtime half, which reads the module namespace a bundler builds, stays in `libs/react-feature`.
 8. **Every slice of the allowance work edits `apps/docs/content/feature/api.mdx` and removes exactly the names it documented.** The ratchet case `carries no allowance entry that is no longer needed` makes a slice that documents more than it removes fail, and `records no allowance for a package that has none` makes the last slice delete the key.
-9. **`@evanion/react-feature` opens an allowance entry in Task 1 holding its twelve names, and Task 3 deletes the entry whole.** The check's own failure message says to record a name whose entry is not written yet, and the ratchet forces the removal. Opening it is what lets Task 1 land green without the documentation section.
+9. **`@evanion/react-feature` opens an allowance entry in Task 1 holding its 37 names, and Task 3 deletes the entry whole.** The check's own failure message says to record a name whose entry is not written yet, and the ratchet forces the removal. Opening it is what lets Task 1 land green without the documentation section.
 
 ## Review Focus
 
@@ -130,9 +133,13 @@ Input classes a happy-path test reaches none of. Each is assigned to the task th
 
 # PIECE ONE: extract `@evanion/react-feature`
 
+Task 1 is one commit and it is the largest task in this plan. It cannot be split four ways, because `releasedExports()` in `tools/repo-checks/src/released-exports.ts` builds one TypeScript program over every entry every manifest names and throws `is not in the program` for an entry file that does not exist, so a scaffold commit carrying a manifest and no `src/index.tsx` fails `repo-checks` on its own. The same holds in the other direction: the moment `libs/feature/src/react/index.tsx` leaves, `libs/feature/vite.config.ts`'s `@evanion/feature:react` project and `core-boundary.spec.ts`'s two React cases fail, and the moment `libs/react-feature` exports 37 undocumented names, `doc-export-coverage.test.ts` fails without its allowance key. The scaffold, the move, the core's own edits and the allowance land together or the tree is red.
+
+Two pieces of Task 1 do separate, and they are Tasks 1b and 1c. Task 1b moves the names half of the entry parity check into `tools/repo-checks`, which nothing fails without. Task 1c repoints `scripts/verify-packaging.mjs`, which `npm run verify:packaging` runs as its own CI job and which no nx target reads.
+
 ## Task 1: Scaffold the package and move the React adapter into it
 
-**Deliverable:** `libs/react-feature` is a released package carrying `@evanion/react-feature`, `@evanion/feature` publishes one entry and declares no peer, and every consumer imports the new specifier.
+**Deliverable:** `libs/react-feature` is a released package carrying `@evanion/react-feature`, `@evanion/feature` publishes one entry and declares no peer, and `npx nx run-many -t lint test typecheck build -p feature react-feature repo-checks docs` is green.
 
 **Generator.** `@nx/react:library`, which is the generator `@nx/react` 23.3.0 provides and the one `nx.json`'s `generators` block already configures with `unitTestRunner: 'vitest'`:
 
@@ -153,20 +160,20 @@ npx nx g @nx/react:library libs/react-feature \
 
 **What to delete from its output**, so the tree matches `libs/react-acl`, which is the released React package this repository already has:
 
-| From the generator                               | What happens to it                                                                                                                                                   |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `project.json`, or an `nx` key in `package.json` | Deleted. `libs/react-acl` has neither, and the `@nx/vite` and `@nx/vitest` plugins in `nx.json` infer `build`, `test` and `typecheck` from `vite.config.ts`.         |
-| `src/index.ts`                                   | Deleted. `src/index.tsx` arrives from `libs/feature/src/react/index.tsx`.                                                                                            |
-| `src/lib/`                                       | Deleted whole. `--component=false` leaves it empty or holding a stub.                                                                                                |
-| `README.md`                                      | Deleted. Task 2 writes the landing page.                                                                                                                             |
-| `vite.config.ts`                                 | Replaced with `libs/react-acl/vite.config.ts`, with `react-acl` changed to `react-feature` in `cacheDir` and in `test.name` and `build.lib.name`.                    |
-| `tsconfig.lib.json`                              | Kept, with `references` added for `../../tools/doc-examples` and `../feature/tsconfig.lib.json`.                                                                     |
-| `tsconfig.spec.json`                             | Kept, with `examples/**/*.tsx` added to `include` and a `references` entry for `../../tools/doc-examples`.                                                           |
-| `eslint.config.mjs`                              | Replaced with `libs/react-acl/eslint.config.mjs` verbatim, including the `examples/**/*.tsx` boundary exemption.                                                     |
-| `.babelrc`                                       | Kept as the generator writes it; `libs/react-acl/.babelrc` is the same file.                                                                                         |
-| `package.json`                                   | Every generator field replaced. The result is `libs/react-acl/package.json` with the name, description, keywords, `repository.directory` and the dependency changed. |
-| `src/test-setup.ts`                              | Copied from `libs/react-acl/src/test-setup.ts`, which carries the vitest 5 `Matchers<R, T>` augmentation.                                                            |
-| `LICENSE`                                        | Copied from `libs/react-acl/LICENSE`. The generator writes none.                                                                                                     |
+| From the generator                               | What happens to it                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `project.json`, or an `nx` key in `package.json` | Deleted. `libs/react-acl` has neither, and the `@nx/vite` and `@nx/vitest` plugins in `nx.json` infer `build`, `test` and `typecheck` from `vite.config.ts`.                                                                                                                                                                                                                                           |
+| `src/index.ts`                                   | Deleted. `src/index.tsx` arrives from `libs/feature/src/react/index.tsx`.                                                                                                                                                                                                                                                                                                                              |
+| `src/lib/`                                       | Deleted whole. `--component=false` leaves it empty or holding a stub.                                                                                                                                                                                                                                                                                                                                  |
+| `README.md`                                      | Deleted. Task 2 writes the landing page.                                                                                                                                                                                                                                                                                                                                                               |
+| `vite.config.ts`                                 | Replaced with `libs/react-acl/vite.config.ts`, with `react-acl` changed to `react-feature` in `cacheDir` and in `test.name` and `build.lib.name`.                                                                                                                                                                                                                                                      |
+| `tsconfig.lib.json`                              | Kept, with `references` added for `../../tools/doc-examples` and `../feature/tsconfig.lib.json`.                                                                                                                                                                                                                                                                                                       |
+| `tsconfig.spec.json`                             | Kept, with a `references` entry for `../../tools/doc-examples`. No `examples/**/*.tsx` entry: see the row below.                                                                                                                                                                                                                                                                                       |
+| `eslint.config.mjs`                              | Replaced with `libs/react-acl/eslint.config.mjs`, minus the `examples/**/*.tsx` boundary exemption. This plan creates no `libs/react-feature/examples/`. `libs/react-acl/examples/` holds the seven components `libs/react-acl/src/examples.test.tsx` mounts and its guide pages cite by region; `@evanion/react-feature`'s three pages mount `apps/docs/components/probes/feature-probe.tsx` instead. |
+| `.babelrc`                                       | Kept as the generator writes it; `libs/react-acl/.babelrc` is the same file.                                                                                                                                                                                                                                                                                                                           |
+| `package.json`                                   | Every generator field replaced. The result is `libs/react-acl/package.json` with the name, description, keywords, `repository.directory` and the dependency changed.                                                                                                                                                                                                                                   |
+| `src/test-setup.ts`                              | Copied from `libs/react-acl/src/test-setup.ts`, which carries the vitest 5 `Matchers<R, T>` augmentation.                                                                                                                                                                                                                                                                                              |
+| `LICENSE`                                        | Copied from `libs/react-acl/LICENSE`. The generator writes none.                                                                                                                                                                                                                                                                                                                                       |
 
 **Files:**
 
@@ -180,11 +187,13 @@ npx nx g @nx/react:library libs/react-feature \
 - `libs/feature/docs/examples.md` (edit: the six `react-*` regions and their prose come out)
 - `libs/feature/package.json` (edit: `exports`, `peerDependencies`, `peerDependenciesMeta`, `keywords`)
 - `libs/feature/vite.config.ts` (edit: the `@evanion/feature:react` project and the `react()` plugin come out)
-- `libs/feature/src/index.ts` (edit: the header docblock's last sentence names the package)
+- `libs/feature/src/index.ts` (edit: `reportDivergence` and `ruleFields` are exported, and the header docblock's last sentence names the package)
 - `libs/feature/src/lib/core-boundary.spec.ts` (edit)
-- `libs/feature/tsconfig.spec.json` (edit: the React type tests are gone)
-- `tools/repo-checks/src/feature-entry-parity.test.ts` (new, per ruling 7)
-- `tools/repo-checks/src/doc-export-coverage-allowance.json` (edit: `@evanion/feature` loses twelve names, `@evanion/react-feature` gains them)
+- `libs/feature/tsconfig.spec.json` (edit: `"jsx": "react-jsx"` and `"react"` in `types` come out, and so do the `src/**/*.test-d.tsx`, `src/**/*.test.tsx`, `src/**/*.spec.tsx` and `src/test-setup.ts` entries of `include`)
+- `libs/feature/src/test-setup.ts` (deleted: after the move no project in `libs/feature` renders anything, and the file carries the `@testing-library/jest-dom` matcher augmentation)
+- `apps/docs/content/feature/api.mdx` (edit: `## reportDivergence` and `## ruleFields` entries, and the new specifier)
+- `apps/docs/content/feature/react.mdx` (edit: the six fences point at `libs/react-feature/docs/examples.md`)
+- `tools/repo-checks/src/doc-export-coverage-allowance.json` (edit: `@evanion/feature` goes from 88 `undocumented` names to 77 and loses three entries across `unexercised` and `unexplained`, and a `@evanion/react-feature` key opens with 37)
 - `commitlint.config.js` (edit)
 - `apps/docs/app/navigation.ts` (edit)
 - `scripts/verify-packaging.mjs` (edit)
@@ -208,6 +217,10 @@ export type {
   DivergenceSide,
 } from './lib/divergence.js';
 export type { DeepReadonly, FrozenWhenObserved } from './lib/observe.js';
+// Added by this task, because `@evanion/source` resolves `@evanion/feature` to
+// this file and to no deeper path.
+export { reportDivergence } from './lib/divergence.js';
+export { ruleFields } from './lib/evaluate.js';
 export type {
   Decision,
   Decisions,
@@ -222,7 +235,9 @@ export type {
 **Interfaces produced:**
 
 ```ts
-// libs/react-feature/src/index.tsx — the twelve published names, unchanged in shape
+// libs/react-feature/src/index.tsx — the eleven own declarations and the
+// re-exported `VersionMismatchPolicy`, unchanged in shape. The other 26 of the
+// 37 are the `config.ts`, `decision-set.ts` and `divergence.ts` re-exports.
 export type AnyDecisions = Readonly<Record<FeatureKey, Decision<FeatureKey>>>;
 export type { VersionMismatchPolicy } from './hydrate.js';
 
@@ -368,6 +383,8 @@ export function useVariant(
     name: '@evanion/react-feature',
 ```
 
+- [ ] Add `export { reportDivergence } from './lib/divergence.js';` and `export { ruleFields } from './lib/evaluate.js';` to `libs/feature/src/index.ts`. `libs/react-feature/src/hydrate.ts` needs both and `libs/react-feature/src/index.tsx` calls `reportDivergence` at what is `libs/feature/src/react/index.tsx:269` today, to deliver the memo's collected reports to the provider's observer. `tsconfig.base.json:48` sets `customConditions: ["@evanion/source"]` and `libs/feature/package.json` publishes `"."` and `"./package.json"` only, so `@evanion/source` resolves `@evanion/feature` to `src/index.ts` and to nothing else. No deep path to `src/lib/` exists, in the typechecker or in the published package. Give each name an `##` entry with a reference directive on `apps/docs/content/feature/api.mdx` in this task, and record neither in the allowance. `reportDivergence` carries the thenable-rejection handler and the swallowed throw that `libs/feature/src/lib/divergence.ts:45-62` argues for, so a copy inlined into `libs/react-feature` would drift from the core's.
+
 - [ ] Move the two source modules and rewrite their relative imports to the package specifier. `libs/react-feature/src/hydrate.ts` opens with:
 
 ```ts
@@ -379,11 +396,7 @@ import {
 } from '@evanion/feature';
 ```
 
-`ruleFields` is not published today, and `reportDivergence` is not either. Do not add either export here. Instead, keep `hydrate.ts` importing only published names and leave the two unpublished ones out: Task 14 moves every function that needs them into the core, and this step's `hydrate.ts` is a one-release waypoint. Write it as a re-export of what Task 14 will own, and keep the private helpers in place by importing the core's `src` through the `@evanion/source` condition, which `tsconfig.base.json` already maps. Record the coupling in the module docblock in one sentence naming Task 14's function.
-
-- [ ] Move the seven test and type-test files. In each, `../index.js` becomes `@evanion/feature`, `../lib/...` becomes `@evanion/feature`, and `./index.js` stays. `libs/react-feature/src/entry-surface.spec.tsx` keeps only the runtime cases that read the two module namespaces, per ruling 7.
-
-- [ ] Write `tools/repo-checks/src/feature-entry-parity.test.ts` holding the names half of the old `entry-surface.spec.tsx`: every type `libs/feature/src/lib/config.ts` publishes through `libs/feature/src/index.ts` is re-exported by `libs/react-feature/src/index.tsx` in a named clause, and `libs/react-feature/src/index.tsx` re-exports no `config.ts` type the core keeps to itself. Carry the original docblock's reasoning, with the two paths updated.
+- [ ] Move the seven test and type-test files. In each, `../index.js` becomes `@evanion/feature`, `../lib/...` becomes `@evanion/feature`, and `./index.js` stays. `libs/react-feature/src/entry-surface.spec.tsx` keeps every case for now, including the two that read `../index.ts` and `../lib/config.ts` off disk, with their paths changed to `../../feature/src/index.ts` and `../../feature/src/lib/config.ts`. Task 1b is what moves those two to `tools/repo-checks`, per ruling 7.
 
 - [ ] Write `libs/react-feature/doc-examples.preamble.ts`:
 
@@ -405,9 +418,19 @@ import {
 
 - [ ] Move the six `react-*` regions out of `libs/feature/docs/examples.md` (lines 1179, 1211, 1261, 1299, 1357, 1403 and the prose above each) into `libs/react-feature/docs/examples.md`, with the import lines changed to `@evanion/react-feature`. Keep the region names: `react-provider`, `react-memo`, `react-strict-key`, `react-decisions`, `react-bound`, `react-server`.
 
+- [ ] Repoint the six fences in `apps/docs/content/feature/react.mdx` at `file=libs/react-feature/docs/examples.md`, at lines 19, 29, 52, 62, 70 and 82. The region loader throws on a region that is not in the file it names, and this task's own verification runs `-p docs`. Task 3 is what deletes the page.
+
 - [ ] Edit `libs/feature/package.json`: delete the `./react` entry of `exports`, `peerDependencies`, `peerDependenciesMeta`, and the `"react"` keyword.
 
 - [ ] Edit `libs/feature/vite.config.ts`: delete the `@evanion/feature:react` project, the `react()` plugin, the `@vitejs/plugin-react` import and the comment about plugin order. The remaining `projects` array holds one entry; collapse it into the top-level `test` block with `name: '@evanion/feature'`, keeping `typecheck.include` at `src/lib/**/*.test-d.{ts,tsx}` and `includeSource: docExampleSources()`.
+
+- [ ] Edit `libs/feature/tsconfig.spec.json` and delete `libs/feature/src/test-setup.ts`. The spec config drops `"jsx": "react-jsx"`, `"react"` from `types`, and the `src/**/*.test.tsx`, `src/**/*.spec.tsx`, `src/**/*.test-d.tsx` and `src/test-setup.ts` entries of `include`. After the move no file under `libs/feature/src` renders anything, so the `@testing-library/jest-dom` matcher augmentation the setup file carries has no suite to serve.
+
+- [ ] Document the two new exports in this task, because the allowance only ever shrinks and `doc-export-coverage.test.ts` asks four things of every published name:
+  - A `##` entry with a reference directive on `apps/docs/content/feature/api.mdx` for each. Both are callables, so both directives carry `example=`.
+  - A `divergence-report` region and a `rule-fields` region in `libs/feature/docs/examples.md`. `divergence-report` calls `reportDivergence` with an observer that pushes into an array and then with `undefined`, and shows that an observer which throws alters nothing. `rule-fields` calls `ruleFields` over a rule with two conditions and a rollout and prints the sorted list. `libs/feature/src/lib/divergence.spec.ts:46` holds the first's expected values; read them rather than guessing the second's.
+  - A `describe('ruleFields')` suite in `libs/feature/src/lib/conditions.spec.ts`, which is where the rest of `evaluate.ts`'s field reading is covered. `tools/repo-checks/src/doc-behaviour.test.ts` requires a `describe` spelling every non-error callable export exactly and carries no allowance, and `ruleFields` has none today. `reportDivergence` already has one at `libs/feature/src/lib/divergence.spec.ts:46`.
+  - Docblocks are already on both declarations, at `libs/feature/src/lib/divergence.ts:30-51` and `libs/feature/src/lib/evaluate.ts:31`.
 
 - [ ] Edit `libs/feature/src/lib/core-boundary.spec.ts`:
   - `it('keeps react its only peer')` becomes `it('declares no peer')`, asserting `Object.keys(manifest().peerDependencies ?? {})` equals `[]`.
@@ -417,12 +440,7 @@ import {
   - `it('reaches every entry the package publishes')` drops the `react/index.tsx` assertion and keeps `index.ts`, `lib/config.ts` and `lib/features.ts`.
   - The `describe('the core')` comment about `react` being the one peer is rewritten to say the package declares none.
 
-- [ ] Repoint every consumer:
-  - `scripts/verify-packaging.mjs:42` gains `['libs/react-feature', '@evanion/react-feature'],`.
-  - `scripts/verify-packaging.mjs:189` becomes `import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@evanion/react-feature';` with its comment rewritten to name the package.
-  - `scripts/verify-packaging.mjs:190` gains `import type { FeatureProviderProps, AnyDecisions } from '@evanion/react-feature';`.
-  - `scripts/verify-packaging.mjs:408` becomes `import { FeatureProvider, useFeature } from '@evanion/react-feature';`.
-  - `scripts/verify-packaging.mjs:744-810` is replaced by the pair assertions the acl block makes: `dist/index.js` of `@evanion/feature` carries no `'use client'` and imports nothing from `react` at any depth, `dist/index.js` of `@evanion/react-feature` carries `'use client'` as its first line, and `@evanion/feature`'s `exports` holds `.` and no `./react`.
+- [ ] Repoint every consumer an nx target reads:
   - `libs/feature/src/index.ts`'s header docblock: the last sentence names `@evanion/react-feature`.
   - `libs/feature/src/react/index.tsx:121`'s error message, which travels to the new package, becomes `'useFeatures must be called inside a <FeatureProvider> (from @evanion/react-feature)'`.
   - `apps/docs/content/feature/api.mdx`, `index.mdx` and `react.mdx` name the new specifier. Task 3 moves `react.mdx`; this step only changes the specifier in the two that stay.
@@ -449,13 +467,65 @@ import {
 
 Update the `framework` docblock, which cites `@evanion/feature` as the "universal + React" case, so it names the family instead.
 
-- [ ] Move the twelve names out of `@evanion/feature`'s `undocumented` list in `tools/repo-checks/src/doc-export-coverage-allowance.json` and open a `@evanion/react-feature` key holding them, sorted, with `useFeatures` also under `unexercised`. The file's keys stay sorted, so `@evanion/react-feature` follows `@evanion/feature`.
+- [ ] Edit `tools/repo-checks/src/doc-export-coverage-allowance.json`. `@evanion/react-feature` publishes 37 names, not twelve: `libs/feature/src/react/index.tsx:47` re-exports 20 types from `lib/config.ts`, line 87 re-exports `DecisionOrigin` and `DecisionSet`, line 88 re-exports `DivergenceObserver`, `DivergenceReport` and `DivergenceSide`, and eleven declarations are the entry's own. `exportsOf` in `tools/repo-checks/src/released-exports.ts` calls `checker.getExportsOfModule`, which lists a re-exported name under the re-exporting package, which is why `apps/docs/content/next/react-acl/api.mdx` carries 27 `##` headings for nine own declarations.
+  - Open a `@evanion/react-feature` key holding all 37 names under `undocumented`, sorted. The file's keys stay sorted, so `@evanion/react-feature` follows `@evanion/feature`.
+  - Put `FeatureProvider`, `createFeatureContext`, `useFeature`, `useFeatures`, `useFeatureEnabled` and `useVariant` under `unexercised`. `executableCode` in `doc-export-coverage.test.ts` keys the fence body by `entry.slug` and reads `code.get(entry.slug) ?? ''`, so with no page under the `react-feature` slug every one of the six callables is unexercised, and not `useFeatures` alone.
+  - Put `FeatureProvider` and `FeatureProviderProps` under `unexplained`. Neither carries a docblock.
+  - Remove eleven names from `@evanion/feature`'s `undocumented` list, not twelve. `FeatureProvider` is not in it, because `apps/docs/content/feature/react.mdx:15` already gives it a heading. The list goes from 88 names to 77.
+  - Remove `FeatureProvider` and `FeatureProviderProps` from `@evanion/feature`'s `unexplained` list, and `useFeatures` from its `unexercised` list. `doc-export-coverage.test.ts`'s `carries no allowance entry that is no longer needed` fails on a name the package no longer exports.
 
 - [ ] `npm install`, then `npx nx run-many -t lint test typecheck build -p feature react-feature repo-checks docs`.
 
-- [ ] `npm run verify:packaging`.
+**Verification:** `npx nx run-many -t lint test typecheck build -p feature react-feature repo-checks docs` passes, and `node -e "const p=require('./libs/feature/package.json'); console.log(Object.keys(p.exports), p.peerDependencies)"` prints `[ './package.json', '.' ] undefined`. `npm run verify:packaging` is still red here and Task 1c is what makes it green.
 
-**Verification:** `npx nx run-many -t lint test typecheck build -p feature react-feature repo-checks docs` passes, `npm run verify:packaging` passes, and `node -e "const p=require('./libs/feature/package.json'); console.log(Object.keys(p.exports), p.peerDependencies)"` prints `[ './package.json', '.' ] undefined`.
+---
+
+## Task 1b: The entry parity check moves to `tools/repo-checks`
+
+**Deliverable:** the names half of the old `entry-surface.spec.tsx` reads both packages' sources from `tools/repo-checks`, and `libs/react-feature/src/entry-surface.spec.tsx` holds only the runtime half.
+
+Ruling 7 is why. `libs/feature/src/react/entry-surface.spec.tsx` read `../index.ts` and `../lib/config.ts` off disk with the TypeScript parser. After Task 1 those two files belong to another project, and a cross-project disk read is what `tools/repo-checks` is for.
+
+**Files:**
+
+- `tools/repo-checks/src/feature-entry-parity.test.ts` (new)
+- `libs/react-feature/src/entry-surface.spec.tsx` (edit: the two disk-reading cases come out)
+
+### Steps
+
+- [ ] Write `tools/repo-checks/src/feature-entry-parity.test.ts`: every type `libs/feature/src/lib/config.ts` publishes through `libs/feature/src/index.ts` is re-exported by `libs/react-feature/src/index.tsx` in a named clause, and `libs/react-feature/src/index.tsx` re-exports no `config.ts` type the core keeps to itself. Carry the original docblock's reasoning, with the two paths updated.
+
+- [ ] Delete the two cases from `libs/react-feature/src/entry-surface.spec.tsx` that the new check now makes, and keep every case that reads the module namespace a bundler builds.
+
+- [ ] `npx nx run-many -t lint test typecheck -p react-feature repo-checks`.
+
+**Verification:** `npx nx run-many -t test -p repo-checks react-feature` passes, and deleting one name from `libs/react-feature/src/index.tsx`'s `config.ts` re-export clause by hand fails `feature-entry-parity.test.ts`.
+
+---
+
+## Task 1c: `scripts/verify-packaging.mjs`
+
+**Deliverable:** `npm run verify:packaging` resolves both packages through their published `exports` and asserts the pair properties the acl block already asserts.
+
+`verify-packaging.mjs` is run by `npm run verify:packaging` as its own CI job and no nx target reads it, which is why it is its own task.
+
+**Files:**
+
+- `scripts/verify-packaging.mjs` (edit)
+
+### Steps
+
+- [ ] `scripts/verify-packaging.mjs:42` gains `['libs/react-feature', '@evanion/react-feature'],` to `LIBS`.
+
+- [ ] `scripts/verify-packaging.mjs:189` becomes `import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@evanion/react-feature';` with its comment rewritten to name the package, and line 190 gains `import type { FeatureProviderProps, AnyDecisions } from '@evanion/react-feature';`.
+
+- [ ] `scripts/verify-packaging.mjs:408` becomes `import { FeatureProvider, useFeature } from '@evanion/react-feature';`.
+
+- [ ] `scripts/verify-packaging.mjs:744-810` is replaced by the pair assertions the acl block at 812 to 843 makes: `dist/index.js` of `@evanion/feature` carries no `'use client'` and imports nothing from `react` at any depth, `dist/index.js` of `@evanion/react-feature` carries `'use client'` as its first line, and `@evanion/feature`'s `exports` holds `.` and no `./react`.
+
+- [ ] `npx nx run-many -t build -p feature react-feature`, then `npm run verify:packaging`.
+
+**Verification:** `npm run verify:packaging` passes.
 
 ---
 
@@ -486,11 +556,14 @@ Update the `framework` docblock, which cites `@evanion/feature` as the "universa
 
 ## Task 3: `@evanion/react-feature`'s documentation section
 
-**Deliverable:** `apps/docs/content/next/react-feature/` holds an overview, a getting-started page that doubles as the demonstration, and an API reference naming all twelve exports, and the allowance's `@evanion/react-feature` key is gone.
+**Deliverable:** `apps/docs/content/next/react-feature/` holds an overview, a getting-started page that doubles as the demonstration, and an API reference with 45 `##` entries, and the allowance's `@evanion/react-feature` key is gone.
+
+45, not twelve. 37 names arrive with Task 1, and this task adds the eight core types ruling 6 extends the re-export rule to. `exportsOf` lists a re-exported name under the re-exporting package, so every one of the 45 owes a heading before the allowance key can come out.
 
 **Files:**
 
 - `apps/docs/content/next/react-feature/_meta.ts`, `index.mdx`, `getting-started.mdx`, `api.mdx` (new)
+- `libs/react-feature/src/index.tsx` (edit: the eight core-type re-exports of ruling 6, and docblocks on `FeatureProvider` and `FeatureProviderProps`)
 - `apps/docs/content/feature/react.mdx` (deleted)
 - `apps/docs/content/feature/_meta.ts` (edit: the `react` key comes out)
 - `apps/docs/content/feature/api.mdx` (edit: the `React exports` section at line 749 comes out)
@@ -498,13 +571,15 @@ Update the `framework` docblock, which cites `@evanion/feature` as the "universa
 - `apps/docs/app/navigation.ts` (edit: `documented: true`, `demo: 'getting-started'`)
 - `apps/docs/tools/redirects.mjs` (edit)
 - `tools/repo-checks/src/doc-export-coverage-allowance.json` (edit: the `@evanion/react-feature` key is deleted)
-- `tools/repo-checks/src/doc-fence-allowance.json` (unchanged; the new section carries no unexplained fence)
+- `tools/repo-checks/src/doc-fence-allowance.json` (edit: `feature` goes to 11)
 
-**Interfaces consumed:** the twelve names of Task 1's produced block.
+**Interfaces consumed:** the 37 names Task 1 moved, plus the eight core types this task re-exports.
 
 ### Steps
 
-- [ ] Write `apps/docs/content/next/react-feature/api.mdx` with one `##` heading per published name and a reference directive under each. The six callables carry `example=`:
+- [ ] Add the eight core-type re-exports to `libs/react-feature/src/index.tsx`, per ruling 6, in one named clause beside the `config.ts` clause: `Decision`, `Decisions`, `EvaluationContext`, `Features`, `FeatureKey`, `FrozenWhenObserved`, `Schema`, `VariantInfo`, all from `@evanion/feature`. Carry the `config.ts` clause's docblock argument, with the sentence that names which declaration needs which type.
+
+- [ ] Write `apps/docs/content/next/react-feature/api.mdx` with one `##` heading per published name and a reference directive under each, 45 in all. The six callables carry `example=`:
 
 ```md
 ## `FeatureProvider`
@@ -556,7 +631,9 @@ Update the `framework` docblock, which cites `@evanion/feature` as the "universa
 <!-- reference @evanion/react-feature#VersionMismatchPolicy -->
 ```
 
-`useFeatures` has no docblock-visible example of its own today and sits in `unexercised`; `react-decisions` calls it, so the directive removes both entries at once. Check the region's shown lines name `useFeatures` below the `// ---cut---`, and add the call if they do not.
+Then one entry per re-exported type: the 20 `config.ts` document types, `DecisionOrigin`, `DecisionSet`, `DivergenceObserver`, `DivergenceReport`, `DivergenceSide`, and the eight core types of ruling 6. Each carries a reference directive with no `example=`, and each carries editorial prose that says what the React surface uses it for and links the core's own entry for the rest, which is what `apps/docs/content/next/react-acl/api.mdx` does for its 20.
+
+All six callables sit in `unexercised`, and not `useFeatures` alone: `executableCode` reads `code.get(entry.slug) ?? ''` and there is no page under the `react-feature` slug until this task writes one. So all six directives need `example=`, and each cited region's shown lines below the `// ---cut---` have to name the function. Check all six and add the call where a region does not make it.
 
 - [ ] `FeatureProviderProps` carries no docblock of its own and `FeatureProvider` carries none either; both sit in the `unexplained` list. Write the two docblocks in `libs/react-feature/src/index.tsx` beside the declarations, and keep the per-member prose that is already on `FeatureProviderProps`'s fields.
 
@@ -570,6 +647,8 @@ Update the `framework` docblock, which cites `@evanion/feature` as the "universa
 
 - [ ] Cut the `React exports` section out of `apps/docs/content/feature/api.mdx` (line 749 to the end), and change its opening paragraph at line 5 so it names one entry point and links `/react-feature/api`.
 
+- [ ] Lower `feature` in `tools/repo-checks/src/doc-fence-allowance.json` from 12 to 11. All 12 of the section's unexplained fences are bare ` ```ts ` blocks in `apps/docs/content/feature/api.mdx`, at lines 10, 186, 315, 331, 348, 375, 421, 471, 492, 502, 533 and 751, and the one at 751 is inside the `React exports` section this task cuts. `doc-fence.test.ts`'s `leaves no allowance larger than the section needs` fails on an allowance above the real count.
+
 - [ ] Add `['feature/react', 'react-feature/getting-started']` to `movedPages` in `apps/docs/tools/redirects.mjs`.
 
 - [ ] Set `documented: true` and `demo: 'getting-started'` on the `@evanion/react-feature` entry in `apps/docs/app/navigation.ts`.
@@ -578,9 +657,11 @@ Update the `framework` docblock, which cites `@evanion/feature` as the "universa
 
 - [ ] Run each of the three pages through Gemma, one page at a time, and read her output against `libs/react-feature/src/index.tsx`.
 
+- [ ] `npx nx run docs:archives`. `docs-archive.test.ts`'s `are exactly the directories the plan names` asserts `Object.keys(versions.json.sections)` equals the documented, non-unversioned slugs, and `have a /next/ tree exactly where they have a bare path` asserts `content/react-feature/` exists. `apps/docs/package.json` makes `docs:test` depend on `archives`, `tools/repo-checks/package.json` carries no `nx` key and so no `dependsOn`, and `docs-archive.test.ts` lives in `tools/repo-checks`. Nothing runs `archives` for you here.
+
 - [ ] `npx nx run-many -t build -p feature react-feature` then `npx nx run-many -t lint test typecheck -p docs repo-checks react-feature`.
 
-**Verification:** `npx nx run-many -t test -p repo-checks` passes with no `@evanion/react-feature` entry in the allowance, and `npx nx run docs:build` renders every reference directive.
+**Verification:** `npx nx run-many -t test -p repo-checks` passes with no `@evanion/react-feature` entry in the allowance, `node -p "Object.keys(require('./apps/docs/content/versions.json').sections)"` lists `react-feature`, and `npx nx run docs:build` renders every reference directive.
 
 ---
 
@@ -652,9 +733,10 @@ Every task in this piece runs `npx nx run-many -t build -p feature` first, becau
 **Files:**
 
 - `apps/docs/content/feature/api.mdx` (edit: the `### FeatureDefinition<F>`, `### Rule and RolloutSpec`, `### Condition`, `### EvaluationContext`, `### RuleOutcome` and `### FeatureKey and Instant` subsections become `##` entries)
-- `libs/feature/src/lib/types.ts` (edit: a docblock on `Condition`)
+- `libs/feature/src/lib/types.ts` (edit: a docblock on `Condition`. Task 7 edits this file for `Reason` and `ToggleResult`, and Task 17 edits the `Decisions` and `Plan` declarations in it)
 - `libs/feature/docs/examples.md` (edit: one region)
 - `tools/repo-checks/src/doc-export-coverage-allowance.json` (edit)
+- `tools/repo-checks/src/doc-fence-allowance.json` (edit: `feature` comes down)
 
 ### Steps
 
@@ -665,6 +747,8 @@ Every task in this piece runs `npx nx run-many -t build -p feature` first, becau
 - [ ] Add an `evaluate-condition` region to `libs/feature/docs/examples.md` calling `evaluateCondition` directly for an attribute condition that matches, a window condition at an instant inside the window, and a day-of-week condition in a named zone. The function is exported for a caller who holds a condition and a context and wants the engine's own answer, so the region shows exactly that.
 
 - [ ] **Review Focus, Step 4.** `FeatureKey` is `string | number`. The `FeatureKey` entry's editorial prose and at least one fence in the section write a numeric key, so the page documents the whole type. `features.spec.ts` already proves a numeric key resolves.
+
+- [ ] Recount the section's unexplained fences and lower `feature` in `tools/repo-checks/src/doc-fence-allowance.json` to the new number. Five of the twelve sit in the subsections this task rewrites: bare ` ```ts ` blocks at `apps/docs/content/feature/api.mdx` lines 315, 331, 348, 375 and 471, under `### FeatureDefinition<F>`, `### Rule and RolloutSpec`, `### Condition`, `### EvaluationContext` and `### RuleOutcome`. A reference directive renders the signature out of `dist/`, so a hand-written fence restating the same type comes out with the promotion. `doc-fence.test.ts`'s `leaves no allowance larger than the section needs` fails on an allowance above the real count.
 
 - [ ] Remove the twelve names from `undocumented`, `evaluateCondition` from `unexercised`, and `Condition` from `unexplained`.
 
@@ -685,6 +769,7 @@ Every task in this piece runs `npx nx run-many -t build -p feature` first, becau
 - `apps/docs/content/feature/api.mdx` (edit)
 - `libs/feature/docs/examples.md` (edit)
 - `tools/repo-checks/src/doc-export-coverage-allowance.json` (edit)
+- `tools/repo-checks/src/doc-fence-allowance.json` (edit, if the rewrite removes a fence)
 
 ### Steps
 
@@ -695,6 +780,8 @@ Every task in this piece runs `npx nx run-many -t build -p feature` first, becau
 - [ ] Add a `variant-primitives` region calling `assignVariant` over a definition and a context, `variantSeedOf` over a definition, and `murmur3` over a string, with every `// ->` claim produced by running it. `variants.spec.ts` and `bucketing.spec.ts` hold the expected values; read them rather than guessing.
 
 - [ ] `DEFAULT_ROLLOUT_FIELD` is a plain value and needs the heading alone, which the check's docblock states for `CRUD_ACTIONS` and `CORRELATION_ID_HEADER`.
+
+- [ ] Recount the section's unexplained fences and lower `feature` in `tools/repo-checks/src/doc-fence-allowance.json` to the new number. `### VariantInfo, Schema and InferSchema` at `apps/docs/content/feature/api.mdx:384` carries none, and the fence at line 331 is `### Rule and RolloutSpec`'s, which Task 5 splits. Lower the number if this task's rewrite removes a fence and leave it where it is if it does not.
 
 - [ ] Remove the ten names from `undocumented` and `assignVariant`, `murmur3` and `variantSeedOf` from `unexercised`.
 
@@ -711,8 +798,9 @@ Every task in this piece runs `npx nx run-many -t build -p feature` first, becau
 **Files:**
 
 - `apps/docs/content/feature/api.mdx` (edit)
-- `libs/feature/src/lib/types.ts` (edit: docblocks on `Reason` and `ToggleResult`)
+- `libs/feature/src/lib/types.ts` (edit: docblocks on `Reason` and `ToggleResult`. Task 5 writes the `Condition` docblock in this file, and Task 17 edits the `Decisions` and `Plan` declarations in it)
 - `tools/repo-checks/src/doc-export-coverage-allowance.json` (edit)
+- `tools/repo-checks/src/doc-fence-allowance.json` (edit: `feature` comes down)
 
 ### Steps
 
@@ -721,6 +809,8 @@ Every task in this piece runs `npx nx run-many -t build -p feature` first, becau
 - [ ] `resolvePlan`'s entry carries `example=resolve-plan`. The region exists at `libs/feature/docs/examples.md:464` and no page cites it today, which is why `resolvePlan` sits in `unexercised`.
 
 - [ ] Write the `Reason` docblock above the union in `libs/feature/src/lib/types.ts:230`, naming what each member says about the decision and that the field is output only, which `reason-is-output-only.spec.ts` holds. Write the `ToggleResult` docblock naming the write and the dependants that go off with it.
+
+- [ ] Recount the section's unexplained fences and lower `feature` in `tools/repo-checks/src/doc-fence-allowance.json` to the new number. Four sit in the subsections this task rewrites: bare ` ```ts ` blocks at `apps/docs/content/feature/api.mdx` lines 421, 492, 502 and 533, under `### Decision<F, V, T> and Decisions<S>`, `### Cause<F>`, `### PlanEntry<F, V, T> and Plan<S>` and `### ToggleResult<F>`.
 
 - [ ] Remove the nine names from `undocumented`, `resolvePlan` from `unexercised`, and `Reason` and `ToggleResult` from `unexplained`.
 
@@ -859,6 +949,8 @@ Every task in this piece runs `npx nx run-many -t build -p feature` first, becau
 
 - [ ] The prose under `FrozenWhenObserved` states the asymmetry `FeatureOptions.observe`'s docblock argues: a store carrying an observer freezes what it answers and a store carrying none freezes nothing.
 
+- [ ] Recount the section's unexplained fences. This task's three subsections carry none: `apps/docs/content/feature/api.mdx` holds no bare ` ```ts ` block between line 533 and line 751, so `### FeatureEvent<S>` at 539, `### FeatureOptions<S> and UnobservedOptions<S>` at 588 and `### FrozenWhenObserved<Frozen, T>, DeepReadonly<T> and ReadonlyDate` at 640 move no number. Leave `feature` in `tools/repo-checks/src/doc-fence-allowance.json` where Tasks 3, 5, 6 and 7 left it, and remove the entry if it reached zero.
+
 - [ ] Delete the `@evanion/feature` key, leaving `tools/repo-checks/src/doc-export-coverage-allowance.json` as `{}`.
 
 - [ ] Run the prose through Gemma, then `npx nx run-many -t build -p feature react-feature` and `npx nx run-many -t lint test typecheck -p feature react-feature docs repo-checks`.
@@ -896,7 +988,7 @@ export function reportDivergence<F extends FeatureKey>(
   report: DivergenceReport<F>,
 ): void;
 // libs/feature/src/lib/evaluate.ts
-export function ruleFields(rule: Rule): string[];
+export function ruleFields(rule: Rule): readonly string[];
 // libs/feature/src/lib/rule-id.ts
 export function ruleId(rule: Rule): string;
 // libs/feature/src/lib/variants.ts
@@ -1017,7 +1109,7 @@ const published = useMemo(() => {
 - `libs/feature/src/lib/bound.ts` (new)
 - `libs/feature/src/lib/bound.spec.ts` (new)
 - `libs/feature/src/lib/bound.test-d.ts` (new)
-- `libs/feature/src/lib/features.ts` (edit: `for` on the interface and on the returned object)
+- `libs/feature/src/lib/features.ts` (edit: `for` on the `Features` interface and on the object `createFeatures` returns. Task 16 edits `snapshot` in this file, and Task 17 edits the `Features` interface's own type parameter list, which is the same declaration this task adds `for` to)
 - `libs/feature/src/index.ts` (edit: `BoundFeatures`)
 - `libs/feature/src/lib/features.test-d.ts` (edit)
 - `apps/docs/content/feature/api.mdx` (edit: two entries)
@@ -1106,7 +1198,7 @@ export interface BoundFeatures<
 
 **Files:**
 
-- `libs/feature/src/lib/features.ts` (edit: `snapshot` normalises a window condition value in a failed outcome)
+- `libs/feature/src/lib/features.ts` (edit: `snapshot` normalises a window condition value in a failed outcome. Task 15 adds `for` to the `Features` interface and to the returned object in this file, and Task 17 edits the interface's type parameter list)
 - `libs/feature/src/lib/snapshot.spec.ts` (edit)
 - `apps/docs/content/feature/api.mdx` (edit: the `DecisionSet` entry's prose)
 
@@ -1134,14 +1226,14 @@ export interface BoundFeatures<
 
 **Files:**
 
-- `libs/feature/src/lib/features.ts` (edit)
-- `libs/feature/src/lib/types.ts` (edit)
+- `libs/feature/src/lib/features.ts` (edit: the `Features` interface's type parameter list and its `./types.js` import. Task 15 adds `for` to the same interface and Task 16 edits `snapshot` in the same file, so land this after both)
+- `libs/feature/src/lib/types.ts` (edit: the `Decisions` and `Plan` declarations. Task 5 writes the `Condition` docblock in this file and Task 7 writes the `Reason` and `ToggleResult` docblocks)
 - `libs/feature/src/lib/schema.test-d.ts` (edit)
 - `apps/docs/content/feature/api.mdx` (edit: the `Features<S>`, `Decisions` and `Plan` entries' prose)
 
 ### Steps
 
-- [ ] `libs/feature/src/lib/features.ts`: `export interface Features<S extends Record<keyof S, VariantInfo | never> = Schema, Frozen extends boolean = boolean>`.
+- [ ] `libs/feature/src/lib/features.ts`: add `Schema,` to the `import type { … } from './types.js'` block at lines 21 to 32, which does not name it today, then write `export interface Features<S extends Record<keyof S, VariantInfo | never> = Schema, Frozen extends boolean = boolean>`. Without the import the line fails `TS2552: Cannot find name 'Schema'`.
 
 - [ ] `libs/feature/src/lib/types.ts`: `export type Decisions<S extends Record<keyof S, VariantInfo | never> = Schema>` and `export type Plan<S extends Record<keyof S, VariantInfo | never> = Schema>`.
 
@@ -1182,7 +1274,9 @@ it('accepts a store built from a document at the open form', () => {
 
 # PIECE FOUR: the guide set
 
-`@evanion/acl` has 33 pages under `apps/docs/content/next/acl`. `@evanion/feature` has 10 after Task 3 and reaches 24 here. The order a reader meets them is four bands, following `apps/docs/content/next/acl/_meta.ts`: Setup, Platforms, Questions, Reference.
+`@evanion/acl` has 33 pages under `apps/docs/content/next/acl`. `@evanion/feature` has 10 after Task 3 and reaches 23 here: the ten that survive Task 3, plus the thirteen Tasks 19, 20, 22, 23, 24, 25, 26, 27, 28, 29 (two), 30 and 31 write. The order a reader meets them is four bands, following `apps/docs/content/next/acl/_meta.ts`: Setup, Platforms, Questions, Reference.
+
+Every new page in this piece opens with `<WorkshopNotice slug="feature" />` on line 3, which is where all eleven existing pages carry it. Task 32 is what deletes them, once `workshop` is false.
 
 Every page in this piece is drafted by the implementer, run through Gemma one page at a time, and read back against the code. Every fence is a `file=… region=…` reference to a tested region, a `twoslash` fence, a `mermaid` fence, a shell fence, or a block carrying one of § 9's five tags. A page that claims an output has been run to get it.
 
@@ -1202,9 +1296,9 @@ No page in this piece teaches a feature administration service, a control plane,
 
 - [ ] Extend `getting-started.mdx`. The page already writes two flags down, resolves them for a customer, reads why one is off and turns the parent off. The second thing a reader always needs is the one they reach for within a day: a rollout to a share of shoppers, which `rollouts.mdx` then takes apart. Cite `region=rollout` rather than writing a second fence.
 
-- [ ] **Review Focus, Step 2.** The section has 10 pages and reaches 24. `doc-floor.test.ts` requires the demonstration role a page of its own above five pages, and `navigation.ts` names `rollouts`. No task in this piece changes `demo`.
+- [ ] **Review Focus, Step 2.** The section has 10 pages and reaches 23. `doc-floor.test.ts` requires the demonstration role a page of its own above five pages, and `navigation.ts` names `rollouts`. No task in this piece changes `demo`.
 
-- [ ] Restructure `apps/docs/content/feature/_meta.ts` into four bands with separators, following acl's file, and write the docblock that says why each band holds what it holds and why each page sits where it does:
+- [ ] Restructure `apps/docs/content/feature/_meta.ts` into four bands with separators, following acl's file, and write the docblock that says why each band holds what it holds and why each page sits where it does. A key naming a page that does not exist yet fails the Nextra build, and `docs-navigation.test.ts`'s `names only pages that exist` catches it too, so this step writes exactly the ten pages that exist after Task 3 plus the four separators:
 
 ```ts
 export default {
@@ -1219,30 +1313,17 @@ export default {
   'build-time': 'Build-time planning',
 
   'group-platforms': { type: 'separator', title: 'Platforms' },
-  'choosing-an-integration': 'Choosing a framework integration',
-  express: 'Express',
-  nestjs: 'NestJS',
-  astro: 'Astro SSR',
-  nextjs: 'Next.js (React Server Components)',
-  'react-router': 'React Router 8',
-  microservices: 'Many Processes',
 
   'group-questions': { type: 'separator', title: 'Questions' },
   distribution: 'How do I serve my configuration?',
-  hydration: 'How do two processes agree?',
   observing: 'What did the engine just answer?',
-  adopting: 'How do I move an application onto this?',
-  testing: 'How do I test a flag?',
 
   'group-reference': { type: 'separator', title: 'Reference' },
-  limits: 'What this does not do',
-  pitfalls: 'Caveats and pitfalls',
-  advanced: 'Advanced',
   api: 'API Reference',
 } satisfies MetaRecord;
 ```
 
-A key naming a page that does not exist yet fails the Nextra build, so each later task adds its own key and this step writes only the keys for the pages that exist today plus the separators.
+Each later task inserts its own key at the position the end state gives it. The end state, after Task 31, is 23 page keys and the four separators, in this order: `index`; Setup, holding `getting-started`, `configuration`, `decisions`, `rollouts`, `variants`, `build-time`; Platforms, holding `choosing-an-integration`, `express`, `nestjs`, `astro`, `nextjs`, `react-router`, `microservices`; Questions, holding `distribution`, `hydration`, `observing`, `adopting`, `testing`; Reference, holding `limits`, `pitfalls`, `advanced`, `api`.
 
 - [ ] Run the edited sections through Gemma.
 
@@ -1259,7 +1340,7 @@ A key naming a page that does not exist yet fails the Nextra build, so each late
 - `apps/docs/content/feature/microservices.mdx` (new)
 - `apps/docs/content/feature/_meta.ts` (edit)
 - `libs/feature/docs/examples.md` (edit: the regions the page cites)
-- `apps/docs/content/feature/distribution.mdx` (edit: a link out, so the two pages do not teach the same thing twice)
+- `apps/docs/content/feature/distribution.mdx` (edit: a link out, so the two pages do not teach the same thing twice. Task 28 edits this page's schema and `maxStale` sections to link `advanced.mdx`, and this task edits its `Where the Adapter Lives, and What No Endpoint Answers` section)
 
 ### Steps
 
@@ -1362,7 +1443,7 @@ A key naming a page that does not exist yet fails the Nextra build, so each late
 
 - [ ] Build the store once at boot, following `apps/shop-api/src/acl/acl.module.ts`: a `FeaturesModule.forRoot()` registered `global: true`, a `SHOP_FEATURES` token holding the `Features` the `createFeatures` call returned, and a `#region features-module` around the class.
 
-- [ ] Reach the evaluation context through the mechanism Nest already uses here. `apps/shop-api/src/acl/subject.service.ts` holds an `AsyncLocalStorage<ShopSubject>` in a plain singleton and the docblock states why `Scope.REQUEST` is wrong: it propagates upward through the injection graph and every provider depending on it is rebuilt per request and never receives `onModuleInit`. `FeaturesService` follows it, reading the subject off `SubjectService` and the correlation id off `CorrelationService`, and answers `features.for(context)`:
+- [ ] Reach the evaluation context through the mechanism Nest already uses here. `apps/shop-api/src/acl/subject.service.ts` holds an `AsyncLocalStorage<ShopSubject>` in a plain singleton and the docblock states why `Scope.REQUEST` is wrong: it propagates upward through the injection graph and every provider depending on it is rebuilt per request and never receives `onModuleInit`. `FeaturesService` follows it, reading the subject off `SubjectService`, and answers `features.for(context)`. No correlation id reaches the context: `EvaluationContext` types the fields a condition may read, and no rule in the game shop targets a request id.
 
 ```ts
 // #region features-service
@@ -1543,7 +1624,7 @@ export const currentFeatures = cache(
 
 - `apps/docs/content/feature/advanced.mdx` (new)
 - `apps/docs/content/feature/_meta.ts` (edit)
-- `apps/docs/content/feature/distribution.mdx` (edit: the schema and `maxStale` sections link out)
+- `apps/docs/content/feature/distribution.mdx` (edit: the schema and `maxStale` sections link out. Task 19 edits this page's `Where the Adapter Lives, and What No Endpoint Answers` section)
 - `apps/docs/content/feature/variants.mdx` (edit: the seed and sticky sections link out)
 
 ### Steps
@@ -1647,7 +1728,7 @@ export const currentFeatures = cache(
 - `libs/feature/package.json` (edit: `private` out, `0.1.0`)
 - `libs/react-feature/package.json` (edit: `0.1.0`, and the pin to `0.1.0`)
 - `apps/docs/app/navigation.ts` (edit: `workshop: false` and `unversioned` out of the `@evanion/feature` entry)
-- `apps/docs/content/next/feature/**` (moved from `apps/docs/content/feature/**`, 24 pages and `_meta.ts`)
+- `apps/docs/content/next/feature/**` (moved from `apps/docs/content/feature/**`, 23 pages and `_meta.ts`)
 - `.gitignore` (edit: the `!apps/docs/content/feature/` line out)
 - Every `apps/docs/content/next/feature/*.mdx` (edit: `<WorkshopNotice slug="feature" />` out)
 - `apps/docs/components/ReleaseNotice.tsx` (edit: the docblock's sentence about `@evanion/feature`)
@@ -1664,7 +1745,7 @@ export const currentFeatures = cache(
 
 - [ ] Set `"version": "0.1.0"` and remove `"private": true` from `libs/feature/package.json`. Set `"version": "0.1.0"` in `libs/react-feature/package.json` and change `dependencies["@evanion/feature"]` to `"0.1.0"`. `released-pins.test.ts` holds the pin.
 
-- [ ] Delete every `<WorkshopNotice slug="feature" />` from the 24 pages. `apps/docs/content/next/feature/getting-started.mdx` carries children inside the element; move that prose into the page body, because the component renders nothing once `workshop` is false and the prose would vanish with it.
+- [ ] Delete every `<WorkshopNotice slug="feature" />` from the 23 pages. `apps/docs/content/next/feature/getting-started.mdx` carries children inside the element; move that prose into the page body, because the component renders nothing once `workshop` is false and the prose would vanish with it.
 
 - [ ] Rewrite the `apps/docs/components/ReleaseNotice.tsx` docblock sentence that names `@evanion/feature` as private, so it states the rule without naming a package: the notice renders nothing where no published version exists, and `WorkshopNotice` says more about such a package than this could.
 
@@ -1734,15 +1815,15 @@ Then configure the trusted publisher for each package on npmjs.com, per `RELEASI
 
 Each is a decision this plan made or declined to make, and each is one the owner may want answered differently.
 
-1. **Executing decision 6 of the adapters spec ahead of its trigger.** Decision 16 and § 11 of `docs/specs/2026-09-16-framework-adapters.md` say every `feature` adapter is not built, and name a second framework as what would change the answer. Decision 6 fixes the shape of the extraction and says it executes in full when that happens. This plan executes it now because `@evanion/feature` is being released and the release is the moment the subpath's optional peer becomes a published promise. If the owner would rather ship `@evanion/feature/react` as it stands and take the migration later, Tasks 1 to 3 come out and PIECE TWO documents 89 names instead of 77.
+1. **Executing decision 6 of the adapters spec ahead of its trigger.** Decision 16 and § 11 of `docs/specs/2026-09-16-framework-adapters.md` say every `feature` adapter is not built, and name a second framework as what would change the answer. Decision 6 fixes the shape of the extraction and says it executes in full when that happens. This plan executes it now because `@evanion/feature` is being released and the release is the moment the subpath's optional peer becomes a published promise. If the owner would rather ship `@evanion/feature/react` as it stands and take the migration later, Tasks 1, 1b, 1c, 2 and 3 come out and PIECE TWO documents the 88 names `@evanion/feature`'s `undocumented` list holds today instead of 77.
 2. **`features.for` as the name.** `@evanion/acl` calls its binding `authorize`, which names what the handle is for. `for` names the preposition and reads well at the call site (`features.for(context).isEnabled('express-pickup')`). `bound`, `at` and `with` are the other candidates. `for` is a keyword in a statement position and a legal method name, so nothing breaks either way.
 3. **Whether `features.for` should carry `toggle`.** This plan leaves it off: a toggle writes intent and is not a question about one context. An operator tool holding a handle would then hold the store as well.
-4. **Whether `reportDivergence` should be published.** The core calls it, `resolvePlan` takes an `onDivergence` and Task 14's `adoptDecisions` takes one, so after this plan no consumer needs the function. An author writing a Vue or Svelte binding outside this repository would want it, and publishing it costs one line and one api entry. Not planned.
+4. **`reportDivergence` and `ruleFields` are published, in Task 1.** Not a question, a decision the extraction forces. `libs/react-feature/src/index.tsx` calls `reportDivergence(onDivergence, report)` at what is `libs/feature/src/react/index.tsx:269` today, to deliver the memo's collected reports to the provider's observer, and `libs/react-feature/src/hydrate.ts` needs both names. `@evanion/source` resolves `@evanion/feature` to `src/index.ts` and to no deeper path, so there is no way for the React package to reach either name unpublished. Publishing `reportDivergence` also serves the author writing a Vue or Svelte binding outside this repository, which is the second reason and not the first. Each costs one line in `libs/feature/src/index.ts`, one `##` entry, one region and, for `ruleFields`, one `describe`.
 5. **The variant `value` that no wire format carries.** Ruling 5 normalises a `Date` at a window condition's `value` and leaves `Decision.value` alone, because the application chose the value's type. The alternative is for `snapshot` to refuse a value `JSON.stringify` cannot carry, the way `serializeConfig` refuses one, which would turn an authoring mistake into a request failure. Task 29's pitfalls page documents the current answer.
 6. **`libs/feature/tsconfig.lib.json` lists `"node"` in `types` because `observe.ts:293` names `process`.** The package imports no Node built-in and `core-boundary.spec.ts` proves it, so the `types` entry is there for one `typeof` guard. A consumer compiling the package's source through the `@evanion/source` condition without `@types/node` sees `TS2591` on that line. The published `.d.ts` carries none of it. Replacing the guard with a read off `globalThis` would drop the dependency; it would also defeat a bundler's `define` substitution, which the guard's own docblock already accepts for a `console.warn`.
 7. **No application in this repository used `@evanion/feature` before this plan.** Tasks 23, 25, 26 and 27 each add wiring to a demo application so the framework pages cite code this repository builds. That is four applications gaining a dependency they did not have, and each one's flag read is a change to what the application renders. If the owner would rather the pages cite only library-owned regions, the four tasks shrink to one region each in `libs/feature/docs/examples.md`, on the shape Task 24 uses for Express, and the pages lose the per-request plumbing that only an application can show.
 8. **Whether any framework genuinely needs its own package.** The audit says no. A distributor needs a context write, a context read and a memo, which § 1 of the adapters spec argues the framework supplies, and `apps/shop-api/src/acl/acl.module.ts` is 60 lines of application code that no package could own without also owning the principal. Astro is the one worth a second look: an island receiving a `DecisionSet` has to adopt it, and `adoptDecisions` is what it calls, so the package would hold one call and a prop type. Not planned, and recorded here for the owner.
 9. **Friction this plan assigns to the application and does not fix.** The principal and how it reaches deep code; the source that moves the document's bytes; the administration surface; a store per tenant; exposure recording at the render site. Each is refused by a spec decision or by `core-boundary.spec.ts`, and each is named on `limits.mdx` in Task 29.
-10. **Whether `apps/docs/content/feature/` should move under `content/next/` before PIECE FOUR rather than after.** This plan moves it last, so the move happens once over the finished 24-page set. The cost is that every page task in PIECE FOUR writes into a tree whose path changes in Task 32, and `git mv` of a directory carries them. The benefit is one move and one `.gitignore` edit.
-11. **The section's page count.** `@evanion/acl` has 33 pages and `@evanion/feature` reaches 24. The two bands this plan adds are Platforms, at six pages, and Questions, at five. acl's Reference band has eleven pages to feature's four, and the gap is the pages acl needs for a trust boundary: `security`, `attacks`, `refusals`, `resolution`, `explorer`. A feature flag gates nothing, so none of the five has a counterpart here.
+10. **Whether `apps/docs/content/feature/` should move under `content/next/` before PIECE FOUR rather than after.** This plan moves it last, so the move happens once over the finished 23-page set. The cost is that every page task in PIECE FOUR writes into a tree whose path changes in Task 32, and `git mv` of a directory carries them. The benefit is one move and one `.gitignore` edit.
+11. **The section's page count.** `@evanion/acl` has 33 pages and `@evanion/feature` reaches 23. The two bands this plan adds are Platforms, at six pages, and Questions, at five. acl's Reference band has eleven pages to feature's four, and the gap is the pages acl needs for a trust boundary: `security`, `attacks`, `refusals`, `resolution`, `explorer`. A feature flag gates nothing, so none of the five has a counterpart here.
 12. **Whether `Features` should default `Frozen` to `false` rather than `boolean`.** This plan leaves it at `boolean`, which is what it is today. The `Features` docblock argues that a declaration naming the type gets the union of both forms and assigns to neither `Decisions<S>` nor `DeepReadonly<Decisions<S>>`, which is a sharp edge Task 17's default makes easier to reach: `Features` with no argument at all now compiles and carries that union. Defaulting `Frozen` to `false` would make the bare form answer one shape and would lie about a store built with `observe`.
