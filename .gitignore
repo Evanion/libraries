@@ -141,3 +141,7 @@ graphify-out/
 # Not committed: a worktree is a checkout of this repository, and committing one
 # records it as a gitlink to a commit no clone can resolve.
 .wt/
+
+# Written by Obsidian when docs/ is opened as a vault: workspace layout and
+# per-user settings.
+.obsidian/
