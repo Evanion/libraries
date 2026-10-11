@@ -545,6 +545,27 @@ describe('createFeatures', () => {
       [false, true],
     ]);
   });
+
+  it('resolves a feature keyed on a member of a numeric enum', () => {
+    // `FeatureKey` is `string | number` so a consumer can key features on an
+    // enum and still get exhaustiveness out of `Decisions`. The enum member is
+    // its number at runtime, and the walk, the reason and the decision read it
+    // the way they read a string.
+    const PreorderBanner = 1;
+    const TradeInKiosk = 2;
+    const features = createFeatures([
+      { key: PreorderBanner, enabled: true },
+      { key: TradeInKiosk, enabled: false },
+    ] as const);
+
+    expect(features.isEnabled(PreorderBanner)).toBe(true);
+    expect(features.isEnabled(TradeInKiosk)).toBe(false);
+    expect(features.resolve()[TradeInKiosk]).toEqual({
+      key: TradeInKiosk,
+      enabled: false,
+      reason: 'explicitly-off',
+    });
+  });
 });
 
 describe('precedence', () => {
