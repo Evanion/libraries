@@ -183,6 +183,29 @@ describe('the pin file', () => {
     ).toBeGreaterThan(0);
   });
 
+  /**
+   * A dry run reads the files every commit since a tag changed, and a treeless
+   * clone fetches each of those trees from the remote on its own. The dry runs
+   * below then take minutes and time out with nothing to say why.
+   */
+  it('is checked against a clone that holds every tree', () => {
+    let filters: string[] = [];
+    try {
+      filters = git([
+        'config',
+        '--get-regexp',
+        String.raw`^remote\..*\.partialclonefilter$`,
+      ]).split('\n');
+    } catch {
+      // git config exits 1 when no remote is a partial clone.
+    }
+
+    expect(
+      filters.filter((line) => / tree:/.test(line)),
+      'This checkout is treeless. Clone without `filter: tree:0`.',
+    ).toEqual([]);
+  });
+
   it('pins only releases that happened, at commits on main, and says why where it deviates', async () => {
     const { packages } = await navigation();
     const { segmentOf, taggedPast, releaseLines } = await versions();
