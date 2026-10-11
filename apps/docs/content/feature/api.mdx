@@ -481,7 +481,9 @@ The `source` is `'weighted' | 'sticky' | 'fallback'`. There is no `'pinned'` cas
 
 To track the specific state of a feature, `@evanion/feature` uses `VariantInfo`. This interface records the details of a single feature variant, consisting of a `variant` name typed `string` and an optional `value` typed `unknown`.
 
-While `VariantInfo` defines the structure of a record, the actual union of declared variant names and the value type associated with each name is determined by `InferSchema` reading a definitions literal. The `Schema` maps every feature key to one of these `VariantInfo` objects; if a feature declares no variants, it maps to `never`.
+While `VariantInfo` defines the general structure of a record, the actual union of declared variant names and the value type associated with each name is determined by `InferSchema` reading a definitions literal.
+
+In `@evanion/feature`, the `Schema` maps every feature key to a `VariantInfo`. Its declaration writes `VariantInfo | never`, and that union collapses so no key of a `Schema` maps to `never`. This `never` mapping belongs to `InferSchema`, with one exception: a member typed `FeatureDefinition<K>` maps to `VariantInfo` and not to `never`.
 
 ### `Schema` and `InferSchema`
 
