@@ -36,12 +36,11 @@ A feature's definition holds its intent, `enabled`, and its `rules`. A rule matc
 
 In this example, express pickup is offered only to customers who are already on the new checkout. The new checkout's one rule matches a bookseller and nobody else, so for a customer it resolves to `false`, and express pickup resolves to `false` with it, even though its own definition has no rules and would resolve on alone.
 
-## Two Entry Points
+## The Core and the React Package
 
-`@evanion/feature` ships as two packages:
+`@evanion/feature` imports no framework. It runs in a Node.js API, a build script or a serverless function, and it resolves flags and plans which of them a build can settle. Every page in this section is about that package.
 
-- **The core, `@evanion/feature`**, imports no framework. It runs in a Node.js API, a build script or a serverless function, and it resolves flags and plans which of them a build can settle.
-- **The React adapter, `@evanion/react-feature`**, carries a `FeatureProvider` and the hooks (`useFeature` and three more) that read its decisions anywhere in a React tree.
+`@evanion/react-feature` is the React binding, and it is a package of its own because `'use client'` is a per-module directive. It carries a `FeatureProvider` and four hooks that read its decisions anywhere in a React tree, and it decides nothing. [The react-feature pages](/react-feature/) are where it is documented.
 
 ## What a Decision Carries
 
@@ -78,7 +77,6 @@ The engine never writes resolved values back into the configuration. This ensure
 - [Decisions](./decisions): resolving, toggling and reading a reason.
 - [Rollouts](./rollouts): bucketing, seeds and percentages that only add members.
 - [Variants](./variants): weighted splits, pins and sticky assignments.
-- [React](./react): the provider and the hooks.
 - [Build-time planning](./build-time): `plan()` for a static build.
 - [Observing](./observing): an observer on every decision.
 

@@ -2,8 +2,10 @@
 
 <WorkshopNotice slug="feature" />
 
-Two packages. `@evanion/feature` is the core; `@evanion/react-feature` is the
-React adapter.
+One entry point. `@evanion/feature` imports no framework and publishes
+everything below. The React binding is a package of its own, and
+[its API reference](/react-feature/api) has the provider, the hooks and the
+types they name.
 
 ## `createFeatures(definitions, options?)`
 
@@ -760,57 +762,3 @@ accepts.
 
 All of them are raised by `createFeatures`, so a store a caller holds cannot
 fail mid-evaluation.
-
-## React exports
-
-```ts
-import {
-  FeatureProvider,
-  createFeatureContext,
-  useFeatures,
-  useFeature,
-  useFeatureEnabled,
-  useVariant,
-} from '@evanion/react-feature';
-```
-
-| Export                           | Signature                                              |
-| -------------------------------- | ------------------------------------------------------ |
-| `FeatureProvider`                | `{ features, context?, decisions?, children? }`        |
-| `createFeatureContext(features)` | `FeatureContext<S, Frozen>`: a provider and four hooks |
-| `useFeatures()`                  | `AnyDecisions`                                         |
-| `useFeature(key)`                | `Decision<FeatureKey>`; throws for an unconfigured key |
-| `useFeatureEnabled(key)`         | `boolean`                                              |
-| `useVariant(key)`                | `{ variant?: string; value?: unknown }`                |
-
-The four top-level hooks take no type argument. They read the shared context,
-which holds `Decision<FeatureKey>` per key, so `variant` is `string` and `value`
-is `unknown`. `createFeatureContext(features)` returns the same four hooks bound
-to one store's schema: each bound hook names `keyof S`, and `useVariant` answers
-the variant union that store declares.
-
-Both providers accept either form of a resolved record on `decisions`:
-`Decisions<S> | DeepReadonly<Decisions<S>>`. A server that resolves with an
-observed store and serialises the result hands the browser the frozen form, and
-a store built with no observer hands it the mutable one.
-
-### Binding the hooks to a store
-
-`createFeatureContext` and `FeatureContext` carry the same
-`Frozen extends boolean = boolean` parameter as `Features`, read off the store
-the factory was given. So the bound `useFeatures` answers
-`FrozenWhenObserved<Frozen, Decisions<S>>` and the bound `useFeature` answers
-`FrozenWhenObserved<Frozen, Decisions<S>[K]>`, and a factory built from a store
-with no observer keeps the mutable form on both. `BoundFeatureProviderProps`
-carries `Frozen` too, and it refuses one of the two mismatched mounts. A store
-that freezes what it resolves, mounted under a factory built from a store that
-freezes nothing, is a compile error, because the hooks there promise the mutable
-form. The opposite mount compiles: TypeScript widens `Decisions<S>` into
-`DeepReadonly<Decisions<S>>`, so a store that freezes nothing satisfies a factory
-bound to one that freezes, and the bound hooks then type as readonly an object
-no code froze.
-
-`FeatureProviderProps<S>`, `BoundFeatureProviderProps<S, Frozen>`,
-`FeatureContext<S, Frozen>` and `AnyDecisions` are exported as types. See
-[React](/feature/react#binding-the-hooks-to-a-store) for the factory and for the
-memoisation rule on `context`.
