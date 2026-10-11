@@ -136,6 +136,48 @@ attempt(duplicate); // -> 'DuplicateFeatureError: duplicate feature key "a"'
 
 <!-- #endregion config-errors -->
 
+### Variant Errors
+
+<!-- #region variant-errors -->
+
+```ts @import.meta.vitest
+import { createFeatures, FeatureConfigError } from '@evanion/feature';
+import type { FeatureDefinition } from '@evanion/feature';
+
+const nameOf = (definitions: FeatureDefinition[]) => {
+  try {
+    createFeatures(definitions);
+    return 'built';
+  } catch (error) {
+    return error instanceof FeatureConfigError ? error.name : 'built';
+  }
+};
+
+const declaredTwice: FeatureDefinition[] = [
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'control', weight: 50 },
+    ],
+  },
+];
+const pinsWhatIsNotDeclared: FeatureDefinition[] = [
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    variants: [{ name: 'control', weight: 100 }],
+    rules: [{ id: 'booksellers', variant: 'blue' }],
+  },
+];
+
+nameOf(declaredTwice); // -> 'DuplicateVariantError'
+nameOf(pinsWhatIsNotDeclared); // -> 'UnknownVariantError'
+```
+
+<!-- #endregion variant-errors -->
+
 ### Rules and Conditions
 
 <!-- #region rules -->

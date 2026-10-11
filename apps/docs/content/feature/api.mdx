@@ -67,7 +67,8 @@ for every key it covers.
 
 `createFeatures` throws `FeatureCycleError`, `UnknownDependencyError` or
 `DuplicateFeatureError` here; evaluation raises none of them. See
-[Errors](#errors) for what each carries.
+[`FeatureConfigError`](#featureconfigerror) and the five classes under it for
+what each carries.
 
 ### How a misspelled option gets caught
 
@@ -751,14 +752,68 @@ A `Date` is taken as the instant it holds and is read no further, so
 every check. Build one from epoch milliseconds, or from a string the table
 accepts.
 
-## Errors
+## `FeatureConfigError`
 
-| Class                    | Extends              | Carries                 |
-| ------------------------ | -------------------- | ----------------------- |
-| `FeatureConfigError`     | `Error`              |                         |
-| `FeatureCycleError`      | `FeatureConfigError` | `path`, the closed walk |
-| `UnknownDependencyError` | `FeatureConfigError` | `key`, `dependency`     |
-| `DuplicateFeatureError`  | `FeatureConfigError` | `key`                   |
+<!-- reference @evanion/feature#FeatureConfigError example=config-errors -->
 
-All of them are raised by `createFeatures`, so a store a caller holds cannot
-fail mid-evaluation.
+To handle any configuration failure in a single block, you can catch the base
+class for all configuration errors. The `FeatureConfigError` serves as the root
+for the other five errors described on this page.
+
+Because `@evanion/feature` ensures that a store cannot fail mid-evaluation,
+`createFeatures` raises all six of these errors during initialization. In
+contrast, `resolve`, `plan`, and `toggle` throw none of them.
+`FeatureConfigError` itself also reaches a caller from `snapshot`, which refuses
+a `context.now` holding an invalid `Date`, and from `serializeConfig`, which
+refuses a value the wire format cannot carry.
+
+## `FeatureCycleError`
+
+<!-- reference @evanion/feature#FeatureCycleError example=config-errors -->
+
+When a `dependsOn` chain closes on itself, the resolution order becomes
+undefined. To prevent this, `@evanion/feature` refuses the set via a
+`FeatureCycleError`.
+
+The `path` property holds the closed walk and ends where it starts, ensuring the
+closing edge is present both on the error object and in the error message.
+
+## `UnknownDependencyError`
+
+<!-- reference @evanion/feature#UnknownDependencyError example=config-errors -->
+
+If a `dependsOn` property names a feature that no definition in the set
+declares, `@evanion/feature` raises an `UnknownDependencyError`. The `key`
+property identifies the feature that named the missing dependency, and
+`dependency` identifies the name that resolves to nothing.
+
+## `DuplicateFeatureError`
+
+<!-- reference @evanion/feature#DuplicateFeatureError example=config-errors -->
+
+When two definitions carry the same `key`, `@evanion/feature` raises a
+`DuplicateFeatureError` carrying that key. This typically occurs when a document
+is assembled from two different sources; the key named in the error is the one
+to investigate in both sources.
+
+## `DuplicateVariantError`
+
+<!-- reference @evanion/feature#DuplicateVariantError example=variant-errors -->
+
+If two variants of one feature declare the same `name`, a rule pinning that name
+names both, so `@evanion/feature` refuses the feature via a
+`DuplicateVariantError`.
+
+The `feature` and `variant` properties carry the conflicting pair.
+
+## `UnknownVariantError`
+
+<!-- reference @evanion/feature#UnknownVariantError example=variant-errors -->
+
+When a rule's `variant` names a variant that its feature does not declare, the
+rule would match and pin nothing, and `variantOf` would answer with a name the
+schema does not carry. In this case, `@evanion/feature` raises an
+`UnknownVariantError`.
+
+The `feature` and `variant` properties carry the pair. This error is also raised
+if a feature declares no variants at all but carries a rule with a `variant`.
