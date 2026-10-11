@@ -319,6 +319,30 @@ describe('variantSeedOf', () => {
     ).toBe('fixed');
   });
 
+  it('takes an empty variantSeed unchanged too', () => {
+    // The member is read with `!== undefined` and not with `??`, so an empty
+    // string is a seed its author declared. A document that lost the member in
+    // transit arrives without it, which is the case `variantErrors` refuses by
+    // name, and nothing here has to tell the two apart.
+    expect(variantSeedOf({ key: 'cta', enabled: true, variantSeed: '' })).toBe(
+      '',
+    );
+  });
+
+  it('composes an empty feature seed into the variant seed', () => {
+    // `seed ?? key` for the same reason: an author who wrote the member owns
+    // what it says, and the key does not stand in for it.
+    expect(variantSeedOf({ key: 'cta', enabled: true, seed: '' })).toBe(
+      ':variant',
+    );
+  });
+
+  it('spells a numeric feature key into the seed', () => {
+    // `FeatureKey` admits a number beside a string, and a Swift or Kotlin port
+    // composes the same text for one.
+    expect(variantSeedOf({ key: 7, enabled: true })).toBe('7:variant');
+  });
+
   it('separates the variant bucket from the rollout bucket', () => {
     // The correctness point of this feature. One seed for both would put every
     // member of a 20% rollout in the lowest 20% of the variant space.
@@ -342,6 +366,18 @@ describe('assignVariant', () => {
   it('returns nothing for a feature declaring no variants', () => {
     expect(
       assignVariant({ key: 'k', enabled: true }, { targetingKey: 'u' }),
+    ).toBeUndefined();
+  });
+
+  it('returns nothing for a feature declaring an empty variants array', () => {
+    // A separate branch from the absent member above. `variantErrors` refuses
+    // the empty array, so a store never holds one, and a caller handing this
+    // function its own object reaches it.
+    expect(
+      assignVariant(
+        { key: 'cta', enabled: true, variants: [] },
+        { targetingKey: 'user-1' },
+      ),
     ).toBeUndefined();
   });
 
@@ -391,6 +427,33 @@ describe('assignVariant', () => {
     expect(assignment?.source).toBe('fallback');
   });
 
+  it('buckets a falsy bucketing value rather than giving the control', () => {
+    // The read tests `typeof` for a string or a number, which `0` and `''`
+    // both pass. A truthiness test in its place would hand the control to
+    // every shopper the application keys `0`, and the experiment would
+    // undercount one arm without reporting anything.
+    const byShopper = { ...cta, variantBy: 'shopperId' };
+
+    expect(assignVariant(byShopper, { shopperId: 0 })?.source).toBe('weighted');
+    expect(assignVariant(byShopper, { shopperId: '' })?.source).toBe(
+      'weighted',
+    );
+  });
+
+  it('gives the control when the bucketing field holds a boolean or null', () => {
+    // `EvaluationContext` carries an index signature, so an application that
+    // writes a flag or a JSON null at the bucketing field compiles. Neither
+    // value names a subject, and the control admits nobody to the experiment.
+    const byShopper = { ...cta, variantBy: 'shopperId' };
+
+    expect(assignVariant(byShopper, { shopperId: true })?.source).toBe(
+      'fallback',
+    );
+    expect(assignVariant(byShopper, { shopperId: null })?.source).toBe(
+      'fallback',
+    );
+  });
+
   it('reads the control as the first variant in the bucketing order', () => {
     const reordered = {
       ...cta,
@@ -411,6 +474,47 @@ describe('assignVariant', () => {
 
     expect(assignment?.variant.name).toBe('blue');
     expect(assignment?.source).toBe('sticky');
+  });
+
+  it('reports no bucket on a sticky assignment the context carried a key for', () => {
+    // `VariantAssignment.bucket` is documented as the weighted answer's alone,
+    // and the context here carries a bucketing value the sticky branch returns
+    // above without hashing. A writer that filled the member anyway would have
+    // a reader believe the weights decided this.
+    const assignment = assignVariant(cta, {
+      targetingKey: 'user-1',
+      stickyVariants: { cta: 'blue' },
+    });
+
+    expect(assignment?.source).toBe('sticky');
+    expect(assignment?.bucket).toBeUndefined();
+  });
+
+  it('buckets a prior assignment the context carries as JSON null', () => {
+    // A session store round-trips an absent variant as `null`, which is not
+    // `undefined`, so the read takes the branch and no declared variant
+    // matches. The weights answer and no render fails over stale session data.
+    const assignment = assignVariant(cta, {
+      targetingKey: 'user-1',
+      stickyVariants: { cta: null as never },
+    });
+
+    expect(assignment?.source).toBe('weighted');
+    expect(['control', 'blue']).toContain(assignment?.variant.name);
+  });
+
+  it('reads a sticky entry under the string spelling of a numeric key', () => {
+    // The lookup is `String(definition.key)`, and a context the application
+    // built from JSON keys the record by the same text.
+    const numbered = { key: 7, enabled: true, variants: cta.variants };
+
+    const assignment = assignVariant(numbered, {
+      targetingKey: 'user-1',
+      stickyVariants: { 7: 'blue' },
+    });
+
+    expect(assignment?.source).toBe('sticky');
+    expect(assignment?.variant.name).toBe('blue');
   });
 
   it('holds a subject still across a reweighting', () => {
@@ -488,5 +592,92 @@ describe('assignVariant', () => {
 
     expect(assignment?.source).toBe('sticky');
     expect(assignment?.variant.name).toBe('blue');
+  });
+
+  describe('a definition validateVariants would have refused', () => {
+    /**
+     * The docblock's position, and the reference page's: this function throws
+     * for none of these and the answer it gives is deterministic and wrong.
+     * `createFeatures` and `validateConfig` are the two gates, and a caller
+     * that built the definition itself passed neither, so these are the answers
+     * a reader who skipped both gets.
+     */
+    const unusable = (weights: readonly number[]) => ({
+      key: 'checkout-cta',
+      enabled: true,
+      variants: weights.map((weight, at) => ({
+        name: `v${String(at)}`,
+        weight,
+      })),
+    });
+
+    const assignedNames = (weights: readonly number[]) =>
+      new Set(
+        Array.from(
+          { length: 200 },
+          (_, i) =>
+            assignVariant(unusable(weights), {
+              targetingKey: `cust-${String(i)}`,
+            })?.variant.name,
+        ),
+      );
+
+    it('throws for an unusable weight set', () => {
+      for (const weights of [
+        [0, 0],
+        [-10, 50],
+        [Number.POSITIVE_INFINITY, 50],
+        [Number.NaN, 50],
+      ]) {
+        expect(() =>
+          assignVariant(unusable(weights), { targetingKey: 'cust-0101' }),
+        ).not.toThrow();
+      }
+    });
+
+    it('hands every subject the last-ordered variant for a set weighted entirely zero', () => {
+      // The total is zero, so every band width is 0/0, every comparison
+      // against NaN is false, and the loop falls out to the last variant.
+      expect(assignedNames([0, 0])).toEqual(new Set(['v1']));
+    });
+
+    it('hands every subject the last-ordered variant for a negative weight', () => {
+      // The first band's ceiling is below zero, so no bucket lands in it and
+      // the variant an author weighted negatively is unreachable.
+      expect(assignedNames([-10, 50])).toEqual(new Set(['v1']));
+    });
+
+    it('hands every subject the last-ordered variant for a weight that is not finite', () => {
+      expect(assignedNames([Number.POSITIVE_INFINITY, 50])).toEqual(
+        new Set(['v1']),
+      );
+      expect(assignedNames([Number.NaN, 50])).toEqual(new Set(['v1']));
+    });
+
+    it('walks two variants sharing an order in the order they were declared', () => {
+      // `bucketingOrder` sorts on the position and nothing separates a tie.
+      // `Array.prototype.sort` has been stable since ES2019, so the first
+      // declared keeps the lower band on every engine, and the answer is
+      // deterministic without being the one an author who wrote the duplicate
+      // meant.
+      const tied = {
+        key: 'checkout-cta',
+        enabled: true,
+        variants: [
+          { name: 'first', weight: 50, order: 0 },
+          { name: 'second', weight: 50, order: 0 },
+        ],
+      };
+
+      expect(bucketingOrder(tied.variants).map((each) => each.name)).toEqual([
+        'first',
+        'second',
+      ]);
+      expect(assignWeighted(tied.variants, 0).name).toBe('first');
+      expect(assignWeighted(tied.variants, 0.75).name).toBe('second');
+      expect(assignVariant(tied, { targetingKey: 'user-1' })?.source).toBe(
+        'weighted',
+      );
+    });
   });
 });

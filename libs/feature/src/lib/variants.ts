@@ -555,7 +555,8 @@ export interface VariantAssignment {
  * `validateVariants` on its own. A weight that is non-finite, negative, or
  * sums to zero across the set never throws here; `assignWeighted` always
  * returns the last-ordered variant. Two variants sharing an `order` never
- * throw either; the second one declared wins every tie. Every one of these
+ * throw either; `bucketingOrder` sorts on the position and nothing separates a
+ * tie, so the first one declared keeps the lower band. Every one of these
  * outcomes is deterministic and wrong.
  */
 export function assignVariant<F extends FeatureKey>(

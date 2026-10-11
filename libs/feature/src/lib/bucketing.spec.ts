@@ -54,6 +54,21 @@ describe('bucketOf', () => {
     // identically, which correlates flags whose keys share a prefix.
     expect(bucketOf('ab', 'c')).not.toBe(bucketOf('a', 'bc'));
   });
+
+  it('answers one of 2^32 buckets', () => {
+    // The granularity the additive property rests on, and the count the
+    // reference page states. `murmur3` answers an unsigned 32-bit word and this
+    // divides by 2^32, so every bucket is a multiple of 1/2^32. A divisor of
+    // 1000, which is what a modulus-based implementation reads, puts a
+    // percentage change on a reshuffle rather than on an addition.
+    for (const customer of ['cust-0007', 'cust-0042', 'cust-0101']) {
+      const buckets = bucketOf(customer, 'new-checkout') * 2 ** 32;
+
+      expect(Number.isInteger(buckets)).toBe(true);
+      expect(buckets).toBeGreaterThanOrEqual(0);
+      expect(buckets).toBeLessThan(2 ** 32);
+    }
+  });
 });
 
 describe('inRollout', () => {
@@ -87,6 +102,37 @@ describe('inRollout', () => {
   it('includes nobody at 0% and everybody at 100%', () => {
     expect(members(users, 0, 'checkout-v2')).toEqual([]);
     expect(members(users, 100, 'checkout-v2')).toEqual(users);
+  });
+
+  it('leaves out a subject whose bucket sits exactly on the threshold', () => {
+    // The comparison is strictly below, and 0% and 100% both answer from the
+    // guards above it, so neither of those reads it. 4.385687271133065 is
+    // `bucketOf('cust-0101', 'new-checkout')` times 100, the bucket pinned
+    // above, and the equality below says so in case the pin moves.
+    const bucket = bucketOf('cust-0101', 'new-checkout');
+
+    expect(bucket * 100).toBe(4.385687271133065);
+    expect(inRollout('cust-0101', bucket * 100, 'new-checkout')).toBe(false);
+    expect(inRollout('cust-0101', bucket * 100 + 1e-12, 'new-checkout')).toBe(
+      true,
+    );
+  });
+
+  it('answers a percentage no rollout can mean', () => {
+    // `percent` is a number and a served document carries whatever an operator
+    // typed. The guard is `!(percent > 0)`, which takes NaN with the negatives,
+    // and the 100 branch takes everything above it, so a document holding one
+    // of these ramps either nobody or everybody and never throws inside a
+    // request.
+    expect(inRollout('cust-0007', -5, 'new-checkout')).toBe(false);
+    expect(inRollout('cust-0007', Number.NaN, 'new-checkout')).toBe(false);
+    expect(
+      inRollout('cust-0007', Number.NEGATIVE_INFINITY, 'new-checkout'),
+    ).toBe(false);
+    expect(inRollout('cust-0007', 150, 'new-checkout')).toBe(true);
+    expect(
+      inRollout('cust-0007', Number.POSITIVE_INFINITY, 'new-checkout'),
+    ).toBe(true);
   });
 
   it('lands within a point of the requested percentage', () => {
@@ -147,6 +193,20 @@ describe('murmur3', () => {
     expect(word('The quick brown fox jumps over the lazy dog')).toBe(
       '2fa826cd',
     );
+  });
+
+  it('reads the seed as an unsigned 32-bit word', () => {
+    // `murmur3Bytes` applies `seed >>> 0`. A port that holds the seed in a
+    // signed 32-bit integer, which is what Java and C# give it, hands the
+    // negative spelling of the same word and has to reach the same hash.
+    expect(murmur3('hello', -1)).toBe(murmur3('hello', 0xffffffff));
+    expect(murmur3('hello', -1756908916)).toBe(murmur3('hello', 0x9747b28c));
+  });
+
+  it('seeds with zero when a caller names no seed', () => {
+    // `bucketOf` calls this with one argument, so the default is what every
+    // deployed bucket was computed under.
+    expect(murmur3('hello')).toBe(murmur3('hello', 0));
   });
 
   it('hashes the UTF-8 bytes of text outside ASCII', () => {
