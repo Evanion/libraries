@@ -276,10 +276,12 @@ function Layout({
   children: ReactNode;
 }) {
   const decisions = features.snapshot({ targetingKey: customerId });
-  // Props crossing into a client module are serialised; JSON is the same test.
-  const sent: ShopDecisions = JSON.parse(JSON.stringify(decisions));
 
-  return <Flags decisions={sent}>{children}</Flags>;
+  // The framework serialises this prop on its way into the client module.
+  // React's flight serializer and Astro's `devalue` carry the `Date` a window
+  // condition's `failed.value` can hold, and `JSON.stringify` by hand sends a
+  // string in its place.
+  return <Flags decisions={decisions}>{children}</Flags>;
 }
 
 const forCustomer = (customerId: string) =>

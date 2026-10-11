@@ -75,11 +75,13 @@ function ShopFlags({
 // app/page.tsx, on the server, per request
 const shelfFor = (shopperId: string) => {
   const decisions = features.snapshot({ targetingKey: shopperId });
-  // Props crossing into a client module are serialised; JSON is the same test.
-  const sent: ShopDecisions = JSON.parse(JSON.stringify(decisions));
 
+  // The framework serialises this prop on its way into the client module.
+  // React's flight serializer and Astro's `devalue` carry the `Date` a window
+  // condition's `failed.value` can hold, and `JSON.stringify` by hand sends a
+  // string in its place.
   return renderToStaticMarkup(
-    <ShopFlags decisions={sent}>
+    <ShopFlags decisions={decisions}>
       <Shelf />
     </ShopFlags>,
   );
