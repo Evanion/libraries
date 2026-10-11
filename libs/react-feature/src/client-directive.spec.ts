@@ -14,9 +14,10 @@ import { describe, expect, it } from 'vitest';
  * in this package's own suite renders in an RSC pass, so no case here would
  * notice.
  *
- * The core must carry none. `@evanion/feature` resolves flags in a Node API,
- * a build script and a Server Component, and a directive on its entry would
- * push every one of those into a client bundle.
+ * The core must carry none, and that half is asserted where the core's files
+ * are: `@evanion/feature` is emitted file-per-file, so the rule is about every
+ * module under its `src` and not about its entry, and
+ * `libs/feature/src/lib/core-boundary.spec.ts` already walks that tree.
  *
  * Read with the parser, not the text: `src/index.tsx`'s own docblock writes
  * `'use client'` in prose two lines below the directive, and a scan over raw
@@ -25,7 +26,6 @@ import { describe, expect, it } from 'vitest';
 
 const ENTRY = join(import.meta.dirname, 'index.tsx');
 const HYDRATE = join(import.meta.dirname, 'hydrate.ts');
-const CORE_ENTRY = join(import.meta.dirname, '../../feature/src/index.ts');
 
 function parse(file: string, text: string): ts.SourceFile {
   return ts.createSourceFile(
@@ -60,10 +60,6 @@ function directiveOf(file: string): string | undefined {
 describe('the directive the published modules carry', () => {
   it('opens the adapter entry with use client', () => {
     expect(directiveOf(ENTRY)).toBe('use client');
-  });
-
-  it('opens the core entry with no directive at all', () => {
-    expect(directiveOf(CORE_ENTRY)).toBeUndefined();
   });
 
   it('opens hydrate.ts with no directive, because the entry carries the one', () => {

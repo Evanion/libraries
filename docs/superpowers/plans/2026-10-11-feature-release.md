@@ -444,6 +444,7 @@ import {
   - `describe('the exemption the scan allows')` comes out whole, with its five fixture cases.
   - `it('reaches every entry the package publishes')` drops the `react/index.tsx` assertion and keeps `index.ts`, `lib/config.ts` and `lib/features.ts`.
   - The `describe('the core')` comment about `react` being the one peer is rewritten to say the package declares none.
+  - A `leadingDirective` reader and a `directiveOffences` scan over `sources(ROOT)` join the import and timer scans, with `it('opens no published module with a directive')` in `describe('the core')` and a `describe('the directives the scan reports')` block of fixture cases. The whole-tree scan is the rule, not an entry check: `tsc` emits this package file-per-file, so a `'use client'` on `src/lib/features.ts` ships as `dist/lib/features.js` and pulls the Nest service, the build-time pass and every Server Component that calls `createFeatures` into the client bundle. `libs/react-feature/src/client-directive.spec.ts` keeps the half about its own entry and drops its single read of the core's, which is a cross-project disk read ruling 7 refuses.
 
 - [ ] Repoint every consumer an nx target reads:
   - `libs/feature/src/index.ts`'s header docblock: the last sentence names `@evanion/react-feature`.
@@ -483,7 +484,7 @@ Update the `framework` docblock, which cites `@evanion/feature` as the "universa
   - `LIBS` gains `['libs/react-feature', '@evanion/react-feature'],`.
   - The consumer's `@evanion/feature/react` import becomes `@evanion/react-feature`, and a second line imports `FeatureProviderProps` and `AnyDecisions` as types. Both get an annotated binding, the way the `react-acl` block annotates `PolicyProviderProps`. No backtick in the comment above them: the consumer source is a template literal.
   - The runtime pass's `@evanion/feature/react` import becomes `@evanion/react-feature`.
-  - The two-entry assertions become the pair assertions the acl block makes: every module under `@evanion/feature`'s `dist` imports nothing from `react`, its `dist/index.js` carries no `'use client'`, `@evanion/react-feature`'s `dist/index.js` carries one as its first line, and the core's `exports` holds `.` and no `./react`. The `dist/react` filter on the core's module list goes with the entry.
+  - The two-entry assertions become the pair assertions the acl block makes: every module under `@evanion/feature`'s `dist` imports nothing from `react` and opens with no `'use client'` or `'use server'`, `@evanion/react-feature`'s `dist/index.js` carries `'use client'` as its first line, and the core's `exports` holds `.` and no `./react`. The `dist/react` filter on the core's module list goes with the entry. The directive scan reads every core module and not `dist/index.js` alone, for the reason the import scan already does: `tsc` emits the core file-per-file, the entry only re-exports, and a directive on `dist/lib/features.js` is the one a consumer's bundler reads.
 
 - [ ] `npm install`, then `npx nx run-many -t lint test typecheck build -p feature react-feature repo-checks docs`, then `npm run verify:packaging`.
 

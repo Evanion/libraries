@@ -176,6 +176,43 @@ function runtimeOffences(directory: string): string[] {
   );
 }
 
+/**
+ * The directive a module opens with, or `undefined` for one that opens with
+ * code.
+ *
+ * A plain string literal and nothing else. A template literal with nothing
+ * substituted into it reads the same to a human and is an expression at
+ * runtime, so `isStringLiteral` is the predicate and not `isStringLiteralLike`.
+ *
+ * Read with the parser for the reason the import scan is: a docblock that
+ * writes the words states nothing, and `libs/react-feature/src/index.tsx`
+ * writes `'use client'` in prose two lines below its own directive.
+ */
+function leadingDirective(source: ts.SourceFile): string | undefined {
+  const first = source.statements[0];
+  if (first === undefined) return undefined;
+  if (!ts.isExpressionStatement(first)) return undefined;
+  if (!ts.isStringLiteral(first.expression)) return undefined;
+  return first.expression.text;
+}
+
+/**
+ * Every directive a module under `directory` opens with.
+ *
+ * Every module, because a directive is per-module and `vite.config.ts` emits
+ * this package with `tsc`, file-per-file: each module under `src` ships as its
+ * own published module and a directive on any of them is the one a consumer's
+ * bundler reads. A check that read the entry alone would pass a package whose
+ * `lib/features.ts` carries `'use client'`, and `dist/index.js` re-exports it.
+ */
+function directiveOffences(directory: string): string[] {
+  return sources(directory).flatMap((path) => {
+    const directive = leadingDirective(parse(path));
+
+    return directive === undefined ? [] : [`${path}: ${directive}`];
+  });
+}
+
 /** The manifest members this file reads. */
 interface Manifest {
   readonly dependencies?: Record<string, string>;
@@ -269,6 +306,16 @@ describe('the core', () => {
 
   it('imports no module outside itself', () => {
     expect(foreignImports(ROOT)).toEqual([]);
+  });
+
+  it('opens no published module with a directive', () => {
+    // The core resolves flags in a Nest service, in a build script and in a
+    // Server Component. `'use client'` on any one of its modules makes every
+    // consumer of that module client-only, and `'use server'` turns its
+    // exports into server actions; both succeed at build time and fail in the
+    // consumer's graph. `@evanion/react-feature` is where the client boundary
+    // is declared, and it is the only module in the pair that carries one.
+    expect(directiveOffences(ROOT)).toEqual([]);
   });
 
   it('starts no timer and opens no socket', () => {
@@ -685,6 +732,98 @@ describe('the timers and sockets the scan reports', () => {
     });
 
     expect(runtimeOffences(root)).toEqual([]);
+  });
+});
+
+describe('the directives the scan reports', () => {
+  it('reports a single-quoted directive', () => {
+    const root = tree({ 'index.ts': "'use client';\nexport const a = 1;\n" });
+
+    expect(directiveOffences(root).map((o) => o.split(': ')[1])).toEqual([
+      'use client',
+    ]);
+  });
+
+  it('reports a double-quoted directive, which is the same statement', () => {
+    const root = tree({ 'index.ts': '"use client";\n' });
+
+    expect(directiveOffences(root).map((o) => o.split(': ')[1])).toEqual([
+      'use client',
+    ]);
+  });
+
+  it('reports a directive on a module the entry only re-exports', () => {
+    // The case the entry-only reader passes. `tsc` emits `lib/features.ts` as
+    // `dist/lib/features.js`, which ships with the directive on it.
+    const root = tree({
+      'index.ts': "export * from './lib/features.js';\n",
+      'lib/features.ts': "'use client';\nexport const createFeatures = 1;\n",
+    });
+
+    expect(
+      named(
+        root,
+        directiveOffences(root).map((o) => o.split(': ')[0] as string),
+      ),
+    ).toEqual(['lib/features.ts']);
+  });
+
+  it('reports the directive a module states and not the one it means to', () => {
+    const root = tree({ 'index.ts': "'use server';\n" });
+
+    expect(directiveOffences(root).map((o) => o.split(': ')[1])).toEqual([
+      'use server',
+    ]);
+  });
+
+  it('reports a directive a docblock sits under', () => {
+    const root = tree({
+      'index.ts': "'use client';\n\n/** The entry. */\nexport const a = 1;\n",
+    });
+
+    expect(directiveOffences(root)).toHaveLength(1);
+  });
+
+  it('reports no directive from a module whose first statement is an import', () => {
+    // A string below an import is an expression the bundler copies and React
+    // never reads, so the module carries no boundary and this scan is right to
+    // report none.
+    const root = tree({
+      'index.ts': "import { a } from './a.js';\n'use client';\n",
+    });
+
+    expect(directiveOffences(root)).toEqual([]);
+  });
+
+  it('reports no directive from a docblock that writes the words', () => {
+    const root = tree({
+      'index.ts':
+        "/** `'use client'` is a per-module directive. */\nexport const a = 1;\n",
+    });
+
+    expect(directiveOffences(root)).toEqual([]);
+  });
+
+  it('reports no directive from a template literal, which is an expression', () => {
+    const root = tree({ 'index.ts': '`use client`;\n' });
+
+    expect(directiveOffences(root)).toEqual([]);
+  });
+
+  it('reports no directive from a module that opens with code', () => {
+    const root = tree({ 'index.ts': 'export const a = 1;\n' });
+
+    expect(directiveOffences(root)).toEqual([]);
+  });
+
+  it('reports no directive a test file carries', () => {
+    const root = tree({ 'index.spec.ts': "'use client';\n" });
+
+    expect(directiveOffences(root)).toEqual([]);
+  });
+
+  it('reports no directive from a tree that holds no module', () => {
+    expect(directiveOffences(tree({}))).toEqual([]);
   });
 });
 

@@ -777,12 +777,23 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   }
   console.log('  ✓ feature core imports nothing from react');
 
-  const coreFirstLine = readFileSync(join(featureDist, 'index.js'), 'utf8')
-    .split('\n')[0]
-    .trim();
-  if (/^["']use client["'];?$/.test(coreFirstLine)) {
+  // Every core module again, for the same reason. `dist/index.js` only
+  // re-exports, so a directive on `dist/lib/features.js` is live in a
+  // consumer's bundler and invisible to a reader of the entry.
+  const directed = coreModules
+    .filter((file) =>
+      /^["']use (?:client|server)["'];?$/.test(
+        readFileSync(file, 'utf8').split('\n')[0].trim(),
+      ),
+    )
+    .map((file) => file.slice(featureDist.length + 1));
+  if (directed.length) {
     throw new Error(
-      "@evanion/feature dist/index.js must NOT carry a 'use client' directive",
+      '@evanion/feature carries a directive on ' +
+        directed.join(', ') +
+        '. The core resolves flags in a Nest service, in a build script and in ' +
+        'a Server Component, and a boundary on any of its modules takes every ' +
+        'consumer of that module with it.',
     );
   }
 
