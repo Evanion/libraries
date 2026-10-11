@@ -408,7 +408,7 @@ To ramp a feature across a share of subjects, a rule in `@evanion/feature` carri
 - `by` names the context field to bucket on, defaulting to `targetingKey`.
 - `seed` overrides the bucketing seed.
 
-Unless overridden, the seed is the feature key, which decorrelates a subject's bucket across different features. You should override it only to correlate two features deliberately, such as keeping a pair of flags rolling out to the same cohort. See [Rollouts](/feature/rollouts).
+Unless overridden, the seed is the feature's own `seed`, and the feature key when the definition names neither, which decorrelates a subject's bucket across different features. You should override it only to correlate two features deliberately, such as keeping a pair of flags rolling out to the same cohort. See [Rollouts](/feature/rollouts).
 
 ## `Condition`
 
@@ -473,7 +473,7 @@ A control plane writes `order` explicitly so that a serializer that reorders the
 
 `assignVariant` returns a `VariantAssignment`. This object contains the chosen `VariantSpec`, the `by` field it bucketed on and, in the case of `'weighted'`, the `bucket`.
 
-The `source` is `'weighted' | 'sticky' | 'fallback'`. There is no `'pinned'` case because only `decide` knows which rule matched, and `decide` applies a pin on top of the assignment `assignVariant` returned. The library writes this type but does not read it anywhere. See [Variants](/feature/variants).
+The `source` is `'weighted' | 'sticky' | 'fallback'`. There is no `'pinned'` case because only `decide` knows which rule matched, and `decide` applies a pin on top of the assignment `assignVariant` returned. A document author never writes one: `decide` reads the assignment into the decision it returns, and `@evanion/react-feature` reads it again when it compares a shipped decision against a local one. See [Variants](/feature/variants).
 
 ## `VariantInfo`
 
