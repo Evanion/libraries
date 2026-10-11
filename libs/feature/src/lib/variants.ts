@@ -552,12 +552,25 @@ export interface VariantAssignment {
  * only `decide` knows which rule matched.
  *
  * This definition must come from `createFeatures`, or have already passed
- * `validateVariants` on its own. A weight that is non-finite, negative, or
- * sums to zero across the set never throws here; `assignWeighted` always
- * returns the last-ordered variant. Two variants sharing an `order` never
- * throw either; `bucketingOrder` sorts on the position and nothing separates a
- * tie, so the first one declared keeps the lower band. Every one of these
- * outcomes is deterministic and wrong.
+ * `validateVariants` on its own. None of the weight sets `validateVariants`
+ * would have refused throws here, and the answer each one gives is
+ * deterministic and wrong.
+ *
+ * A non-finite weight, or a set summing to zero, leaves every band width
+ * `NaN`. Every comparison against `NaN` is false, so `assignWeighted` falls
+ * out of its loop and returns the last-ordered variant for every bucket,
+ * wherever in the set the bad weight sits.
+ *
+ * A negative weight is the different one. `assignWeighted` sums the weights,
+ * so a negative one shrinks the total rather than poisoning it, and some
+ * band's ceiling then passes 1 and swallows every bucket below it. Which band
+ * that is moves with the negative weight's position: `[-10, 50]` hands every
+ * subject the second variant, `[50, -10]` hands every subject the first, and
+ * `[50, -10, 20]` splits them between the first and the third.
+ *
+ * Two variants sharing an `order` never throw either; `bucketingOrder` sorts
+ * on the position and nothing separates a tie, so the first one declared keeps
+ * the lower band.
  */
 export function assignVariant<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
