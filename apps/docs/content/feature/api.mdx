@@ -479,7 +479,9 @@ The `source` is `'weighted' | 'sticky' | 'fallback'`. There is no `'pinned'` cas
 
 <!-- reference @evanion/feature#VariantInfo -->
 
-`VariantInfo` is what a schema in `@evanion/feature` records about one feature: the union of its variant names and the value each one carries. `Schema` maps every feature key to one of these; a feature that declares no variants maps to `never`.
+To track the specific state of a feature, `@evanion/feature` uses `VariantInfo`. This interface records the details of a single feature variant, consisting of a `variant` name typed `string` and an optional `value` typed `unknown`.
+
+While `VariantInfo` defines the structure of a record, the actual union of declared variant names and the value type associated with each name is determined by `InferSchema` reading a definitions literal. The `Schema` maps every feature key to one of these `VariantInfo` objects; if a feature declares no variants, it maps to `never`.
 
 ### `Schema` and `InferSchema`
 
