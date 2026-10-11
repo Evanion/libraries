@@ -84,9 +84,9 @@ For the full API reference and worked examples, visit our documentation site:
 
 👉 **[docs.evanion.com/feature](https://docs.evanion.com/feature/)**
 
-To integrate these features into a user interface, you can use the React binding provided by `@evanion/react-feature`. While the core `@evanion/feature` package provides the logic, `@evanion/react-feature` adds the `'use client'` directive, the necessary provider, and hooks that allow React components to read a store. Because this package does not yet have a section on the documentation site, its README serves as the primary documentation.
+If you need to integrate these features into a user interface, you can use the React binding provided by `@evanion/react-feature`. While the core `@evanion/feature` package provides the logic, `@evanion/react-feature` adds the `'use client'` directive, the necessary provider, and hooks that allow React components to read a store.
 
-👉 **[@evanion/react-feature](https://github.com/Evanion/libraries/tree/main/libs/react-feature#readme)**
+👉 **[docs.evanion.com/react-feature](https://docs.evanion.com/react-feature/)**
 
 ## License
 
