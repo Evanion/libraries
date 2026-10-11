@@ -566,6 +566,12 @@ export interface VariantAssignment {
  * A set weighted entirely zero divides `0` by `0` for every band and reaches
  * that same fall-out and that same last-ordered answer.
  *
+ * Finite weights overflow the total on their own. Two weights of
+ * `Number.MAX_VALUE` sum to `Infinity`, which divides every band down to `0`
+ * rather than to `NaN`; no ceiling ever passes a bucket, and the loop falls
+ * out to the last-ordered variant from there. `variantErrors` reads the total
+ * and not the weights for this one, so its message names the overflow.
+ *
  * A negative weight shrinks the total rather than poisoning it, so some band's
  * ceiling passes 1 and swallows every bucket below it. Which band that is
  * moves with the negative weight's position: `[-10, 50]` hands every subject
