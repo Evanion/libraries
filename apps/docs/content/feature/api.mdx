@@ -420,13 +420,15 @@ This distinction is necessary because `InferSchema` reads variant names off a de
 
 <!-- reference @evanion/feature#InferSchema -->
 
-`InferSchema` determines the schema implied by a definitions array in `@evanion/feature`. It processes each member of the array, keys the result on that member's `key`, and extracts the variant names and value types from the `variants` property. This happens in three cases, the third of which explains why `as const` is required:
+To determine the schema implied by a definitions array in `@evanion/feature`, you use `InferSchema`. It processes each member of the array, keys the result on that member's `key`, and extracts the variant names and value types from the `variants` property.
 
-- If a member's `variants` property is required and a literal supplies its names, the entry carries the union of those names at `variant` and the union of the declared value types at `value`.
-- If a member has no `variants` key at all, it declares no variants and the entry is `never`. [`Decisions`](#decisions) and [`Plan`](#plan) interpret that `never` to mean "this feature has no variants".
-- If a member is typed as [`FeatureDefinition`](#featuredefinition), which is the case for every element of a plain array type, it carries a `variants` key that the compiler cannot read names from because `FeatureDefinition` declares the property as optional. In this case, the entry is [`VariantInfo`](#variantinfo), and `variantOf` returns `string | undefined`.
+The resulting schema depends on how the member is defined:
 
-Because an array held in a variable annotated `Definitions<Flag>` is a plain array type, every one of its members falls into this third case.
+- **Literal variants:** If a member's `variants` property is required and a literal supplies its names, the entry carries the union of those names at `variant` and the union of the declared value types at `value`. A variant that declares no `value` contributes nothing to that union, so a feature whose variants are split between declaring a value and not declaring one carries only the declared ones at `value`.
+- **Missing variants:** If a member has no `variants` key at all, it declares no variants and the entry is `never`. [`Decisions`](#decisions) and [`Plan`](#plan) interpret that `never` to mean "this feature has no variants".
+- **Generic definitions:** If a member is typed as [`FeatureDefinition`](#featuredefinition), it carries a `variants` key that the compiler cannot read names from because `FeatureDefinition` declares the property as optional. In this case, the entry is [`VariantInfo`](#variantinfo), and `variantOf` returns `string | undefined`. This occurs for every element of a plain array type.
+
+Because an array held in a variable annotated `Definitions<Flag>` is a plain array type, every one of its members falls into this third case; this is why `as const` is required.
 
 ## `AsSchema`
 
@@ -538,36 +540,6 @@ To track the specific state of a feature, `@evanion/feature` uses `VariantInfo`.
 While `VariantInfo` defines the general structure of a record, the actual union of declared variant names and the value type associated with each name is determined by `InferSchema` reading a definitions literal.
 
 In `@evanion/feature`, the `Schema` maps every feature key to a `VariantInfo`. Its declaration writes `VariantInfo | never`, and that union collapses so no key of a `Schema` maps to `never`. This `never` mapping belongs to `InferSchema`, with one exception: a member typed `FeatureDefinition<K>` maps to `VariantInfo` and not to `never`.
-
-### `Schema` and `InferSchema`
-
-```ts signature
-type Schema = Record<string, VariantInfo | never>;
-
-type InferSchema<D extends readonly FeatureDefinition<FeatureKey>[]> = {
-  [E in D[number] as E['key']]: E extends {
-    variants: infer V extends readonly VariantSpec[];
-  }
-    ? { variant: V[number]['name']; value: VariantValue<V[number]> }
-    : never;
-};
-```
-
-A schema maps each feature key to what that feature's variants are. A feature
-that declares no variants maps to `never`, and `Decisions`, `Plan` and the bound
-hooks read that `never` as the variant-free case.
-
-`Schema` annotates a value. A generic over a schema constrains its parameter
-self-referentially, `S extends Record<keyof S, VariantInfo | never>`, because the
-index signature `Schema` carries rejects the `interface` a consumer writes by
-hand.
-
-`InferSchema` is what the first `createFeatures` overload applies to a
-definitions literal, and `AsSchema` then tests each entry against `VariantInfo`
-so the result satisfies that self-referential constraint. A call site names
-neither. `VariantValue`, the helper the fence above names, is internal to the
-package: it distributes over the variant union so that a member declaring no
-`value` contributes `never` and drops out of the value type.
 
 ## `Decision`
 
