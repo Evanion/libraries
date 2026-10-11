@@ -237,6 +237,22 @@ export interface EvaluationContext {
   [field: string]: unknown;
 }
 
+/**
+ * Why a feature resolved the way it did.
+ *
+ * `default-on` says the definition enabled the feature and declared no rules.
+ * `rule-match` says a rule matched, and the decision names that rule.
+ * `explicitly-off` says the definition set `enabled` to `false`.
+ * `no-rule-matched` says the definition enabled the feature and no rule
+ * passed, and the decision carries the per-rule breakdown. `dependency-off`
+ * says a parent resolved off, and the decision carries the blocking edge and
+ * the root cause.
+ *
+ * The engine writes this field and never reads it back.
+ * `reason-is-output-only.spec.ts` deletes every explanation field from each
+ * parent decision before the next feature sees it and requires the same
+ * answers, so a cascade that consulted a reason would fail there.
+ */
 export type Reason =
   /** Enabled, no rules. */
   | 'default-on'
@@ -386,6 +402,19 @@ export type Plan<S extends Record<keyof S, VariantInfo | never>> = {
       : never;
 };
 
+/**
+ * What `features.toggle` answers.
+ *
+ * The `ok: true` member names the key and repeats the `enabled` the caller
+ * wrote. It also lists `willDisable`. The store applies the write before it
+ * answers, so `willDisable` names every transitive dependant that resolved on
+ * under the previous document and resolves off under the written one, in
+ * dependency order. A caller who enables a feature gets an empty list.
+ *
+ * The `ok: false` member answers a key the store does not hold, and the store
+ * wrote nothing. A reload that landed inside the call takes a document that no
+ * longer declares the key down this exit.
+ */
 export type ToggleResult<F extends FeatureKey = string> =
   | {
       ok: true;
