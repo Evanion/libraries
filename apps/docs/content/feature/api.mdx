@@ -515,104 +515,110 @@ neither. `VariantValue`, the helper the fence above names, is internal to the
 package: it distributes over the variant union so that a member declaring no
 `value` contributes `never` and drops out of the value type.
 
-### `Decision<F, V, T>` and `Decisions<S>`
+## `Decision`
 
-```ts
-interface Decision<
-  F extends FeatureKey = string,
-  V extends string = string,
-  T = unknown,
-> {
-  key: F;
-  enabled: boolean;
-  reason: Reason;
-  rule?: string;
-  rules?: readonly RuleOutcome[];
-  blockedBy?: F;
-  cause?: Cause<F>;
-  variant?: V; // on a feature that resolved on and declares variants
-  value?: T; // the assigned variant's configured value, when it declares one
-  assignment?: {
-    source: 'weighted' | 'pinned' | 'sticky' | 'fallback';
-    by: string;
-    bucket?: number; // absent when the context carried no bucketing value
-    rule?: string; // the pinning rule, on 'pinned'
-  };
-}
+<!-- reference @evanion/feature#Decision -->
 
-type Decisions<S extends Record<keyof S, VariantInfo | never>> = {
-  [K in keyof S]: [S[K]] extends [never]
-    ? Omit<Decision<K & FeatureKey>, 'variant' | 'value'>
-    : Decision<K & FeatureKey, S[K]['variant'], S[K]['value']>;
-};
-```
+To understand why a specific feature is on or off, you look at a `Decision`. In `@evanion/feature`, the `enabled` member is the final decision, while every other member provides the supporting explanation.
 
-`V` and `T` default to `string` and `unknown`, so a bare `Decision` is the
-widened shape the React context publishes.
+The engine treats these explanation fields as output only; nothing in `@evanion/feature` consults `reason`, `rule`, `rules`, `blockedBy`, `cause`, `variant`, `value`, or `assignment` to determine enablement, as verified in `reason-is-output-only.spec.ts`.
 
-`Decisions<S>` narrows each entry to the schema entry for its own key. The entry
-for a feature that declares no variants drops `variant` and `value` and keeps
-every other field `Decision` declares, so `rule`, `rules`, `blockedBy`, `cause`
-and `assignment` stay on it as optional fields. Over the store
-[Variants](/feature/variants) builds,
-`features.resolve()['checkout-cta'].variant` is `'control' | 'blue' | undefined`.
+`V` and `T` default to `string` and `unknown`, meaning a bare `Decision` provides the widened shape that the `@evanion/react-feature` context publishes.
 
-The `[S[K]] extends [never]` guard is what drops `variant` and `value` for a
-feature declaring none. `never` is a subtype of every type, so an unguarded
-check takes the variant branch for that feature and types its `variant` as
-`never`, which no error reports.
+When a variant is involved, `assignment` records how it was chosen:
 
-`Reason` is
-`'default-on' | 'rule-match' | 'explicitly-off' | 'no-rule-matched' | 'dependency-off'`.
+- `source`: `'weighted' | 'pinned' | 'sticky' | 'fallback'`
+- `by`: The field the engine used for bucketing.
+- `bucket`: The bucket value (absent if the context carried no bucketing value).
+- `rule`: The name of the pinning rule (present only when `source` is `'pinned'`).
 
-### `Cause<F>`
+See [Variants](/feature/variants) for more detail.
 
-```ts
-interface Cause<F extends FeatureKey = string> {
-  key: F;
-  reason: Reason;
-  rule?: string;
-}
-```
+## `Decisions`
 
-### `PlanEntry<F, V, T>` and `Plan<S>`
+<!-- reference @evanion/feature#Decisions -->
 
-```ts
-interface PlanEntry<
-  F extends FeatureKey = string,
-  V extends string = string,
-  T = unknown,
-> {
-  key: F;
-  resolved: boolean | 'deferred';
-  needs: readonly string[];
-  decision?: Decision<F, V, T>; // present when `resolved` is a boolean, and sometimes when it is not
-}
+To resolve a full set of features, `@evanion/feature` uses `Decisions`, which maps one decision per feature, each narrowed to the schema entry for its own key. Over the store [Variants](/feature/variants) builds, a lookup like `features.resolve()['checkout-cta'].variant` results in `'control' | 'blue' | undefined`.
 
-type Plan<S extends Record<keyof S, VariantInfo | never>> = {
-  [K in keyof S]: [S[K]] extends [never]
-    ? Omit<PlanEntry<K & FeatureKey>, 'decision'> & {
-        decision?: Omit<Decision<K & FeatureKey>, 'variant' | 'value'>;
-      }
-    : PlanEntry<K & FeatureKey, S[K]['variant'], S[K]['value']>;
-};
-```
+If a feature declares no variants, its entry drops the `variant` and `value` fields but retains `rule`, `rules`, `blockedBy`, `cause`, and `assignment` as optional fields.
 
-`Plan<S>` is guarded on `never` exactly as `Decisions<S>` is, so a feature
-declaring no variants gets a plan entry whose decision carries no `variant` key
-and no `value` key.
+The signature names a helper, `DecisionOf`, which is internal to the package. It uses a `[E] extends [never]` guard to drop the variant keys. Because `never` is a subtype of every type, a plain `E extends VariantInfo` check would incorrectly take the variant branch for a feature with none and type its `variant` as `never` without reporting an error. The tuple wrap suppresses this distribution to ensure the branch asks the intended question.
 
-A deferred entry carries a `decision` too when enablement settled and only
-the variant split is outstanding. That decision carries enablement and no
-variant. See [Build-time planning](/feature/build-time).
+## `Cause`
 
-### `ToggleResult<F>`
+<!-- reference @evanion/feature#Cause -->
 
-```ts
-type ToggleResult<F extends FeatureKey = string> =
-  | { ok: true; key: F; enabled: boolean; willDisable: readonly F[] }
-  | { ok: false; key: F; error: 'unknown-feature' };
-```
+When a feature is disabled because of a dependency cascade, you use `Cause` to find the root of the problem. `Cause` represents the first ancestor in the chain that resolved off for its own reason.
+
+A decision with a `reason` of `dependency-off` carries the `Cause` alongside `blockedBy` (which names the immediate parent). This allows a UI to tell an operator which specific feature must be turned back on, while a graph view can draw the dependency edge.
+
+If exactly one rule is responsible, either the matching rule or the single rule that failed, it appears in `rule`. If an ancestor has several rules and no match, the full breakdown is carried on its own decision.
+
+## `Reason`
+
+<!-- reference @evanion/feature#Reason -->
+
+To determine why a feature resolved to its current state, the engine assigns a `Reason`. The engine writes this field but never reads it back.
+
+- `default-on`: The definition enabled the feature and declared no rules.
+- `rule-match`: A rule matched, and the decision names that rule.
+- `explicitly-off`: The definition set `enabled` to `false`.
+- `no-rule-matched`: The definition enabled the feature, but no rule passed; the decision carries the per-rule breakdown.
+- `dependency-off`: A parent resolved off; the decision carries the blocking edge and the root cause.
+
+## `ToggleResult`
+
+<!-- reference @evanion/feature#ToggleResult -->
+
+When you call `features.toggle`, the operation returns a `ToggleResult`.
+
+If the operation is successful (`ok: true`), the result names the key and repeats the `enabled` value the caller wrote. It also includes `willDisable`: a list of every transitive dependent that resolved on under the current store but resolves off under the new value, listed in dependency order. If a caller enables a feature, this list is empty.
+
+If the operation fails (`ok: false`), it indicates a key the store does not hold, and no data is written.
+
+## `Plan`
+
+<!-- reference @evanion/feature#Plan -->
+
+For [Build-time planning](/feature/build-time), `@evanion/feature` uses `Plan`, which contains one plan entry per feature. This uses the same `never` guard as `Decisions`, ensuring a feature declaring no variants receives a plan entry whose decision contains no `variant` or `value` keys.
+
+## `PlanEntry`
+
+<!-- reference @evanion/feature#PlanEntry -->
+
+A `PlanEntry` represents a single feature's build-time plan.
+
+The `resolved` member is `true`, `false`, or `'deferred'`. A value of `'deferred'` indicates that a rule or a variant split still requires context that the plan did not have. In this case, `needs` lists the required context fields, sorted; otherwise, `needs` is empty.
+
+A `decision` is present whenever `resolved` is a boolean. It may also be present in a deferred entry if the enablement is settled but the variant split is outstanding. In that case, the decision carries no variant because the context lacked the bucketing field. Consequently, a caller cannot use the presence of a `decision` as proof that `resolved` is a boolean.
+
+## `resolvePlan`
+
+<!-- reference @evanion/feature#resolvePlan example=resolve-plan -->
+
+To turn a build-time plan and a client context into a full decision set, you use the `resolvePlan` function.
+
+The function processes entries based on their resolution state:
+
+- **Settled:** If `resolved` is a boolean and a decision is present, that decision is used as the answer without re-running rules.
+- **Deferred (no decision):** The rules are run against the client context.
+- **Deferred (with decision):** Enablement is read from the entry and only the assignment is computed. This prevents a second run of the rules against a richer context from flipping the enablement and contradicting the original plan entry.
+
+If a parent resolves off during this pass, it blocks both settled and deferred entries alike. An entry settled the feature's own rules and not the graph above it, and a set that claims a feature is on while its parent is off contradicts itself. The walk follows the dependency order, because a deferred parent puts its `needs` on its dependents.
+
+## `ResolvePlanOptions`
+
+<!-- reference @evanion/feature#ResolvePlanOptions -->
+
+To configure how `resolvePlan` behaves, you pass `ResolvePlanOptions`.
+
+The `now` member specifies the instant the deferred remainder resolves. This prevents a window boundary between server and client from shifting half the tree:
+
+- A `DecisionSet` with `origin: 'render'` states an instant seconds old; the caller passes it here to maintain consistency.
+- A `DecisionSet` with `origin: 'build'` may be days old; the caller passes nothing, and `resolvePlan` uses the client's clock.
+- If the context passed to `resolvePlan` has its own `now` value, it takes precedence over this option.
+
+The `onDivergence` member is a callback that receives a `missing-field` report for every field a deferred entry named in `needs` that the provided context does not carry.
 
 ### `FeatureEvent<S>`
 
