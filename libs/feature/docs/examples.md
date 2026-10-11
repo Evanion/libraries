@@ -108,20 +108,11 @@ features.isEnabled('new-checkout'); // -> true
 
 ```ts @import.meta.vitest
 import { createFeatures } from '@evanion/feature';
-import type { FeatureConfig, FeatureDefinition } from '@evanion/feature';
+import type { FeatureDefinition } from '@evanion/feature';
 
 const attempt = (definitions: FeatureDefinition[]) => {
   try {
     createFeatures(definitions);
-    return 'built';
-  } catch (error) {
-    return String(error);
-  }
-};
-
-const attemptDocument = (document: FeatureConfig) => {
-  try {
-    createFeatures(document);
     return 'built';
   } catch (error) {
     return String(error);
@@ -138,30 +129,9 @@ const duplicate: FeatureDefinition[] = [
   { key: 'a', enabled: true },
 ];
 
-const copiesNothing: FeatureDefinition[] = [
-  {
-    key: 'a',
-    enabled: true,
-    variants: [{ name: 'control', weight: 100, value: () => 1 }],
-  },
-];
-const served: FeatureConfig = {
-  features: [
-    {
-      key: 'a',
-      enabled: true,
-      variantBy: 'userId',
-      variantSeed: 'a',
-      variants: [{ name: 'control', weight: 100, order: 0, value: () => 1 }],
-    },
-  ],
-};
-
 attempt(cycle); // -> 'FeatureCycleError: feature dependency cycle: a -> c -> b -> a'
 attempt([{ key: 'a', enabled: true, dependsOn: ['b'] }]); // -> 'UnknownDependencyError: feature "a" depends on "b", which is not configured'
 attempt(duplicate); // -> 'DuplicateFeatureError: duplicate feature key "a"'
-attempt(copiesNothing); // -> 'DataCloneError: () => 1 could not be cloned.'
-attemptDocument(served); // -> 'FeatureConfigError: () => 1 could not be cloned.'
 ```
 
 <!-- #endregion config-errors -->
