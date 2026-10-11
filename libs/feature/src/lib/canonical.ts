@@ -58,15 +58,15 @@
  * A value two paths reach is written once and the second path reads the memo,
  * the way `serialized` at `serialize.ts:134` memoizes the same graph. Both
  * walks meet the sharing that `structuredClone` in `createFeatures` and
- * `deepFreeze` preserve, and a diamond 22 levels deep holds 45 objects and
- * 2^22 paths to its leaf: the memo walks 45 of them and costs 34ms where the
+ * `deepFreeze` preserve, and a diamond 22 levels deep holds 23 objects and
+ * 2^22 paths to its leaf: the memo walks 23 of them and costs 34ms where the
  * bare recursion costs 2.8s.
  *
  * The text the sharing expands to is the same either way, 88MB for that
  * diamond, because JSON carries no sharing. A back-reference form would be
  * shorter and would disagree with the digest a holder computes over the
  * document JSON handed it, which is the comparison § 2 of
- * `docs/specs/2026-09-23-feature-config-distribution.md` rests on. Past 25
+ * `docs/specs/2026-09-23-feature-config-distribution.md` rests on. At 25
  * levels this and `JSON.stringify` both throw `RangeError: Invalid string
  * length`, so a document too deep to digest is a document too deep to serve.
  */

@@ -316,7 +316,7 @@ These distinctions are necessary because `JSON.stringify` loses precision—it r
 
 Note that `configDigest` does not read this text. It performs a walk that writes non-finite numbers as `null`. This prevents a discrepancy where one holder parses `1e999` as `Infinity` and another, who cached the document via `JSON.stringify`, holds it as `null`.
 
-To optimize performance, a value that two paths reach is written once and the second path reads a memo. In a diamond 22 levels deep containing 45 objects and 2^22 paths to its leaf, the memo walks 45 of them in 34ms, whereas bare recursion costs 2.8s. The resulting text remains the same—88MB for that diamond—because JSON carries no sharing. Past 25 levels, both this function and `JSON.stringify` throw `RangeError: Invalid string length`; a document too deep to digest is a document too deep to serve.
+To optimize performance, a value that two paths reach is written once and the second path reads a memo. In a diamond 22 levels deep containing 23 objects and 2^22 paths to its leaf, the memo walks 23 of them in 34ms, whereas bare recursion costs 2.8s. The resulting text remains the same—88MB for that diamond—because JSON carries no sharing. At 25 levels, both this function and `JSON.stringify` throw `RangeError: Invalid string length`; a document too deep to digest is a document too deep to serve.
 
 ## `ruleId`
 
