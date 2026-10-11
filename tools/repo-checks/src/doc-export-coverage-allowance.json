@@ -2,11 +2,9 @@
   "@evanion/feature": {
     "undocumented": [
       "AsSchema",
-      "BaseFieldType",
       "ConfigEnvelope",
       "ConfigIssue",
       "ConfigIssueCode",
-      "ContextSchema",
       "DecisionOrigin",
       "DecisionSet",
       "DeepReadonly",
@@ -19,12 +17,8 @@
       "FeatureConfig",
       "FeatureEvent",
       "FeatureOptions",
-      "FeatureSchema",
-      "FeatureShape",
-      "FieldType",
       "FrozenWhenObserved",
       "InferSchema",
-      "JsonValue",
       "ReadonlyDate",
       "ReloadResult",
       "Schema",
@@ -38,7 +32,6 @@
       "SnapshotOptions",
       "UnobservedOptions",
       "ValidationResult",
-      "ValueShape",
       "canonical",
       "ruleId"
     ],
