@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ruleId } from './rule-id.js';
-import type { Instant, Rule } from './types.js';
+import { validateConfig } from './validate.js';
+import type { Condition, Instant, Rule } from './types.js';
 import { everywhere } from './zones.js';
 
 describe('ruleId', () => {
@@ -425,5 +426,113 @@ describe('ruleId', () => {
     });
 
     expect(asNull).not.toBe(asDate);
+  });
+
+  it('returns an authored id of no characters, deriving nothing in its place', () => {
+    // The guard asks `rule.id !== undefined` and an empty string answers it,
+    // so `Decision.rules` names the rule with no name at all. No code in the
+    // 18 refuses one, and a rule an operator expects to read in a log carries
+    // a name the author wrote.
+    expect(ruleId({ id: '', when: [{ field: 'u', op: 'eq', value: 1 }] })).toBe(
+      '',
+    );
+  });
+
+  it('reads a rollout member written as undefined as an absent one', () => {
+    // `canonical` drops an `undefined` property, so a control plane that
+    // emits every member of its own shape derives the id a hand-written rule
+    // naming neither member derives.
+    const written = ruleId({
+      rollout: { percent: 10, by: undefined, seed: undefined },
+    });
+    const absent = ruleId({ rollout: { percent: 10 } });
+
+    expect(written).toBe(absent);
+  });
+
+  it('answers from the memo after a caller edited the rule it derived from', () => {
+    // The cache is keyed on the rule object. `createFeatures` runs
+    // `structuredClone` and `deepFreeze`, so a rule reached through a store
+    // cannot change under it, and a caller holding its own mutable rule reads
+    // the id of the conditions the first call walked.
+    const rule: Rule = { when: [{ field: 'role', op: 'eq', value: 'staff' }] };
+    const first = ruleId(rule);
+    (rule.when as Condition[])[0] = {
+      field: 'role',
+      op: 'eq',
+      value: 'admin',
+    };
+
+    expect(ruleId(rule)).toBe(first);
+  });
+
+  it('returns an id a caller assigned after the derivation ran', () => {
+    // The explicit id is read ahead of the cache, so a control plane that
+    // names a rule it already evaluated gets the name and not the hash.
+    const rule: Rule = { when: [{ field: 'role', op: 'eq', value: 'staff' }] };
+    const derived = ruleId(rule);
+    rule.id = 'staff-only';
+
+    expect(derived).toMatch(/^rule-[0-9a-f]{8}$/);
+    expect(ruleId(rule)).toBe('staff-only');
+  });
+
+  it('derives one id for two rules that differ only in the variant they pin', () => {
+    // The derivation reads what the rule matches on, and `variant` is what
+    // the rule does once it matched.
+    const gold: readonly Condition[] = [
+      { field: 'tier', op: 'eq', value: 'gold' },
+    ];
+
+    expect(ruleId({ when: gold, variant: 'free-shipping' })).toBe(
+      ruleId({ when: gold, variant: 'gift-wrap' }),
+    );
+  });
+
+  it('refuses a document whose two rules differ only in the variant they pin', () => {
+    // `ruleIdErrors` derives the name of a rule declaring none, so the
+    // collision above refuses the document where the configuration is
+    // supplied rather than reaching a decision that names both rules.
+    const result = validateConfig({
+      features: [
+        {
+          key: 'checkout-perk',
+          enabled: true,
+          variants: [
+            { name: 'free-shipping', weight: 1 },
+            { name: 'gift-wrap', weight: 1 },
+          ],
+          rules: [
+            {
+              when: [{ field: 'tier', op: 'eq', value: 'gold' }],
+              variant: 'free-shipping',
+            },
+            {
+              when: [{ field: 'tier', op: 'eq', value: 'gold' }],
+              variant: 'gift-wrap',
+            },
+          ],
+        },
+      ],
+    });
+    const codes = result.ok ? [] : result.issues.map((issue) => issue.code);
+
+    expect(codes).toContain('duplicate-rule-id');
+  });
+
+  it('derives one id for two rules matching on two different Maps', () => {
+    // `AttributeCondition.value` is `unknown` and `canonical` writes `{}` for
+    // a Map whatever pairs it holds, so the two rules reach a decision under
+    // one name. `nameable` keeps a rule only when `ruleId` raises, which this
+    // value does not, so `ruleIdErrors` is what refuses the pair on one
+    // feature.
+    const one = ruleId({
+      when: [{ field: 'cart', op: 'eq', value: new Map([['a', 1]]) }],
+    });
+    const other = ruleId({
+      when: [{ field: 'cart', op: 'eq', value: new Map([['b', 2]]) }],
+    });
+
+    expect(one).toBe(other);
   });
 });

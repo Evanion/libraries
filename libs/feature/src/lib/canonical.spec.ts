@@ -150,6 +150,78 @@ describe('canonical', () => {
 
     expect(() => canonical(shape)).toThrow(RangeError);
   });
+
+  it('sorts an integer-like key by its text and not by its number', () => {
+    // `Object.entries` hands back `'2'` ahead of `'10'`, because a JavaScript
+    // object orders an integer-like key numerically whichever order an author
+    // wrote the two in. The sort compares the key text, so a producer in
+    // another language matches it whether or not its own maps order keys at
+    // all. A schema's `features` map is keyed by feature key and `FeatureKey`
+    // admits a number, so a document keyed on a numeric enum reaches this.
+    expect(canonical({ 10: 'a', 2: 'b' })).toBe('{"10":"a","2":"b"}');
+  });
+
+  it('writes one text for two integer-like keys in either order', () => {
+    expect(canonical({ 2: 'b', 10: 'a' })).toBe(canonical({ 10: 'a', 2: 'b' }));
+  });
+
+  it('sorts a key by its code units, which is the order a port matches', () => {
+    // `<` compares UTF-16 code units, so `z` at 0x7a precedes the accented
+    // key at 0xe9. A locale collation orders the two the other way, and
+    // `fnv1a` in `rule-id.ts` walks code units for the same reason this does:
+    // a port in another language matches code units.
+    expect(canonical({ é: 1, z: 2 })).toBe('{"z":2,"\u00e9":1}');
+  });
+
+  it('writes a date naming no instant the way JSON writes it', () => {
+    // `Date.prototype.toJSON` answers `null` for a date it cannot represent,
+    // so an unparseable `Date` and a literal `null` carry one text. The
+    // `number:` tag keeps `NaN` apart from `null` and this value reaches
+    // neither branch. `instantText` at `rule-id.ts:16-22` reads a window
+    // boundary through the epoch rather than through this function for that
+    // reason.
+    expect(canonical(new Date(Number.NaN))).toBe('null');
+    expect(canonical(new Date(Number.NaN))).toBe(canonical(null));
+  });
+
+  it('separates undefined from the string that spells its text', () => {
+    expect(canonical(undefined)).not.toBe(canonical('undefined'));
+  });
+
+  it('writes a Map as the empty object its entries are not members of', () => {
+    // `AttributeCondition.value` is `unknown`, so a Map reaches here.
+    // `Object.entries` reads none of its pairs, which is what `JSON.stringify`
+    // does with one too, so two Maps holding different pairs carry one text
+    // and two rules matching on them derive one id. `evaluateCondition`
+    // compares with `===`, so neither rule matches a context that did not
+    // carry that same object, and `ruleIdErrors` reports the pair as
+    // `duplicate-rule-id` where they sit on one feature.
+    expect(canonical(new Map([['a', 1]]))).toBe('{}');
+    expect(canonical(new Map([['a', 1]]))).toBe(canonical(new Map()));
+  });
+
+  it('meets the string ceiling at the depth JSON.stringify meets it', () => {
+    // A fat leaf reaches the ceiling three levels down, so the walk allocates
+    // the host's longest string once and no 25-level diamond is built. The
+    // depth is read off `JSON.stringify` and not written down here, because
+    // the ceiling is the host's number: a document too deep to digest is a
+    // document too deep to serve, and the two walks agree on which one that
+    // is.
+    const leaf = { depth: 'x'.repeat(2 ** 26) };
+    let held: object = leaf;
+    let threw = false;
+    for (let level = 0; level < 8 && !threw; level += 1) {
+      held = { l: held, r: held };
+      try {
+        JSON.stringify(held);
+      } catch {
+        threw = true;
+      }
+    }
+
+    expect(threw).toBe(true);
+    expect(() => canonical(held)).toThrow(RangeError);
+  });
 });
 
 describe('canonicalDocument', () => {
