@@ -130,7 +130,12 @@ features.isEnabled('express-delivery'); // -> false
 /** @jsxRuntime classic */
 import * as React from 'react';
 import { createFeatures } from '@evanion/feature';
-import { FeatureProvider, useFeatureEnabled } from '@evanion/react-feature';
+import {
+  FeatureProvider,
+  useFeature,
+  useFeatureEnabled,
+  useFeatures,
+} from '@evanion/react-feature';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
@@ -149,6 +154,12 @@ const features = createFeatures([
 
 function Checkout() {
   return <p>{useFeatureEnabled('express-pickup') ? 'Express' : 'Standard'}</p>;
+}
+
+function Audit() {
+  const { reason } = useFeature('express-pickup');
+  const published = Object.keys(useFeatures()).sort();
+  return <p>{`${reason}: ${published.join(', ')}`}</p>;
 }
 
 const fromServer = features.snapshot();
@@ -175,9 +186,15 @@ const partial = (
     <Checkout />
   </FeatureProvider>
 );
+const audited = (
+  <FeatureProvider features={features} decisions={fromServer}>
+    <Audit />
+  </FeatureProvider>
+);
 
 attempt(served); // -> '<p>Standard</p>'
 attempt(partial); // -> 'Error: feature "express-pickup" is not configured in this <FeatureProvider>'
+attempt(audited); // -> '<p>explicitly-off: express-pickup, gift-cards</p>'
 ```
 
 <!-- #endregion react-decisions -->

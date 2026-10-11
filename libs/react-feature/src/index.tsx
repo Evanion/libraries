@@ -65,6 +65,34 @@ export type {
 } from '@evanion/feature';
 
 /**
+ * The core types this package's own public declarations name, re-exported for
+ * the reason the document types above are: one specifier per component file.
+ *
+ * `FeatureProviderProps` names `Features`, `EvaluationContext` and
+ * `DecisionSet`. `BoundFeatureProviderProps` names `Features`. `BoundVariant`
+ * names `Decisions`. `FeatureContext` names `Decisions`, `FeatureKey` and
+ * `FrozenWhenObserved`. {@link AnyDecisions} names `Decision` and
+ * `FeatureKey`. `Schema` is the default `FeatureProviderProps` gives its
+ * schema parameter, and `VariantInfo` is the constraint every one of those
+ * declarations writes. A reader who annotates one prop reached two specifiers
+ * before this clause: `@evanion/react-feature` for the prop type and
+ * `@evanion/feature` for the type inside it.
+ *
+ * Types only. The core's values stay on the core entry, which
+ * `entry-surface.spec.tsx` holds this package's module namespace to.
+ */
+export type {
+  Decision,
+  Decisions,
+  EvaluationContext,
+  FeatureKey,
+  Features,
+  FrozenWhenObserved,
+  Schema,
+  VariantInfo,
+} from '@evanion/feature';
+
+/**
  * What a provider publishes, at the erased types.
  *
  * Every `Decision<'cta', 'control' | 'blue', { label: string }>` assigns to
@@ -147,6 +175,19 @@ function requireDecision(
   return decision;
 }
 
+/**
+ * What {@link FeatureProvider} takes.
+ *
+ * `features` is required, because this provider holds no store of its own.
+ * {@link createFeatureContext} is the form that already holds one, and
+ * {@link BoundFeatureProviderProps} is what its provider takes.
+ *
+ * `S` is the store's schema, and it types `decisions` and `onDivergence` on
+ * the keys that store declares, so a set another store resolved is a compile
+ * error at the mount. The hooks underneath read {@link AnyDecisions} whatever
+ * `S` is, which is the erasure a React context imposes and the reason the
+ * factory exists.
+ */
 export interface FeatureProviderProps<
   S extends Record<keyof S, VariantInfo | never> = Schema,
 > {
@@ -270,6 +311,25 @@ function usePublished<S extends Record<keyof S, VariantInfo | never>>(
   return published.value;
 }
 
+/**
+ * Publishes one store's decisions to every component under it.
+ *
+ * With `decisions` left out the provider resolves `features` against
+ * `context`, once per identity of the two. With a set supplied it publishes
+ * that set: the server rendered HTML from those decisions and counted an
+ * exposure for each variant it assigned, so a client answering differently
+ * makes an experiment result wrong by an amount no analysis recovers. A
+ * version mismatch renders the shipped set unless `onVersionMismatch` names
+ * `'re-resolve'`.
+ *
+ * Decides nothing itself. `@evanion/feature` resolves, and this component
+ * writes the answer into React context and renders `children`.
+ *
+ * Every hook this package exports throws outside a provider, and the message
+ * names the provider and the package. {@link useFeature},
+ * {@link useFeatureEnabled} and {@link useVariant} throw for a key the
+ * published decisions do not carry.
+ */
 export function FeatureProvider<
   S extends Record<keyof S, VariantInfo | never>,
 >({
