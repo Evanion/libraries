@@ -90,16 +90,20 @@ describe('VariantInfo', () => {
     >();
   });
 
-  it('leaves never at a feature declaring no variants', () => {
-    // `Schema`'s value is `VariantInfo | never`, which collapses to
-    // `VariantInfo`, so the member is assignable and `Decisions` reads the
-    // `never` an inferred schema writes. `schema.test-d.ts` holds that side.
-    const schema: Record<'express-pickup', never> = {} as Record<
-      'express-pickup',
-      never
-    >;
+  it('is the value type a schema carries at every key, with no never among them', () => {
+    // `Schema` writes `Record<string, VariantInfo | never>` and that union
+    // collapses, so the compiler sees `Record<string, VariantInfo>` and a
+    // hand-written schema takes a variant name for a feature declaring none.
+    // The `never` mapping is `InferSchema`'s, which `schema.test-d.ts` holds:
+    // a `Record<'k', never>` is assignable to `Record<string, T>` for any `T`,
+    // so asserting it here would check nothing about this alias.
+    expectTypeOf<Schema>().toEqualTypeOf<Record<string, VariantInfo>>();
 
-    expectTypeOf<typeof schema>().toMatchTypeOf<Schema>();
+    const byHand: Schema = { 'express-pickup': { variant: 'anything' } };
+
+    expectTypeOf(byHand['express-pickup']).toEqualTypeOf<
+      VariantInfo | undefined
+    >();
   });
 });
 
