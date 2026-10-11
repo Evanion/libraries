@@ -13,7 +13,7 @@ When a server resolves flags for a request, the component that actually needs a 
 
 ## The Solution: One Resolution, Published
 
-`@evanion/feature` resolves every configured feature in one call, and `features.snapshot` states that result as a versioned `DecisionSet` containing the config version, the instant of resolution, and one decision per key.
+`@evanion/feature` resolves every configured feature in one call, and `features.snapshot` states that result as a `DecisionSet` containing the instant of resolution, one decision per key, and the config version wherever the store was built from a document that carries one.
 
 `FeatureProvider` publishes that set to the React tree, allowing `useFeature`, `useFeatureEnabled`, `useVariant`, and `useFeatures` to read it. Because the decisions are already made, no hook evaluates anything during the render.
 
@@ -96,7 +96,7 @@ shelfFor('mika'); // -> '<p>Newest first</p>'
 `@evanion/react-feature` provides the following capabilities:
 
 - 🧩 **Zero Prop-Drilling**: Components name the key they care about and read the decision from the provider above them.
-- 🕓 **One Instant Per Render**: A set a render resolved states the instant it was created. The provider resolves any missing items at that same instant, ensuring no two components in one tree straddle a time window.
+- 🕓 **One Instant Per Render**: A set a render resolved states the instant it was created. The provider reads that instant as the default for anything it resolves itself, ensuring no two components in one tree straddle a time window.
 - ⚡ **Local Reads**: Hooks read decisions already held by the provider, so variant switches never wait on network requests.
 - 🛠️ **Type-Safety**: `createFeatureContext(features)` returns a provider and hooks bound to one store's schema. Misspelled keys trigger compile errors, and variants are constrained to the union declared by the store.
 - 🧬 **Divergence Reports**: When handed a shipped set, a provider compares the config version against the store. It names decisions it cannot reproduce via `onDivergence` and uses `onVersionMismatch` to choose between the shipped set and a local re-resolution.
