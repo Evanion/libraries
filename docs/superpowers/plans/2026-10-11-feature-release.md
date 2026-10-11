@@ -763,10 +763,6 @@ Every task in this piece runs `npx nx run-many -t build -p feature` first, becau
 - `libs/feature/docs/examples.md` (edit)
 - `tools/repo-checks/src/doc-export-coverage-allowance.json` (edit)
 - `tools/repo-checks/src/doc-fence-allowance.json` (edit, if the rewrite removes a fence)
-- `libs/feature/src/lib/variants.spec.ts`, `bucketing.spec.ts`, `features.spec.ts` (edit: the cases the ten entries' catalogues carry)
-- `libs/feature/src/lib/variants.test-d.ts`, `libs/feature/src/lib/bucketing.test-d.ts` (new)
-- `libs/feature/src/lib/variants.ts` (edit: the `assignVariant` docblock, which the entry renders)
-- `libs/feature/src/lib/types.ts` (edit: the `RolloutSpec` docblock. Task 5 writes the `Condition` docblock in this file and Task 7 writes `Reason` and `ToggleResult`)
 
 ### Steps
 
@@ -775,12 +771,6 @@ Every task in this piece runs `npx nx run-many -t build -p feature` first, becau
 - [ ] `bucketOf` and `inRollout` are already exercised by the `bucket-stable`, `bucket-decorrelated` and `primitives` regions, which `rollouts.mdx` cites. Their entries carry `example=primitives`.
 
 - [ ] Add a `variant-primitives` region calling `assignVariant` over a definition and a context, `variantSeedOf` over a definition, and `murmur3` over a string, with every `// ->` claim produced by running it. `variants.spec.ts` and `bucketing.spec.ts` hold the expected values; read them rather than guessing.
-
-- [ ] Each entry ships the behaviour catalogue `doc-behaviour.test.ts` renders from the `it` titles of the cases attributed to it, so a sentence the entry's prose states and no case reaches is prose nobody ran. Cover the ones the suite misses: `inRollout` under a negative, a `NaN` and an over-100 percentage and a subject whose bucket sits on the threshold; `bucketOf` reporting one of 2^32 buckets; `murmur3` under the signed spelling of a seed; `variantSeedOf` over an empty `variantSeed`, an empty `seed` and a numeric key; and `assignVariant` over an empty variants array, a falsy bucketing value, a boolean and a JSON null, a sticky answer, and each weight set `validateVariants` would have refused. `features.spec.ts` takes the rollout seed precedence the `RolloutSpec` entry states, `rule.rollout.seed` then the feature's `seed` then the key, read off `DEFAULT_ROLLOUT_FIELD`.
-
-- [ ] Correct whatever docblock the cases contradict, because the entry renders the docblock's first paragraph as its summary and the rest behind its `Full documentation` disclosure. `assignVariant`'s said the second of two variants sharing an `order` wins the tie, where `Array.prototype.sort` is stable and the first declared keeps the lower band, and it folded a negative weight in with a non-finite one, where only the non-finite case hands back the last-ordered variant wherever it sits.
-
-- [ ] Write `libs/feature/src/lib/variants.test-d.ts` and `libs/feature/src/lib/bucketing.test-d.ts` holding the declarations a consumer annotates against for the ten names, including the literal type of `DEFAULT_ROLLOUT_FIELD` and the three-member `VariantAssignment.source` union, each one also against the published re-export. `libs/feature/vite.config.ts` runs `src/lib/**/*.test-d.{ts,tsx}` under `typecheck` already, which is where the package's other 20 such files sit, so neither file adds a target.
 
 - [ ] `DEFAULT_ROLLOUT_FIELD` is a plain value and needs the heading alone, which the check's docblock states for `CRUD_ACTIONS` and `CORRELATION_ID_HEADER`.
 
