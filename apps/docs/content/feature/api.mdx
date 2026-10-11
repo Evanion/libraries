@@ -762,15 +762,37 @@ specific names cover: specifically, a `when` written as a string, or a window
 boundary carrying `Number.NaN`. By using one `catch` over this base class, you
 can answer every defect the checker reports.
 
-The checker reports nothing about a variant `value` because `VariantSpec.value`
-is typed `unknown`. However, `createFeatures` clones the configuration it was
-handed; if a function or a symbol is placed under `value`, `structuredClone`
-will refuse it. Over a bare array, this refusal travels as the host's own
-`DataCloneError`, which names the leaf at the authoring site and is not a
-`FeatureConfigError`. When working over a served document, this same refusal
-arrives as a `FeatureConfigError` carrying the host's text, ensuring that a
-holder catching `FeatureConfigError` to keep their existing document also
-catches what would otherwise be a `DOMException`.
+To ensure a configuration is safe to use, `@evanion/feature` validates the data
+provided to `createFeatures`. Because `VariantSpec.value` is typed as `unknown`,
+the checker reports nothing about a variant `value`. If a function or a symbol
+is placed there, it clears every check, but is then refused by the copy
+`createFeatures` takes before it installs the configuration.
+
+### How `@evanion/feature` handles copy errors
+
+The specific refusal the user receives depends on the host environment.
+`@evanion/feature` utilizes `globalThis.structuredClone` where available, such
+as in Node, a browser, or a worker, and falls back to its own JSON-shaped copy
+walk on a host that defines no such global.
+
+When `structuredClone` fails, it raises the host's own `DataCloneError` (a
+`DOMException`) naming the leaf. When the copy walk fails, it raises a
+`FeatureConfigError` naming the member path, such as
+`"/variants/0/value" carries a function, and a document carries none`.
+
+### Catching errors across different hosts
+
+When operating over a served document, `createFeatures` rethrows either of the
+above raises as a `FeatureConfigError` carrying the original text. This allows a
+caller to use one catch block over the base class to handle errors on every
+host; additionally, a holder catching `FeatureConfigError` to preserve an
+existing document will not accidentally catch a `DOMException`.
+
+If `createFeatures` is called over a bare array, the raise travels untouched. In
+this scenario, the class the caller catches is the host's native response rather
+than the library's. To resolve this, the caller must either read
+`error.message` on the literal path or hand `createFeatures` a document and
+catch the base class.
 
 ## `FeatureCycleError`
 
