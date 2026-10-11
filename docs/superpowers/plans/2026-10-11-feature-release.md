@@ -102,7 +102,7 @@ Answered against `apps/shop-api` (Nest 11), `apps/storefront` (Astro SSR), `apps
 1. **The core entry point is `adoptDecisions`.** § 7 of the hydration spec names `hydrateFeatures` as the carrier of `onDivergence`, and `hydrateFeatures` shipped as `parseFeatureConfig`, which builds a store from a document and knows nothing about a decision set. The two jobs are separate, so the decision-set side gets its own name. `adopt` is the verb `apps/admin/app/access.ts` and `apps/storefront-rsc/app/access.ts` both already use for taking in something another process produced.
 2. **`adoptDecisions` takes `compare?: boolean` and reads no host global.** The React provider passes `onDivergence !== undefined && !production()`, which is the condition `hydrate.ts:313` computes today, and `production()` stays in `@evanion/react-feature`, where a bundler's `define` substitutes the literal text `process.env.NODE_ENV`. The core then answers the same way in Node, in a browser, in an edge runtime and under Deno.
 3. **The bound caller is `features.for(context?)` and memoises nothing.** `acl`'s `Authorized` evaluates on every `can`, so a `toggle` or a `reload` between two calls is visible through the handle. A handle that cached its decisions would hide both.
-4. **`features.for` settles `now` once and carries no other state.** `context.now ?? new Date()` is read at the `for` call, and every method on the handle resolves at that instant. An explicit `now` on the context passed to `for` wins, which keeps the precedence at `features.ts:922` unchanged and keeps a test able to pin the clock.
+4. **`features.for` settles `now` once and carries no other state.** `context.now ?? new Date()` is read at the `for` call, and every method on the handle resolves at that instant. An explicit `now` on the context passed to `for` wins, which keeps the precedence at `features.ts:922` unchanged and keeps a test able to pin the clock. Task 17b widens the field to an `Instant`, after which the read is `contextEpoch(context.now)` at both settling sites and the precedence is unchanged.
 5. **`snapshot` writes a `Date` at a window condition's `value` as its ISO 8601 string and refuses nothing.** `serializeConfig` converts there and throws for a `Date` at any other member, which is ruling 4 of `docs/superpowers/plans/2026-09-29-feature-config-distribution.md`. A throw inside `snapshot` would fail a request over an explanation field, so `snapshot` converts the one member a document can carry and leaves every other value alone. The pitfalls page names the variant `value` a reader chose.
 6. **`@evanion/react-feature` re-exports the document types, `VersionMismatchPolicy`, and every core type its own public declarations name.** `libs/feature/src/react/index.tsx:50-71` re-exports 20 document types so a component file imports one specifier, and `entry-surface.spec.tsx` holds the parity. The rule carries across the package boundary unchanged, and `VersionMismatchPolicy` joins it because the type names a provider prop while the core owns the behaviour.
 
@@ -125,6 +125,7 @@ Input classes a happy-path test reaches none of. Each is assigned to the task th
 - **A window condition whose `value` is already an ISO string or an epoch number, inside a `rules[].failed` outcome.** Every fixture an implementer writes carries a `Date`, so the pass-through is the path no happy-path test reaches. Pinned in Task 16, Step 4.
 - **A `Date` nested inside an `AttributeCondition.value` in a failed outcome.** Ruling 5 leaves it, and a test that asserted a whole-set JSON round trip would fail on it. Pinned in Task 16, Step 5.
 - **`Features`, `Decisions` and `Plan` named with no type argument, holding a store built from a document.** The defaults are only useful if the open forms accept what `parseFeatureConfig` returns. Pinned in Task 17, Step 3.
+- **A context whose `now` crossed JSON and arrived as the ISO 8601 string.** Every fixture in the suite writes `new Date(...)`, and the one case that reached the string asserted that every clock condition answers false, which is the defect issue #451 reports. Pinned in Task 17b, Step 7.
 - **A reference directive naming a type alias, an interface, a class and a constant.** `mdx-reference-loader.mjs` renders a different entry shape per kind and `readReference` resolves through `dist/`, so a slice that documented only interfaces would prove nothing about the others. Pinned in Task 4, Step 3.
 - **A numeric `FeatureKey` on a page's fence.** `FeatureKey` is `string | number`, and a page that only ever writes string keys documents half the type. Pinned in Task 5, Step 4.
 - **A store built from a literal whose variant `value` holds a `Date`.** The pitfalls page claims it does not survive `JSON.stringify`, and a page that claims an output has been run to get it. Pinned in Task 29, Step 3.
@@ -184,9 +185,9 @@ npx nx g @nx/react:library libs/react-feature \
 - `libs/react-feature/src/hydrate.ts` (moved from `libs/feature/src/react/hydrate.ts`)
 - `libs/react-feature/src/react.spec.tsx`, `hydrate.spec.tsx`, `hydrate-boundaries.spec.tsx`, `entry-surface.spec.tsx`, `types.test-d.tsx`, `config-types.test-d.tsx`, `hydrate-boundaries.test-d.tsx` (moved)
 - `libs/react-feature/src/test-setup.ts` (new)
-- `libs/react-feature/docs/examples.md` (new, holding the six `react-*` regions)
+- `libs/react-feature/docs/examples.md` (new, holding the six `react-*` regions and `observe-exposure`)
 - `libs/react-feature/doc-examples.preamble.ts` (new)
-- `libs/feature/docs/examples.md` (edit: the six `react-*` regions and their prose come out)
+- `libs/feature/docs/examples.md` (edit: the six `react-*` regions, the `observe-exposure` region at line 1110, and the prose above each come out)
 - `libs/feature/package.json` (edit: `exports`, `peerDependencies`, `peerDependenciesMeta`, `keywords`)
 - `libs/feature/vite.config.ts` (edit: the `@evanion/feature:react` project and the `react()` plugin come out)
 - `libs/feature/src/index.ts` (edit: `reportDivergence` and `ruleFields` are exported, and the header docblock's last sentence names the package)
@@ -195,6 +196,7 @@ npx nx g @nx/react:library libs/react-feature \
 - `libs/feature/src/test-setup.ts` (deleted: after the move no project in `libs/feature` renders anything, and the file carries the `@testing-library/jest-dom` matcher augmentation)
 - `apps/docs/content/feature/api.mdx` (edit: `## reportDivergence` and `## ruleFields` entries, and the new specifier)
 - `apps/docs/content/feature/react.mdx` (edit: the six fences point at `libs/react-feature/docs/examples.md`)
+- `apps/docs/content/feature/observing.mdx` (edit: the `observe-exposure` fence at line 102 points at `libs/react-feature/docs/examples.md`)
 - `tools/repo-checks/src/released-manifests.ts` (new: the released-package manifest reader `released-pins.test.ts` inlined, now that a second rule reads it)
 - `tools/repo-checks/src/publishable-dependencies.ts`, `publishable-dependencies.test.ts` (new)
 - `tools/repo-checks/src/released-pins.ts`, `released-pins.test.ts` (edit: both take the manifests from the shared reader)
@@ -421,9 +423,11 @@ import {
 } from '@evanion/react-feature';
 ```
 
-- [ ] Move the six `react-*` regions out of `libs/feature/docs/examples.md` (lines 1179, 1211, 1261, 1299, 1357, 1403 and the prose above each) into `libs/react-feature/docs/examples.md`, with the import lines changed to `@evanion/react-feature`. Keep the region names: `react-provider`, `react-memo`, `react-strict-key`, `react-decisions`, `react-bound`, `react-server`.
+- [ ] Move the six `react-*` regions and the `observe-exposure` region out of `libs/feature/docs/examples.md` (lines 1110, 1179, 1211, 1261, 1299, 1357, 1403 and the prose above each) into `libs/react-feature/docs/examples.md`, with the import lines changed to `@evanion/react-feature`. Keep the region names: `react-provider`, `react-memo`, `react-strict-key`, `react-decisions`, `react-bound`, `react-server`, `observe-exposure`.
 
-- [ ] Repoint the six fences in `apps/docs/content/feature/react.mdx` at `file=libs/react-feature/docs/examples.md`, at lines 19, 29, 52, 62, 70 and 82. The region loader throws on a region that is not in the file it names, and this task's own verification runs `-p docs`. Task 3 is what deletes the page.
+  `observe-exposure` is a seventh React region and it moves for the same reason the six do. Its fence writes `import { createFeatureContext } from '@evanion/feature/react';`, renders JSX and calls `renderToStaticMarkup`, and the moment this task deletes the `./react` entry of `libs/feature/package.json`'s `exports` that import resolves to nothing: `doc-exports.test.ts` reads the named bindings of every `import … from '@evanion/…'` in any fence against the package's export list, and `npx nx run docs:build` compiles the fence with twoslash. Leaving it in the core's examples file with its import changed to `@evanion/react-feature` would put a `@evanion/react-feature` import in the core package's own examples file, which is a dependency edge the wrong way round.
+
+- [ ] Repoint the six fences in `apps/docs/content/feature/react.mdx` at lines 19, 29, 52, 62, 70 and 82, and the `observe-exposure` fence in `apps/docs/content/feature/observing.mdx` at line 102, at `file=libs/react-feature/docs/examples.md`. The region loader throws on a region that is not in the file it names, and this task's own verification runs `-p docs`. Task 3 is what deletes `react.mdx`; `observing.mdx` stays in the core's section and keeps the repointed fence.
 
 - [ ] Edit `libs/feature/package.json`: delete the `./react` entry of `exports`, `peerDependencies`, `peerDependenciesMeta`, and the `"react"` keyword.
 
@@ -553,7 +557,8 @@ Ruling 7 is why. `libs/feature/src/react/entry-surface.spec.tsx` read `../index.
 - `apps/docs/content/feature/react.mdx` (deleted)
 - `apps/docs/content/feature/_meta.ts` (edit: the `react` key comes out)
 - `apps/docs/content/feature/api.mdx` (edit: the `React exports` section at line 749 comes out)
-- `apps/docs/content/feature/index.mdx` (edit: `Two Entry Points` becomes the core and the React package)
+- `apps/docs/content/feature/index.mdx` (edit: `Two Entry Points` becomes the core and the React package, and the `[React](./react)` link becomes `/react-feature/`)
+- `apps/docs/content/feature/variants.mdx` (edit: the `[React](../react)` link becomes `/react-feature/`)
 - `apps/docs/app/navigation.ts` (edit: `documented: true`, `demo: 'getting-started'`)
 - `apps/docs/tools/redirects.mjs` (edit)
 - `tools/repo-checks/src/doc-export-coverage-allowance.json` (edit: the `@evanion/react-feature` key is deleted)
@@ -636,6 +641,8 @@ All six callables sit in `unexercised`, and not `useFeatures` alone: `executable
 - [ ] Lower `feature` in `tools/repo-checks/src/doc-fence-allowance.json` from 12 to 11. All 12 of the section's unexplained fences are bare ` ```ts ` blocks in `apps/docs/content/feature/api.mdx`, at lines 10, 186, 315, 331, 348, 375, 421, 471, 492, 502, 533 and 751, and the one at 751 is inside the `React exports` section this task cuts. `doc-fence.test.ts`'s `leaves no allowance larger than the section needs` fails on an allowance above the real count.
 
 - [ ] Add `['feature/react', 'react-feature/getting-started']` to `movedPages` in `apps/docs/tools/redirects.mjs`.
+
+- [ ] Repoint every in-repo link to `/feature/react` at the new section, because `doc-redirects.test.ts`'s `pages still linking a moved path > are the ones the allowance names` declares `const allowance: string[] = []` and fails on an authored page whose link resolves to a `movedPages` key. The two are `apps/docs/content/feature/index.mdx`, whose `Two Entry Points` section links it, and `apps/docs/content/feature/variants.mdx`, which hands these decisions to a component tree. `apps/docs/content/feature/api.mdx` links it too, inside the `React exports` section this task cuts.
 
 - [ ] Set `documented: true` and `demo: 'getting-started'` on the `@evanion/react-feature` entry in `apps/docs/app/navigation.ts`.
 
@@ -1066,7 +1073,7 @@ const published = useMemo(() => {
 
 `compare` joins the dependency list because it is a value the render reads, and `production()` answers the same thing on every render in one process, so the memo re-runs no more often than it does today.
 
-- [ ] **Review Focus, Step 4.** Write `libs/feature/src/lib/adopt.spec.ts` under the core's `node` project, which renders nothing and holds no React in its program. The suite covers what `hydrate.spec.tsx` covers today: a set adopted with matching versions publishes the shipped decisions; an absent set resolves locally; `'unversioned'` reports once; `'config-version'` reports and publishes the shipped set under `'use-shipped'`; the same mismatch resolves locally under `'re-resolve'`; `compare: true` with an observer reports every `'decision-differs'`; `compare: false` resolves nothing a second time, asserted through a store built with `observe` that emits one `'resolve'` event and not two.
+- [ ] **Review Focus, Step 4.** Write `libs/feature/src/lib/adopt.spec.ts` under the core's `node` project, which renders nothing and holds no React in its program. Its outer block is `describe('adoptDecisions')`, spelled exactly: `tools/repo-checks/src/doc-behaviour.test.ts` requires a `describe` naming every non-error callable export and carries no allowance, and it also refuses a `describe` naming one export nested inside a `describe` naming another, so no inner block spells `reportDivergence`, `ruleFields` or `resolvePlan`. The suite covers what `hydrate.spec.tsx` covers today: a set adopted with matching versions publishes the shipped decisions; an absent set resolves locally; `'unversioned'` reports once; `'config-version'` reports and publishes the shipped set under `'use-shipped'`; the same mismatch resolves locally under `'re-resolve'`; `compare: true` with an observer reports every `'decision-differs'`; `compare: false` resolves nothing a second time, asserted through a store built with `observe` that emits one `'resolve'` event and not two.
 
 - [ ] **Review Focus, Step 5.** A case where the shipped set names a feature the local store does not declare, asserting one `'missing-field'` report carrying `shipped` and no `local`, and a message naming the reload.
 
@@ -1225,11 +1232,11 @@ export interface BoundFeatures<
 
 - [ ] Keep the `Features` docblock's existing argument about naming `Frozen` in an annotation, and add one sentence saying what the bare form is for: a declaration a framework demands, where the store's schema arrived at runtime.
 
-- [ ] **Review Focus, Step 3.** Add to `libs/feature/src/lib/schema.test-d.ts`:
+- [ ] **Review Focus, Step 3.** Add to `libs/feature/src/lib/schema.test-d.ts`. The file already imports `Decisions` and `Plan` from `./types.js`, which is the same declaration `../index.js` re-exports, so only `Features` and `DecisionSet` are added to the import list; naming all four is four `TS2300: Duplicate identifier` errors, reported at both sites for each name.
 
 ```ts
 import { parseFeatureConfig } from './parse.js';
-import type { Features, Decisions, Plan, DecisionSet } from '../index.js';
+import type { Features, DecisionSet } from '../index.js';
 
 // A declaration a framework demands: the slot a Nest token, an Astro `locals`
 // member or a React Router context writes, where the store's schema arrived at
@@ -1255,6 +1262,319 @@ it('accepts a store built from a document at the open form', () => {
 - [ ] Add one paragraph to each of the three entries' prose naming the default and the declaration it is for.
 
 - [ ] Run the three paragraphs through Gemma, then build and check `feature`, `react-feature`, `docs`, `repo-checks`.
+
+---
+
+## Task 17b: `EvaluationContext.now` takes an `Instant`
+
+**Deliverable:** a context round-tripped through `JSON.parse(JSON.stringify(context))` resolves a window and a day-of-week condition the way the context it came from did, which closes issue #451.
+
+`now` is typed `now?: Date` at `libs/feature/src/lib/types.ts:214` and `evaluateCondition` reads it as one at `libs/feature/src/lib/conditions.ts:149-157`: `if (!(now instanceof Date) || Number.isNaN(now.getTime())) return false;`. A `Date` does not survive `JSON.stringify`, so a context arriving over an RSC payload, an island's props, a Nest response body or a cookie carries the ISO 8601 string at `now`, and every `before`, `after` and `day-of-week` condition answers false, with no error raised and no reason naming the field. The three applications Tasks 25, 26 and 27 wire each cross such a boundary.
+
+The package already refuses the value on the way out: `snapshot` raises `FeatureConfigError` for a `context.now` naming no instant at `features.ts:1042`. It accepts one on the way in and answers wrong, and that is the inconsistency this task removes.
+
+`Instant = string | number | Date` is the type a window condition's own `value` carries and `instantEpoch` already reads. The field is widened to it and read through the same function, so one instant written in three forms resolves one way.
+
+**What `snapshot` does with a widened `now`.** It refuses the same values and states the instant in the same one form. `withNow` settles the field to a `Date` before anything resolves, so a string naming no instant reaches `snapshot`'s check as an invalid `Date` and raises `FeatureConfigError` naming `context/now` exactly as `new Date(NaN)` does today, and a string naming one is restated in the form a set carries: `features.snapshot({ now: '2026-06-01T00:00:00+01:00' }).now` is `'2026-05-31T23:00:00.000Z'`. Only the message changes, because the value it names is no longer always a `Date`. Task 16 lands first and edits `snapshot`'s walk over a failed outcome, which this task does not touch.
+
+**Every reader of `context.now`, and what this task does to it:**
+
+| Reader                                                     | After this task                                                                                                                                                                                           |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `withNow`, `features.ts:922`                               | Settles through `contextEpoch`, so every entry point hands a `Date` downstream and `SettledContext` is unchanged.                                                                                         |
+| `envelope`, `features.ts:952`                              | Unchanged. It copies a settled context's `Date`.                                                                                                                                                          |
+| `snapshot`, `features.ts:1040` and `:1062`                 | Unchanged in behaviour. The refusal's message stops naming a `Date`.                                                                                                                                      |
+| `boundFeatures`, `libs/feature/src/lib/bound.ts` (Task 15) | Settles through `contextEpoch`, which is the handle's own copy of the same read.                                                                                                                          |
+| `evaluateCondition`, `conditions.ts:152` and `:159`        | Reads through `contextEpoch` and compares epochs. This is the fix.                                                                                                                                        |
+| `planFeature`, `evaluate.ts:388`                           | Unchanged. It tests whether the field is present by name and reads no value.                                                                                                                              |
+| `resolvePlan`, `resolve-plan.ts:65`                        | Carries whichever form the caller passed into the settled context, and `ResolvePlanOptions.now` widens with it.                                                                                           |
+| `instantOf`, `libs/feature/src/lib/adopt.ts` (Task 14)     | Unchanged, and deliberately. It reads `shipped.now` off a document a broken producer wrote, and its fallback to the local clock is what keeps such a set from resolving at an instant no clock is inside. |
+
+**Files:**
+
+- `libs/feature/src/lib/types.ts` (edit: `EvaluationContext.now`. Task 5 writes the `Condition` docblock in this file, Task 7 the `Reason` and `ToggleResult` docblocks, and Task 17 the `Decisions` and `Plan` declarations)
+- `libs/feature/src/lib/instant.ts` (edit: `RANGE` arrives here and `contextEpoch` is added)
+- `libs/feature/src/lib/conditions.ts` (edit: the two clock branches of `evaluateCondition`, its docblock, and the local `RANGE` const)
+- `libs/feature/src/lib/features.ts` (edit: `withNow` and `snapshot`'s refusal message. Task 15 adds `for` to this file, Task 16 edits `snapshot`, and Task 17 edits the `Features` type parameter list)
+- `libs/feature/src/lib/bound.ts` (edit: the settling read Task 15 writes)
+- `libs/feature/src/lib/resolve-plan.ts` (edit: `ResolvePlanOptions.now` and its docblock)
+- `libs/feature/src/lib/conditions.spec.ts` (edit: one case inverted, four added)
+- `libs/feature/src/lib/instant.spec.ts` (edit: a `describe('contextEpoch')`)
+- `libs/feature/src/lib/snapshot.spec.ts` (edit: three cases)
+- `libs/feature/src/lib/conditions.test-d.ts` (edit: two cases)
+- `libs/feature/src/lib/conformance.test-d.ts` (edit: one case)
+- `libs/feature/src/lib/resolve-plan-boundaries.test-d.ts` (edit: one case)
+- `libs/feature/docs/examples.md` (edit: the prose above the `resolve-plan` region)
+- `apps/docs/content/feature/api.mdx` (edit: the `EvaluationContext` entry's prose at line 401)
+
+**Interfaces produced:**
+
+```ts
+// libs/feature/src/lib/types.ts
+export interface EvaluationContext {
+  now?: Instant;
+  targetingKey?: string;
+  stickyVariants?: Readonly<Record<string, string>>;
+  [field: string]: unknown;
+}
+
+// libs/feature/src/lib/instant.ts
+export const RANGE = 8_640_000_000_000_000;
+export function contextEpoch(now: Instant | undefined): number;
+
+// libs/feature/src/lib/resolve-plan.ts
+export interface ResolvePlanOptions<F extends FeatureKey = string> {
+  now?: Instant;
+  onDivergence?: DivergenceObserver<F>;
+}
+```
+
+`libs/feature/src/index.ts` exports neither `RANGE` nor `contextEpoch`, so neither owes an `api.mdx` heading under `doc-export-coverage.test.ts` nor a `describe` under `doc-behaviour.test.ts`. `EvaluationContext` and `ResolvePlanOptions` are already documented and keep their headings.
+
+### Steps
+
+- [ ] Add the reading to `libs/feature/src/lib/instant.ts`, below `instantEpoch`, and move `RANGE` there from `conditions.ts`, which is the one other reader of it. `instant.ts`'s own docblock already claims to be the single reading of `Instant` in the package, and a second `Math.abs(epoch) > RANGE` in `conditions.ts` would make the bound a property of two files:
+
+```ts
+/** The largest instant a `Date` holds, ECMA-262 21.4.1.1. */
+export const RANGE = 8_640_000_000_000_000;
+
+/**
+ * Epoch milliseconds for the instant a context resolves at, and `NaN` for a
+ * context naming none.
+ *
+ * `EvaluationContext.now` admits every form `Instant` does, because a context
+ * that crossed JSON carries the string its `Date` was written as. This reading
+ * is what makes the two resolve a window alike.
+ *
+ * A number outside the range a `Date` holds answers `NaN` here, which no other
+ * form reaches: a string is parsed and a `Date` is bounded, and only a
+ * caller's own number goes further. `Intl.DateTimeFormat.format` raises
+ * `RangeError` for such a value, and a comparison against it holds at every
+ * instant or at none, which is what `windowFault` refuses the same number at a
+ * boundary for.
+ */
+export function contextEpoch(now: Instant | undefined): number {
+  if (now === undefined) return Number.NaN;
+
+  const epoch = instantEpoch(now);
+  return Math.abs(epoch) > RANGE ? Number.NaN : epoch;
+}
+```
+
+- [ ] `libs/feature/src/lib/conditions.ts`: take `RANGE` off its local `const` and onto the import, `import { contextEpoch, instantEpoch, RANGE } from './instant.js';`, then read both clock branches through the new function. `weekdayIn` keeps its `Date` parameter, because `Intl.DateTimeFormat.format` takes one:
+
+```ts
+if (condition.op === 'day-of-week') {
+  const now = contextEpoch(context.now);
+  if (Number.isNaN(now)) return false;
+  const day = weekdayIn(new Date(now), condition.zone);
+  return day !== undefined && condition.value.includes(day);
+}
+
+if (condition.op === 'before' || condition.op === 'after') {
+  const now = contextEpoch(context.now);
+  if (Number.isNaN(now)) return false;
+  const boundary = instantEpoch(condition.value);
+  if (Number.isNaN(boundary)) return false;
+  return condition.op === 'before' ? now < boundary : now > boundary;
+}
+```
+
+- [ ] Rewrite the paragraph in `evaluateCondition`'s docblock that states the old behaviour, the one beginning "A window and a day-of-week condition read" and ending "answers false on every clock condition". It becomes:
+
+```ts
+ * A window and a day-of-week condition read `context.now` through
+ * `contextEpoch`, so a context that crossed JSON and carries the ISO 8601
+ * string in its place resolves the way the context it was built from did. A
+ * `now` naming no instant leaves both unevaluable, which is false.
+```
+
+- [ ] `libs/feature/src/lib/types.ts`: widen the field and give it the docblock the reference page renders:
+
+```ts
+export interface EvaluationContext {
+  /**
+   * The instant every rule resolves against, in any of the three forms an
+   * `Instant` takes.
+   *
+   * A `Date` does not survive `JSON.stringify`, and a context reaching this
+   * library across an RSC payload, an island's props, a response body or a
+   * cookie carries the ISO 8601 string in its place. `instantEpoch` reads all
+   * three forms, so such a context resolves a window the way the context it
+   * was built from did. Every entry point settles the field to a `Date` before
+   * it resolves anything.
+   */
+  now?: Instant;
+```
+
+- [ ] `libs/feature/src/lib/features.ts`: settle the field in `withNow`, and change `snapshot`'s message from `the Date at context/now names no instant` to `the value at context/now names no instant`, keeping the rest of the sentence and the `context/now` the `snapshot.spec.ts` cases match on:
+
+```ts
+const withNow = (context: EvaluationContext = {}): SettledContext => ({
+  ...context,
+  now:
+    context.now === undefined
+      ? new Date()
+      : new Date(contextEpoch(context.now)),
+});
+```
+
+`SettledContext` stays `EvaluationContext & { now: Date }` and every reader below `withNow` stays as it is, which is what keeps this task off `envelope`, `resolveAll`, `plan` and `toggle`.
+
+- [ ] `libs/feature/src/lib/bound.ts`: the factory Task 15 writes reads `context?.now ?? new Date()` once, which is the second settling site in the package. It becomes the same expression `withNow` holds, and the handle's docblock keeps its sentence about an explicit `now` winning.
+
+- [ ] `libs/feature/src/lib/resolve-plan.ts`: widen `ResolvePlanOptions.now` to `Instant`, adding `Instant` to the `./types.js` type import. Its docblock says a caller passes a `'render'` set's instant here, and `DecisionSet.now` is an ISO 8601 string, so the widening is what lets that caller write `{ now: set.now }` and drop the `new Date` around it. Add that sentence to the docblock, and change the same claim in the prose above the `resolve-plan` region of `libs/feature/docs/examples.md`, which spells the call out as `resolvePlan(features, plan, context, { now: new Date(set.now) })`.
+
+- [ ] **Review Focus, Step 7.** `libs/feature/src/lib/conditions.spec.ts` carries one case that asserts the defect, `does not hold when the context carries now as the string JSON left behind`. It becomes the issue's own case, asserting the round-tripped context answers what the context it came from answers:
+
+```ts
+it('answers for a context that crossed JSON what it answers for the one it came from', () => {
+  // `JSON.stringify` writes a `Date` as its ISO 8601 string and
+  // `JSON.parse` gives the string back, so a context that crossed an RSC
+  // payload, an island's props, a response body or a cookie carries `now`
+  // as text. `contextEpoch` reads the three forms an `Instant` takes, so
+  // the window resolves off the string the way it resolves off the `Date`
+  // the string was written from.
+  const condition: Condition = {
+    field: 'now',
+    op: 'after',
+    value: '2026-01-01T00:00:00Z',
+  };
+  const held = at('2026-06-01T00:00:00Z');
+  const wire = JSON.parse(JSON.stringify(held)) as EvaluationContext;
+
+  expect(wire.now).toBe('2026-06-01T00:00:00.000Z');
+  expect(evaluateCondition(condition, wire)).toBe(
+    evaluateCondition(condition, held),
+  );
+  expect(evaluateCondition(condition, wire)).toBe(true);
+});
+```
+
+- [ ] Four more cases in the same file. The first two go in the `window` block, the last two in the `day-of-week` block above `reads the weekday in the zone the condition names`, where `instant` is the `at('2026-10-01T03:00:00Z')` the block already holds:
+
+```ts
+it('reads an instant stated as epoch milliseconds', () => {
+  const condition: Condition = {
+    field: 'now',
+    op: 'after',
+    value: '2026-01-01T00:00:00Z',
+  };
+
+  expect(
+    evaluateCondition(condition, {
+      now: Date.parse('2026-06-01T00:00:00Z'),
+    }),
+  ).toBe(true);
+});
+
+it('does not hold for a now naming no instant, in any form', () => {
+  const condition: Condition = {
+    field: 'now',
+    op: 'after',
+    value: '2026-01-01T00:00:00Z',
+  };
+  const unusable: Instant[] = [
+    'the first of June',
+    '2026-06-01T00:00:00',
+    Number.NaN,
+    8_640_000_000_000_001,
+    new Date('nonsense'),
+  ];
+
+  for (const now of unusable) {
+    expect(evaluateCondition(condition, { now })).toBe(false);
+  }
+});
+```
+
+```ts
+it('reads the weekday off a context that crossed JSON', () => {
+  const condition: Condition = {
+    field: 'now',
+    op: 'day-of-week',
+    zone: 'America/New_York',
+    value: ['wed'],
+  };
+  const wire = JSON.parse(JSON.stringify(instant)) as EvaluationContext;
+
+  expect(evaluateCondition(condition, wire)).toBe(
+    evaluateCondition(condition, instant),
+  );
+  expect(evaluateCondition(condition, wire)).toBe(true);
+});
+
+it('does not hold for an epoch number outside the range a Date holds', () => {
+  // `Intl.DateTimeFormat.format` raises `RangeError` for an invalid
+  // `Date`, so the guard refuses the number before the weekday is read
+  // and the condition answers the way every unevaluable one does.
+  const condition: Condition = {
+    field: 'now',
+    op: 'day-of-week',
+    zone: 'America/New_York',
+    value: ['wed'],
+  };
+
+  expect(evaluateCondition(condition, { now: 8_640_000_000_000_001 })).toBe(
+    false,
+  );
+});
+```
+
+`'2026-06-01T00:00:00'` is in the unusable list on purpose: it is the one string ECMA-262 reads in the host's zone, `instantEpoch` refuses it for that reason, and a context carrying it would otherwise resolve one way in Stockholm and another in Tokyo. `conditions.spec.ts` already imports `Instant` from `./types.js` for the `validateConditions` cases.
+
+- [ ] Add a `describe('contextEpoch')` to `libs/feature/src/lib/instant.spec.ts` holding the table: `undefined` answers `NaN`, a `Date` and the string it serializes to answer the same number, epoch milliseconds answer themselves, each end of the range answers itself, and a number one past either end answers `NaN`.
+
+- [ ] Three cases in `libs/feature/src/lib/snapshot.spec.ts`, against a store whose one rule carries an `after` window:
+
+```ts
+it('states the instant a string named, in the one form a set carries', () => {
+  const features = createFeatures(SALE);
+
+  expect(features.snapshot({ now: '2026-06-01T00:00:00+01:00' }).now).toBe(
+    '2026-05-31T23:00:00.000Z',
+  );
+});
+
+it('resolves a context that crossed JSON as the one it came from', () => {
+  const features = createFeatures(SALE);
+  const held = { now: new Date('2026-06-01T00:00:00Z') };
+  const wire = JSON.parse(JSON.stringify(held)) as EvaluationContext;
+
+  expect(features.snapshot(wire).decisions).toEqual(
+    features.snapshot(held).decisions,
+  );
+  expect(features.snapshot(wire).now).toBe(features.snapshot(held).now);
+});
+
+it('names the field for a string naming no instant', () => {
+  const features = createFeatures(SALE);
+
+  expect(() => features.snapshot({ now: 'the first of June' })).toThrow(
+    FeatureConfigError,
+  );
+  expect(() => features.snapshot({ now: 'the first of June' })).toThrow(
+    /context\/now/,
+  );
+});
+```
+
+- [ ] Four type-test sites assert the old type and fail without this edit. Three of them are `@ts-expect-error` directives that become `TS2578: Unused '@ts-expect-error' directive` the moment the field widens, and the fourth is an equality assertion:
+  - `libs/feature/src/lib/conditions.test-d.ts:206`, `expectTypeOf<EvaluationContext['now']>().toEqualTypeOf<Date | undefined>()`, becomes `toEqualTypeOf<Instant | undefined>()`. The file already imports `Instant`.
+  - `libs/feature/src/lib/conditions.test-d.ts:225`, `refuses the clock field written as the string a wire format carries`, becomes `takes the clock field written as the string a wire format carries` with the directive and the old argument gone from the comment.
+  - `libs/feature/src/lib/conformance.test-d.ts:67`, `refuses a fixture instant that arrives as the string the file holds`, becomes `takes a fixture instant that arrives as the string the file holds`.
+  - `libs/feature/src/lib/resolve-plan-boundaries.test-d.ts:66`, `takes an instant as a Date and nothing else`, becomes `takes an instant in every form an Instant holds`.
+
+- [ ] Rewrite the `EvaluationContext` paragraph at `apps/docs/content/feature/api.mdx:401`, which states the old behaviour and tells a reader to build the `Date` back:
+
+```md
+The `now` property is an `Instant`: a `Date`, the ISO 8601 string `JSON.stringify` writes in a `Date`'s place, or epoch milliseconds. A context that crossed an RSC payload, an island's props, a response body or a cookie therefore resolves every window and day-of-week condition the way the context it was serialized from did, and a caller handing on a parsed body passes it straight through. A `now` that names no instant leaves every clock condition unevaluable, which answers `false`, and `snapshot` refuses it outright, because a decision set states its instant as an ISO 8601 string.
+```
+
+- [ ] Run that paragraph through Gemma, then `npx nx run-many -t build -p feature react-feature` and `npx nx run-many -t lint test typecheck -p feature react-feature docs repo-checks`.
+
+**Verification:** `npx nx run feature:typecheck` is green with no `@ts-expect-error` left over any `now` written as a string, `npx nx run feature:test` passes, and `node -e` over a built store answers `true` for `features.isEnabled('sale', JSON.parse(JSON.stringify({ now: new Date() })))` where the rule's window has opened.
 
 ---
 
@@ -1418,6 +1738,7 @@ Each later task inserts its own key at the position the end state gives it. The 
 
 - `apps/shop-api/src/features/feature.constants.ts`, `shop.features.ts`, `features.module.ts`, `features.service.ts` (new)
 - `apps/shop-api/src/features/shop.features.spec.ts`, `features.service.spec.ts` (new)
+- `apps/shop-api/src/features/features.controller.ts`, `features.controller.spec.ts` (new)
 - `apps/shop-api/src/app/app.module.ts` (edit)
 - `apps/shop-api/src/games/games.service.ts` (edit: one flag read)
 - `apps/shop-api/src/games/games.service.spec.ts` (edit)
@@ -1458,6 +1779,8 @@ export class FeaturesService {
 }
 // #endregion features-service
 ```
+
+- [ ] Serve the document the other two applications build from, following `apps/shop-api/src/acl/policy.controller.ts`: a `GET /api/features` answering `{ version, config }` where `config` is `serializeConfig(features)` and `version` is the document's own, with a `#region serve-the-document` around the handler and a case in `features.controller.spec.ts` asserting the body parses back through `parseFeatureConfig`. The library ships no transport and this is the application's own endpoint, which is the same line `policy.controller.ts` sits on. Tasks 25 and 27 fetch it.
 
 - [ ] Read one flag where it changes an answer the API already gives: `GamesService` gates the field it adds to a catalogue row, with a `#region flag-on-the-row` around the read and a case in `games.service.spec.ts` that asserts both answers.
 
@@ -1511,7 +1834,7 @@ export class FeaturesService {
 
 ### Steps
 
-- [ ] Write `apps/storefront-rsc/app/features.ts` on the shape `apps/storefront-rsc/app/access.ts` already uses: a module-scope store keyed on the document version, and `cache` from `react` for the per-page-view binding. `cache` is what makes it once per page view and gives two concurrent page views their own, which the `currentAccess` docblock argues:
+- [ ] Write `apps/storefront-rsc/app/features.ts` on the shape `apps/storefront-rsc/app/access.ts` already uses: a module-scope store keyed on the document version, fetched from shop-api's `GET /api/features` the way `access.ts` fetches `GET /api/policy`, and `cache` from `react` for the per-page-view binding. `cache` is what makes it once per page view and gives two concurrent page views their own, which the `currentAccess` docblock argues:
 
 ```ts
 // #region per-request-features
@@ -1586,7 +1909,7 @@ export const currentFeatures = cache(
 
 ### Steps
 
-- [ ] `apps/storefront/src/lib/features.ts` holds the store the way `policy.ts` holds the matrix: module scope, built from the document the shop-api serves, replaced when the version moves. The page says why module scope is right, which `policyAccess`'s docblock already argues: construction validates, clones and freezes, and every decision after that is a local call over the frozen copy.
+- [ ] `apps/storefront/src/lib/features.ts` holds the store the way `policy.ts` holds the matrix: module scope, built from the document shop-api's `GET /api/features` serves (Task 23 adds the endpoint), replaced when the version moves. The page says why module scope is right, which `policyAccess`'s docblock already argues: construction validates, clones and freezes, and every decision after that is a local call over the frozen copy.
 
 - [ ] `middleware.ts` writes `context.locals.features = features.for({ targetingKey: subject.id })` beside the four members it already writes, inside the existing `#region open-context`. `env.d.ts` declares the member, and this is where Task 17's default earns itself: the declaration writes `BoundFeatures` with no type argument.
 
