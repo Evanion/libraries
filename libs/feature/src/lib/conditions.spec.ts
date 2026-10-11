@@ -333,6 +333,95 @@ describe('ruleFields', () => {
   it('names nothing for a rule with no conditions and no rollout', () => {
     expect(ruleFields({ id: 'always' })).toEqual([]);
   });
+
+  it('names one field for a rollout bucketing on a field a condition reads', () => {
+    // The conditions and the rollout are two sources, and the set is what
+    // merges them. A list deduplicated inside `when` alone answers
+    // `['tier', 'tier']` here.
+    const rule: Rule = {
+      id: 'a-quarter-of-the-members',
+      when: [{ field: 'tier', op: 'eq', value: 'member' }],
+      rollout: { percent: 25, by: 'tier' },
+    };
+
+    expect(ruleFields(rule)).toEqual(['tier']);
+  });
+
+  it('names one field for a rollout defaulting onto a field a condition reads', () => {
+    const rule: Rule = {
+      id: 'the-keyed-quarter',
+      when: [{ field: 'targetingKey', op: 'ne', value: '' }],
+      rollout: { percent: 25 },
+    };
+
+    expect(ruleFields(rule)).toEqual(['targetingKey']);
+  });
+
+  it('sorts across the two sources and not within either one', () => {
+    // `zip` comes off a condition and `ageBand` off the rollout, so a sort
+    // applied to each source on its own answers `['zip', 'ageBand']`.
+    const rule: Rule = {
+      id: 'the-southern-band',
+      when: [{ field: 'zip', op: 'eq', value: '21000' }],
+      rollout: { percent: 50, by: 'ageBand' },
+    };
+
+    expect(ruleFields(rule)).toEqual(['ageBand', 'zip']);
+  });
+
+  it('names nothing for a rule whose `when` is an empty list', () => {
+    // A list with no conditions matches on nothing, which the type takes and
+    // a control plane emits for a rule an operator cleared.
+    expect(ruleFields({ id: 'cleared', when: [] })).toEqual([]);
+  });
+
+  it('names the default rollout field for an empty `when` beside a rollout', () => {
+    const rule: Rule = {
+      id: 'cleared-but-ramped',
+      when: [],
+      rollout: { percent: 25 },
+    };
+
+    expect(ruleFields(rule)).toEqual(['targetingKey']);
+  });
+
+  it('names the empty field a rollout bucketing on it asks for', () => {
+    // `by: ''` is a string, so the type takes it and the default never
+    // applies: `''` is not nullish. `evaluateRule` reads `context['']`, finds
+    // nothing and does not match, and this list is what names the field that
+    // was missing. Answering `targetingKey` here would name a field the rule
+    // never read.
+    const rule: Rule = {
+      id: 'nameless-bucket',
+      rollout: { percent: 25, by: '' },
+    };
+
+    expect(ruleFields(rule)).toEqual(['']);
+  });
+
+  it('names `now` for a window, which is the field a window reads', () => {
+    const rule: Rule = {
+      id: 'the-q4-window',
+      when: [
+        { field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' },
+        { field: 'now', op: 'before', value: '2027-01-01T00:00:00Z' },
+      ],
+    };
+
+    expect(ruleFields(rule)).toEqual(['now']);
+  });
+
+  it('answers a list of its own, so a caller reordering it alters no rule', () => {
+    const rule: Rule = {
+      id: 'the-southern-quarter',
+      when: [{ field: 'zip', op: 'eq', value: '21000' }],
+      rollout: { percent: 25, by: 'customerId' },
+    };
+
+    (ruleFields(rule) as string[]).reverse();
+
+    expect(ruleFields(rule)).toEqual(['customerId', 'zip']);
+  });
 });
 
 describe('validateConditions', () => {

@@ -24,9 +24,9 @@ function sources(directory: string): string[] {
     // under a name a narrower pattern reads as data.
     if (!/\.[cm]?[jt]sx?$/.test(entry.name)) return [];
     if (/\.(spec|test|test-d)\./.test(entry.name)) return [];
-    // `vite.config.ts` names this file in the React project's `setupFiles` and
-    // `package.json`'s `files` negates it, so it is a test file whose name
-    // carries no `.spec.` or `.test.` segment.
+    // A vitest `setupFiles` entry, which `package.json`'s `files` negates: a
+    // test file whose name carries no `.spec.` or `.test.` segment, so the
+    // pattern above does not reach it.
     if (entry.name === 'test-setup.ts') return [];
     return [path];
   });
@@ -499,6 +499,46 @@ describe('the imports the scan reports', () => {
     const root = tree({ 'store.ts': 'export const one = 1;\n' });
 
     expect(foreignImports(root)).toEqual([]);
+  });
+
+  it('reports react imported from lib, where the hooks used to reach for it', () => {
+    // `react` is the specifier the scan once let through, inside a `react`
+    // directory the package no longer has. The provider and the hooks are
+    // `@evanion/react-feature`, which declares the peer, and the core is held
+    // to the same rule for `react` as for `pg`.
+    const root = tree({
+      'lib/features.ts': "import { useMemo } from 'react';\n",
+    });
+
+    expect(foreignImports(root).map((e) => e.specifier)).toEqual(['react']);
+  });
+
+  it('reports react imported from a directory named react, which buys nothing', () => {
+    const root = tree({
+      'react/index.tsx': "import { useMemo } from 'react';\n",
+    });
+
+    expect(foreignImports(root).map((e) => e.specifier)).toEqual(['react']);
+  });
+
+  it('reports a driver imported from a directory named react', () => {
+    const root = tree({ 'react/store.ts': "import { Pool } from 'pg';\n" });
+
+    expect(foreignImports(root).map((e) => e.specifier)).toEqual(['pg']);
+  });
+
+  it('reports react-dom and the jsx runtime, which arrive with a provider', () => {
+    const root = tree({
+      'lib/render.ts': [
+        "import { renderToStaticMarkup } from 'react-dom/server';",
+        "import { jsx } from 'react/jsx-runtime';",
+      ].join('\n'),
+    });
+
+    expect(foreignImports(root).map((e) => e.specifier)).toEqual([
+      'react-dom/server',
+      'react/jsx-runtime',
+    ]);
   });
 });
 
