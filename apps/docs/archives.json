@@ -11,7 +11,7 @@
       "version": "0.3.0",
       "tag": "@evanion/react-widget@0.3.0",
       "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
-      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+      "reason": "Gemma's rewrite of the react-widget pages (#416, #420) landed after @evanion/react-widget@0.3.0, and react-widget has no API change since that tag, so react-widget v0.3 takes the new text."
     }
   },
   "acl": {
@@ -19,7 +19,7 @@
       "version": "0.1.0",
       "tag": "@evanion/acl@0.1.0",
       "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
-      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+      "reason": "Gemma's rewrite of the acl pages (#416, #420) landed after @evanion/acl@0.1.0, and acl has no API change since that tag, so acl v0.1 takes the new text."
     }
   },
   "urn": {
@@ -32,7 +32,7 @@
       "version": "2.1.0",
       "tag": "@evanion/urn@2.1.0",
       "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
-      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+      "reason": "Gemma's rewrite of the urn pages (#416, #420) landed after @evanion/urn@2.1.0, and urn has no API change since that tag, so urn v2 takes the new text."
     }
   },
   "widget": {
@@ -40,7 +40,7 @@
       "version": "0.1.0",
       "tag": "@evanion/widget@0.1.0",
       "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
-      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+      "reason": "Gemma's rewrite of the widget pages (#416, #420) landed after @evanion/widget@0.1.0, and widget has no API change since that tag, so widget v0.1 takes the new text."
     }
   },
   "luhn": {
@@ -48,7 +48,7 @@
       "version": "3.0.0",
       "tag": "@evanion/luhn@3.0.0",
       "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
-      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+      "reason": "Gemma's rewrite of the luhn pages (#416, #420) landed after @evanion/luhn@3.0.0, and luhn has no API change since that tag, so luhn v3 takes the new text."
     }
   },
   "token": {
@@ -56,7 +56,7 @@
       "version": "0.1.0",
       "tag": "@evanion/token@0.1.0",
       "sha": "77650ee21e217600d390db7da6db144ac55c8cc0",
-      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+      "reason": "Gemma's rewrite of the token pages (#416, #420) landed after @evanion/token@0.1.0, and token has no API change since that tag, so token v0.1 takes the new text."
     }
   },
   "compose": {
@@ -64,7 +64,7 @@
       "version": "2.1.0",
       "tag": "@evanion/compose@2.1.0",
       "sha": "77650ee21e217600d390db7da6db144ac55c8cc0",
-      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+      "reason": "Gemma's rewrite of the compose pages (#416, #420) landed after @evanion/compose@2.1.0, and compose has no API change since that tag, so compose v2 takes the new text."
     }
   },
   "nestjs-correlation-id": {
@@ -72,7 +72,7 @@
       "version": "2.1.0",
       "tag": "@evanion/nestjs-correlation-id@2.1.0",
       "sha": "77650ee21e217600d390db7da6db144ac55c8cc0",
-      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+      "reason": "Gemma's rewrite of the nestjs-correlation-id pages (#416, #420) landed after @evanion/nestjs-correlation-id@2.1.0, and nestjs-correlation-id has no API change since that tag, so nestjs-correlation-id v2 takes the new text."
     }
   },
   "react-acl": {
@@ -80,7 +80,7 @@
       "version": "0.1.0",
       "tag": "@evanion/react-acl@0.1.0",
       "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
-      "reason": "Gemma's rewrite of the pages (#416, #420) landed after this release. No API change since the tag; the released pages take the new text."
+      "reason": "Gemma's rewrite of the react-acl pages (#416, #420) landed after @evanion/react-acl@0.1.0, and react-acl has no API change since that tag, so react-acl v0.1 takes the new text."
     }
   }
 }
