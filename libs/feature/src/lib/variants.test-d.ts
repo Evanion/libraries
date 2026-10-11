@@ -4,6 +4,12 @@ import {
   assignVariant as publishedAssignVariant,
   variantSeedOf as publishedVariantSeedOf,
 } from '../index.js';
+import type {
+  RolloutSpec as PublishedRolloutSpec,
+  VariantAssignment as PublishedVariantAssignment,
+  VariantInfo as PublishedVariantInfo,
+  VariantSpec as PublishedVariantSpec,
+} from '../index.js';
 import { assignVariant, variantSeedOf } from './variants.js';
 import type { VariantAssignment } from './variants.js';
 import type {
@@ -183,5 +189,16 @@ describe('the published declarations', () => {
   it('publishes both calls at the declaration this file read', () => {
     expectTypeOf(publishedAssignVariant).toEqualTypeOf<typeof assignVariant>();
     expectTypeOf(publishedVariantSeedOf).toEqualTypeOf<typeof variantSeedOf>();
+  });
+
+  it('publishes the four types at the declarations this file read', () => {
+    // Every assertion above reads `./types.js` and `./variants.js`. A consumer
+    // reads the package entry, so a re-export block that drops one of these
+    // leaves the assertions passing against a declaration nobody can import
+    // and the name's reference entry resolving to nothing.
+    expectTypeOf<PublishedVariantSpec>().toEqualTypeOf<VariantSpec>();
+    expectTypeOf<PublishedVariantInfo>().toEqualTypeOf<VariantInfo>();
+    expectTypeOf<PublishedVariantAssignment>().toEqualTypeOf<VariantAssignment>();
+    expectTypeOf<PublishedRolloutSpec>().toEqualTypeOf<RolloutSpec>();
   });
 });
