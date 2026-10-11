@@ -756,19 +756,37 @@ accepts.
 
 <!-- reference @evanion/feature#FeatureConfigError example=config-errors -->
 
-`FeatureConfigError` is the root of the other five errors on this page. The
-`createFeatures` function raises it directly for defects that none of those five
-specific names cover: specifically, a `when` written as a string, or a window
-boundary carrying `Number.NaN`. By using one `catch` over this base class, you
-can answer every defect the checker reports.
+To handle configuration defects in `@evanion/feature`, you can catch a single
+base class. The `FeatureConfigError` class serves as the root for the other five
+error types described on this page.
+
+### Using FeatureConfigError as a Catch-All
+
+The `createFeatures` function raises `FeatureConfigError` for any defect the
+checker reports that is not covered by the five specific subclasses. This
+includes a wide range of configuration issues:
+
+- A `when` property that the checker cannot read as an array of conditions.
+- A variant weight that is not a usable share.
+- A feature that declares an order on none of its variants.
+- A document that declares variants but carries no `variantBy` or
+  `variantSeed`.
+- A document carrying a top-level member that the holder cannot read.
+- An inline schema missing a `schemaVersion`.
+- A window boundary carrying `Number.NaN`.
+
+Because the error message names the specific feature and the member path, you
+should read the message for debugging rather than switching on the class type. A
+single `catch` block targeting this base class answers every defect the checker
+reports.
+
+### How `@evanion/feature` handles copy errors
 
 To ensure a configuration is safe to use, `@evanion/feature` validates the data
 provided to `createFeatures`. Because `VariantSpec.value` is typed as `unknown`,
 the checker reports nothing about a variant `value`. If a function or a symbol
 is placed there, it clears every check, but is then refused by the copy
 `createFeatures` takes before it installs the configuration.
-
-### How `@evanion/feature` handles copy errors
 
 The specific refusal the user receives depends on the host environment.
 `@evanion/feature` utilizes `globalThis.structuredClone` where available, such
