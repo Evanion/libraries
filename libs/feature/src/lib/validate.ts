@@ -1842,10 +1842,10 @@ export function collectIssues(
  * `createFeatures` reads the literal an author wrote, where the array is the
  * order and the author who omitted a member is the party the default answers.
  *
- * `createFeatures` calls the same checker and throws the first issue as the
- * typed error it has always thrown, which keeps `errors.ts:3-11` true: every
- * error this library raises is raised where the configuration is supplied, and
- * `resolve`, `plan` and `toggle` stay total.
+ * `createFeatures` calls the same checker and throws the first issue as its
+ * typed error, which is what the `FeatureConfigError` docblock in `errors.ts`
+ * states: a defect in a configuration is raised where the configuration is
+ * supplied, and `resolve`, `plan` and `toggle` raise none.
  */
 export function validateConfig(config: FeatureConfig): ValidationResult {
   const all = collectIssues(config);
