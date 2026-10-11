@@ -349,8 +349,14 @@ function Cta({ customerId }: { customerId: string }) {
 function Page({ customerId }: { customerId: string }) {
   const decisions = features.snapshot({ targetingKey: customerId });
 
+  // The provider re-resolves the set to check it, so it carries the field the
+  // snapshot bucketed on. Without it the provider publishes the shipped
+  // variant and reports it as one it cannot reproduce.
   return (
-    <FeatureProvider decisions={decisions}>
+    <FeatureProvider
+      context={{ targetingKey: customerId }}
+      decisions={decisions}
+    >
       <Cta customerId={customerId} />
     </FeatureProvider>
   );
