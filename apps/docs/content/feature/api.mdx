@@ -572,7 +572,7 @@ To determine why a feature resolved to its current state, the engine assigns a `
 
 When you call `features.toggle`, the operation returns a `ToggleResult`.
 
-If the operation is successful (`ok: true`), the result names the key and repeats the `enabled` value the caller wrote. It also includes `willDisable`: a list of every transitive dependent that resolved on under the current store but resolves off under the new value, listed in dependency order. If a caller enables a feature, this list is empty.
+If the operation is successful (`ok: true`), the result names the key and repeats the `enabled` value the caller wrote. It also includes `willDisable`. The store applies the write before it answers, so `willDisable` names every transitive dependent that resolved on under the previous document and resolves off under the written one, listed in dependency order. By the time the caller holds the result, `features.isEnabled` already answers `false` for every entry on that list. If a caller enables a feature, this list is empty.
 
 If the operation fails (`ok: false`), it indicates a key the store does not hold, and no data is written.
 
