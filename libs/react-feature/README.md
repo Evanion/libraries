@@ -108,7 +108,7 @@ shelfFor('mika'); // -> '<p>Newest first</p>'
 - 🕓 **One Instant Per Render**: A set a render resolved states the instant it was created. The provider reads that instant as the default for anything it resolves itself, ensuring no two components in one tree straddle a time window.
 - ⚡ **Local Reads**: Hooks read decisions already held by the provider, so variant switches never wait on network requests.
 - 🛠️ **Type-Safety**: `createFeatureContext(features)` returns a provider and hooks bound to one store's schema. Misspelled keys trigger compile errors, and variants are constrained to the union declared by the store.
-- 🧬 **Divergence Reports**: When handed a shipped set, a provider compares the config version against the store. It names decisions it cannot reproduce via `onDivergence` and uses `onVersionMismatch` to choose between the shipped set and a local re-resolution.
+- 🧬 **Divergence Reports**: When handed a shipped set, a provider compares the config version against the store. It names decisions it cannot reproduce via `onDivergence`. Where the set and the store each carry a config version and the two differ, `onVersionMismatch` decides whether the tree renders the shipped set or a local re-resolution. A store built from a bare definitions array carries no version, so a provider over one reports `unversioned` and keeps the shipped set whatever `onVersionMismatch` asks for. Build both sides from a document that carries a version to make the choice available.
 - 📦 **Lightweight Footprint**: The package is ESM only and requires Node 20 or newer. Its only peer dependency is React 18 or 19, with `@evanion/feature` pinned as a dependency.
 
 ## Installation
