@@ -217,6 +217,38 @@ function packageNameOf(specifier) {
   return match ? match[1] : specifier;
 }
 
+/**
+ * The package a declaration file imports a name from, or `null`.
+ *
+ * A published `.d.ts` states where every name it did not declare comes from:
+ * `libs/react-feature/dist/index.d.ts` opens with
+ * `import { ReactElement, ReactNode } from 'react'`. A fence naming one of
+ * those without that line binds it to nothing, so the fence repeats the line
+ * the file already wrote.
+ *
+ * A relative specifier is refused. It names a module inside the package, which
+ * a reader's fence cannot resolve, and a type declared there is one the prelude
+ * branch prints into the fence instead.
+ */
+function importedFrom(name, node) {
+  for (const statement of node.getSourceFile().statements) {
+    if (!ts.isImportDeclaration(statement)) continue;
+
+    const bindings = statement.importClause?.namedBindings;
+    if (!bindings || !ts.isNamedImports(bindings)) continue;
+    if (!bindings.elements.some((element) => element.name.text === name)) {
+      continue;
+    }
+
+    const specifier = statement.moduleSpecifier;
+    if (!ts.isStringLiteral(specifier)) return null;
+
+    return /^[./]/.test(specifier.text) ? null : specifier.text;
+  }
+
+  return null;
+}
+
 /** An entry point's exports, with whether each is importable as a value. */
 function exportsOf(moduleSymbol, checker) {
   return new Map(
@@ -303,21 +335,25 @@ function declarationOf(context, resolved, name, kind) {
   const values = [];
   const types = [];
   const fromRoot = [];
+  const external = new Map();
   const prelude = [];
   const seen = new Set();
 
   /**
    * Where each name the declaration mentions has to come from.
    *
-   * Three answers and they are not interchangeable. A name the documented
+   * Four answers and they are not interchangeable. A name the documented
    * entry point exports is imported from it. A name only the package root
    * exports is imported from there, which is what a second entry point needs:
    * `@evanion/acl/testing` declares `assertAllowed(decision: Decision)` and
-   * publishes no `Decision` of its own. A name the package declares and
-   * publishes nowhere is printed into the fence above the cut, because a fence
-   * that leaves it unbound does not fail -- it silently binds to whatever
-   * global has that name, and `Cond`'s `node: Node` bound to the DOM's `Node`
-   * for as long as the entry existed.
+   * publishes no `Decision` of its own. A name the declaration file imports
+   * from another package is imported from that package, which is what a
+   * framework binding needs: `FeatureProviderProps` names `ReactNode` and
+   * `@evanion/react-feature` publishes no such type. A name the package
+   * declares and publishes nowhere is printed into the fence above the cut,
+   * because a fence that leaves it unbound does not fail -- it silently binds
+   * to whatever global has that name, and `Cond`'s `node: Node` bound to the
+   * DOM's `Node` for as long as the entry existed.
    */
   const place = (each, from) => {
     if (seen.has(each)) return;
@@ -330,6 +366,12 @@ function declarationOf(context, resolved, name, kind) {
 
     if (root.has(each)) {
       fromRoot.push(each);
+      return;
+    }
+
+    const imported = importedFrom(each, from);
+    if (imported) {
+      external.set(imported, [...(external.get(imported) ?? []), each]);
       return;
     }
 
@@ -378,6 +420,7 @@ function declarationOf(context, resolved, name, kind) {
     values: merges && exported.get(name) ? [name, ...values] : values,
     types: merges && !exported.get(name) ? [name, ...types] : types,
     fromRoot,
+    external: [...external],
     prelude,
   };
 }
