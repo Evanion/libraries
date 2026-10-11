@@ -193,7 +193,7 @@ const NOTICES = [
     spec: '§ 4.3',
     file: 'apps/docs/content/feature/api.mdx',
     from: '### `FrozenWhenObserved',
-    until: '### `FeatureKey` and `Instant`',
+    until: '## `FeatureKey`',
     phrases: [
       'behaves differently under two configurations',
       'adds 18 microseconds',
