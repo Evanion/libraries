@@ -196,11 +196,23 @@ describe('murmur3', () => {
   });
 
   it('reads the seed as an unsigned 32-bit word', () => {
-    // `murmur3Bytes` applies `seed >>> 0`. A port that holds the seed in a
-    // signed 32-bit integer, which is what Java and C# give it, hands the
-    // negative spelling of the same word and has to reach the same hash.
-    expect(murmur3('hello', -1)).toBe(murmur3('hello', 0xffffffff));
-    expect(murmur3('hello', -1756908916)).toBe(murmur3('hello', 0x9747b28c));
+    // Pinned as words, not as the two spellings compared to each other. Every
+    // operation `hash` meets is bitwise, so ToInt32 runs over the seed before
+    // it reaches a product, and ToInt32(x) equals ToInt32(ToUint32(x)) for
+    // every x. A comparison between the spellings therefore holds for any seed
+    // reading at all, including none: delete `seed >>> 0` from
+    // `murmur3Bytes` and the whole suite stays green.
+    //
+    // A port that holds the seed in a signed 32-bit integer, which is what
+    // Java and C# give it, hands the negative spelling and has to reach these
+    // words.
+    const word = (seed: number) =>
+      murmur3('hello', seed).toString(16).padStart(8, '0');
+
+    expect(word(-1)).toBe('237b85cb');
+    expect(word(0xffffffff)).toBe('237b85cb');
+    expect(word(-1756908916)).toBe('5d7f56e8');
+    expect(word(0x9747b28c)).toBe('5d7f56e8');
   });
 
   it('seeds with zero when a caller names no seed', () => {
