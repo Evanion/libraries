@@ -840,7 +840,7 @@ To manage the available context fields in `@evanion/feature`, you use `ContextSc
 
 The `FieldType` used in `@evanion/feature` is a template-literal union over `BaseFieldType`, admitting sixteen strings: each of the four base names on its own, each with `[]`, each with `?`, and each with `[]?` in that order. Consequently, `instant[]?` is a member while `instant?[]` is not.
 
-The `[]` suffix is what `field-type-mismatch` reads, since `contains` asks whether an array holds a value, while `eq`, `ne`, `in` and `not-in` compare a scalar. The `?` suffix marks a field that a complete context may leave out. Since no issue code reports a field a context omitted, only a generator and a reader act on that suffix.
+The `[]` suffix is what `field-type-mismatch` reads, since `contains` asks whether an array holds a value, while `eq`, `ne`, `in` and `not-in` compare a scalar. The check strips a trailing `?` before it tests for `[]`, so `string[]?` names an array to it and `contains` over such a field passes. The `?` suffix also marks a field that a complete context may leave out, and no issue code reports a field a context omitted, so a generator and a reader are what read it for that.
 
 ## `BaseFieldType`
 
