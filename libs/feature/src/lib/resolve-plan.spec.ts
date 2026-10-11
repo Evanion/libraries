@@ -229,6 +229,36 @@ describe('resolvePlan', () => {
     ]);
   });
 
+  it('reports nothing for a deferred window, which always has an instant', () => {
+    const features = createFeatures([
+      {
+        key: 'promo',
+        enabled: true,
+        rules: [
+          {
+            id: 'window',
+            when: [
+              { field: 'now', op: 'after', value: '2026-12-01T00:00:00Z' },
+            ],
+          },
+        ],
+      },
+    ]);
+    const plan = features.plan({});
+    const reports: DivergenceReport[] = [];
+
+    expect(plan['promo']?.needs).toEqual(['now']);
+
+    resolvePlan(
+      features,
+      plan,
+      {},
+      { onDivergence: (report) => reports.push(report) },
+    );
+
+    expect(reports).toEqual([]);
+  });
+
   it('assigns the first variant in the bucketing order for a context with no key', () => {
     const features = createFeatures(SPLIT);
 

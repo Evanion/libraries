@@ -618,7 +618,9 @@ The `now` member specifies the instant the deferred remainder resolves. This pre
 - A `DecisionSet` with `origin: 'build'` may be days old; the caller passes nothing, and `resolvePlan` uses the client's clock.
 - If the context passed to `resolvePlan` has its own `now` value, it takes precedence over this option.
 
-The `onDivergence` member is a callback that receives a `missing-field` report for every field a deferred entry named in `needs` that the provided context does not carry.
+To handle missing data during resolution, you provide a callback to the `onDivergence` member. This callback receives a `missing-field` report for every field a deferred entry names in `needs` that the context you pass `resolvePlan` does not carry, with one exception: `now`.
+
+`resolvePlan` always has a `now`. It takes the one on the context, failing that the one on `ResolvePlanOptions`, and failing both the client's own clock. A deferred entry whose `needs` names `now` therefore resolves against a real instant and reports nothing. A window rule on a feature that did not set `freezeTimeAtBuild` defers on `now`, so that entry is the plan working as designed and not a divergence.
 
 ### `FeatureEvent<S>`
 
