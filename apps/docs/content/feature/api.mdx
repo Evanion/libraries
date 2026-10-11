@@ -558,7 +558,7 @@ If exactly one rule is responsible, either the matching rule or the single rule 
 
 <!-- reference @evanion/feature#Reason -->
 
-To determine why a feature resolved to its current state, the engine assigns a `Reason`. The engine writes this field but never reads it back.
+To determine why a feature resolved to its current state, the engine assigns a `Reason`. No rule and no cascade reads the field to decide enablement, which `reason-is-output-only.spec.ts` holds by deleting every explanation field from each parent decision and requiring the same `enabled` for every feature. The engine does read a blocked parent's `reason`, `rule`, `rules` and `blockedBy` to fill the dependant's `cause`, so a caller who caches a decision as `{ key, enabled }` and hands it back keeps every `enabled` and loses the root cause.
 
 - `default-on`: The definition enabled the feature and declared no rules.
 - `rule-match`: A rule matched, and the decision names that rule.

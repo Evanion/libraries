@@ -248,10 +248,15 @@ export interface EvaluationContext {
  * says a parent resolved off, and the decision carries the blocking edge and
  * the root cause.
  *
- * The engine writes this field and never reads it back.
+ * No rule and no cascade reads this field to decide enablement.
  * `reason-is-output-only.spec.ts` deletes every explanation field from each
  * parent decision before the next feature sees it and requires the same
- * answers, so a cascade that consulted a reason would fail there.
+ * `enabled` for every feature, so a cascade keyed on a reason fails there.
+ *
+ * `rootCause` in `evaluate.ts` does read a blocked parent's `reason`, `rule`,
+ * `rules` and `blockedBy`, and it reads them to fill the dependant's `cause`.
+ * A caller who caches a decision as `{ key, enabled }` and hands it back to
+ * the engine keeps every `enabled` and loses the root cause, with no error.
  */
 export type Reason =
   /** Enabled, no rules. */
