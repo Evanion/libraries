@@ -38,8 +38,14 @@ import { stripVTControlCharacters } from 'node:util';
  */
 
 /**
- * The version a dry run computes for one project, or `null` when it computes
- * no change.
+ * The version a dry run computes for one project from its own commits, or
+ * `null` when they compute no change.
+ *
+ * A dry run over several projects bumps one of them as a patch when another it
+ * depends on bumps, and prints that bump beside the one its own commits
+ * compute. A dry run over the project alone never does, so only the line nx
+ * derives from conventional commits is read, and a dry run over several
+ * projects answers for each what a dry run over it alone would.
  *
  * Read without its colours: nx colours a project's name when the process it
  * runs under asks for colour, as a test runner's does, and a coloured line
@@ -52,7 +58,10 @@ export function dryRunVersion(printed, name) {
   const output = stripVTControlCharacters(printed);
   const escaped = name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
   const bumped = output.match(
-    new RegExp(`^${escaped} .*to get new version (\\S+)`, 'm'),
+    new RegExp(
+      `^${escaped} .*, derived from conventional commits data, to get new version (\\S+)`,
+      'm',
+    ),
   );
   if (bumped) return bumped[1];
 
@@ -191,11 +200,18 @@ function atCommit(root, sha, run) {
   }
 }
 
-/** What `nx release version --dry-run` prints for one project in `dir`. */
-function dryRunIn(dir, env, name) {
+/**
+ * @typedef {{
+ *   version: string | null,
+ *   counted: { sha: string, header: string, tooling: boolean }[],
+ * }} Released
+ */
+
+/** What `nx release version --dry-run` prints for `names` in `dir`. */
+function dryRunIn(dir, env, names) {
   return execFileSync(
     'npx',
-    ['nx', 'release', 'version', '--dry-run', `--projects=${name}`],
+    ['nx', 'release', 'version', '--dry-run', `--projects=${names.join(',')}`],
     {
       cwd: dir,
       encoding: 'utf8',
@@ -209,54 +225,93 @@ function dryRunIn(dir, env, name) {
 /** The version a dry run computes for a project with `root`'s tree at `sha`. */
 export function dryRunAt(root, sha, name) {
   return atCommit(root, sha, (dir, env) =>
-    dryRunVersion(dryRunIn(dir, env, name), name),
+    dryRunVersion(dryRunIn(dir, env, [name]), name),
   );
 }
 
 /**
- * The version a dry run computes for a project with `root`'s tree at `sha`,
- * and the commits since the tag it measured from that nx counts toward the
- * project, each marked `tooling` when it changes tooling a library depends on
- * and no library.
+ * The commits since each tag that nx counts toward its project, by project:
+ * `tooling-commit-types.ts counted` run once in `dir` for every pair, so the
+ * graph is built once.
+ *
+ * @param {string} root
+ * @param {string} dir
+ * @param {NodeJS.ProcessEnv} env
+ * @param {readonly { tag: string, name: string }[]} since
+ * @returns {Record<string, Released['counted']>}
+ */
+function countedIn(root, dir, env, since) {
+  const listed = execFileSync(
+    'node',
+    [
+      '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
+      join(root, 'tools', 'repo-checks', 'src', 'tooling-commit-types.ts'),
+      'counted',
+      ...since.flatMap(({ tag, name }) => [tag, name]),
+    ],
+    {
+      cwd: dir,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env,
+    },
+  );
+  // The JSON is the last line: the graph's plugins print warnings first.
+  return JSON.parse(listed.trim().split('\n').at(-1));
+}
+
+/**
+ * The version a dry run computes for each of `names` with `root`'s tree at
+ * `sha`, and the commits since the tag it measured from that nx counts toward
+ * the project, each marked `tooling` when it changes tooling a library depends
+ * on and no library.
+ *
+ * One worktree, one dry run and one listing answer every name, so a commit
+ * many pins name is checked out and its graph built once.
  *
  * `tools/repo-checks/src/tooling-commit-types.ts` lists the commits, in the
  * same worktree. It holds the rule the commit-msg hook and CI apply to every
  * new commit, so a commit the hook would reject today is marked here. It lists
- * them only when the dry run computes a change, and from the tag the dry run
- * printed, so the dry run still decides whether the version moved.
+ * them only for a project the dry run computes a change for, and from the tag
+ * the dry run printed, so the dry run still decides whether the version moved.
  *
- * @returns {{
- *   version: string | null,
- *   counted: { sha: string, header: string, tooling: boolean }[],
- * }}
+ * @param {string} root
+ * @param {string} sha
+ * @param {readonly string[]} names
+ * @returns {Map<string, Released>}
+ */
+export function releasesAt(root, sha, names) {
+  return atCommit(root, sha, (dir, env) => {
+    const printed = dryRunIn(dir, env, names);
+    const measured = names.map((name) => ({
+      name,
+      version: dryRunVersion(printed, name),
+      tag: dryRunTag(printed, name),
+    }));
+    const changed = measured.filter(
+      ({ version, tag }) => version !== null && tag !== null,
+    );
+
+    const counted =
+      changed.length === 0 ? {} : countedIn(root, dir, env, changed);
+
+    return new Map(
+      measured.map(({ name, version }) => [
+        name,
+        { version, counted: counted[name] ?? [] },
+      ]),
+    );
+  });
+}
+
+/**
+ * `releasesAt` for one project.
+ *
+ * @returns {Released}
  */
 export function releaseAt(root, sha, name) {
-  return atCommit(root, sha, (dir, env) => {
-    const printed = dryRunIn(dir, env, name);
-    const version = dryRunVersion(printed, name);
-    const tag = dryRunTag(printed, name);
-    if (version === null || tag === null) return { version, counted: [] };
-
-    const listed = execFileSync(
-      'node',
-      [
-        '--disable-warning=MODULE_TYPELESS_PACKAGE_JSON',
-        join(root, 'tools', 'repo-checks', 'src', 'tooling-commit-types.ts'),
-        'counted',
-        tag,
-        name,
-      ],
-      {
-        cwd: dir,
-        encoding: 'utf8',
-        maxBuffer: 64 * 1024 * 1024,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        env,
-      },
-    );
-    // The JSON is the last line: the graph's plugins print warnings first.
-    return { version, counted: JSON.parse(listed.trim().split('\n').at(-1)) };
-  });
+  return /** @type {Released} */ (releasesAt(root, sha, [name]).get(name));
 }
 
 /**
@@ -270,7 +325,7 @@ export function releaseAt(root, sha, name) {
  * any other commit, and when it counts none, since the change then came from
  * something the commits do not show.
  *
- * @param {ReturnType<typeof releaseAt>} release
+ * @param {Released} release
  */
 export function withoutTooling({ version, counted }) {
   const blocking = counted.filter((each) => !each.tooling);

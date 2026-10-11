@@ -292,27 +292,59 @@ export function stagedCommit(root: string, messageFile: string): Commit {
   };
 }
 
-/** Every non-merge commit in `range`, oldest first. */
+/**
+ * Every non-merge commit in `range`, oldest first.
+ *
+ * Two `git log` runs read the whole range, which can hold hundreds of commits.
+ * In the file listing a record opens with an empty field, which no path is,
+ * then the SHA, then the files, the first of them led by the newline git
+ * writes before a commit's diff.
+ */
 export function rangeCommits(root: string, range: string): Commit[] {
-  const shas = git(root, ['rev-list', '--no-merges', '--reverse', range])
-    .split('\n')
-    .filter((sha) => sha !== '');
+  const logged = git(root, [
+    'log',
+    '-z',
+    '--no-merges',
+    '--reverse',
+    '--format=%H%x00%B',
+    range,
+  ]).split('\0');
+  const commits: { sha: string; message: string }[] = [];
+  let sha: string | null = null;
+  for (const field of logged) {
+    if (sha === null) sha = field;
+    else {
+      commits.push({ sha, message: field.trim() });
+      sha = null;
+    }
+  }
 
-  return shas.map((sha) => ({
-    sha,
-    message: git(root, ['log', '-1', '--format=%B', sha]).trim(),
-    files: paths(
-      git(root, [
-        'diff-tree',
-        '--root',
-        '--no-commit-id',
-        '--name-only',
-        '-r',
-        '-z',
-        '--no-renames',
-        sha,
-      ]),
-    ),
+  const listed = git(root, [
+    'log',
+    '-z',
+    '--no-merges',
+    '--reverse',
+    '--root',
+    '--name-only',
+    '--no-renames',
+    '--format=%x00%H',
+    range,
+  ]).split('\0');
+  const files = new Map<string, string[]>();
+  let current: string[] = [];
+  let opening = false;
+  for (const field of listed) {
+    if (opening) {
+      current = [];
+      files.set(field, current);
+      opening = false;
+    } else if (field === '') opening = true;
+    else current.push(current.length === 0 ? field.replace(/^\n/, '') : field);
+  }
+
+  return commits.map((commit) => ({
+    ...commit,
+    files: files.get(commit.sha) ?? [],
   }));
 }
 
@@ -392,34 +424,56 @@ export function report(found: Violation[]): string {
   return lines.join('\n');
 }
 
-async function main(
-  mode: string | undefined,
-  argument: string | undefined,
-  project: string | undefined,
+/**
+ * The commits since each tag that nx counts toward its project, keyed by
+ * project. Every project is listed over one graph, and each commit's affected
+ * projects are found once.
+ */
+async function countedSince(
+  pairs: readonly { tag: string; project: string }[],
 ) {
-  // The commits since a tag that nx counts toward a project, as JSON.
-  if (mode === 'counted' && argument && project) {
+  const workspace = repositoryWorkspace();
+  const affected = new Map<string, Promise<Set<string>>>();
+  const once = (commit: Commit) => {
+    if (!affected.has(commit.sha))
+      affected.set(commit.sha, repositoryAffected(commit));
+    return affected.get(commit.sha) as Promise<Set<string>>;
+  };
+
+  const listed: Record<string, Record<string, unknown>[]> = {};
+  for (const { tag, project } of pairs) {
     const counted = await countedCommits(
-      rangeCommits(workspaceRoot, `${argument}..HEAD`),
+      rangeCommits(workspaceRoot, `${tag}..HEAD`),
       project,
-      repositoryWorkspace(),
-      repositoryAffected,
+      workspace,
+      once,
     );
-    console.log(
-      JSON.stringify(
-        counted.map(({ commit, tooling }) => ({
-          sha: commit.sha,
-          header: commit.message.split('\n')[0],
-          tooling,
-        })),
-      ),
-    );
+    listed[project] = counted.map(({ commit, tooling }) => ({
+      sha: commit.sha,
+      header: commit.message.split('\n')[0],
+      tooling,
+    }));
+  }
+  return listed;
+}
+
+async function main(mode: string | undefined, ...rest: string[]) {
+  // `<tag> <project>`, repeated: the commits since each tag that nx counts
+  // toward its project, as one JSON object keyed by project.
+  if (mode === 'counted' && rest.length > 0 && rest.length % 2 === 0) {
+    const pairs = [];
+    for (let at = 0; at < rest.length; at += 2) {
+      const [tag = '', project = ''] = rest.slice(at, at + 2);
+      pairs.push({ tag, project });
+    }
+    console.log(JSON.stringify(await countedSince(pairs)));
     return 0;
   }
 
+  const [argument] = rest;
   if ((mode !== 'staged' && mode !== 'range') || !argument) {
     console.error(
-      'Usage: tooling-commit-types.ts staged <commit-msg file> | range <revision range> | counted <tag> <project>',
+      'Usage: tooling-commit-types.ts staged <commit-msg file> | range <revision range> | counted <tag> <project> [<tag> <project> ...]',
     );
     return 2;
   }
@@ -436,9 +490,5 @@ async function main(
 }
 
 if (import.meta.main) {
-  process.exitCode = await main(
-    process.argv[2],
-    process.argv[3],
-    process.argv[4],
-  );
+  process.exitCode = await main(process.argv[2], ...process.argv.slice(3));
 }

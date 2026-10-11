@@ -4,7 +4,13 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { pinFaults, type Pin, type PinInputs } from './docs-archive';
+import {
+  dryRunFaults,
+  pinFaults,
+  pinsPastTheirTags,
+  type Pin,
+  type PinInputs,
+} from './docs-archive';
 import {
   CONTENT,
   DOCS,
@@ -58,11 +64,15 @@ const versions = () =>
   }>('tools/versions.mjs');
 const seed = () =>
   load<{
-    releaseAt: (root: string, sha: string, name: string) => Released;
+    releasesAt: (
+      root: string,
+      sha: string,
+      names: readonly string[],
+    ) => Map<string, Released>;
     withoutTooling: (release: Released) => { version: string | null };
   }>('tools/seed.mjs');
 
-/** What `releaseAt` in `apps/docs/tools/seed.mjs` returns. */
+/** What `releasesAt` in `apps/docs/tools/seed.mjs` returns for a package. */
 interface Released {
   version: string | null;
   counted: { sha: string; header: string; tooling: boolean }[];
@@ -100,6 +110,24 @@ const tags = git(['tag', '--list']).split('\n').filter(Boolean);
 const pins = JSON.parse(
   readFileSync(join(DOCS, 'archives.json'), 'utf-8'),
 ) as Record<string, Record<string, Pin>>;
+
+/**
+ * The pins a dry run is asked about, by the commit they name, so each commit
+ * is checked out once and is a test of its own: a dry run takes most of a
+ * minute.
+ */
+const pastTheirTags = [
+  ...pinsPastTheirTags({
+    pins,
+    packages: (await navigation()).packages.filter((entry) => entry.documented),
+    commit,
+  }),
+].map(([sha, past]) => ({
+  sha,
+  short: sha.slice(0, 7),
+  past,
+  pinned: past.map((pin) => pin.at).join(', '),
+}));
 
 /** A release line's directory inside a bare section: `v1`, `v0.2`. */
 const LINE = /^v\d+(\.\d+)?$/;
@@ -165,8 +193,6 @@ describe('the pin file', () => {
       'No origin/main in this checkout, so no pin can be shown to be on it.',
     ).not.toBeNull();
 
-    const { releaseAt, withoutTooling } = await seed();
-
     expect(
       pinFaults({
         pins,
@@ -174,8 +200,6 @@ describe('the pin file', () => {
         commit,
         isAncestor,
         main: main as string,
-        dryRunAt: (sha, name) =>
-          withoutTooling(releaseAt(workspaceRoot, sha, name)).version,
         segmentOf,
         taggedPast: (name, version) => taggedPast(name, tags, version),
         releaseLines: (name) => releaseLines(name, tags),
@@ -184,6 +208,28 @@ describe('the pin file', () => {
         'docs/specs/2026-09-13-released-by-default.md § 7 is what a pin may say.',
     ).toEqual([]);
   });
+
+  it.each(pastTheirTags)(
+    'pins $pinned at $short, where nx release computes no change for them',
+    async ({ sha, past }) => {
+      const { releasesAt, withoutTooling } = await seed();
+
+      expect(
+        dryRunFaults(
+          sha,
+          past,
+          (at, names) =>
+            new Map(
+              [...releasesAt(workspaceRoot, at, names)].map(
+                ([name, release]) => [name, withoutTooling(release).version],
+              ),
+            ),
+        ),
+        'A pin past its tag documents the release only where nothing has ' +
+          'changed the package since. docs/specs/2026-09-13-released-by-default.md § 5.',
+      ).toEqual([]);
+    },
+  );
 });
 
 describe('the generated sections', () => {
@@ -384,27 +430,40 @@ describe('a pin', () => {
     real = await versions();
   });
 
-  /** The rules over the fixture's tags, and `later` tags at the head of main. */
+  /**
+   * The rules over the fixture's tags, and `later` tags at the head of main,
+   * with `dryRunAt` answering for each package at each pinned commit.
+   */
   function faults(
     pin: Pin,
-    dryRunAt: PinInputs['dryRunAt'] = () => null,
+    dryRunAt: (sha: string, name: string) => string | null = () => null,
     extra: Record<string, Pin> = {},
     later: readonly string[] = [],
   ): string[] {
     const all = [...Object.keys(tagged), ...later];
-
-    return pinFaults({
+    const inputs: PinInputs = {
       pins: { luhn: { v3: pin, ...extra } },
       packages: [{ name: '@evanion/luhn', slug: 'luhn', workshop: false }],
       commit: (ref) => refs[ref] ?? (later.includes(ref) ? 'head003' : null),
       isAncestor: (a, b) =>
         history.indexOf(a) !== -1 && history.indexOf(a) <= history.indexOf(b),
       main: 'head003',
-      dryRunAt,
       segmentOf: real.segmentOf,
       taggedPast: (name, version) => real.taggedPast(name, all, version),
       releaseLines: (name) => real.releaseLines(name, all),
-    });
+    };
+
+    return [
+      ...pinFaults(inputs),
+      ...[...pinsPastTheirTags(inputs)].flatMap(([sha, past]) =>
+        dryRunFaults(
+          sha,
+          past,
+          (at, names) =>
+            new Map(names.map((name) => [name, dryRunAt(at, name)])),
+        ),
+      ),
+    ];
   }
 
   const release = { version: '3.0.0', tag: '@evanion/luhn@3.0.0' };
@@ -433,6 +492,39 @@ describe('a pin', () => {
     ).toEqual([
       'luhn.v3: nx release version --dry-run at fix0002 computes 3.0.1, not 3.0.0',
     ]);
+  });
+
+  it('asks one dry run of every pin at a commit', () => {
+    const asked: string[][] = [];
+    const inputs = {
+      pins: {
+        luhn: { v3: { ...release, sha: 'docs001', reason: 'a re-cut' } },
+        token: {
+          'v0.1': {
+            version: '0.1.0',
+            tag: '@evanion/token@0.1.0',
+            sha: 'docs001',
+            reason: 'another re-cut',
+          },
+        },
+      },
+      packages: [
+        { name: '@evanion/luhn', slug: 'luhn', workshop: false },
+        { name: '@evanion/token', slug: 'token', workshop: false },
+      ],
+      commit: (ref: string) =>
+        ref === '@evanion/token@0.1.0' ? 'tag000' : (refs[ref] ?? null),
+    };
+
+    const found = [...pinsPastTheirTags(inputs)].flatMap(([sha, past]) =>
+      dryRunFaults(sha, past, (at, names) => {
+        asked.push([at, ...names]);
+        return new Map(names.map((name) => [name, null]));
+      }),
+    );
+
+    expect(found).toEqual([]);
+    expect(asked).toEqual([['docs001', '@evanion/luhn', '@evanion/token']]);
   });
 
   it('passes a seed nx release versions as the release', () => {
@@ -557,7 +649,6 @@ describe('a pin', () => {
         commit: (ref) => refs[ref] ?? null,
         isAncestor: () => true,
         main: 'head003',
-        dryRunAt: () => null,
         segmentOf: () => 'v3',
         taggedPast: () => [],
         releaseLines: () => [],
