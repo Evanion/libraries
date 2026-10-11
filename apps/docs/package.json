@@ -175,6 +175,7 @@
     "@evanion/compose": "*",
     "@evanion/luhn": "*",
     "@evanion/react-acl": "*",
+    "@evanion/react-feature": "*",
     "@evanion/react-widget": "*",
     "@evanion/token": "*",
     "@evanion/urn": "*",
