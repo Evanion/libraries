@@ -135,6 +135,7 @@ import {
   useFeature,
   useFeatureEnabled,
   useFeatures,
+  useVariant,
 } from '@evanion/react-feature';
 import type { ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -158,8 +159,11 @@ function Checkout() {
 
 function Audit() {
   const { reason } = useFeature('express-pickup');
+  const { variant } = useVariant('express-pickup');
   const published = Object.keys(useFeatures()).sort();
-  return <p>{`${reason}: ${published.join(', ')}`}</p>;
+  return (
+    <p>{`${reason}/${variant ?? 'no variant'}: ${published.join(', ')}`}</p>
+  );
 }
 
 const fromServer = features.snapshot();
@@ -194,7 +198,7 @@ const audited = (
 
 attempt(served); // -> '<p>Standard</p>'
 attempt(partial); // -> 'Error: feature "express-pickup" is not configured in this <FeatureProvider>'
-attempt(audited); // -> '<p>explicitly-off: express-pickup, gift-cards</p>'
+attempt(audited); // -> '<p>explicitly-off/no variant: express-pickup, gift-cards</p>'
 ```
 
 <!-- #endregion react-decisions -->
