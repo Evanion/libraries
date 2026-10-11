@@ -404,13 +404,16 @@ describe('evaluateCondition', () => {
       // takes a bare string where the operator reads a list and a document
       // parsed out of JSON carries whatever a control plane wrote.
       // `validateConfig` reports it there; here neither operator has a list to
-      // read, so neither holds, the negative one included.
+      // read, so neither holds, the negative one included. Each value is the
+      // one `String.prototype.includes` answers the opposite of its assertion
+      // for: 'pro' contains 'pro' and 'enterprise' does not, so an operator
+      // reading the string as the list holds on both lines.
       expect(
         evaluateCondition({ field: 'plan', op: 'in', value: 'pro' }, context),
       ).toBe(false);
       expect(
         evaluateCondition(
-          { field: 'plan', op: 'not-in', value: 'pro' },
+          { field: 'plan', op: 'not-in', value: 'enterprise' },
           context,
         ),
       ).toBe(false);
