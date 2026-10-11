@@ -17,12 +17,11 @@ import type { MetaRecord } from 'nextra';
  * same way a rollout does. A reader who has met bucketing on that page reuses
  * it here.
  *
- * React follows the core because it decides nothing -- it carries an already
- * built store down a tree -- so it reads as a wiring step once resolution is
- * understood. Build-time planning comes after it: partitioning features into
- * resolvable now and deferred is the specialist case, for a build that does not
- * have the evaluation context, and a reader who never renders statically never
- * needs it.
+ * Build-time planning follows Variants: partitioning features into resolvable
+ * now and deferred is the specialist case, for a build that does not have the
+ * evaluation context, and a reader who never renders statically never needs it.
+ * The React binding is a section of its own at `/react-feature/`, because
+ * `@evanion/react-feature` is a package of its own.
  *
  * Observing comes last of the pages a reader learns from. An observer reports
  * what an entry point returned, so the four events name a decision, a plan and
@@ -55,7 +54,6 @@ export default {
   decisions: 'Decisions',
   rollouts: 'Rollouts',
   variants: 'Variants',
-  react: 'React',
   'build-time': 'Build-time Planning',
   observing: 'Observing',
   distribution: 'Distribution',

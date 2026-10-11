@@ -44,6 +44,7 @@ export const movedPages = new Map([
   ['acl/decisions', 'acl/decision-object'],
   ['urn/examples', 'urn/namespaces'],
   ['react-widget/examples', 'react-widget/validation'],
+  ['feature/react', 'react-feature/getting-started'],
 ]);
 
 /**
