@@ -148,6 +148,10 @@ function signatureFence(reference) {
       `import type { ${signature.types.join(', ')} } from '${specifier}';`,
     signature.fromRoot.length > 0 &&
       `import type { ${signature.fromRoot.join(', ')} } from '${reference.rootSpecifier}';`,
+    ...(signature.external ?? []).map(
+      ([specifier, names]) =>
+        `import type { ${names.join(', ')} } from '${specifier}';`,
+    ),
     ...signature.prelude,
   ].filter(Boolean);
 
@@ -398,6 +402,10 @@ function head(reference) {
  * the reader never sees, which is what `expandRegions` does for a Twoslash
  * fence and for the same reason: the fence has to compile and the region does
  * not show the imports that make it compile.
+ *
+ * The language is the region's own. A `tsx` region compiled as `ts` reports
+ * every tag as an unterminated regular expression, so a React package's
+ * examples would fail `next build` on the first entry carrying one.
  */
 function exampleFence(root, reference, region, file) {
   const path = join(root, reference.examples);
@@ -414,7 +422,7 @@ function exampleFence(root, reference, region, file) {
   const found = readRegion(contents, reference.examples, region);
   const code = withPreamble(readPreamble(packageDirOf(path)), found.code);
 
-  return ['```ts twoslash', ...code.split('\n'), '```'];
+  return [`\`\`\`${found.lang || 'ts'} twoslash`, ...code.split('\n'), '```'];
 }
 
 /**

@@ -39,6 +39,7 @@ function read(_root: string, specifier: string, name: string) {
       values: ['widen'],
       types: ['Widened'],
       fromRoot: [],
+      external: [],
       prelude: [],
     },
     rootSpecifier: specifier,
@@ -105,6 +106,21 @@ describe('reading an export off its declarations', () => {
       '`Sub` is a type parameter, not an export, so intersecting with the ' +
         'export list drops it without anything having to reason about it.',
     ).not.toContain('Sub');
+  });
+
+  it('imports a type the declaration file takes from another package', () => {
+    const found = readReference(
+      workspaceRoot,
+      '@evanion/react-feature',
+      'FeatureProviderProps',
+    );
+
+    expect(found.signature?.external).toEqual([['react', ['ReactNode']]]);
+    expect(
+      found.signature?.types,
+      '`ReactNode` belongs to `react`, so importing it from the documented ' +
+        'specifier would name an export the package does not have.',
+    ).not.toContain('ReactNode');
   });
 
   it('refuses a name the package does not export', () => {

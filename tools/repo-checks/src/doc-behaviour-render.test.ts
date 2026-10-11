@@ -44,6 +44,7 @@ function read(_root: string, specifier: string, name: string) {
       values: [name],
       types: [],
       fromRoot: [],
+      external: [],
       prelude: [],
     },
     rootSpecifier: specifier,

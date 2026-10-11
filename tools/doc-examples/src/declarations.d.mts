@@ -26,6 +26,8 @@ export interface Reference {
     types: string[];
     /** Names only the package root publishes, for a second entry point. */
     fromRoot: string[];
+    /** Names another package publishes, as the declaration file imports them. */
+    external: [specifier: string, names: string[]][];
     /** Types the package declares and publishes nowhere, printed hidden. */
     prelude: string[];
   } | null;
