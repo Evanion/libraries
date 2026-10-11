@@ -1,16 +1,12 @@
 {
   "@evanion/feature": {
     "undocumented": [
-      "AsSchema",
       "ConfigEnvelope",
       "ConfigIssue",
       "ConfigIssueCode",
       "DecisionOrigin",
       "DecisionSet",
       "DeepReadonly",
-      "Definitions",
-      "DefinitionsOf",
-      "DefinitionsOrConfig",
       "DivergenceObserver",
       "DivergenceReport",
       "DivergenceSide",
@@ -18,10 +14,8 @@
       "FeatureEvent",
       "FeatureOptions",
       "FrozenWhenObserved",
-      "InferSchema",
       "ReadonlyDate",
       "ReloadResult",
-      "Schema",
       "SerializedAttributeCondition",
       "SerializedCondition",
       "SerializedDefinition",

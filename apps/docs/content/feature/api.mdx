@@ -392,6 +392,60 @@ Because a document that arrived as JSON carries no literal, the compiler cannot 
 
 To define the features available to your application, you use a `FeatureDefinition`. The array of these is what `createFeatures` takes. A definitions literal gives the store its key union and its variant names, because `key` and `variants` carry the type parameters `InferSchema` reads. See [Configuration](/feature/configuration).
 
+## `Definitions`
+
+<!-- reference @evanion/feature#Definitions -->
+
+To define the features available in your application, you provide a set of definitions to `@evanion/feature`. The configuration function `createFeatures` takes one `FeatureDefinition` per feature, keyed on `K`.
+
+You should name this type in a `satisfies` clause rather than using a type annotation. For example, `const definitions = [...] as const satisfies Definitions<Flag>` checks the literal against the type while preserving the literal's own type. This allows the inferring overload to read the variant names directly from the literal. The [`createFeatures`](#createfeaturesdefinitions-options) entry states this rule and explains what an annotation costs a caller.
+
+## `DefinitionsOrConfig`
+
+<!-- reference @evanion/feature#DefinitionsOrConfig -->
+
+When calling `createFeatures` in `@evanion/feature`, you can provide either a bare definitions array or a complete document carried by an envelope. The type `DefinitionsOrConfig` is the union that represents these two shapes; the [`createFeatures`](#createfeaturesdefinitions-options) entry covers both call patterns.
+
+A literal definition has no version, schema, or freshness claim, meaning an author writing four flags in a file owes none of them. Conversely, a process whose poller has already fetched a document can hand that document over without unwrapping it.
+
+## `DefinitionsOf`
+
+<!-- reference @evanion/feature#DefinitionsOf -->
+
+To extract the actual definitions regardless of the input format, `@evanion/feature` uses `DefinitionsOf`. This type resolves the union declared by `DefinitionsOrConfig`: `DefinitionsOf<D>` returns `D` if `D` is a definitions array, the `features` member if `D` is a document, and `never` for any other input.
+
+This distinction is necessary because `InferSchema` reads variant names off a definitions array and constrains its own parameter to one. Consequently, `InferSchema<D>` would stop compiling if `D` might be a document, as `D extends DefinitionsOrConfig` fails that constraint. To solve this, every schema position in the [`createFeatures`](#createfeaturesdefinitions-options) signature writes `InferSchema<DefinitionsOf<D>>` instead of `InferSchema<D>`.
+
+## `InferSchema`
+
+<!-- reference @evanion/feature#InferSchema -->
+
+`InferSchema` determines the schema implied by a definitions array in `@evanion/feature`. It processes each member of the array, keys the result on that member's `key`, and extracts the variant names and value types from the `variants` property. This happens in three cases, the third of which explains why `as const` is required:
+
+- If a member's `variants` property is required and a literal supplies its names, the entry carries the union of those names at `variant` and the union of the declared value types at `value`.
+- If a member has no `variants` key at all, it declares no variants and the entry is `never`. [`Decisions`](#decisions) and [`Plan`](#plan) interpret that `never` to mean "this feature has no variants".
+- If a member is typed as [`FeatureDefinition`](#featuredefinition), which is the case for every element of a plain array type, it carries a `variants` key that the compiler cannot read names from because `FeatureDefinition` declares the property as optional. In this case, the entry is [`VariantInfo`](#variantinfo), and `variantOf` returns `string | undefined`.
+
+Because an array held in a variable annotated `Definitions<Flag>` is a plain array type, every one of its members falls into this third case.
+
+## `AsSchema`
+
+<!-- reference @evanion/feature#AsSchema -->
+
+To ensure a schema is in a form that a generic can accept, `@evanion/feature` uses `AsSchema<T>`. This maps every entry of `T` through `T[K] extends VariantInfo ? T[K] : never`, which is the specific test applied by the constraint `S extends Record<keyof S, VariantInfo | never>`.
+
+The `Features` type constrains its schema parameter this way, but the compiler cannot prove that `InferSchema<D>` satisfies this constraint before a call resolves because `InferSchema` remaps keys and `D` is a bare type parameter. `AsSchema` applies the test so the constraint holds, which is why the first signature of [`createFeatures`](#createfeaturesdefinitions-options) writes `AsSchema<InferSchema<DefinitionsOf<D>>>` at every schema position. Each entry retains its type, including the `never` assigned to features with no variants. A caller never writes this type manually.
+
+## `Schema`
+
+<!-- reference @evanion/feature#Schema -->
+
+A `Schema` in `@evanion/feature` is a map from a feature key to its associated variants. You use this to type a store built from configuration that arrives as JSON, where no literal exists for `InferSchema` to read. If a store is built from a literal, the schema is inferred automatically. `DecisionSet` uses this as the default for its own schema parameter.
+
+While this alias can annotate a value, generics that take a schema use a self-referential constraint instead: `S extends Record<keyof S, VariantInfo | never>`, as seen in `Features`, [`Decisions`](#decisions), and [`Plan`](#plan). This is because the `Schema` alias carries an index signature. A hand-written `interface ShopFlags { preorderBanner: { variant: 'wide' | 'tall' } }` satisfies the constraint because `keyof ShopFlags` names its declared keys, but it does not satisfy the `Schema` alias. For example, the annotation `const flags: Schema = handWritten` reports `TS2322: Type 'ShopFlags' is not assignable to type 'Schema'` with `Index signature for type 'string' is missing in type 'ShopFlags'`, whereas `createFeatures<ShopFlags>(document)` accepts that same interface.
+
+This type represents the TypeScript side of a store's typing. The other side is [`FeatureSchema`](#featureschema), which types the `schema` member of a document read by `validateConfig`.
+
 ## `Rule`
 
 <!-- reference @evanion/feature#Rule -->
