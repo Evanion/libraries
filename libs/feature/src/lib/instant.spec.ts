@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { FeatureConfigError } from './errors.js';
+import { createFeatures } from './features.js';
 import { instantEpoch } from './instant.js';
 import type { Instant } from './types.js';
 import { everywhere } from './zones.js';
@@ -343,5 +345,66 @@ describe('instantEpoch', () => {
     expect(instantEpoch(0)).toBe(0);
     expect(instantEpoch(new Date(0))).toBe(0);
     expect(instantEpoch('1970-01-01T00:00:00.000Z')).toBe(0);
+  });
+});
+
+/**
+ * The two tables on `@evanion/feature`'s API reference, read back through the
+ * call the page names.
+ *
+ * `instantEpoch` above holds every form at the function. What the page claims
+ * is what a caller meets: a row reads as the instant it names, or it is a
+ * `FeatureConfigError` at construction. The rows are listed in the order the
+ * page lists them, so a form edited on one side and not the other fails here.
+ */
+describe('createFeatures', () => {
+  /** A one-rule store whose window opens at `value`. */
+  const withWindow = (value: Instant) =>
+    createFeatures([
+      {
+        key: 'launch',
+        enabled: true,
+        rules: [{ when: [{ field: 'now', op: 'after', value }] }],
+      },
+    ]);
+
+  describe('the Instant strings the API reference table names', () => {
+    it.each([
+      '2026-01-01T00:00:00Z',
+      '2026-01-01T09:00:00+09:00',
+      '2026-01-01T09:00:00+0900',
+      '2026-01-01',
+    ])('reads %s as the instant the table states', (value) => {
+      expect(instantEpoch(value)).toBe(1767225600000);
+      expect(() => withWindow(value)).not.toThrow();
+    });
+
+    it.each([
+      '2026-01-01T00:00:00',
+      '2026-13-01',
+      '2026-01-01t00:00:00z',
+      '2026-04-31',
+    ])('refuses %s at construction, as the table states', (value) => {
+      expect(() => withWindow(value)).toThrow(FeatureConfigError);
+    });
+  });
+
+  describe('the Instant values the API reference table names', () => {
+    it.each<readonly [string, Instant]>([
+      ['epoch milliseconds', 1767225600000],
+      ['a Date built from them', new Date(1767225600000)],
+    ])('reads %s as the instant the table states', (_name, value) => {
+      expect(instantEpoch(value)).toBe(1767225600000);
+      expect(() => withWindow(value)).not.toThrow();
+    });
+
+    it.each<readonly [string, Instant]>([
+      ['the number NaN', Number.NaN],
+      ['positive infinity', Number.POSITIVE_INFINITY],
+      ['the millisecond past the range a Date holds', 8640000000000001],
+      ['a Date naming no instant', new Date('nonsense')],
+    ])('refuses %s at construction, as the table states', (_name, value) => {
+      expect(() => withWindow(value)).toThrow(FeatureConfigError);
+    });
   });
 });

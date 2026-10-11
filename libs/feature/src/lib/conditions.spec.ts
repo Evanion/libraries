@@ -6,7 +6,14 @@ import {
 } from './conditions.js';
 import { FeatureConfigError } from './errors.js';
 import { ruleFields } from './evaluate.js';
-import type { Condition, FeatureDefinition, Instant, Rule } from './types.js';
+import type {
+  Condition,
+  EvaluationContext,
+  FeatureDefinition,
+  Instant,
+  Rule,
+  Weekday,
+} from './types.js';
 import { everywhere, inZone } from './zones.js';
 
 const at = (iso: string) => ({ now: new Date(iso) });
@@ -168,6 +175,26 @@ describe('evaluateCondition', () => {
         ),
       ).toBe(false);
     });
+
+    it('does not hold when the context carries now as the string JSON left behind', () => {
+      // `JSON.stringify` writes a `Date` as its ISO 8601 string and
+      // `JSON.parse` gives the string back, so a context that crossed a
+      // process boundary carries `now` as text. The window reads `now` as a
+      // `Date` and nothing else, so every clock rule in a configuration
+      // answers false for that context and `resolve` reports
+      // `no-rule-matched` rather than a field it could not read.
+      const condition: Condition = {
+        field: 'now',
+        op: 'after',
+        value: '2026-01-01T00:00:00Z',
+      };
+      const wire = JSON.parse(
+        JSON.stringify({ now: new Date('2026-06-01T00:00:00Z') }),
+      ) as EvaluationContext;
+
+      expect(wire.now).toBe('2026-06-01T00:00:00.000Z');
+      expect(evaluateCondition(condition, wire)).toBe(false);
+    });
   });
 
   describe('day-of-week', () => {
@@ -205,6 +232,98 @@ describe('evaluateCondition', () => {
           instant,
         ),
       ).toBe(true);
+    });
+
+    it('holds on no day for a list with no days in it', () => {
+      // A control plane clearing the column writes the empty list, and the
+      // type takes it.
+      expect(
+        evaluateCondition(
+          { field: 'now', op: 'day-of-week', zone: 'UTC', value: [] },
+          instant,
+        ),
+      ).toBe(false);
+    });
+
+    it('reaches each of the seven names the Weekday union declares', () => {
+      // `weekdayIn` reads `Intl`'s `weekday: 'short'` output back against the
+      // seven lower-case names and answers `undefined` for anything else, and
+      // `evaluateCondition` turns that into the same `false` a day outside the
+      // list gets. A runtime spelling those names any other way switches every
+      // day-of-week rule off and reports nothing, so the week is walked here
+      // and each name has to be the one that holds.
+      const week: readonly (readonly [string, Weekday])[] = [
+        ['2026-03-01T12:00:00Z', 'sun'],
+        ['2026-03-02T12:00:00Z', 'mon'],
+        ['2026-03-03T12:00:00Z', 'tue'],
+        ['2026-03-04T12:00:00Z', 'wed'],
+        ['2026-03-05T12:00:00Z', 'thu'],
+        ['2026-03-06T12:00:00Z', 'fri'],
+        ['2026-03-07T12:00:00Z', 'sat'],
+      ];
+
+      const held = week.map(([iso, day]) =>
+        evaluateCondition(
+          { field: 'now', op: 'day-of-week', zone: 'UTC', value: [day] },
+          at(iso),
+        ),
+      );
+
+      expect(held).toEqual(week.map(() => true));
+    });
+
+    it('answers one day in every host zone, since the condition names its own', () => {
+      // The day-of-week counterpart of the window cases above. `weekdayIn`
+      // hands the zone to `Intl` and reads nothing off the host, and this
+      // instant is noon Thursday in Tokyo wherever the process runs.
+      const condition: Condition = {
+        field: 'now',
+        op: 'day-of-week',
+        zone: 'Asia/Tokyo',
+        value: ['thu'],
+      };
+
+      expect(everywhere(() => evaluateCondition(condition, instant))).toEqual([
+        true,
+        true,
+        true,
+      ]);
+    });
+
+    it('reads the daylight-saving rules of the zone it names, not one offset', () => {
+      // Both instants carry `Z` and both sit at half past midnight in New
+      // York. The first falls under EST, five hours behind UTC, which puts it
+      // on the Saturday; the second falls under EDT, four hours behind, which
+      // puts it on the Sunday. One offset read off the zone answers one of the
+      // two wrong, whichever offset it reads.
+      const sundays: Condition = {
+        field: 'now',
+        op: 'day-of-week',
+        zone: 'America/New_York',
+        value: ['sun'],
+      };
+
+      expect(evaluateCondition(sundays, at('2026-03-08T04:30:00Z'))).toBe(
+        false,
+      );
+      expect(evaluateCondition(sundays, at('2026-03-15T04:30:00Z'))).toBe(true);
+    });
+
+    it('raises the host error for a zone this runtime formats nothing by', () => {
+      // `Intl.DateTimeFormat` raises `RangeError: Invalid time zone specified`
+      // for a name the runtime has no zone for. `createFeatures` and
+      // `validateConfig` refuse such a zone where the configuration is
+      // supplied, which is what keeps the raise out of `resolve`, and
+      // `validate.spec.ts` holds both. A caller holding a condition of their
+      // own has passed neither gate, so the raise is what reaches them.
+      const condition: Condition = {
+        field: 'now',
+        op: 'day-of-week',
+        zone: 'Europe/Stockolm',
+        value: ['wed'],
+      };
+
+      expect(() => evaluateCondition(condition, instant)).toThrow(RangeError);
     });
   });
 
@@ -278,6 +397,170 @@ describe('evaluateCondition', () => {
       expect(
         evaluateCondition({ field: 'plan', op: 'not-in', value: [] }, {}),
       ).toBe(false);
+    });
+
+    it('does not hold for an in or a not-in whose value is not the list', () => {
+      // `AttributeCondition.value` is `unknown`, so a hand-written condition
+      // takes a bare string where the operator reads a list and a document
+      // parsed out of JSON carries whatever a control plane wrote.
+      // `validateConfig` reports it there; here neither operator has a list to
+      // read, so neither holds, the negative one included.
+      expect(
+        evaluateCondition({ field: 'plan', op: 'in', value: 'pro' }, context),
+      ).toBe(false);
+      expect(
+        evaluateCondition(
+          { field: 'plan', op: 'not-in', value: 'pro' },
+          context,
+        ),
+      ).toBe(false);
+    });
+
+    it('does not hold for a contains whose context member is not an array', () => {
+      // `contains` reads the context member as the list and the condition's
+      // value as one member of it, which is the opposite of `in`. The string
+      // 'pro' carries an `includes` of its own, and this reads neither that
+      // method nor the substring it would answer for.
+      expect(
+        evaluateCondition(
+          { field: 'plan', op: 'contains', value: 'p' },
+          context,
+        ),
+      ).toBe(false);
+      expect(
+        evaluateCondition(
+          { field: 'plan', op: 'contains', value: 'pro' },
+          context,
+        ),
+      ).toBe(false);
+    });
+
+    it('compares a contains against the members and not into them', () => {
+      // `includes` is `===` over the array's own members, so a member that is
+      // itself an array matches by identity and a second array holding the
+      // same strings does not.
+      const regions = ['eu'];
+      const nested = { regions: [regions] };
+
+      expect(
+        evaluateCondition(
+          { field: 'regions', op: 'contains', value: regions },
+          nested,
+        ),
+      ).toBe(true);
+      expect(
+        evaluateCondition(
+          { field: 'regions', op: 'contains', value: ['eu'] },
+          nested,
+        ),
+      ).toBe(false);
+    });
+
+    it('does not hold on a field the context carries with no value', () => {
+      // The field is the context's own, so the prototype guard passes and the
+      // value is what is missing. `ne` answering true here would switch a
+      // feature on for the contexts carrying the least information, which is
+      // the reading an absent field already gets.
+      const unset = { plan: undefined };
+
+      expect(
+        evaluateCondition({ field: 'plan', op: 'eq', value: 'pro' }, unset),
+      ).toBe(false);
+      expect(
+        evaluateCondition({ field: 'plan', op: 'ne', value: 'pro' }, unset),
+      ).toBe(false);
+      expect(
+        evaluateCondition({ field: 'plan', op: 'not-in', value: [] }, unset),
+      ).toBe(false);
+    });
+
+    it('compares null as a value the context carries', () => {
+      // `null` is not `undefined`, and `JSON.parse` writes it for a column a
+      // control plane cleared. It reaches the comparison and `eq` against
+      // `null` holds, which is the one way a condition asks whether a field
+      // was cleared.
+      const cleared = { plan: null };
+
+      expect(
+        evaluateCondition({ field: 'plan', op: 'eq', value: null }, cleared),
+      ).toBe(true);
+      expect(
+        evaluateCondition({ field: 'plan', op: 'ne', value: null }, cleared),
+      ).toBe(false);
+    });
+
+    it('compares NaN against itself as two values that differ', () => {
+      // `===` over NaN is false both ways, so `eq` does not hold and `ne`
+      // does. A numeric context field computed from a parse that failed
+      // carries it, and the field is present, so the reading an unevaluable
+      // condition gets does not apply.
+      const unparsed = { seats: Number.NaN };
+
+      expect(
+        evaluateCondition(
+          { field: 'seats', op: 'eq', value: Number.NaN },
+          unparsed,
+        ),
+      ).toBe(false);
+      expect(
+        evaluateCondition(
+          { field: 'seats', op: 'ne', value: Number.NaN },
+          unparsed,
+        ),
+      ).toBe(true);
+    });
+
+    it('does not coerce a number to the string that names it', () => {
+      // A query string and a form body carry every field as text, so the
+      // number 10 and the string '10' meet in one context field often.
+      expect(
+        evaluateCondition({ field: 'seats', op: 'eq', value: '10' }, context),
+      ).toBe(false);
+      expect(
+        evaluateCondition({ field: 'seats', op: 'in', value: ['10'] }, context),
+      ).toBe(false);
+    });
+
+    it('does not hold for an operator the union does not declare', () => {
+      // A document parsed out of JSON carries whatever its control plane
+      // wrote, and `validateConfig` reports the operator there. A store built
+      // past that gate reaches the switch, which ends at its default, so the
+      // condition answers false rather than raising out of a call `errors.ts`
+      // promises is total.
+      const greater = {
+        field: 'seats',
+        op: 'gt',
+        value: 5,
+      } as unknown as Condition;
+
+      expect(evaluateCondition(greater, context)).toBe(false);
+    });
+  });
+
+  it('reads the condition and the context and writes into neither', () => {
+    // A snapshot tool asks this question over a store's own rules and a
+    // request's own context, and holds both afterwards. The two are the
+    // caller's objects, so an engine that memoised an answer onto either one
+    // would be editing a configuration a reader still owns.
+    const condition: Condition = {
+      field: 'regions',
+      op: 'contains',
+      value: 'eu',
+    };
+    const context = {
+      regions: ['eu', 'us'],
+      now: new Date('2026-10-01T03:00:00Z'),
+    };
+    evaluateCondition(condition, context);
+
+    expect(condition).toEqual({
+      field: 'regions',
+      op: 'contains',
+      value: 'eu',
+    });
+    expect(context).toEqual({
+      regions: ['eu', 'us'],
+      now: new Date('2026-10-01T03:00:00Z'),
     });
   });
 });
