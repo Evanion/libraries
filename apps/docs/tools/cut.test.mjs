@@ -47,6 +47,22 @@ describe('a cut page', () => {
     ).toEqual([]);
   });
 
+  it('may carry math the site renders, braces included', () => {
+    expect(
+      surfaceFaults(
+        [
+          '# Title',
+          '',
+          '| Call | Result |',
+          '| ---- | ------ |',
+          '| `Luhn.dictionary = d` | $\\text{Throws TypeError}$ |',
+          '',
+          '$$\\text{bits} = \\log_2(\\text{size})$$',
+        ].join('\n'),
+      ),
+    ).toEqual([]);
+  });
+
   it('may not carry an element outside the list', () => {
     expect(surfaceFaults('# Title\n\n<BehaviourCatalogue />\n')).toEqual([
       '<BehaviourCatalogue> is not an element a cut page may carry',

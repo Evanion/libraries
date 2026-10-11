@@ -8,6 +8,7 @@ import {
 import { packageDirOf } from '@evanion/doc-examples/examples-file';
 import { PREAMBLE_FILE, withPreamble } from '@evanion/doc-examples/preamble';
 import { readRegion } from '@evanion/doc-examples/regions';
+import remarkMath from 'remark-math';
 import remarkMdx from 'remark-mdx';
 import remarkParse from 'remark-parse';
 import { unified } from 'unified';
@@ -423,9 +424,18 @@ export function relativeLinks(source, own, page) {
     .join('\n');
 }
 
-/** A page as MDX, for finding its elements and their offsets. */
+/**
+ * A page as MDX, for finding its elements and their offsets.
+ *
+ * The site sets Nextra's `latex: true`, which parses `$…$` and `$$…$$` as math
+ * before MDX sees the braces inside them, so this parses them the same way.
+ */
 function parse(source) {
-  return unified().use(remarkParse).use(remarkMdx).parse(source);
+  return unified()
+    .use(remarkParse)
+    .use(remarkMath)
+    .use(remarkMdx)
+    .parse(source);
 }
 
 /** Whether an element name is an HTML element rather than a component. */
