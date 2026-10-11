@@ -161,10 +161,12 @@ export interface ContextSchema {
 /**
  * The typing contract a document states.
  *
- * Two vocabularies, because the two halves describe different things. The
- * engine reads a context field, compares it with a closed operator set, and
- * checks it against the declared type at validation. The engine reads no
- * variant value at all.
+ * Two vocabularies, because the two halves describe different things. For a
+ * context field, `validateConfig` checks that `context.fields` declares the
+ * field and that the condition's operator fits the declared type's `[]`
+ * suffix. It compares no condition value with the declared base name, so a
+ * condition over a field declared `number` carrying a string passes. The
+ * engine reads no variant value at all.
  */
 export interface FeatureSchema {
   readonly context?: ContextSchema;
