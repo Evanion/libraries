@@ -242,7 +242,11 @@ field its rule read, and this is the list that question is asked against.
 
 <!-- reference @evanion/feature#evaluateCondition example=evaluate-condition -->
 
-To determine if a specific rule requirement is met, `@evanion/feature` provides `evaluateCondition`. The `decide` function calls it for every condition in a matching rule's `when`. A caller who holds a condition and a context calls it to get the engine's own answer, which is what a snapshot tool and a test over one rule ask for. A condition over a field the context does not carry never holds, and `ne` and `not-in` answer `false` on an absent field for that reason.
+To determine if a specific rule requirement is met, `@evanion/feature` provides `evaluateCondition`.
+
+Every entry point that resolves a decision reaches this function through the rule walk, which asks it for each condition in a rule's `when` and stops at the first one that answers `false`. A caller who holds a condition and a context can call it to get the engine's own answer, which is the mechanism used by a test over one rule and a snapshot tool.
+
+If a condition is defined over a field the context does not carry, it never holds; for this reason, `ne` and `not-in` answer `false` on an absent field. If a `day-of-week` condition names a zone that this runtime cannot format, it raises the host's `RangeError`. While `validateConfig` and `createFeatures` refuse such a zone when the configuration is supplied, a condition written by hand may have passed neither.
 
 ## `serializeConfig(features, envelope?)`
 
@@ -390,7 +394,11 @@ To specify a day of the week in a condition, use the `Weekday` type. These are t
 
 <!-- reference @evanion/feature#EvaluationContext -->
 
-To provide the data necessary for a decision, `@evanion/feature` requires an `EvaluationContext`. Every call that resolves a decision takes one. The index signature admits any field a condition reads, and `targetingKey` is the field a rollout buckets on when the spec names none. The library reads `stickyVariants` and writes it nowhere: see [Variants](/feature/variants) for where an application keeps it.
+To provide the data necessary for a decision, `@evanion/feature` requires an `EvaluationContext`. Every call that resolves a decision takes one.
+
+The context uses an index signature to admit any field a condition reads, while `targetingKey` is the field a rollout buckets on when the spec names none. The library reads `stickyVariants` and writes it nowhere; see [Variants](/feature/variants) for where an application keeps it.
+
+The `now` property is a `Date`. If a context crossed JSON, it carries the ISO 8601 string `JSON.stringify` wrote in its place. Because a window and a day-of-week condition read `now` as a `Date` and nothing else, every clock rule in the configuration answers `false` for such a context. A caller handing on a parsed body builds the `Date` back before the call.
 
 ## `RuleOutcome`
 

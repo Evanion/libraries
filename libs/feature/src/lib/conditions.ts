@@ -134,6 +134,15 @@ export function conditionFields(condition: Condition): readonly string[] {
  * the negative operators. `ne` on an absent field is not "true because it is not
  * equal"; it is unevaluable, and treating it as true would switch features on
  * for exactly the contexts that carry the least information.
+ *
+ * A window and a day-of-week condition read `context.now` as a `Date` and
+ * nothing else, so a context that crossed JSON and carries the ISO 8601 string
+ * in its place answers false on every clock condition.
+ *
+ * @throws {RangeError} the host's own, for a day-of-week `zone` this runtime
+ * formats no time zone by. `createFeatures` and `validateConfig` refuse such a
+ * zone where the configuration is supplied, which is what keeps the raise out
+ * of `resolve`; a condition a caller wrote by hand has passed neither.
  */
 export function evaluateCondition(
   condition: Condition,
