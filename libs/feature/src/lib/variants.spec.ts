@@ -662,12 +662,15 @@ describe('assignVariant', () => {
 
     it('answers a negative weight from the position the weight sits in', () => {
       // `assignWeighted` sums the weights, so a negative one shrinks the total
-      // rather than making it NaN, and some band's ceiling passes 1 and
-      // swallows every bucket below it. Which band that is moves with the
-      // negative weight's position, so the last-ordered variant is not the
-      // answer the way it is for a zero total: the first arrangement makes the
-      // negatively weighted variant unreachable, the second makes it the only
-      // reachable one, and the third splits the subjects.
+      // and leaves it finite, and some band's ceiling passes 1 and swallows
+      // every bucket below it. Which band that is moves with the negative
+      // weight's position, so the answer is not fixed to the last-ordered
+      // variant the way it is for a zero total: the first arrangement answers
+      // the last-ordered variant, the second the first-ordered one, and the
+      // third splits the subjects between the first and the third. The
+      // negatively weighted variant is unreachable in all three. Its band has
+      // negative width, so its ceiling sits below the ceiling that already
+      // failed the comparison on the bucket.
       expect(assignedNames([-10, 50])).toEqual(new Set(['v1']));
       expect(assignedNames([50, -10])).toEqual(new Set(['v0']));
       expect(assignedNames([50, -10, 20])).toEqual(new Set(['v0', 'v2']));
