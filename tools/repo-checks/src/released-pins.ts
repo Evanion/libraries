@@ -1,3 +1,9 @@
+import {
+  dependencyFields,
+  type DependencyField,
+  type Manifest,
+} from './released-manifests.js';
+
 /**
  * Which dependencies between released packages are not an exact pin at the
  * version the dependency's manifest carries.
@@ -13,22 +19,6 @@
  *
  * The IO is passed in so the rule can be asserted against fixtures.
  */
-
-const DEPENDENCY_FIELDS = [
-  'dependencies',
-  'devDependencies',
-  'peerDependencies',
-  'optionalDependencies',
-] as const;
-
-type DependencyField = (typeof DEPENDENCY_FIELDS)[number];
-
-export type Manifest = {
-  /** The project's directory, relative to the workspace root. */
-  root: string;
-  name: string;
-  version: string;
-} & Partial<Record<DependencyField, Record<string, string>>>;
 
 interface Pin {
   /** The dependent's directory. */
@@ -46,7 +36,7 @@ export function releasedPins(released: readonly Manifest[]): Pin[] {
 
   return released
     .flatMap((manifest) =>
-      DEPENDENCY_FIELDS.flatMap((field) =>
+      dependencyFields.flatMap((field) =>
         Object.entries(manifest[field] ?? {}).flatMap(([dependency, spec]) => {
           const version = versions.get(dependency);
 

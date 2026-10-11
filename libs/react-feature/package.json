@@ -1,6 +1,7 @@
 {
   "name": "@evanion/react-feature",
   "version": "0.0.1",
+  "private": true,
   "description": "The React binding for @evanion/feature: a provider and hooks over an already-built feature store.",
   "keywords": [
     "react",

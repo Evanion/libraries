@@ -1,9 +1,7 @@
-import { createProjectGraphAsync, parseJson, workspaceRoot } from '@nx/devkit';
-import { findMatchingProjects } from 'nx/src/devkit-internals';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { loosePins, releasedPins, type Manifest } from './released-pins';
+
+import { releasedManifests, type Manifest } from './released-manifests.js';
+import { loosePins, releasedPins } from './released-pins.js';
 
 /**
  * The invariant: a released package names another released package at exactly
@@ -15,35 +13,7 @@ import { loosePins, releasedPins, type Manifest } from './released-pins';
  * major, and then `nx release version` exits 1 on it.
  */
 
-function readReleaseProjectPatterns(): string[] {
-  const nxJson = parseJson<{ release?: { projects?: string | string[] } }>(
-    readFileSync(join(workspaceRoot, 'nx.json'), 'utf-8'),
-    { expectComments: true },
-  );
-  const patterns = nxJson.release?.projects;
-
-  expect(patterns, 'nx.json must define release.projects').toBeDefined();
-
-  return Array.isArray(patterns) ? patterns : [patterns as string];
-}
-
-const released: Promise<Manifest[]> = (async () => {
-  const graph = await createProjectGraphAsync({ exitOnError: false });
-
-  const names = new Set(
-    findMatchingProjects(readReleaseProjectPatterns(), graph.nodes),
-  );
-
-  return Object.values(graph.nodes)
-    .filter((node) => names.has(node.name))
-    .map(({ data: { root } }) => {
-      const manifest = JSON.parse(
-        readFileSync(join(workspaceRoot, root, 'package.json'), 'utf-8'),
-      ) as Omit<Manifest, 'root'>;
-
-      return { ...manifest, root };
-    });
-})();
+const released: Promise<Manifest[]> = releasedManifests();
 
 describe('every dependency between released packages', () => {
   /** A workspace with no such dependency answers the assertion vacuously. */

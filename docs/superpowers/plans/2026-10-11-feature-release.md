@@ -29,6 +29,8 @@
 
 **Both packages reach 0.1.0 in Task 32 and not before.** `tools/repo-checks/src/released-pins.test.ts` reads every project under `nx.json`'s `release.projects` glob with no filter on `private`, so `@evanion/react-feature` has to pin `@evanion/feature` at exactly the version `libs/feature/package.json` carries from the moment `libs/react-feature/` exists. Task 1 creates it pinning `0.0.1`. Task 32 moves both manifests to `0.1.0` in one edit, matching `@evanion/acl` and `@evanion/react-acl`, which both sit at `0.1.0` unpublished.
 
+**And `@evanion/react-feature` carries `private: true` for as long as the core does.** `nx release publish` skips a private project per project, so a run that versions both and publishes only the binding puts a package on the registry whose one runtime dependency is not there, and `npm install @evanion/react-feature` answers E404 for `@evanion/feature`. `tools/repo-checks/src/publishable-dependencies.test.ts` holds the edge: a package the release run publishes names no dependency it holds back. Task 1 creates the binding private, with `workshop: true` on its navigation entry, and Task 32 drops both flags with the core's.
+
 ## Global Constraints
 
 Exact values. Every one of them is read off the tree at `origin/main` `77650ee2`.
@@ -193,6 +195,9 @@ npx nx g @nx/react:library libs/react-feature \
 - `libs/feature/src/test-setup.ts` (deleted: after the move no project in `libs/feature` renders anything, and the file carries the `@testing-library/jest-dom` matcher augmentation)
 - `apps/docs/content/feature/api.mdx` (edit: `## reportDivergence` and `## ruleFields` entries, and the new specifier)
 - `apps/docs/content/feature/react.mdx` (edit: the six fences point at `libs/react-feature/docs/examples.md`)
+- `tools/repo-checks/src/released-manifests.ts` (new: the released-package manifest reader `released-pins.test.ts` inlined, now that a second rule reads it)
+- `tools/repo-checks/src/publishable-dependencies.ts`, `publishable-dependencies.test.ts` (new)
+- `tools/repo-checks/src/released-pins.ts`, `released-pins.test.ts` (edit: both take the manifests from the shared reader)
 - `tools/repo-checks/src/doc-export-coverage-allowance.json` (edit: `@evanion/feature` goes from 88 `undocumented` names to 77 and loses three entries across `unexercised` and `unexplained`, and a `@evanion/react-feature` key opens with 37)
 - `commitlint.config.js` (edit)
 - `apps/docs/app/navigation.ts` (edit)
@@ -461,7 +466,7 @@ import {
     // One hue for the whole family, the way the rendering family carries `sky`.
     hue: 'amber',
     documented: false,
-    workshop: false,
+    workshop: true,
   },
 ```
 
@@ -1743,7 +1748,9 @@ export const currentFeatures = cache(
 
 - [ ] Remove `unversioned` and set `workshop: false` on the `@evanion/feature` entry in `apps/docs/app/navigation.ts`. `docs-archive.test.ts` then includes the section in `servedSections()`, and `cut-releases.mjs` and `recut.mjs` stop skipping it.
 
-- [ ] Set `"version": "0.1.0"` and remove `"private": true` from `libs/feature/package.json`. Set `"version": "0.1.0"` in `libs/react-feature/package.json` and change `dependencies["@evanion/feature"]` to `"0.1.0"`. `released-pins.test.ts` holds the pin.
+- [ ] Set `"version": "0.1.0"` and remove `"private": true` from `libs/feature/package.json`. Set `"version": "0.1.0"` and remove `"private": true` from `libs/react-feature/package.json`, and change `dependencies["@evanion/feature"]` to `"0.1.0"`. `released-pins.test.ts` holds the pin, and `publishable-dependencies.test.ts` holds the two `private` flags together: the binding installs the core, so the core publishes first or neither does.
+
+- [ ] Set `workshop: false` on both the `@evanion/feature` and the `@evanion/react-feature` entries of `apps/docs/app/navigation.ts`. `docs-navigation.test.ts` holds each one equal to `private` in its own manifest.
 
 - [ ] Delete every `<WorkshopNotice slug="feature" />` from the 23 pages. `apps/docs/content/next/feature/getting-started.mdx` carries children inside the element; move that prose into the page body, because the component renders nothing once `workshop` is false and the prose would vanish with it.
 
