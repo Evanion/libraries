@@ -760,13 +760,6 @@ To handle any configuration failure in a single block, you can catch the base
 class for all configuration errors. The `FeatureConfigError` serves as the root
 for the other five errors described on this page.
 
-Because `@evanion/feature` ensures that a store cannot fail mid-evaluation,
-`createFeatures` raises all six of these errors during initialization. In
-contrast, `resolve`, `plan`, and `toggle` throw none of them.
-`FeatureConfigError` itself also reaches a caller from `snapshot`, which refuses
-a `context.now` holding an invalid `Date`, and from `serializeConfig`, which
-refuses a value the wire format cannot carry.
-
 ## `FeatureCycleError`
 
 <!-- reference @evanion/feature#FeatureCycleError example=config-errors -->

@@ -1,13 +1,22 @@
 import type { FeatureKey } from './types.js';
 
 /**
- * Base class for every error this library throws. All of them are raised by
- * `createFeatures`; `resolve`, `plan` and `toggle` are total.
+ * `FeatureConfigError` is the base class for every error that
+ * `@evanion/feature` throws. While the five classes extending it are raised
+ * exclusively by `createFeatures`, `FeatureConfigError` itself is raised by
+ * `createFeatures` as well as by `snapshot`, when `context.now` holds a `Date`
+ * that names no instant, and by `serializeConfig`, when the configuration
+ * holds a value the wire format cannot carry. The functions `resolve`, `plan`,
+ * and `toggle` raise none of them.
  *
- * Constraints are enforced where the configuration is supplied rather than
- * where it is read, so a store a caller holds cannot fail mid-evaluation. It is
- * the same split `@evanion/luhn` and `@evanion/token` draw between
- * `createLuhn`/`createToken` and their operations.
+ * To ensure a store a caller holds cannot fail mid-evaluation,
+ * `@evanion/feature` enforces constraints over a configuration where it is
+ * supplied rather than where it is read. This mirrors the split between
+ * `createLuhn`/`createToken` and their operations in `@evanion/luhn` and
+ * `@evanion/token`. The two raises occurring outside of construction read an
+ * argument the call itself supplies: `snapshot` reads the context it is
+ * handed, and `serializeConfig` answers what a JSON document can carry rather
+ * than what the store resolved under.
  */
 export class FeatureConfigError extends Error {
   constructor(message: string) {
