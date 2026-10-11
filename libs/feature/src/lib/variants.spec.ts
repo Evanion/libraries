@@ -631,6 +631,7 @@ describe('assignVariant', () => {
         [-10, 50],
         [Number.POSITIVE_INFINITY, 50],
         [Number.NaN, 50],
+        [Number.MAX_VALUE, Number.MAX_VALUE],
       ]) {
         expect(() =>
           assignVariant(unusable(weights), { targetingKey: 'cust-0101' }),
@@ -678,6 +679,17 @@ describe('assignVariant', () => {
       );
       expect(assignedNames([Number.NaN, 50])).toEqual(new Set(['v1']));
       expect(assignedNames([50, Number.NaN])).toEqual(new Set(['v1']));
+    });
+
+    it('hands every subject the last-ordered variant for finite weights whose total overflows', () => {
+      // Both weights pass the per-weight check, so `variantErrors` catches
+      // this set on the total alone and its message names the overflow. Every
+      // band width is `Number.MAX_VALUE / Infinity`, which is 0 and not NaN,
+      // so no ceiling passes a bucket and the loop falls out the way it does
+      // for an all-zero set.
+      expect(assignedNames([Number.MAX_VALUE, Number.MAX_VALUE])).toEqual(
+        new Set(['v1']),
+      );
     });
 
     it('walks two variants sharing an order in the order they were declared', () => {
