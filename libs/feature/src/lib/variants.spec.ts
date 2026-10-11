@@ -622,7 +622,10 @@ describe('assignVariant', () => {
         ),
       );
 
-    it('throws for an unusable weight set', () => {
+    it('answers without throwing for a zero, negative, infinite or NaN weight', () => {
+      // `doc-behaviour.test.ts` puts this title on the `assignVariant`
+      // reference entry, directly under prose saying the function does not
+      // throw for any of these, so the title states what the loop holds.
       for (const weights of [
         [0, 0],
         [-10, 50],
