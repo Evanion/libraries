@@ -3,15 +3,12 @@
     "undocumented": [
       "AsSchema",
       "BaseFieldType",
-      "Cause",
       "ConfigEnvelope",
       "ConfigIssue",
       "ConfigIssueCode",
       "ContextSchema",
-      "Decision",
       "DecisionOrigin",
       "DecisionSet",
-      "Decisions",
       "DeepReadonly",
       "Definitions",
       "DefinitionsOf",
@@ -28,12 +25,8 @@
       "FrozenWhenObserved",
       "InferSchema",
       "JsonValue",
-      "Plan",
-      "PlanEntry",
       "ReadonlyDate",
-      "Reason",
       "ReloadResult",
-      "ResolvePlanOptions",
       "Schema",
       "SerializedAttributeCondition",
       "SerializedCondition",
@@ -43,15 +36,12 @@
       "SerializedVariantSpec",
       "SerializedWindowCondition",
       "SnapshotOptions",
-      "ToggleResult",
       "UnobservedOptions",
       "ValidationResult",
       "ValueShape",
       "canonical",
-      "resolvePlan",
       "ruleId"
     ],
-    "unexercised": ["canonical", "resolvePlan", "ruleId"],
-    "unexplained": ["Reason", "ToggleResult"]
+    "unexercised": ["canonical", "ruleId"]
   }
 }
