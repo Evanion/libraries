@@ -41,7 +41,7 @@ Exact values. Every one of them is read off the tree at `origin/main` `77650ee2`
 - `@evanion/react-feature` declares `"@evanion/feature": "0.0.1"` under `dependencies` (exact, no caret) and `"react": "^18.0.0 || ^19.0.0"` under `peerDependencies`, non-optional. `tools/repo-checks/src/released-pins.test.ts` holds the first; decision 9 of `docs/specs/2026-09-13-widget-api-unification.md` and decision 6 of the adapters spec hold the second.
 - `libs/feature/package.json` loses `peerDependencies`, `peerDependenciesMeta`, the `./react` entry of `exports`, and the `react` keyword. After Task 1 it declares no peer at all.
 - `libs/feature/src/lib/core-boundary.spec.ts` asserts `Object.keys(manifest().peerDependencies ?? {})` equals `['react']` and that `sources(ROOT)` contains `react/index.tsx`. Task 1 rewrites both, and the `describe('the react entry')` block and the `react` exemption in `unallowedImports` come out with them. The fixture cases under `describe('the exemption the scan allows')` that prove the exemption's path handling go with the exemption.
-- `scripts/verify-packaging.mjs` carries the two-entry assertions for `@evanion/feature` at lines 744 to 810. Task 1c replaces them with the pair assertions the acl block at 812 to 843 already makes, and adds `['libs/react-feature', '@evanion/react-feature']` to `LIBS` at line 42. The fixture import lines at 189 and 408 change specifier.
+- `scripts/verify-packaging.mjs` carries the two-entry assertions for `@evanion/feature` at lines 744 to 810. Task 1 replaces them with the pair assertions the acl block at 812 to 843 already makes, and adds `['libs/react-feature', '@evanion/react-feature']` to `LIBS` at line 42. The fixture import lines at 189 and 408 change specifier. It lands in Task 1 and not after it: `.github/workflows/ci.yml` runs `npm run verify:packaging` as its own job on every pull request, so a commit that drops the `./react` entry and leaves the script naming it cannot go green on its own.
 - `tools/repo-checks/src/doc-export-coverage.test.ts` asserts four things per published name: an `##` heading on the package's API reference spelling the name, a `twoslash` fence, a `file=` fence or a `<!-- reference … example=… -->` directive that names a callable export, a docblock on the declaration, and no allowance entry that is no longer needed. Its heading regex is `/^##\s+`([^`]+)`/gm`and it takes the name up to the first`(`, `<`or space. Its directive regex requires`example=` to count a name as exercised.
 - The reference directive grammar is `/^<!--\s*reference\s+(@?[\w./-]+)#([\w$]+)(?:\s+example=([\w-]+))?\s*-->\s*$/`, one per line, under the heading. `tools/doc-examples/src/mdx-reference-loader.mjs` resolves the name through the package's `dist/`, so `npx nx run-many -t build` runs before a page carrying a new directive is checked.
 - `tools/repo-checks/src/doc-behaviour.test.ts` requires a `describe` spelling every non-error callable export exactly, at any depth, and carries no allowance. The six React names already have theirs in `libs/feature/src/react/react.spec.tsx` and `entry-surface.spec.tsx`; they travel with the files.
@@ -137,7 +137,7 @@ Input classes a happy-path test reaches none of. Each is assigned to the task th
 
 Task 1 is one commit and it is the largest task in this plan. It cannot be split four ways, because `releasedExports()` in `tools/repo-checks/src/released-exports.ts` builds one TypeScript program over every entry every manifest names and throws `is not in the program` for an entry file that does not exist, so a scaffold commit carrying a manifest and no `src/index.tsx` fails `repo-checks` on its own. The same holds in the other direction: the moment `libs/feature/src/react/index.tsx` leaves, `libs/feature/vite.config.ts`'s `@evanion/feature:react` project and `core-boundary.spec.ts`'s two React cases fail, and the moment `libs/react-feature` exports 37 undocumented names, `doc-export-coverage.test.ts` fails without its allowance key. The scaffold, the move, the core's own edits and the allowance land together or the tree is red.
 
-Two pieces of Task 1 do separate, and they are Tasks 1b and 1c. Task 1b moves the names half of the entry parity check into `tools/repo-checks`, which nothing fails without. Task 1c repoints `scripts/verify-packaging.mjs`, which `npm run verify:packaging` runs as its own CI job and which no nx target reads.
+One piece of Task 1 does separate, and it is Task 1b: the names half of the entry parity check moves into `tools/repo-checks`, which nothing fails without.
 
 ## Task 1: Scaffold the package and move the React adapter into it
 
@@ -479,9 +479,15 @@ Update the `framework` docblock, which cites `@evanion/feature` as the "universa
   - Remove eleven names from `@evanion/feature`'s `undocumented` list, not twelve. `FeatureProvider` is not in it, because `apps/docs/content/feature/react.mdx:15` already gives it a heading. The list goes from 88 names to 77.
   - Remove `FeatureProvider` and `FeatureProviderProps` from `@evanion/feature`'s `unexplained` list, and `useFeatures` from its `unexercised` list. `doc-export-coverage.test.ts`'s `carries no allowance entry that is no longer needed` fails on a name the package no longer exports.
 
-- [ ] `npm install`, then `npx nx run-many -t lint test typecheck build -p feature react-feature repo-checks docs`.
+- [ ] Repoint `scripts/verify-packaging.mjs`, which `npm run verify:packaging` runs as the `packaging` job on every pull request and which no nx target reads. Nothing packs or checks the new package until `LIBS` names it, and the three fixtures still name the entry `libs/feature/package.json` dropped:
+  - `LIBS` gains `['libs/react-feature', '@evanion/react-feature'],`.
+  - The consumer's `@evanion/feature/react` import becomes `@evanion/react-feature`, and a second line imports `FeatureProviderProps` and `AnyDecisions` as types. Both get an annotated binding, the way the `react-acl` block annotates `PolicyProviderProps`. No backtick in the comment above them: the consumer source is a template literal.
+  - The runtime pass's `@evanion/feature/react` import becomes `@evanion/react-feature`.
+  - The two-entry assertions become the pair assertions the acl block makes: every module under `@evanion/feature`'s `dist` imports nothing from `react`, its `dist/index.js` carries no `'use client'`, `@evanion/react-feature`'s `dist/index.js` carries one as its first line, and the core's `exports` holds `.` and no `./react`. The `dist/react` filter on the core's module list goes with the entry.
 
-**Verification:** `npx nx run-many -t lint test typecheck build -p feature react-feature repo-checks docs` passes, and `node -e "const p=require('./libs/feature/package.json'); console.log(Object.keys(p.exports), p.peerDependencies)"` prints `[ './package.json', '.' ] undefined`. `npm run verify:packaging` is still red here and Task 1c is what makes it green.
+- [ ] `npm install`, then `npx nx run-many -t lint test typecheck build -p feature react-feature repo-checks docs`, then `npm run verify:packaging`.
+
+**Verification:** `npx nx run-many -t lint test typecheck build -p feature react-feature repo-checks docs` passes, `node -e "const p=require('./libs/feature/package.json'); console.log(Object.keys(p.exports), p.peerDependencies)"` prints `[ './package.json', '.' ] undefined`, and `npm run verify:packaging` passes.
 
 ---
 
@@ -505,32 +511,6 @@ Ruling 7 is why. `libs/feature/src/react/entry-surface.spec.tsx` read `../index.
 - [ ] `npx nx run-many -t lint test typecheck -p react-feature repo-checks`.
 
 **Verification:** `npx nx run-many -t test -p repo-checks react-feature` passes, and deleting one name from `libs/react-feature/src/index.tsx`'s `config.ts` re-export clause by hand fails `feature-entry-parity.test.ts`.
-
----
-
-## Task 1c: `scripts/verify-packaging.mjs`
-
-**Deliverable:** `npm run verify:packaging` resolves both packages through their published `exports` and asserts the pair properties the acl block already asserts.
-
-`verify-packaging.mjs` is run by `npm run verify:packaging` as its own CI job and no nx target reads it, which is why it is its own task.
-
-**Files:**
-
-- `scripts/verify-packaging.mjs` (edit)
-
-### Steps
-
-- [ ] `scripts/verify-packaging.mjs:42` gains `['libs/react-feature', '@evanion/react-feature'],` to `LIBS`.
-
-- [ ] `scripts/verify-packaging.mjs:189` becomes `import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@evanion/react-feature';` with its comment rewritten to name the package, and line 190 gains `import type { FeatureProviderProps, AnyDecisions } from '@evanion/react-feature';`.
-
-- [ ] `scripts/verify-packaging.mjs:408` becomes `import { FeatureProvider, useFeature } from '@evanion/react-feature';`.
-
-- [ ] `scripts/verify-packaging.mjs:744-810` is replaced by the pair assertions the acl block at 812 to 843 makes: `dist/index.js` of `@evanion/feature` carries no `'use client'` and imports nothing from `react` at any depth, `dist/index.js` of `@evanion/react-feature` carries `'use client'` as its first line, and `@evanion/feature`'s `exports` holds `.` and no `./react`.
-
-- [ ] `npx nx run-many -t build -p feature react-feature`, then `npm run verify:packaging`.
-
-**Verification:** `npm run verify:packaging` passes.
 
 ---
 

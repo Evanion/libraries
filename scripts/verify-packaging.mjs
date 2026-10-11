@@ -51,6 +51,7 @@ const LIBS = [
   ['libs/token', '@evanion/token'],
   ['libs/acl', '@evanion/acl'],
   ['libs/react-acl', '@evanion/react-acl'],
+  ['libs/react-feature', '@evanion/react-feature'],
   ['internal/baize-ui', '@evanion/baize-ui'],
 ];
 
@@ -185,8 +186,9 @@ import { createFeatures, FeatureCycleError } from '@evanion/feature';
 import type { Decision, FeatureDefinition } from '@evanion/feature';
 import { createToken, DEFAULT_DICTIONARY, InvalidAlphabetError, TokenError } from '@evanion/token';
 import type { TokenOptions, ValidateResult } from '@evanion/token';
-// Second entry point, and the only one that may touch React.
-import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@evanion/feature/react';
+// The React binding, which is the only feature package that may touch React.
+import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@evanion/react-feature';
+import type { FeatureProviderProps, AnyDecisions } from '@evanion/react-feature';
 import { AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip, Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, ComplexityRamp } from '@evanion/baize-ui';
 import type { Availability, BoxArtPalette, ComplexityStop, Mechanism, StatProps, TitleSize } from '@evanion/baize-ui';
 // The token entry, which may not touch React at all.
@@ -232,6 +234,11 @@ const toggleConfig: FeatureDefinition<'payments-v3' | 'checkout-v2'>[] = [
 const toggles = createFeatures(toggleConfig);
 const toggleDecision: Decision<'payments-v3' | 'checkout-v2'> =
   toggles.resolve({ targetingKey: 'acct-1' })['checkout-v2'];
+// The React binding over an already-built store. The props type is the one a
+// declaration in an application names, and AnyDecisions is the widened form a
+// context can hold, so both have to resolve from the published declarations.
+const featureProvider: FeatureProviderProps<{ 'checkout-v2': never }> = { features: createFeatures([{ key: 'checkout-v2', enabled: true }]) };
+const featureDecisions: AnyDecisions = toggles.resolve({ targetingKey: 'acct-1' });
 const tokenOptions: TokenOptions = { dictionary: DEFAULT_DICTIONARY, length: 8 };
 const tokenCheck: string = createToken(tokenOptions).generate({ prefix: 'ORD' }).check;
 const tokenResult: ValidateResult = createToken().validate('a4kp-9mxa');
@@ -350,6 +357,7 @@ void [typedBound, ComposeProvider, provider, parsed, arr, err, items, widgetProb
       CorrelationModule, CorrelationService, withCorrelation, correlation,
       registry, sections, problems, checksum, filtered, luhnErr,
       toggleDecision, FeatureCycleError, FeatureProvider, useFeature, useFeatureEnabled, useFeatures,
+      featureProvider, featureDecisions,
       tokenCheck, tokenResult, tokenErr,
       AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip,
       Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, ComplexityRamp,
@@ -405,7 +413,7 @@ import { createWidgets, DefaultItem, DefaultWrapper, validateItems } from '@evan
 import { defineWidgets as defineAstroWidgets, validateItems as validateAstroItems } from '@evanion/astro-widget';
 import { Luhn, createLuhn, InvalidDictionaryError } from '@evanion/luhn';
 import { createFeatures } from '@evanion/feature';
-import { FeatureProvider, useFeature } from '@evanion/feature/react';
+import { FeatureProvider, useFeature } from '@evanion/react-feature';
 import { createToken, InvalidAlphabetError, TokenError } from '@evanion/token';
 import { Card, StatLine, BoxArtPlaceholder } from '@evanion/baize-ui';
 import { ground, hueClass, ladderClass, paletteClass, renderTokensCss, stateClass } from '@evanion/baize-ui/tokens';
@@ -741,21 +749,19 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   }
   console.log('  ✓ react-widget imports no client-only React API');
 
-  // @evanion/feature ships two entries for a reason that no in-repo check can
-  // see: `'use client'` is a per-module directive, so the client layer needs its
-  // own module in the published output. Both halves of that break silently. A
-  // directive that migrated onto the core entry makes the whole package
-  // client-only, and a React import that leaked into the core makes it
+  // @evanion/feature and @evanion/react-feature split for a reason that no
+  // in-repo check can see: `'use client'` is a per-module directive, so the
+  // client layer needs its own published module. Both halves of that break
+  // silently. A directive that migrated onto the core makes every consumer of
+  // it client-only, and a React import that leaked into the core makes it
   // unimportable from the Nest API and from the build-time pass -- and in both
   // cases the build succeeds and every test passes.
   //
-  // The core is emitted file-per-file, so checking the entry alone is not
-  // enough: `dist/index.js` only re-exports, and a React import three files deep
-  // would pass. Every core module is checked.
+  // The core is emitted file-per-file by tsc, so checking its entry alone is
+  // not enough: `dist/index.js` only re-exports, and a React import three files
+  // deep would pass. Every core module is checked.
   const featureDist = join(dir, 'node_modules', '@evanion', 'feature', 'dist');
-  const coreModules = emittedFiles(featureDist, /\.js$/).filter(
-    (file) => !file.includes(join(featureDist, 'react')),
-  );
+  const coreModules = emittedFiles(featureDist, /\.js$/);
 
   if (coreModules.length === 0) {
     throw new Error('@evanion/feature ships no core modules at all');
@@ -764,7 +770,7 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
   const reactImporters = importersOf(coreModules, featureDist, ['react']);
   if (reactImporters.length) {
     throw new Error(
-      '@evanion/feature core entry imports React: ' +
+      '@evanion/feature imports React: ' +
         reactImporters.join(', ') +
         '. The core must be usable from the API and at build time, so nothing under it may import react.',
     );
@@ -780,20 +786,23 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     );
   }
 
-  const clientFirstLine = readFileSync(
-    join(featureDist, 'react', 'index.js'),
+  const reactFeatureFirstLine = readFileSync(
+    join(dir, 'node_modules', '@evanion', 'react-feature', 'dist', 'index.js'),
     'utf8',
   )
     .split('\n')[0]
     .trim();
-  if (!/^["']use client["'];?$/.test(clientFirstLine)) {
+  if (!/^["']use client["'];?$/.test(reactFeatureFirstLine)) {
     throw new Error(
-      "@evanion/feature dist/react/index.js must carry a 'use client' " +
-        'directive as its first line; a bundler that collapsed the two entries ' +
-        'into one module would drop it.',
+      "@evanion/react-feature dist/index.js must carry a 'use client' " +
+        'directive as its first line: the package is a context provider, so ' +
+        'every consumer importing it from a Server Component fails at module ' +
+        'evaluation without it.',
     );
   }
-  console.log("  ✓ feature ships 'use client' on the react entry only");
+  console.log(
+    "  ✓ feature core ships no 'use client'; react-feature ships one",
+  );
 
   const featurePkg = JSON.parse(
     readFileSync(
@@ -802,12 +811,17 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     ),
   );
   const featureEntries = Object.keys(featurePkg.exports);
-  for (const entry of ['.', './react']) {
-    if (!featureEntries.includes(entry)) {
-      throw new Error(`@evanion/feature stopped exporting "${entry}"`);
-    }
+  if (!featureEntries.includes('.')) {
+    throw new Error('@evanion/feature stopped exporting "."');
   }
-  console.log('  ✓ feature exports both entries');
+  if (featureEntries.includes('./react')) {
+    throw new Error(
+      '@evanion/feature exports "./react" again: the React binding is ' +
+        '@evanion/react-feature, and a second copy of the provider in a ' +
+        "consumer's graph is two contexts where the hooks expect one.",
+    );
+  }
+  console.log('  ✓ feature exports one entry, and no ./react');
 
   // The acl pair splits the same way @evanion/feature does, across two packages
   // rather than two entries: @evanion/acl is the universal core and
