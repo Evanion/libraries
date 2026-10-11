@@ -8,7 +8,6 @@
       "ConfigIssue",
       "ConfigIssueCode",
       "ContextSchema",
-      "DEFAULT_ROLLOUT_FIELD",
       "Decision",
       "DecisionOrigin",
       "DecisionSet",
@@ -35,7 +34,6 @@
       "Reason",
       "ReloadResult",
       "ResolvePlanOptions",
-      "RolloutSpec",
       "Schema",
       "SerializedAttributeCondition",
       "SerializedCondition",
@@ -49,26 +47,11 @@
       "UnobservedOptions",
       "ValidationResult",
       "ValueShape",
-      "VariantAssignment",
-      "VariantInfo",
-      "VariantSpec",
-      "assignVariant",
-      "bucketOf",
       "canonical",
-      "inRollout",
-      "murmur3",
       "resolvePlan",
-      "ruleId",
-      "variantSeedOf"
+      "ruleId"
     ],
-    "unexercised": [
-      "assignVariant",
-      "canonical",
-      "murmur3",
-      "resolvePlan",
-      "ruleId",
-      "variantSeedOf"
-    ],
+    "unexercised": ["canonical", "resolvePlan", "ruleId"],
     "unexplained": ["Reason", "ToggleResult"]
   }
 }
