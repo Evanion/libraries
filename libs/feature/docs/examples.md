@@ -1653,6 +1653,31 @@ ruleFields(weekendMembers); // -> ['customerId', 'now', 'tier']
 
 <!-- #endregion rule-fields -->
 
+<!-- #region identity-primitives -->
+
+```ts @import.meta.vitest
+import { canonical, ruleId } from '@evanion/feature';
+import type { Rule } from '@evanion/feature';
+
+// Two objects whose keys were written in two orders carry one text.
+canonical({ tier: 'gold', region: 'eu' }); // -> '{"region":"eu","tier":"gold"}'
+canonical({ region: 'eu', tier: 'gold' }); // -> '{"region":"eu","tier":"gold"}'
+
+const named: Rule = {
+  id: 'staff-only',
+  when: [{ field: 'staff', op: 'eq', value: true }],
+};
+
+const unnamed: Rule = {
+  when: [{ field: 'tier', op: 'eq', value: 'gold' }],
+};
+
+ruleId(named); // -> 'staff-only'
+ruleId(unnamed); // -> 'rule-2d092ba6'
+```
+
+<!-- #endregion identity-primitives -->
+
 ## Evaluating One Condition
 
 <!-- #region evaluate-condition -->
