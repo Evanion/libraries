@@ -3827,6 +3827,27 @@ describe('the envelope', () => {
     );
   });
 
+  it('refuses eq over a declared array', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'beta',
+          enabled: true,
+          rules: [{ when: [{ field: 'tags', op: 'eq', value: 'vip' }] }],
+        },
+      ],
+      schemaVersion: 's1',
+      schema: { context: { fields: { tags: 'string[]' } } },
+    };
+
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'field-type-mismatch',
+      path: '/features/0/rules/0/when/0/op',
+    });
+  });
+
   it('takes contains over a declared optional array', () => {
     const config: FeatureConfig = {
       features: [
