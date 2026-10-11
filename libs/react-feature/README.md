@@ -35,7 +35,9 @@ import type { DecisionSet } from '@evanion/feature';
 import { FeatureProvider, useVariant } from '@evanion/react-feature';
 import { renderToStaticMarkup } from 'react-dom/server';
 
-// Once per process, on the server and in the browser bundle alike.
+// app/features.ts, imported by the server and by the client bundle. A store
+// carries functions, so it reaches a client module as an import and never as a
+// prop.
 const features = createFeatures([
   {
     key: 'shelf-sort',
@@ -62,6 +64,7 @@ function Shelf() {
   return <p>{variant === 'popular' ? 'Most played first' : 'Newest first'}</p>;
 }
 
+// app/flags.tsx, a client module ('use client')
 function ShopFlags({
   decisions,
   children,
