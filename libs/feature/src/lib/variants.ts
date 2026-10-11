@@ -579,12 +579,15 @@ export interface VariantAssignment {
  * `[50, -10, 20]` splits them between the first and the third.
  *
  * A negative weight that cancels the positives exactly sums to zero without
- * the set being all zeros, and the first non-zero band then divides by zero.
- * The sign decides the answer. A positive weight there gives `Infinity` and
- * takes every bucket, so `[10, -10]` hands every subject the first variant. A
- * negative one gives `-Infinity`, the next addition makes the ceiling `NaN`,
- * and the loop falls out to the last, so `[-10, 10]` hands every subject the
- * second.
+ * the set being all zeros, and the first band in bucketing order then divides
+ * by zero. That first weight alone decides the answer, whatever sits behind
+ * it. A positive weight there gives `Infinity` and takes every bucket, so
+ * `[10, -10]` hands every subject the first variant. A negative weight gives
+ * `-Infinity` and the next addition makes the ceiling `NaN`; a zero weight
+ * divides `0` by `0` and makes it `NaN` at the first band. No comparison
+ * against either one passes, so both reach the fall-out and the last-ordered
+ * answer an all-zero set gives: `[-10, 10]` and `[0, 10, -10]` each hand
+ * every subject the last variant.
  *
  * Two variants sharing an `order` never throw either; `bucketingOrder` sorts
  * on the position and nothing separates a tie, so the first one declared keeps
