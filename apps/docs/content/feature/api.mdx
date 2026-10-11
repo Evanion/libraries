@@ -217,11 +217,59 @@ import {
 | `ruleId(rule)`                       | the id `resolve` gives a rule that declares none                              |
 | `DEFAULT_ROLLOUT_FIELD`              | `'targetingKey'`                                                              |
 
-`assignVariant` returns a `VariantAssignment`: the chosen `VariantSpec`, the
-`by` field and, on `'weighted'`, the `bucket`. Its `source` is
-`'weighted' | 'sticky' | 'fallback'`, with no `'pinned'` case: only `decide`
-knows which rule matched, so `decide` applies a pin on top of the assignment
-`assignVariant` returned. See [Variants](/feature/variants).
+## `bucketOf`
+
+<!-- reference @evanion/feature#bucketOf example=primitives -->
+
+To determine which bucket a subject falls into during a rollout, `@evanion/feature` uses `bucketOf`. This function calculates a value in `[0, 1)` for a rollout seeded with `seed`. Because the bucket is a pure hash of the pair, it remains consistent across different evaluations, processes, and hosts.
+
+The system provides 2^32 buckets. Since the bucket value does not depend on a percentage, raising a rollout is purely additive; a member who is already in a rollout will never move out.
+
+Snapshot tooling and a test over one rollout call it. A caller passes the seed the rule carries, which `resolve` reads off `rollout.seed`, then the feature's `seed`, then the key.
+
+## `inRollout`
+
+<!-- reference @evanion/feature#inRollout example=primitives -->
+
+To check if a specific value is included in a rollout, `@evanion/feature` provides `inRollout`. This function answers whether a value is inside a `percent` rollout seeded with `seed`. It compares the bucket strictly below the threshold, meaning 0% includes nobody, and since every bucket is below 1, 100% includes everybody.
+
+## `murmur3`
+
+<!-- reference @evanion/feature#murmur3 example=variant-primitives -->
+
+To ensure consistent hashing, `@evanion/feature` implements `murmur3`. This is MurmurHash3, x86 32-bit, operating over the UTF-8 bytes of the input to return an unsigned 32-bit integer. Both `bucketOf` and `configDigest` rely on it, meaning any port to Swift or Kotlin must produce the same numbers.
+
+The package walks the UTF-8 bytes itself, asking its host only for arithmetic and string indexing. An unpaired surrogate encodes as U+FFFD, the same result produced by the Encoding Standard's encoder, ensuring the bytes agree with `TextEncoder` for every possible input.
+
+## `assignVariant`
+
+<!-- reference @evanion/feature#assignVariant example=variant-primitives -->
+
+To determine which variant a user receives for a feature that has resolved on, `@evanion/feature` uses `assignVariant`. If a feature declares no variants, it returns `undefined`.
+
+The function evaluates three possible answers in this order:
+
+1. **Sticky assignments:** A prior assignment stored on `stickyVariants` wins if it names a variant the feature still declares.
+2. **Weighted assignments:** If the context carries a usable bucketing value, the weights determine the answer.
+3. **Control fallback:** The control answers last. This is the honest answer for an incomplete context: the feature resolved on, so the calling code needs a variant to render, and the control admits nobody to the experiment.
+
+Because only `decide` knows which rule matched, a pin from a matching rule beats all three of these options, and `decide` applies it accordingly.
+
+The definition passed to this function must come from `createFeatures` or have passed `validateVariants` independently. If a weight is non-finite, negative, or sums to zero across the set, or if two variants share an `order`, the function does not throw; instead, the outcome is deterministic and wrong.
+
+## `variantSeedOf`
+
+<!-- reference @evanion/feature#variantSeedOf example=variant-primitives -->
+
+To establish the seed used for variant bucketing, `@evanion/feature` provides `variantSeedOf`. This function gives the seed that `assignVariant` buckets on. If a definition names a `variantSeed`, it gets that string unchanged; otherwise, it receives `${seed ?? key}:variant`.
+
+By default, the seed appends to whatever the rollout seeds on, ensuring the two buckets are independent. If the same pair were hashed for both, every member of a 20% rollout would fall into the lowest 20% of the variant space; consequently, a 50/50 split would give all of them the control, and the experiment would measure nothing.
+
+## `DEFAULT_ROLLOUT_FIELD`
+
+<!-- reference @evanion/feature#DEFAULT_ROLLOUT_FIELD -->
+
+`DEFAULT_ROLLOUT_FIELD` is `'targetingKey'`. This is the context field `@evanion/feature` uses for bucketing when a rollout spec names no `by` field, and the field variant assignment buckets on when the definition names no `variantBy`.
 
 ## `reportDivergence`
 
@@ -350,15 +398,17 @@ To define the features available to your application, you use a `FeatureDefiniti
 
 To control when a feature resolves on, `@evanion/feature` uses a `Rule`. Rules are OR-ed: the feature resolves on when any one of them matches. A rule that declares neither `when` nor `rollout` matches every context, so an author narrowing anything writes at least one of the two. See [Rollouts](/feature/rollouts) for `rollout` and [Variants](/feature/variants) for `variant`.
 
-### `RolloutSpec`
+## `RolloutSpec`
 
-```ts signature
-interface RolloutSpec {
-  percent: number;
-  by?: string; // defaults to 'targetingKey'
-  seed?: string; // defaults to the feature's seed, then the key
-}
-```
+<!-- reference @evanion/feature#RolloutSpec -->
+
+To ramp a feature across a share of subjects, a rule in `@evanion/feature` carries a `RolloutSpec`.
+
+- `percent` defines the share of subjects.
+- `by` names the context field to bucket on, defaulting to `targetingKey`.
+- `seed` overrides the bucketing seed.
+
+Unless overridden, the seed is the feature key, which decorrelates a subject's bucket across different features. You should override it only to correlate two features deliberately, such as keeping a pair of flags rolling out to the same cohort. See [Rollouts](/feature/rollouts).
 
 ## `Condition`
 
@@ -406,14 +456,34 @@ The `now` property is a `Date`. If a context crossed JSON, it carries the ISO 86
 
 To understand why a rule did or did not match, you can inspect the `RuleOutcome`. `failed` names the first condition that failed. An outcome `plan()` settled drops it when the walk stepped over a condition the build-time context could not read, because a request carrying that field may fail the rule on that one instead. [Build-time plans](/feature/build-time) states the rule.
 
-### `VariantInfo`, `Schema` and `InferSchema`
+## `VariantSpec`
+
+<!-- reference @evanion/feature#VariantSpec -->
+
+To declare one variant of a feature in `@evanion/feature`, an author writes a `VariantSpec`.
+
+- `weight` is relative: weights are normalised across the set, so they do not need to sum to 100, and raising one lowers every other share.
+- `order` fixes where the variant sits in the bucketing walk. If an author leaves it out, the array index supplies the value.
+
+A control plane writes `order` explicitly so that a serializer that reorders the array still assigns identically. See [Variants](/feature/variants).
+
+## `VariantAssignment`
+
+<!-- reference @evanion/feature#VariantAssignment -->
+
+`assignVariant` returns a `VariantAssignment`. This object contains the chosen `VariantSpec`, the `by` field it bucketed on and, in the case of `'weighted'`, the `bucket`.
+
+The `source` is `'weighted' | 'sticky' | 'fallback'`. There is no `'pinned'` case because only `decide` knows which rule matched, and `decide` applies a pin on top of the assignment `assignVariant` returned. The library writes this type but does not read it anywhere. See [Variants](/feature/variants).
+
+## `VariantInfo`
+
+<!-- reference @evanion/feature#VariantInfo -->
+
+`VariantInfo` is what a schema in `@evanion/feature` records about one feature: the union of its variant names and the value each one carries. `Schema` maps every feature key to one of these; a feature that declares no variants maps to `never`.
+
+### `Schema` and `InferSchema`
 
 ```ts signature
-interface VariantInfo {
-  variant: string;
-  value?: unknown;
-}
-
 type Schema = Record<string, VariantInfo | never>;
 
 type InferSchema<D extends readonly FeatureDefinition<FeatureKey>[]> = {
