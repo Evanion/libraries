@@ -19,7 +19,11 @@ When a server resolves flags for a request, the component that actually needs a 
 
 ### Core Concept: The Server Resolves, The Tree Reads
 
-Consider a game shop that splits shoppers between two different shelf-sorting methods. The server resolves the split for a specific shopper via `features.snapshot`, and `FeatureProvider` publishes that set. The `Shelf` component then simply reads its assigned variant. If Sam buckets into `popular` and Mika into `newest`, neither component has to perform the resolution logic themselves.
+To avoid duplicating complex logic in the UI, `@evanion/react-feature` separates the act of deciding which feature to show from the act of reading that decision.
+
+Consider a game shop that splits shoppers between two different shelf-sorting methods. Instead of the UI calculating the split, the server resolves it for a specific shopper via `features.snapshot`, and `FeatureProvider` publishes that set. The `Shelf` component then simply reads its assigned variant. If Sam buckets into `popular` and Mika into `newest`, neither component has to perform the resolution logic themselves.
+
+To ensure consistency, the provider takes the shopper's targeting context alongside the set. It publishes the shipped decisions either way, and it re-resolves them against that context to check them; consequently, a provider handed no `targetingKey` reports every weighted assignment as one it cannot reproduce. The context the server resolved with is the context the provider needs.
 
 The following block runs in the package's test suite, where each `// ->` comment denotes the expression's value.
 
@@ -28,11 +32,12 @@ The following block runs in the package's test suite, where each `// ->` comment
 ```tsx @import.meta.vitest
 /** @jsxRuntime classic */
 import * as React from 'react';
-import type { ReactNode } from 'react';
 // ---cut---
 import { createFeatures } from '@evanion/feature';
 import type { DecisionSet } from '@evanion/feature';
 import { FeatureProvider, useVariant } from '@evanion/react-feature';
+import { useMemo } from 'react';
+import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 // app/features.ts, imported by the server and by the client bundle. A store
@@ -66,14 +71,27 @@ function Shelf() {
 
 // app/flags.tsx, a client module ('use client')
 function ShopFlags({
+  shopperId,
   decisions,
   children,
 }: {
+  shopperId: string;
   decisions: ShopDecisions;
   children: ReactNode;
 }) {
+  // The provider re-resolves the shipped set to check it, so it needs the
+  // field the server bucketed on. A provider mounted without `targetingKey`
+  // publishes the shipped variant and reports it as one it cannot reproduce.
+  // `useMemo` holds the object across renders, which the provider's own memo
+  // reads as the same context.
+  const context = useMemo(() => ({ targetingKey: shopperId }), [shopperId]);
+
   return (
-    <FeatureProvider features={features} decisions={decisions}>
+    <FeatureProvider
+      features={features}
+      context={context}
+      decisions={decisions}
+    >
       {children}
     </FeatureProvider>
   );
@@ -88,7 +106,7 @@ const shelfFor = (shopperId: string) => {
   // condition's `failed.value` can hold, and `JSON.stringify` by hand sends a
   // string in its place.
   return renderToStaticMarkup(
-    <ShopFlags decisions={decisions}>
+    <ShopFlags shopperId={shopperId} decisions={decisions}>
       <Shelf />
     </ShopFlags>,
   );
