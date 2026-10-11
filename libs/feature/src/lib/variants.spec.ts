@@ -641,17 +641,30 @@ describe('assignVariant', () => {
       expect(assignedNames([0, 0])).toEqual(new Set(['v1']));
     });
 
-    it('hands every subject the last-ordered variant for a negative weight', () => {
-      // The first band's ceiling is below zero, so no bucket lands in it and
-      // the variant an author weighted negatively is unreachable.
+    it('answers a negative weight from the position the weight sits in', () => {
+      // `assignWeighted` sums the weights, so a negative one shrinks the total
+      // rather than making it NaN, and some band's ceiling passes 1 and
+      // swallows every bucket below it. Which band that is moves with the
+      // negative weight's position, so the last-ordered variant is not the
+      // answer the way it is for a zero total: the first arrangement makes the
+      // negatively weighted variant unreachable, the second makes it the only
+      // reachable one, and the third splits the subjects.
       expect(assignedNames([-10, 50])).toEqual(new Set(['v1']));
+      expect(assignedNames([50, -10])).toEqual(new Set(['v0']));
+      expect(assignedNames([50, -10, 20])).toEqual(new Set(['v0', 'v2']));
     });
 
     it('hands every subject the last-ordered variant for a weight that is not finite', () => {
+      // Both arrangements, because this is the half of the docblock that holds
+      // wherever the bad weight sits.
       expect(assignedNames([Number.POSITIVE_INFINITY, 50])).toEqual(
         new Set(['v1']),
       );
+      expect(assignedNames([50, Number.POSITIVE_INFINITY])).toEqual(
+        new Set(['v1']),
+      );
       expect(assignedNames([Number.NaN, 50])).toEqual(new Set(['v1']));
+      expect(assignedNames([50, Number.NaN])).toEqual(new Set(['v1']));
     });
 
     it('walks two variants sharing an order in the order they were declared', () => {
