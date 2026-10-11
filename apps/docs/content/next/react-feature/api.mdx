@@ -80,9 +80,17 @@ The `VersionMismatchPolicy` determines what a provider renders when the shipped 
 
 <!-- reference @evanion/feature#BaseFieldType -->
 
+To categorize the data allowed in a context field, you use `BaseFieldType`. This type defines the four fundamental types a declared context field may hold: `'string'`, `'number'`, `'boolean'`, and `'instant'`.
+
+This serves as the foundation for [`FieldType`](#fieldtype). In practice, a React application that defines its own document schema will name this type there, and [Distribution](/feature/distribution) is where that schema is described.
+
 ## `ConfigEnvelope`
 
 <!-- reference @evanion/feature#ConfigEnvelope -->
+
+When you need to handle a document without its associated payload, you use the `ConfigEnvelope` type. This is particularly useful for servers that serialize a store for the page they ship; the server will name this type during the call to `serializeConfig` on the core entry, which takes an envelope and writes it around a store.
+
+Note that the `digest` member is fenced to `never` because `configDigest` is the sole writer of that member. For more details on the serializer, see [the core API reference](/feature/api).
 
 ## `ConfigIssue`
 
@@ -94,9 +102,17 @@ The `ConfigIssue` type describes what a failed `validateConfig` lists. A compone
 
 <!-- reference @evanion/feature#ConfigIssueCode -->
 
+To programmatically determine why a document was refused without relying on fragile message text, you can branch on a `ConfigIssueCode`. This type represents the `code` found on a [`ConfigIssue`](#configissue), with one unique code assigned per class of defect.
+
+These codes are produced by `validateConfig`, which is documented in [the core API reference](/feature/api).
+
 ## `ContextSchema`
 
 <!-- reference @evanion/feature#ContextSchema -->
+
+A document describes its requirements through a schema. The `ContextSchema` type represents the half of the [`FeatureSchema`](#featureschema) dedicated to declaring the rules for context fields, with each field assigned a [`FieldType`](#fieldtype).
+
+The two vocabularies stated by a document are further described in [Distribution](/feature/distribution).
 
 ## `FeatureConfig`
 
@@ -108,17 +124,37 @@ The `FeatureConfig` type is the served document a store is built from. A React a
 
 <!-- reference @evanion/feature#FeatureSchema -->
 
+The `FeatureSchema` type acts as the typing contract that a document states, carried at the `schema` property. It manages two distinct vocabularies:
+
+1. [`ContextSchema`](#contextschema): For fields the engine reads and compares.
+2. [`FeatureShape`](#featureshape): One per feature, for variant values the engine never reads.
+
+The division between these two vocabularies is described in [Distribution](/feature/distribution).
+
 ## `FeatureShape`
 
 <!-- reference @evanion/feature#FeatureShape -->
+
+To record the specifics of a single feature within a schema, you use the `FeatureShape` type. It maps feature variants by name, with each mapping to a [`ValueShape`](#valueshape). Because the document itself maintains the order that a rollout follows, this map carries no inherent order.
 
 ## `FieldType`
 
 <!-- reference @evanion/feature#FieldType -->
 
+The `FieldType` type defines the declared type of a single context field. To ensure a producer in any language can emit the entire schema via reflection, this is written as a flat string.
+
+You can modify the base type using these markers:
+
+- `[]`: Indicates an array of the base type.
+- `?`: A trailing question mark marks a field that a complete context may leave out.
+
 ## `JsonValue`
 
 <!-- reference @evanion/feature#JsonValue -->
+
+For the values held by a condition, the system uses the `JsonValue` type, which [`SerializedAttributeCondition`](#serializedattributecondition) uses to narrow its `value` property.
+
+Crucially, `JsonValue` refuses `Date` objects wherever they appear. This is because a `Date` reaches the next process as an ISO string, and `canonical` writes the two the same way: the publisher and the holder then digest alike, which a reader takes as proof that the two hold one configuration, while `evaluateCondition` compares the two values with `===` and finds them unequal.
 
 ## `ReloadResult`
 
@@ -130,29 +166,43 @@ The `ReloadResult` type is what `features.reload` answered. The poller's handler
 
 <!-- reference @evanion/feature#SerializedAttributeCondition -->
 
+To evaluate a feature based on custom data, the system uses attribute conditions. When these conditions are carried within a document, they are represented as `SerializedAttributeCondition`, where the `value` is narrowed to [`JsonValue`](#jsonvalue). The engine performs a strict equality check (`===`) when comparing this value.
+
 ## `SerializedCondition`
 
 <!-- reference @evanion/feature#SerializedCondition -->
+
+A feature's activation often depends on a variety of triggers, such as time windows, days of the week, or specific attributes. `SerializedCondition` represents a single condition as it is carried in a document across these different arms. The instant a window names and the value an attribute condition compares are the two members that narrow against the form held by a store built from a literal.
 
 ## `SerializedDefinition`
 
 <!-- reference @evanion/feature#SerializedDefinition -->
 
+A document carries its feature configurations in a `features` array, where each element is a `SerializedDefinition`. Because its key parameter defaults to [`FeatureKey`](#featurekey), the same default carried by a document, a helper annotated with the bare name can read a definition directly out of a bare document.
+
 ## `SerializedInstant`
 
 <!-- reference @evanion/feature#SerializedInstant -->
+
+While the core `Instant` type admits a `Date` (which is what an author uses in a literal), data passing through JSON must be represented differently. `SerializedInstant` is an instant that survives JSON transport, appearing as either an ISO 8601 string or epoch milliseconds. A document narrows to this type so that a document making one hop through a transport is digested the same way as the one that authored it.
 
 ## `SerializedRule`
 
 <!-- reference @evanion/feature#SerializedRule -->
 
+Rules define the logic for feature assignment. When a rule is carried in a document, it is typed as `SerializedRule`, which keeps the control-plane `id` untouched but narrows the `when` property to an array of [`SerializedCondition`](#serializedcondition). These rules are written within [Rollouts](/feature/rollouts).
+
 ## `SerializedVariantSpec`
 
 <!-- reference @evanion/feature#SerializedVariantSpec -->
 
+Each possible outcome of a feature is a variant. `SerializedVariantSpec` represents one such variant as it is carried in a document. The `value` remains `unknown` because the engine never reads a variant value, and a generated TypeScript interface does not reach [`JsonValue`](#jsonvalue).
+
 ## `SerializedWindowCondition`
 
 <!-- reference @evanion/feature#SerializedWindowCondition -->
+
+To restrict a feature to a specific timeframe, the system uses time windows. As carried in a document, a `SerializedWindowCondition` defines this window by setting the `field` to `'now'`, the `op` (operator) to either `'before'` or `'after'`, and the `value` to a [`SerializedInstant`](#serializedinstant).
 
 ## `ValidationResult`
 
@@ -163,6 +213,8 @@ The `ValidationResult` type is what `validateConfig` answered about a document, 
 ## `ValueShape`
 
 <!-- reference @evanion/feature#ValueShape -->
+
+To ensure variant values adhere to a specific structure, [`FeatureShape`](#featureshape) carries a `ValueShape` for each variant. This type is a JSON Schema 2020-12 object, fenced to the subset that `validateConfig` accepts. While a code generator and an optional validator read this shape, the engine hands the variant value to the caller untouched.
 
 ## `DecisionOrigin`
 
@@ -191,6 +243,8 @@ The `DivergenceReport` type represents one report an observer receives. A provid
 ## `DivergenceSide`
 
 <!-- reference @evanion/feature#DivergenceSide -->
+
+When comparing decisions made by different environments, the system identifies which side of the comparison is being referenced. `DivergenceSide` represents one of these sides via four members. Because a [`DivergenceReport`](#divergencereport) carries both `shipped` and `local` sides, an observer can read what the server decided beside what the local process decided.
 
 ## `Decision`
 
