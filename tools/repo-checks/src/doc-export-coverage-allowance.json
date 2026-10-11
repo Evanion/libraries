@@ -91,55 +91,5 @@
       "variantSeedOf"
     ],
     "unexplained": ["Condition", "Reason", "ToggleResult"]
-  },
-  "@evanion/react-feature": {
-    "undocumented": [
-      "AnyDecisions",
-      "BaseFieldType",
-      "BoundFeatureProviderProps",
-      "BoundVariant",
-      "ConfigEnvelope",
-      "ConfigIssue",
-      "ConfigIssueCode",
-      "ContextSchema",
-      "DecisionOrigin",
-      "DecisionSet",
-      "DivergenceObserver",
-      "DivergenceReport",
-      "DivergenceSide",
-      "FeatureConfig",
-      "FeatureContext",
-      "FeatureProvider",
-      "FeatureProviderProps",
-      "FeatureSchema",
-      "FeatureShape",
-      "FieldType",
-      "JsonValue",
-      "ReloadResult",
-      "SerializedAttributeCondition",
-      "SerializedCondition",
-      "SerializedDefinition",
-      "SerializedInstant",
-      "SerializedRule",
-      "SerializedVariantSpec",
-      "SerializedWindowCondition",
-      "ValidationResult",
-      "ValueShape",
-      "VersionMismatchPolicy",
-      "createFeatureContext",
-      "useFeature",
-      "useFeatureEnabled",
-      "useFeatures",
-      "useVariant"
-    ],
-    "unexercised": [
-      "FeatureProvider",
-      "createFeatureContext",
-      "useFeature",
-      "useFeatureEnabled",
-      "useFeatures",
-      "useVariant"
-    ],
-    "unexplained": ["FeatureProvider", "FeatureProviderProps"]
   }
 }

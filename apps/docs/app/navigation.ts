@@ -384,7 +384,8 @@ export const packages: readonly DocumentedPackage[] = [
     framework: 'React',
     // One hue for the whole family, the way the rendering family carries `sky`.
     hue: 'amber',
-    documented: false,
+    demo: 'getting-started',
+    documented: true,
     workshop: true,
   },
 ];

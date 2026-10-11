@@ -1,0 +1,74 @@
+# @evanion/react-feature
+
+<WorkshopNotice slug="react-feature" />
+
+A pickup option six components below your checkout shell has to know whether express pickup is on for this customer. If you pass this decision as a prop, every component in between must carry a `features` prop it does not use. `@evanion/react-feature` solves this by holding the resolved decisions above the tree.
+
+`@evanion/react-feature` is the React binding of `@evanion/feature`, the package that holds your feature definitions and decides whether a feature is on for one customer. It provides a way to distribute those decisions across a React component tree without prop-drilling.
+
+<PageSheet
+  difficulty={1}
+  read={5}
+  unlocks={[['Getting started', './getting-started']]}
+/>
+
+## How @evanion/react-feature reaches a nested component
+
+The `@evanion/react-feature` package decides nothing itself; `@evanion/feature` answers every question. The `FeatureProvider` takes the store and the evaluation context once, and hands the decisions to every component under it through React context, React's channel for passing a value down a tree without props:
+
+```mermaid caption="One FeatureProvider holds the store and the evaluation context. CheckoutPage, Summary and Totals pass neither, and PickupOption reads the decision through React context when it calls useFeatureEnabled."
+flowchart TD
+  P["FeatureProvider<br>the store, the context"] --> S["CheckoutPage"]
+  S --> U["Summary"]
+  U --> T["Totals"]
+  T --> E["PickupOption<br>useFeatureEnabled('express-pickup')"]:::accent
+  P -. "React context" .-> E
+```
+
+Baize, a board game shop, runs express pickup behind a flag. To implement this, the component that draws the checkout line asks one hook and names only the feature it asks about:
+
+```tsx twoslash file=libs/react-feature/docs/examples.md region=react-provider
+
+```
+
+`Checkout` passes `'express-pickup'`, the feature's key, and renders one line or the other on what came back. `renderToStaticMarkup` from `react-dom/server` stands in for your framework's server render. The provider is a client component: `'use client'` is a per-module directive, which is why react-feature is a package of its own and why `@evanion/feature` carries no React peer.
+
+The `now` value is included in the context because a rule can hold only inside a time window, such as a promotion that ends at 18:00. By providing one instant to the whole screen via one provider, `@evanion/react-feature` ensures two components cannot read clocks either side of 18:00 and answer two ways on one screen.
+
+## The @evanion/react-feature vocabulary
+
+Every react-feature page uses the terms below. They come from `@evanion/feature`, and react-feature uses them unchanged.
+
+- A **definition** is one feature written down: its key, whether it is enabled, the rules that narrow it and the variants it splits into.
+- A **store** is the object `createFeatures` returns from a set of definitions. These pages always call it `features`.
+- The **evaluation context** is the plain object a decision is made against: `targetingKey`, `now`, and whatever attributes the rules read. It is an argument, and it has nothing to do with React context.
+- A **decision** is what `@evanion/feature` answered for one feature. `enabled` is the answer, `reason` says why, and `variant` and `value` carry the variant the customer was assigned.
+- A **decision set** is the versioned record `features.snapshot(context)` returns: every decision, the config version they were resolved under, and the instant as an ISO 8601 string. A server render hands one to the browser.
+
+## What @evanion/react-feature can do
+
+Each react-feature hook reads the decisions the provider published and returns part of one.
+
+| The screen asks                                     | The hook            | What it reads                        |
+| --------------------------------------------------- | ------------------- | ------------------------------------ |
+| Is this feature on for this customer?               | `useFeatureEnabled` | `decision.enabled`                   |
+| Which variant did they get, and what does it carry? | `useVariant`        | `decision.variant`, `decision.value` |
+| Why did this feature answer that?                   | `useFeature`        | the whole decision                   |
+| What did the provider publish for every feature?    | `useFeatures`       | one decision per key                 |
+
+`useFeature`, `useFeatureEnabled` and `useVariant` throw for a key the provider does not carry, and all four throw outside a `FeatureProvider`. A silent `false` would make a typo indistinguishable from a feature that is off.
+
+To gain type safety, `createFeatureContext` takes a store and returns the same provider and the same four hooks typed by that store's definitions. This ensures a misspelt key is a compile error and the variant a reader switches on is the union that store declares.
+
+## Where @evanion/react-feature stops
+
+The `@evanion/react-feature` package has no part in four places:
+
+- **Server code.** A loader, a route handler or a Server Component calls `features.isEnabled` or `features.resolve` from `@evanion/feature` directly, with the context in hand and no provider above it.
+- **Deciding.** Every rule, rollout share and variant weight is read by `@evanion/feature`. [The feature docs](/feature/) have what a decision is made of.
+- **Serving the configuration.** The library's contract ends at a document your server hands it, so nothing here polls, subscribes or reads a database.
+- **Recording an exposure.** `resolve` decides every configured feature at once, so a record counted from it measures the wrong denominator. The component that renders the variant writes the record.
+
+`@evanion/react-feature` also enforces nothing. A hidden button is still a URL a customer can post to, so the server asks `@evanion/feature` again before it writes.
+
+You now know where the react-feature provider sits, what each hook asks and which package answers it. On [Getting started](./getting-started) you install react-feature, hand it a store and see express pickup turn on for one customer.
