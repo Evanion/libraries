@@ -1538,16 +1538,12 @@ function schemaIssues(config: Checkable): readonly Found[] {
   });
 }
 
-/** The base of a declared type, with the array and optional suffixes stripped. */
-function baseOf(declared: FieldType): { base: string; array: boolean } {
+/** Whether a declared type names an array, past the optional suffix. */
+function declaresArray(declared: FieldType): boolean {
   const withoutOptional = declared.endsWith('?')
     ? declared.slice(0, -1)
     : declared;
-  const array = withoutOptional.endsWith('[]');
-  return {
-    base: array ? withoutOptional.slice(0, -2) : withoutOptional,
-    array,
-  };
+  return withoutOptional.endsWith('[]');
 }
 
 /**
@@ -1560,7 +1556,7 @@ function baseOf(declared: FieldType): { base: string; array: boolean } {
  * read `now` and reach no declared field.
  */
 function operatorFits(op: string, declared: FieldType): boolean {
-  const { array } = baseOf(declared);
+  const array = declaresArray(declared);
   if (op === 'contains') return array;
   return !array;
 }
