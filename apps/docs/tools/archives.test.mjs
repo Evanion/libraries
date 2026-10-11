@@ -670,6 +670,21 @@ describe('the seed question', () => {
     ).toBeNull();
   });
 
+  /** A dry run over several projects also bumps a dependent of one that bumps. */
+  it("reads a project's own commits from a dry run over several projects", () => {
+    expect(
+      dryRunVersion(
+        [
+          '@evanion/luhn ❓ Applied semver relative bump "patch", derived from conventional commits data, to get new version 3.0.1',
+          '@evanion/token 🚫 No changes were detected using git history and the conventional commits standard',
+          '@evanion/token ❓ Applied semver relative bump "patch", because a dependency was bumped, to get new version 0.1.1',
+          '',
+        ].join('\n'),
+        '@evanion/token',
+      ),
+    ).toBeNull();
+  });
+
   /** Under a test runner nx colours the name, so the line starts with an escape. */
   it('reads a dry run nx printed in colour', () => {
     expect(

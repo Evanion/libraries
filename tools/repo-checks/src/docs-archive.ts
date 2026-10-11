@@ -37,6 +37,11 @@
  *   computes from commits `tooling-commit-types.ts` rejects, and from no other
  *   commit, has not changed the package, and does not count.
  *
+ * The last rule needs a dry run, which checks the commit out and builds its
+ * project graph. `pinFaults` holds the rest, and `pinsPastTheirTags` and
+ * `dryRunFaults` hold that one, so a caller runs one dry run per pinned commit
+ * whatever number of pins name it.
+ *
  * The IO is passed in so the rules can be asserted against fixtures. This
  * repository's pins change with every release.
  */
@@ -61,13 +66,6 @@ export interface PinInputs {
   isAncestor: (ancestor: string, descendant: string) => boolean;
   /** The tip of `main`, which every pinned commit is an ancestor of. */
   main: string;
-  /**
-   * The version `nx release version --dry-run` computes for a package with
-   * the tree at a commit, or `null` when it computes no change or every commit
-   * it counts changes only tooling a library depends on (`withoutTooling` in
-   * `apps/docs/tools/seed.mjs`).
-   */
-  dryRunAt: (sha: string, name: string) => string | null;
   /**
    * The line a version belongs to, `v3` or `v0.2`: `segmentOf` from
    * `apps/docs/tools/versions.mjs`, which the generator files lines by.
@@ -178,12 +176,6 @@ export function pinFaults(inputs: PinInputs): string[] {
             faults.push(
               `${at}: pins a commit past its tag and gives no reason`,
             );
-
-          const computed = inputs.dryRunAt(pinned, entry.name);
-          if (computed !== null)
-            faults.push(
-              `${at}: nx release version --dry-run at ${pin.sha} computes ${computed}, not ${pin.version}`,
-            );
         }
       }
 
@@ -201,4 +193,85 @@ export function pinFaults(inputs: PinInputs): string[] {
   }
 
   return faults;
+}
+
+/** A pin naming a commit that is not its tag's. */
+export interface PastTag {
+  /** The pin, as `slug.segment`. */
+  at: string;
+  /** The package. */
+  name: string;
+  /** The commit as the pin spells it. */
+  sha: string;
+  /** The version the pin records. */
+  version: string;
+}
+
+/**
+ * The pins whose commit exists and is not their tag's, by that commit.
+ * `pinFaults` reports a pin naming no package, a workshop package, or a tag or
+ * commit the repository lacks, so none of those is listed.
+ */
+export function pinsPastTheirTags(
+  inputs: Pick<PinInputs, 'pins' | 'packages' | 'commit'>,
+): Map<string, PastTag[]> {
+  const past = new Map<string, PastTag[]>();
+
+  for (const [slug, lines] of Object.entries(inputs.pins)) {
+    const entry = inputs.packages.find((each) => each.slug === slug);
+    if (!entry || entry.workshop) continue;
+
+    for (const [segment, pin] of Object.entries(lines)) {
+      if (pin.sha === undefined) continue;
+      const tagged = inputs.commit(pin.tag);
+      const pinned = inputs.commit(pin.sha);
+      if (!tagged || !pinned || pinned === tagged) continue;
+
+      past.set(pinned, [
+        ...(past.get(pinned) ?? []),
+        {
+          at: `${slug}.${segment}`,
+          name: entry.name,
+          sha: pin.sha,
+          version: pin.version,
+        },
+      ]);
+    }
+  }
+
+  return past;
+}
+
+/**
+ * Every pin at `commit` whose package a dry run there computes a change for,
+ * as one line each.
+ *
+ * `dryRun` is asked once, for every package `past` names. It answers with the
+ * version `nx release version --dry-run` computes for each with the tree at
+ * the commit, or `null` when it computes no change or every commit it counts
+ * changes only tooling a library depends on (`releasesAt` and
+ * `withoutTooling` in `apps/docs/tools/seed.mjs`).
+ */
+export function dryRunFaults(
+  commit: string,
+  past: readonly PastTag[],
+  dryRun: (
+    commit: string,
+    names: readonly string[],
+  ) => ReadonlyMap<string, string | null>,
+): string[] {
+  const computed = dryRun(commit, [...new Set(past.map((pin) => pin.name))]);
+
+  return past.flatMap((pin) => {
+    const version = computed.get(pin.name);
+    if (version === undefined)
+      return [
+        `${pin.at}: the dry run at ${pin.sha} said nothing about ${pin.name}`,
+      ];
+    return version === null
+      ? []
+      : [
+          `${pin.at}: nx release version --dry-run at ${pin.sha} computes ${version}, not ${pin.version}`,
+        ];
+  });
 }
