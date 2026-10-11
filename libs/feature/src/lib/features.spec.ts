@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { inRollout } from './bucketing.js';
 import { configDigest } from './digest.js';
 import {
   DuplicateFeatureError,
@@ -9,6 +10,7 @@ import {
   UnknownVariantError,
 } from './errors.js';
 import { createFeatures, type Definitions } from './features.js';
+import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 import { serializeConfig } from './serialize.js';
 import { validateConfig } from './validate.js';
 import type { FeatureConfig } from './config.js';
@@ -768,6 +770,99 @@ describe('precedence', () => {
     );
 
     expect(differing.length).toBeGreaterThan(0);
+  });
+
+  it('takes the bucketing seed off the feature before the key', () => {
+    // `rule.rollout.seed ?? definition.seed ?? key` is the precedence the
+    // reference page states. Two features carrying one feature-level seed and
+    // declaring no rollout seed ramp one cohort, and the keys they carry decide
+    // nothing. Only the middle level of the precedence produces this.
+    const ramp = (key: 'express-pickup' | 'gift-cards', seed?: string) =>
+      createFeatures([
+        { key, enabled: true, seed, rules: [{ rollout: { percent: 25 } }] },
+      ]);
+    const pickup = ramp('express-pickup', 'autumn-sale');
+    const giftCards = ramp('gift-cards', 'autumn-sale');
+    const keyed = ramp('express-pickup');
+    const shoppers = Array.from({ length: 200 }, (_, i) => `cust-${String(i)}`);
+
+    for (const targetingKey of shoppers) {
+      expect(pickup.isEnabled('express-pickup', { targetingKey })).toBe(
+        giftCards.isEnabled('gift-cards', { targetingKey }),
+      );
+    }
+    expect(
+      shoppers.filter(
+        (targetingKey) =>
+          pickup.isEnabled('express-pickup', { targetingKey }) !==
+          keyed.isEnabled('express-pickup', { targetingKey }),
+      ).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('lets a rollout seed override the feature seed', () => {
+    // The top of the precedence. Two features whose feature-level seeds differ
+    // ramp one cohort once each rule names the same rollout seed, so the rule
+    // is read and the member beneath it is not.
+    const ramp = (
+      key: 'express-pickup' | 'gift-cards',
+      seed: string,
+      rolloutSeed: string,
+    ) =>
+      createFeatures([
+        {
+          key,
+          enabled: true,
+          seed,
+          rules: [{ rollout: { percent: 25, seed: rolloutSeed } }],
+        },
+      ]);
+    const pickup = ramp('express-pickup', 'autumn-sale', 'winter-sale');
+    const giftCards = ramp('gift-cards', 'spring-sale', 'winter-sale');
+
+    for (let i = 0; i < 200; i += 1) {
+      const targetingKey = `cust-${String(i)}`;
+      expect(pickup.isEnabled('express-pickup', { targetingKey })).toBe(
+        giftCards.isEnabled('gift-cards', { targetingKey }),
+      );
+    }
+  });
+
+  it('buckets a rollout and a variant on the field DEFAULT_ROLLOUT_FIELD names', () => {
+    // The constant is the one place either default is written, and the
+    // reference page states it for both paths. Keyed off the constant, so a
+    // rename moves this case with it, and a context naming another field
+    // reaches the refusal and the control.
+    const ramp = createFeatures([
+      {
+        key: 'express-pickup',
+        enabled: true,
+        rules: [{ rollout: { percent: 25 } }],
+      },
+    ]);
+    const split = createFeatures([
+      {
+        key: 'checkout-cta',
+        enabled: true,
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+      },
+    ]);
+    const named = { [DEFAULT_ROLLOUT_FIELD]: 'cust-0101' };
+    const elsewhere = { shopperId: 'cust-0101' };
+
+    expect(ramp.isEnabled('express-pickup', named)).toBe(
+      inRollout('cust-0101', 25, 'express-pickup'),
+    );
+    expect(ramp.isEnabled('express-pickup', elsewhere)).toBe(false);
+    expect(
+      split.variantOf('checkout-cta', { [DEFAULT_ROLLOUT_FIELD]: 'user-2' }),
+    ).toBe('blue');
+    expect(split.variantOf('checkout-cta', { shopperId: 'user-2' })).toBe(
+      'control',
+    );
   });
 
   it('correlates two features deliberately when they share an explicit seed', () => {
