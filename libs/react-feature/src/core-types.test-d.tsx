@@ -16,8 +16,9 @@ import type {
   Schema as CoreSchema,
   VariantInfo as CoreVariantInfo,
 } from '@evanion/feature';
-import { createFeatureContext, FeatureProvider } from './index.js';
+import { createFeatureContext, FeatureProvider, useFeature } from './index.js';
 import type {
+  AnyDecisions,
   BoundFeatureProviderProps,
   Decision,
   DecisionOrigin,
@@ -204,6 +205,35 @@ describe('the eight, at their parameters', () => {
       targetingKey: string;
       tier: 'gold';
     }>().toMatchTypeOf<EvaluationContext>();
+  });
+});
+
+/**
+ * The erased decision the shared hooks answer.
+ *
+ * `apps/docs/content/next/react-feature/api.mdx` states under `Decision` that
+ * the hook answers `Decision<FeatureKey>` and that the bare `Decision` is a
+ * different type. The parameter defaults to `string` while the constraint
+ * admits a number, so the wider form does not assign to the narrower and a
+ * reader who annotates with the bare name gets `TS2322`.
+ */
+describe('the decision the shared hooks answer', () => {
+  it("is the core's Decision at FeatureKey, which useFeature returns", () => {
+    expectTypeOf<ReturnType<typeof useFeature>>().toEqualTypeOf<
+      CoreDecision<CoreFeatureKey>
+    >();
+  });
+
+  it('is not the bare Decision, whose key parameter defaults to string', () => {
+    expectTypeOf<
+      CoreDecision<CoreFeatureKey> extends CoreDecision ? true : false
+    >().toEqualTypeOf<false>();
+  });
+
+  it('is what AnyDecisions holds one of per key', () => {
+    expectTypeOf<AnyDecisions[CoreFeatureKey]>().toEqualTypeOf<
+      CoreDecision<CoreFeatureKey>
+    >();
   });
 });
 
