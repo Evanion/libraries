@@ -67,8 +67,8 @@ features.isEnabled('express-pickup', customer); // -> false
 - 🌈 **Weighted Variants**: Split your users across different versions of a feature (A/B testing) with relative weights.
 - ⏰ **Temporal Boundaries**: Gate features behind ISO 8601 time windows (e.g., "Enable this on Jan 1st at 00:00 UTC").
 - 🎯 **Contextual Targeting**: Resolve features based on any context field (roles, regions, plan levels).
-- 🪶 **Framework-Agnostic Core**: Use the same logic in your API, your build scripts, or via the `@evanion/feature/react` provider.
-- 📦 **Compatibility**: The package is ESM only and needs Node 20 or newer. The core has no dependencies and imports no framework; `@evanion/feature/react` needs React 18 or 19, an optional peer dependency.
+- 🪶 **Framework-Agnostic Core**: You can use the same logic across your API, build scripts, or CLI because the core imports no framework. React bindings live in their own package, `@evanion/react-feature`, which takes a store this core built.
+- 📦 **Compatibility**: The package is ESM only and needs Node 20 or newer. It adds nothing to your install beyond itself, as it has no dependencies and no peer dependencies.
 
 ## Installation
 
