@@ -9,6 +9,7 @@ import {
   DeclarationError,
   readReference,
 } from '@evanion/doc-examples/declarations';
+import type { ExportKind } from '@evanion/doc-examples/declarations';
 import { expandReferences } from '@evanion/doc-examples/mdx-reference-loader';
 import { authoredPages } from './docs-content';
 
@@ -32,14 +33,14 @@ function read(_root: string, specifier: string, name: string) {
   return {
     name,
     specifier,
-    kind: 'function' as const,
+    kind: 'function' as ExportKind,
     signature: {
       text: 'function widen(value: string): number;',
       merges: true,
       values: ['widen'],
       types: ['Widened'],
       fromRoot: [],
-      external: [],
+      external: [] as [specifier: string, names: string[]][],
       prelude: [],
     },
     rootSpecifier: specifier,
@@ -49,6 +50,38 @@ function read(_root: string, specifier: string, name: string) {
     declaration: '/nowhere/index.d.ts',
     examples: 'libs/acl/docs/examples.md',
   };
+}
+
+/** The stub, with one field answered differently. */
+type Reader = typeof read;
+
+function readAs(overrides: {
+  external?: [specifier: string, names: string[]][];
+  examples?: string;
+  kind?: ExportKind;
+}): Reader {
+  return (root, specifier, name) => {
+    const found = read(root, specifier, name);
+
+    return {
+      ...found,
+      kind: overrides.kind ?? found.kind,
+      examples: overrides.examples ?? found.examples,
+      signature: {
+        ...found.signature,
+        external: overrides.external ?? found.signature.external,
+      },
+    };
+  };
+}
+
+/** Every fence's info string in an expanded entry, in the order they appear. */
+function fenceInfos(out: string): string[] {
+  return out
+    .split('\n')
+    .filter((line) => line.startsWith('```'))
+    .map((line) => line.slice(3))
+    .filter(Boolean);
 }
 
 describe('reading an export off its declarations', () => {
@@ -121,6 +154,41 @@ describe('reading an export off its declarations', () => {
       '`ReactNode` belongs to `react`, so importing it from the documented ' +
         'specifier would name an export the package does not have.',
     ).not.toContain('ReactNode');
+  });
+
+  it('keeps a name the entry publishes on the documented specifier', () => {
+    const found = readReference(
+      workspaceRoot,
+      '@evanion/react-feature',
+      'FeatureProviderProps',
+    );
+
+    expect(
+      found.signature?.types,
+      '`VersionMismatchPolicy` is declared in `src/hydrate.ts` and published ' +
+        'by the entry, so the entry is where a reader imports it from. The ' +
+        'external branch would name `./hydrate.js`, which resolves to nothing ' +
+        'outside the package.',
+    ).toContain('VersionMismatchPolicy');
+    expect(
+      (found.signature?.external ?? []).map(([specifier]) => specifier),
+    ).not.toContain('./hydrate.js');
+  });
+
+  it('imports the external type of a second binding the same way', () => {
+    const found = readReference(
+      workspaceRoot,
+      '@evanion/react-acl',
+      'PolicyProviderProps',
+    );
+
+    expect(
+      found.signature?.external,
+      'The rule is about a declaration file importing from another package ' +
+        'and not about one package. Every framework binding here imports its ' +
+        "framework's types, so the second one answers whether the first was " +
+        'a special case.',
+    ).toEqual([['react', ['ReactNode']]]);
   });
 
   it('refuses a name the package does not export', () => {
@@ -206,6 +274,50 @@ describe('expanding a reference directive', () => {
     ).toEqual(['ts twoslash']);
   });
 
+  it('imports an external type from the package the declaration took it from', () => {
+    const out = expandReferences(
+      '## `widen`\n\n<!-- reference @evanion/acl#widen -->\n',
+      workspaceRoot,
+      page,
+      readAs({ external: [['react', ['ReactNode']]] }),
+    );
+
+    expect(out).toContain("import type { ReactNode } from 'react';");
+    expect(
+      out,
+      'Importing it from the documented specifier would name an export the ' +
+        'package does not have, and the fence would fail the build.',
+    ).not.toContain("import type { ReactNode } from '@evanion/acl';");
+  });
+
+  it('writes one import line per external package, with its names on it', () => {
+    const out = expandReferences(
+      '## `widen`\n\n<!-- reference @evanion/acl#widen -->\n',
+      workspaceRoot,
+      page,
+      readAs({
+        external: [
+          ['react', ['ReactElement', 'ReactNode']],
+          ['@evanion/feature', ['Features']],
+        ],
+      }),
+    );
+    const imports = out
+      .split('\n')
+      .filter((line) => line.startsWith('import type {'));
+
+    expect(
+      imports,
+      'A prettier-wrapped multi-line import inside a fence fails with ' +
+        '"Cannot use import statement outside a module", so each package ' +
+        'gets one line and the names go on it.',
+    ).toEqual([
+      "import type { Widened } from '@evanion/acl';",
+      "import type { ReactElement, ReactNode } from 'react';",
+      "import type { Features } from '@evanion/feature';",
+    ]);
+  });
+
   it('refuses a directive with no heading above it', () => {
     expect(() =>
       expandReferences(
@@ -215,6 +327,55 @@ describe('expanding a reference directive', () => {
         read,
       ),
     ).toThrow(/has no heading above it/);
+  });
+
+  it('gives an example fence the language its region was written in', () => {
+    const tsRegion = expandReferences(
+      '## `widen`\n\n<!-- reference @evanion/acl#widen example=first-policy -->\n',
+      workspaceRoot,
+      page,
+      read,
+    );
+    const tsxRegion = expandReferences(
+      '## `widen`\n\n<!-- reference @evanion/acl#widen example=react-provider -->\n',
+      workspaceRoot,
+      page,
+      readAs({
+        examples: 'libs/react-feature/docs/examples.md',
+        kind: 'interface',
+      }),
+    );
+
+    expect(
+      fenceInfos(tsRegion),
+      'The signature fence is always `ts`. The example fence is the ' +
+        "region's own language.",
+    ).toEqual(['ts twoslash', 'ts twoslash']);
+    expect(
+      fenceInfos(tsxRegion),
+      'A `tsx` region compiled as `ts` reports every tag as an unterminated ' +
+        'regular expression, so a React package would fail `next build` on ' +
+        'the first entry carrying an example.',
+    ).toEqual(['ts twoslash', 'tsx twoslash']);
+  });
+
+  it('writes the language once, whatever the region fence carried', () => {
+    const out = expandReferences(
+      '## `widen`\n\n<!-- reference @evanion/acl#widen example=react-provider -->\n',
+      workspaceRoot,
+      page,
+      readAs({
+        examples: 'libs/react-feature/docs/examples.md',
+        kind: 'interface',
+      }),
+    );
+
+    expect(
+      fenceInfos(out).filter((info) => /twoslash.*twoslash/.test(info)),
+      'Nextra matches the meta string exactly. A region whose own fence ' +
+        'already carried the word would otherwise reach the page as ' +
+        '`tsx twoslash twoslash` and block the import the page needs.',
+    ).toEqual([]);
   });
 
   it('refuses a named region the README does not carry', () => {
