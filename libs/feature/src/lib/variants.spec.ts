@@ -644,6 +644,16 @@ describe('assignVariant', () => {
       expect(assignedNames([0, 0])).toEqual(new Set(['v1']));
     });
 
+    it('hands every subject the first-ordered variant for a negative weight that cancels the total', () => {
+      // The total is zero without the set being all zeros, so the first band
+      // divides a positive weight by zero and takes every bucket. The sign of
+      // the first non-zero weight decides it: `[-10, 10]` leaves the ceiling
+      // at -Infinity, the next addition makes it NaN, and the loop falls out
+      // to the last variant the way an all-zero set does.
+      expect(assignedNames([10, -10])).toEqual(new Set(['v0']));
+      expect(assignedNames([-10, 10])).toEqual(new Set(['v1']));
+    });
+
     it('answers a negative weight from the position the weight sits in', () => {
       // `assignWeighted` sums the weights, so a negative one shrinks the total
       // rather than making it NaN, and some band's ceiling passes 1 and

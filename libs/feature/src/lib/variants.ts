@@ -556,17 +556,29 @@ export interface VariantAssignment {
  * would have refused throws here, and the answer each one gives is
  * deterministic and wrong.
  *
- * A non-finite weight, or a set summing to zero, leaves every band width
- * `NaN`. Every comparison against `NaN` is false, so `assignWeighted` falls
- * out of its loop and returns the last-ordered variant for every bucket,
- * wherever in the set the bad weight sits.
+ * A non-finite weight poisons the total. `assignWeighted` sums every weight,
+ * so one `Infinity` makes the total `Infinity` and that variant's own band
+ * `Infinity / Infinity`, which is `NaN`; a `NaN` weight reaches `NaN`
+ * directly. `ceiling` never recovers from one, every comparison against it is
+ * false, and the loop falls out and returns the last-ordered variant for every
+ * bucket, wherever in the set the bad weight sits.
  *
- * A negative weight is the different one. `assignWeighted` sums the weights,
- * so a negative one shrinks the total rather than poisoning it, and some
- * band's ceiling then passes 1 and swallows every bucket below it. Which band
- * that is moves with the negative weight's position: `[-10, 50]` hands every
- * subject the second variant, `[50, -10]` hands every subject the first, and
+ * A set weighted entirely zero divides `0` by `0` for every band and reaches
+ * that same fall-out and that same last-ordered answer.
+ *
+ * A negative weight shrinks the total rather than poisoning it, so some band's
+ * ceiling passes 1 and swallows every bucket below it. Which band that is
+ * moves with the negative weight's position: `[-10, 50]` hands every subject
+ * the second variant, `[50, -10]` hands every subject the first, and
  * `[50, -10, 20]` splits them between the first and the third.
+ *
+ * A negative weight that cancels the positives exactly sums to zero without
+ * the set being all zeros, and the first non-zero band then divides by zero.
+ * The sign decides the answer. A positive weight there gives `Infinity` and
+ * takes every bucket, so `[10, -10]` hands every subject the first variant. A
+ * negative one gives `-Infinity`, the next addition makes the ceiling `NaN`,
+ * and the loop falls out to the last, so `[-10, 10]` hands every subject the
+ * second.
  *
  * Two variants sharing an `order` never throw either; `bucketingOrder` sorts
  * on the position and nothing separates a tie, so the first one declared keeps
