@@ -843,6 +843,36 @@ features.resolve({ targetingKey: 'user-2' })['checkout-cta']; // -> { key: 'chec
 
 <!-- #endregion variant-off -->
 
+<!-- #region variant-primitives -->
+
+```ts @import.meta.vitest
+import { assignVariant, murmur3, variantSeedOf } from '@evanion/feature';
+import type { FeatureDefinition } from '@evanion/feature';
+
+const checkoutCta: FeatureDefinition = {
+  key: 'checkout-cta',
+  enabled: true,
+  variants: [
+    { name: 'control', weight: 50 },
+    { name: 'blue', weight: 50 },
+  ],
+};
+
+variantSeedOf(checkoutCta); // -> 'checkout-cta:variant'
+
+assignVariant(checkoutCta, { targetingKey: 'user-1' }); // -> { variant: { name: 'control', weight: 50 }, source: 'weighted', by: 'targetingKey', bucket: 0.17582221026532352 }
+assignVariant(checkoutCta, { targetingKey: 'user-2' }); // -> { variant: { name: 'blue', weight: 50 }, source: 'weighted', by: 'targetingKey', bucket: 0.7602026120293885 }
+
+// The context carries no `targetingKey`, so the control answers and the
+// assignment reports no bucket.
+assignVariant(checkoutCta, {}); // -> { variant: { name: 'control', weight: 50 }, source: 'fallback', by: 'targetingKey' }
+
+murmur3('checkout-cta:variant'); // -> 70980636
+murmur3('checkout-cta:variant', 1); // -> 2365933763
+```
+
+<!-- #endregion variant-primitives -->
+
 ## Build-time Planning
 
 <!-- #region plan -->
