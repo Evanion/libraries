@@ -822,7 +822,7 @@ A `Date` is taken as the instant it holds and is read no further, so `new Date('
 
 <!-- reference @evanion/feature#FeatureSchema -->
 
-To define the typing contract of a document, you use the `schema` member, which is typed by `FeatureSchema`. This contract consists of two halves, each with its own vocabulary. The `context.fields` member declares the fields a condition may read and is typed by `ContextSchema`. Conversely, `features[key].variants[name]` declares the shape of a variant's value and is typed by `ValueShape`. [Distribution](../distribution#the-schemas-two-vocabularies) walks a document carrying both.
+To define the typing contract of a document, you use the `schema` member, which is typed by `FeatureSchema`. This contract consists of two halves, each with its own vocabulary. The `context` member declares the fields a condition may read and is typed by `ContextSchema`. Conversely, `features[key].variants[name]` declares the shape of a variant's value and is typed by `ValueShape`. [Distribution](../distribution#the-schemas-two-vocabularies) walks a document carrying both.
 
 The `@evanion/feature` engine treats these two vocabularies differently. When the engine reads a context field, it compares it with a closed operator set and checks it against the declared type during validation. However, the engine reads no variant value at all; instead, `valueOf` hands the value to the caller untouched.
 
@@ -832,7 +832,7 @@ If a document carries neither `schema` nor `schemaVersion`, it declares no shape
 
 <!-- reference @evanion/feature#ContextSchema -->
 
-To manage the available context fields in `@evanion/feature`, you use `ContextSchema`, where `fields` maps a context field's name to its `FieldType`. The `validateConfig` function reads this map twice over. If a condition is used over a field that the map omits, it reports `unknown-context-field`. If an operator is used that the declared type has no meaning for, it reports `field-type-mismatch`. For example, using `contains` over a field declared `boolean` asks whether a boolean holds a value, which `evaluateCondition` answers `false` for every subject. A document declaring no context fields declares no contract, and neither check runs.
+To manage the available context fields in `@evanion/feature`, you use `ContextSchema`, where `fields` maps a context field's name to its `FieldType`. The `validateConfig` function reads this map twice over. If a condition is used over a field that the map omits, it reports `unknown-context-field`. If an operator is used that the declared type has no meaning for, it reports `field-type-mismatch`. For example, using `contains` over a field declared `boolean` asks whether a boolean holds a value, which `evaluateCondition` answers `false` for every subject. A document whose schema omits `context.fields` declares no contract, and neither check runs. An empty map declares zero fields, so a condition over any field reports `unknown-context-field`.
 
 ## `FieldType`
 
