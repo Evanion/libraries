@@ -1535,7 +1535,9 @@ const SALE = [
   {
     key: 'sale',
     enabled: true,
-    rules: [{ when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }] }],
+    rules: [
+      { when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }] },
+    ],
   },
 ] as const;
 ```
@@ -1618,8 +1620,14 @@ Nothing asserts the half that makes the RSC pattern possible. `libs/react-featur
 
 ```ts
 // @evanion/feature, the built entry point
-export function createFeatures<const D extends Definitions>(definitions: D): Features<AsSchema<InferSchema<D>>>;
-export function adoptDecisions<F extends FeatureKey>(features: Features<Record<F, VariantInfo>>, set: DecisionSet<Record<F, VariantInfo>>, options?: AdoptOptions<F>): Decisions<F>;
+export function createFeatures<const D extends Definitions>(
+  definitions: D,
+): Features<AsSchema<InferSchema<D>>>;
+export function adoptDecisions<F extends FeatureKey>(
+  features: Features<Record<F, VariantInfo>>,
+  set: DecisionSet<Record<F, VariantInfo>>,
+  options?: AdoptOptions<F>,
+): Decisions<F>;
 ```
 
 **Interfaces produced:** none. This task adds a test and no export.
@@ -1666,7 +1674,6 @@ it('builds a store, resolves, and adopts a set with no React on the path', () =>
 - [ ] Check with `npx nx run-many -t lint test typecheck -p feature`. The test needs `@evanion/feature` and `@evanion/react-feature` built, so confirm `nx.json` or the project's `test` target already depends on `^build`; `libs/compose`'s does, which is why its own test can read `dist`.
 
 - [ ] Commit.
-
 
 ## Task 18: Getting started, extended, and the four bands
 
