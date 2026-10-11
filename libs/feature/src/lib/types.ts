@@ -48,6 +48,15 @@ export interface AttributeCondition {
   value: unknown;
 }
 
+/**
+ * One check a rule makes: a window over `now`, a day of week in a named zone,
+ * or a context attribute compared against a literal. The union is closed
+ * because `evaluateCondition` dispatches on `op` and `validateConfig` holds a
+ * serialized rule to these three shapes, so a fourth member changes the wire
+ * format and every consumer that walks a rule. A caller who needs a check of
+ * their own puts the value on the context and writes an `AttributeCondition`
+ * over it.
+ */
 export type Condition =
   WindowCondition | DayOfWeekCondition | AttributeCondition;
 

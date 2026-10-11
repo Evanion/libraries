@@ -1622,3 +1622,56 @@ ruleFields(weekendMembers); // -> ['customerId', 'now', 'tier']
 ```
 
 <!-- #endregion rule-fields -->
+
+## Evaluating One Condition
+
+<!-- #region evaluate-condition -->
+
+```ts @import.meta.vitest
+import { evaluateCondition } from '@evanion/feature';
+import type {
+  AttributeCondition,
+  DayOfWeekCondition,
+  EvaluationContext,
+  WindowCondition,
+} from '@evanion/feature';
+
+const founderTier: AttributeCondition = {
+  field: 'tier',
+  op: 'in',
+  value: ['member', 'founder'],
+};
+
+const beforeLaunch: WindowCondition = {
+  field: 'now',
+  op: 'before',
+  value: '2026-03-01T00:00:00Z',
+};
+
+const tabletopNight: DayOfWeekCondition = {
+  field: 'now',
+  op: 'day-of-week',
+  zone: 'Europe/Stockholm',
+  value: ['wed'],
+};
+
+const context: EvaluationContext = {
+  tier: 'founder',
+  now: new Date('2026-02-25T18:00:00Z'),
+};
+
+evaluateCondition(founderTier, context); // -> true
+evaluateCondition(beforeLaunch, context); // -> true
+evaluateCondition(tabletopNight, context); // -> true
+
+// The zone decides the day. This instant is Wednesday in UTC and Thursday in
+// Stockholm, which is the zone the condition names.
+const lateWednesday: EvaluationContext = {
+  tier: 'founder',
+  now: new Date('2026-02-25T23:30:00Z'),
+};
+
+evaluateCondition(tabletopNight, lateWednesday); // -> false
+```
+
+<!-- #endregion evaluate-condition -->
