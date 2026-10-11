@@ -2,7 +2,7 @@
 
 <WorkshopNotice slug="feature" />
 
-`FeatureProvider` from `@evanion/feature/react` hands resolved decisions to every component below it, and four hooks read them, so no component takes a `features` prop passed down through every level of the tree.
+`FeatureProvider` from `@evanion/react-feature` hands resolved decisions to every component below it, and four hooks read them, so no component takes a `features` prop passed down through every level of the tree.
 
 <PageSheet
   difficulty={2}
@@ -14,7 +14,7 @@
 
 ## `FeatureProvider`: Wrapping Your Tree
 
-The `FeatureProvider` from `@evanion/feature/react` wraps your application (or a specific subtree). It takes `features`, the store, plus either a `context` it resolves or a `decisions` record resolved elsewhere. React is an optional peer dependency, so an application that uses only the core does not install it.
+The `FeatureProvider` from `@evanion/react-feature` wraps your application (or a specific subtree). It takes `features`, the store, plus either a `context` it resolves or a `decisions` record resolved elsewhere. React is a peer dependency of `@evanion/react-feature`, so an application that uses only the core installs neither.
 
 ```tsx twoslash file=libs/react-feature/docs/examples.md region=react-provider
 
@@ -34,7 +34,7 @@ Leaving `now` out of the context means "the clock at the moment this context was
 
 ## Accessing Features via Hooks
 
-Once wrapped in an `@evanion/feature/react` provider, any component can access feature flags using one of four hooks:
+Once wrapped in an `@evanion/react-feature` provider, any component can access feature flags using one of four hooks:
 
 | Hook                     | Returns                    | Use Case                                                          |
 | :----------------------- | :------------------------- | :---------------------------------------------------------------- |
@@ -55,7 +55,7 @@ Unlike `isEnabled()`, the `useFeature`, `useFeatureEnabled` and `useVariant` hoo
 
 ## Handing the Provider a Resolved Record
 
-The `decisions` prop of `@evanion/feature/react`'s `FeatureProvider` is the way to handle server-side resolution: the server resolves the flags and sends the resulting decisions as a prop, and the client provider uses them as they are without re-resolving.
+The `decisions` prop of `@evanion/react-feature`'s `FeatureProvider` is the way to handle server-side resolution: the server resolves the flags and sends the resulting decisions as a prop, and the client provider uses them as they are without re-resolving.
 
 The provider resolves nothing beside a supplied record, so every key a component reads has to be in it. The compiler refuses a record whose type lacks a key, and a record that arrived as JSON reaches the provider unchecked. `attempt` is the helper from the fence above:
 
@@ -65,7 +65,7 @@ The provider resolves nothing beside a supplied record, so every key a component
 
 ## Type-Safe Hooks with `createFeatureContext`
 
-To avoid using string literals for keys and to get full TypeScript autocomplete for variants, you can bind the `@evanion/feature/react` hooks to your specific feature store.
+To avoid using string literals for keys and to get full TypeScript autocomplete for variants, you can bind the `@evanion/react-feature` hooks to your specific feature store.
 
 ```tsx twoslash file=libs/react-feature/docs/examples.md region=react-bound
 
@@ -75,7 +75,7 @@ By using a bound context, `useVariant('checkout-cta')` is checked against the ke
 
 ## Server Components and the Client Boundary
 
-Because `FeatureProvider` uses `createContext` and `useMemo`, it must be a Client Component (`'use client'`), so `@evanion/feature/react` is a separate entry point. However, the `@evanion/feature` core is not client code.
+Because `FeatureProvider` uses `createContext` and `useMemo`, it must be a Client Component (`'use client'`), so `@evanion/react-feature` is a separate package. However, the `@evanion/feature` core is not client code.
 
 The recommended pattern for Next.js/RSC is to resolve the flags in a Server Component and pass the decisions down. `Checkout` is the component above, and express pickup here reaches 25% of customers:
 
