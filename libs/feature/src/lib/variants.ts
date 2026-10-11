@@ -571,8 +571,8 @@ export function assignVariant<F extends FeatureKey>(
   const stickyVariants = context.stickyVariants;
   // A bare index walks the prototype chain, so a feature keyed `constructor`
   // or `toString` reads a function off `Object.prototype` when no entry is
-  // stored. `useFeature` in react/index.tsx guards the same read the same
-  // way.
+  // stored. `useFeature` in `@evanion/react-feature` guards the same read
+  // the same way.
   const stored =
     stickyVariants && Object.prototype.hasOwnProperty.call(stickyVariants, key)
       ? stickyVariants[key]
