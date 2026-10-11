@@ -160,7 +160,7 @@ The party performing the fetch is responsible for acting on this value. Your pol
 
 ## The Schema's Two Vocabularies
 
-A `@evanion/feature` document defines its typing contract in `schema`, using two different notations for two different purposes. The engine reads a context field, compares it with a closed operator set, and checks it against the declared type at validation; it reads no variant value at all.
+To establish a typing contract for a `@evanion/feature` document, you define its `schema` using two distinct notations tailored to specific purposes. When handling a context field, the engine ensures the field is declared in the schema and verifies that the condition's operator matches the `[]` suffix of the declared type, though it does not compare the condition value against the declared base name. In contrast, for a variant value, the engine reads nothing at all.
 
 `schema.context.fields` maps a field name to a flat `FieldType` string (`'string'`, `'number'`, `'boolean'`, or `'instant'`). These may include `[]` for arrays or `?` for optional fields. This structure allows a producer in any language to emit the schema via reflection.
 
