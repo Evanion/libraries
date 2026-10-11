@@ -64,8 +64,9 @@ export type Condition =
  * A percentage rollout.
  *
  * `by` names the context field to bucket on, defaulting to `targetingKey`.
- * `seed` overrides the bucketing seed, which otherwise is the feature key --
- * the defaulting that decorrelates a user's bucket across features. Override it
+ * `seed` overrides the bucketing seed, which otherwise is the definition's own
+ * `seed` and the feature key when it names neither -- the defaulting that
+ * decorrelates a user's bucket across features. Override it
  * only to deliberately correlate two features, e.g. to keep a pair of flags
  * rolling out to the same cohort.
  */
