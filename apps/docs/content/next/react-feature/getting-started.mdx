@@ -1,0 +1,134 @@
+# Getting started
+
+By the end of this page a `FeatureProvider` publishes one store's decisions, and
+a component under it renders the express pickup line for one customer without
+taking a prop.
+
+<WorkshopNotice slug="react-feature" />
+
+<PageSheet
+  difficulty={2}
+  read={9}
+  hands={20}
+  requires={[
+    ['Overview', '../'],
+    ['Getting started with feature', '/feature/getting-started'],
+  ]}
+  unlocks={[['API reference', '../api']]}
+/>
+
+## Before you install @evanion/react-feature
+
+To start using `@evanion/react-feature`, ensure your environment meets these requirements:
+
+- React 18 or 19, the package's only peer dependency, and `react-dom`.
+- Node 20 or newer and an ESM project, since `@evanion/react-feature` has no
+  CommonJS build.
+- A store built with `createFeatures` from `@evanion/feature`.
+  [Getting started with feature](/feature/getting-started) writes a first one.
+- A targeting key your application already resolves: the signed-in customer's
+  id, as a string.
+
+## Installing @evanion/react-feature
+
+Install `@evanion/react-feature` and `@evanion/feature`, the package it reads the
+decisions from, with the line for your package manager.
+
+```bash
+npm install @evanion/react-feature @evanion/feature
+```
+
+```bash
+yarn add @evanion/react-feature @evanion/feature
+```
+
+```bash
+pnpm add @evanion/react-feature @evanion/feature
+```
+
+## How to mount FeatureProvider over your store
+
+To provide feature decisions to your component tree, you mount the `FeatureProvider`. In `@evanion/react-feature`, the `FeatureProvider` takes two props to start with: `features` is the store, and `context` is the evaluation context every rule in it is read against (including the customer's `targetingKey` and `now`, the instant time windows are read at).
+
+In the example below, `Checkout` calls `useFeatureEnabled` and takes no props, and `renderToStaticMarkup` from `react-dom/server` stands in for your framework's server render:
+
+```tsx twoslash file=libs/react-feature/docs/examples.md region=react-provider
+
+```
+
+The `// ->` comment is the HTML the line above it returns. Render the same tree
+from your own server, and `@evanion/react-feature` is working in your project when the
+markup matches.
+
+`'use client'` belongs on the module that mounts the provider in a React Server
+Components app such as Next.js, because `FeatureProvider` holds React context
+and `useMemo`. Other React apps ignore the line.
+
+## How to keep the context's identity stable
+
+Because `FeatureProvider` memoises resolution on the identity of the `context` object, a literal written inline is a new object on every render and re-resolves the whole store each pass. To avoid this, hold the context in a `useMemo` keyed on the values it carries:
+
+```tsx twoslash file=libs/react-feature/docs/examples.md region=react-memo
+
+```
+
+Leaving `now` out means "the clock at the moment this context was first
+resolved". A tree that has to agree with a server render passes `now`
+explicitly, with the instant the server used.
+
+## How to handle keys @evanion/react-feature does not carry
+
+To prevent typos from being indistinguishable from a feature that is off, `useFeature`, `useFeatureEnabled` and `useVariant` throw for a key the provider
+does not publish, and the message names the key and the provider. You can use `attempt` to render an element and return the error message when the render throws:
+
+```tsx twoslash file=libs/react-feature/docs/examples.md region=react-strict-key
+
+```
+
+`features.isEnabled` is the other half: the store's own keys are checked at
+compile time, so the misspelling fails before anything runs.
+
+## How to bind the hooks to one store's keys
+
+The basic hooks read a shared context which holds one `Decision<FeatureKey>` per key, meaning `variant` is a `string` and `value` is `unknown`. To get type safety, you can use `createFeatureContext`, which takes a store and returns a provider and four hooks typed by that store's definitions:
+
+```tsx twoslash file=libs/react-feature/docs/examples.md region=react-bound
+
+```
+
+`useVariant('checkout-cta')` is now checked against the keys that store
+declares, and its `variant` is `'control' | 'blue' | undefined`. A bound
+provider also publishes to the shared context, so `@evanion/react-feature`'s own
+`useFeature` reads the same decisions underneath it.
+
+The control below mounts that bound provider over the same store. Retype the
+customer id and the button's label follows the variant the store assigned:
+
+<ProviderDemo />
+
+The same id always lands in the same variant, from every process and on every
+request, and a neighbouring id lands anywhere. `source` is `weighted` for an id
+the weights bucketed, and `bucket` is where that id hashed in the half-open
+range 0 to 1, which is the number the weights are walked against.
+
+## How to hand the server's decisions to the browser
+
+When a server resolves the flags for a request, it can send those decisions with the page. The `FeatureProvider` publishes them as they are via the `decisions` prop. You can generate this set using `features.snapshot(context)`:
+
+```tsx twoslash file=libs/react-feature/docs/examples.md region=react-server
+
+```
+
+The provider resolves nothing beside a supplied set, so every key a component
+reads has to be in it. The compiler refuses a set whose type lacks a key, and a
+set that arrived as JSON reaches the provider unchecked:
+
+```tsx twoslash file=libs/react-feature/docs/examples.md region=react-decisions
+
+```
+
+Decisions are plain objects and cross the boundary as serialised props. The
+store does not: it carries functions. So resolution runs on the server, and the
+browser renders from the set it was handed.
+
+You now have `@evanion/react-feature` publishing one store's decisions to a tree and typing the keys a component may name. For a full list of every prop, hook and type, see the [API reference](../api). To learn how a share of customers is written down in the first place, see [Rollouts](/feature/rollouts).

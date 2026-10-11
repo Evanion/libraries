@@ -80,6 +80,9 @@
   ],
   "references": [
     {
+      "path": "../../libs/react-feature"
+    },
+    {
       "path": "../../libs/feature"
     },
     {
@@ -95,9 +98,6 @@
       "path": "../../libs/react-widget"
     },
     {
-      "path": "../../libs/acl"
-    },
-    {
       "path": "../../libs/react-acl"
     },
     {
@@ -105,6 +105,9 @@
     },
     {
       "path": "../../libs/compose"
+    },
+    {
+      "path": "../../libs/acl"
     },
     {
       "path": "../../internal/baize-ui"

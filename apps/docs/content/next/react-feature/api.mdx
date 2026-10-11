@@ -1,0 +1,250 @@
+# API reference
+
+<WorkshopNotice slug="react-feature" />
+
+`@evanion/react-feature` exports one provider, four hooks, a factory that binds them to a store, and six types of its own. It re-exports 33 `@evanion/feature` types, names unchanged, from [`BaseFieldType`](#basefieldtype) down. The core's values, such as `createFeatures`, `parseFeatureConfig` and `serializeConfig`, come from `@evanion/feature` and are documented in [the core API reference](/feature/api).
+
+## `FeatureProvider`
+
+<!-- reference @evanion/react-feature#FeatureProvider example=react-provider -->
+
+To publish decisions to your component tree, you use the `FeatureProvider`. This provider takes a store and publishes decisions at the erased types; every hook below it reads `Decision<FeatureKey>` per key, regardless of the schema the store carried. For a form that keeps the schema, use [`createFeatureContext`](#createfeaturecontext).
+
+## `createFeatureContext`
+
+<!-- reference @evanion/react-feature#createFeatureContext example=react-bound -->
+
+To keep your store's schema and allow for nested stores, you can use `createFeatureContext`. Each call makes its own React context, so two stores can nest and each set of hooks will read its own provider. The returned provider also publishes to the shared context, meaning a component calling this package's own [`useFeature`](#usefeature) underneath it reads the same decisions.
+
+## `useFeature`
+
+<!-- reference @evanion/react-feature#useFeature example=react-decisions -->
+
+To read a decision for a specific flag, use the `useFeature` hook. If you call it for a key the provider does not publish, it throws an error naming the key and the provider. The decision's `reason`, `rule` and `assignment` are what [the core's Decisions page](/feature/decisions) describes.
+
+## `useFeatures`
+
+<!-- reference @evanion/react-feature#useFeatures example=react-decisions -->
+
+When a component needs to check several flags at once, you use the `useFeatures` hook rather than calling [`useFeature`](#usefeature) per key. This hook returns every decision the provider published, organized by key.
+
+## `useFeatureEnabled`
+
+<!-- reference @evanion/react-feature#useFeatureEnabled example=react-provider -->
+
+For a component that simply shows or hides based on a flag, use the `useFeatureEnabled` hook. This is a convenience wrapper for `useFeature(key).enabled`.
+
+## `useVariant`
+
+<!-- reference @evanion/react-feature#useVariant example=react-decisions -->
+
+To determine which variant of a feature is active, use the `useVariant` hook. Both fields are absent for a feature that resolved off and for a feature declaring no variants, so calling code should handle the "off" state before switching on a name.
+
+## `AnyDecisions`
+
+<!-- reference @evanion/react-feature#AnyDecisions -->
+
+The `AnyDecisions` type represents what [`FeatureProvider`](#featureprovider) publishes and what [`useFeatures`](#usefeatures) answers. Because a React context fixes its type when created and cannot hold a schema the compiler has not resolved, a provider widens to this type once and the bound hooks narrow back.
+
+## `FeatureProviderProps`
+
+<!-- reference @evanion/react-feature#FeatureProviderProps -->
+
+The `FeatureProviderProps` type defines the requirements for the provider. The `features` prop is required here, whereas it is optional on [`BoundFeatureProviderProps`](#boundfeatureproviderprops). The `context` prop is memoised on identity, and `decisions` takes the set `Features.snapshot` produced elsewhere.
+
+## `BoundFeatureProviderProps`
+
+<!-- reference @evanion/react-feature#BoundFeatureProviderProps -->
+
+The `BoundFeatureProviderProps` type is what the provider returned by [`createFeatureContext`](#createfeaturecontext) takes. It includes `Frozen` from the factory's own store; this turns a mount that would publish frozen decisions to hooks promising the mutable form into a compile error.
+
+## `BoundVariant`
+
+<!-- reference @evanion/react-feature#BoundVariant -->
+
+The `BoundVariant` type is what `useVariant` answers for one key when using [`FeatureContext`](#featurecontext). Both fields come off `Decisions<S>[K]`, ensuring this and the decision for the same key cannot drift apart.
+
+## `FeatureContext`
+
+<!-- reference @evanion/react-feature#FeatureContext -->
+
+The `FeatureContext` type represents the provider and four hooks that [`createFeatureContext`](#createfeaturecontext) returns. Each hook names `keyof S`, meaning a misspelled key is a compile error and the variant a reader switches on is the union that store declares.
+
+## `VersionMismatchPolicy`
+
+<!-- reference @evanion/react-feature#VersionMismatchPolicy -->
+
+The `VersionMismatchPolicy` determines what a provider renders when the shipped set states one config version and the store states another. The default is `'use-shipped'`, while `'re-resolve'` is intended for applications that run no experiment and care about revocation latency. An `'unversioned'` outcome never re-resolves, because one of the two sides carrying no version proves nothing about the other.
+
+## `BaseFieldType`
+
+<!-- reference @evanion/feature#BaseFieldType -->
+
+## `ConfigEnvelope`
+
+<!-- reference @evanion/feature#ConfigEnvelope -->
+
+## `ConfigIssue`
+
+<!-- reference @evanion/feature#ConfigIssue -->
+
+The `ConfigIssue` type describes what a failed `validateConfig` lists. A component that validates a document it fetched names this in the branch that reports the failure.
+
+## `ConfigIssueCode`
+
+<!-- reference @evanion/feature#ConfigIssueCode -->
+
+## `ContextSchema`
+
+<!-- reference @evanion/feature#ContextSchema -->
+
+## `FeatureConfig`
+
+<!-- reference @evanion/feature#FeatureConfig -->
+
+The `FeatureConfig` type is the served document a store is built from. A React application that reloads its store from a poller writes the handler beside the component, and that file names this type. [Distribution](/feature/distribution) is where a document is served and reloaded.
+
+## `FeatureSchema`
+
+<!-- reference @evanion/feature#FeatureSchema -->
+
+## `FeatureShape`
+
+<!-- reference @evanion/feature#FeatureShape -->
+
+## `FieldType`
+
+<!-- reference @evanion/feature#FieldType -->
+
+## `JsonValue`
+
+<!-- reference @evanion/feature#JsonValue -->
+
+## `ReloadResult`
+
+<!-- reference @evanion/feature#ReloadResult -->
+
+The `ReloadResult` type is what `features.reload` answered. The poller's handler names it, and its `changed` list is keyed on [`FeatureKey`](#featurekey).
+
+## `SerializedAttributeCondition`
+
+<!-- reference @evanion/feature#SerializedAttributeCondition -->
+
+## `SerializedCondition`
+
+<!-- reference @evanion/feature#SerializedCondition -->
+
+## `SerializedDefinition`
+
+<!-- reference @evanion/feature#SerializedDefinition -->
+
+## `SerializedInstant`
+
+<!-- reference @evanion/feature#SerializedInstant -->
+
+## `SerializedRule`
+
+<!-- reference @evanion/feature#SerializedRule -->
+
+## `SerializedVariantSpec`
+
+<!-- reference @evanion/feature#SerializedVariantSpec -->
+
+## `SerializedWindowCondition`
+
+<!-- reference @evanion/feature#SerializedWindowCondition -->
+
+## `ValidationResult`
+
+<!-- reference @evanion/feature#ValidationResult -->
+
+The `ValidationResult` type is what `validateConfig` answered about a document, as one of two arms.
+
+## `ValueShape`
+
+<!-- reference @evanion/feature#ValueShape -->
+
+## `DecisionOrigin`
+
+<!-- reference @evanion/feature#DecisionOrigin -->
+
+The `DecisionOrigin` type describes which kind of process resolved a shipped set. A provider handed a set from a per-request render adopts that set's own instant, and a set from a build leaves the client's clock to answer.
+
+## `DecisionSet`
+
+<!-- reference @evanion/feature#DecisionSet -->
+
+The `DecisionSet` type is what `decisions` takes on both providers. The set states the config version it was resolved under and the instant as an ISO 8601 string, which is what lets a provider tell whether the two processes hold one configuration.
+
+## `DivergenceObserver`
+
+<!-- reference @evanion/feature#DivergenceObserver -->
+
+The `DivergenceObserver` type is what `onDivergence` takes on both providers. It is notified for every divergence a provider detects and alters no decision.
+
+## `DivergenceReport`
+
+<!-- reference @evanion/feature#DivergenceReport -->
+
+The `DivergenceReport` type represents one report an observer receives. A provider sends one per pass of its checks, and React invokes a render twice under `StrictMode`, so an observer that counts sees each report of that pass twice.
+
+## `DivergenceSide`
+
+<!-- reference @evanion/feature#DivergenceSide -->
+
+## `Decision`
+
+<!-- reference @evanion/feature#Decision -->
+
+The `Decision` type is what [`useFeature`](#usefeature) returns, and what [`AnyDecisions`](#anydecisions) holds one per key.
+
+## `Decisions`
+
+<!-- reference @evanion/feature#Decisions -->
+
+The `Decisions` type is what [`FeatureContext`](#featurecontext)'s hooks answer at the factory's schema, and [`BoundVariant`](#boundvariant) reads `variant` and `value` off it.
+
+## `EvaluationContext`
+
+<!-- reference @evanion/feature#EvaluationContext -->
+
+The `EvaluationContext` type is what `context` takes on both providers. It is an argument the store is read against and has nothing to do with React context.
+
+## `FeatureKey`
+
+<!-- reference @evanion/feature#FeatureKey -->
+
+The `FeatureKey` type is used as every hook's `key` parameter, and the key type [`AnyDecisions`](#anydecisions) is keyed on. It is `string | number`, so a store keyed on a numeric enum types its hooks on numbers.
+
+## `Features`
+
+<!-- reference @evanion/feature#Features -->
+
+The `Features` type is what `features` takes on both providers, and what [`createFeatureContext`](#createfeaturecontext) takes. One `@evanion/feature` in the dependency graph is what makes the store an application built assign to the prop.
+
+## `FrozenWhenObserved`
+
+<!-- reference @evanion/feature#FrozenWhenObserved -->
+
+The `FrozenWhenObserved` type defines how [`FeatureContext`](#featurecontext)'s `useFeatures` and `useFeature` type their answer. A store built with an observer freezes what it resolves and its hooks answer the deeply readonly form; a store built without one answers the mutable form.
+
+## `Schema`
+
+<!-- reference @evanion/feature#Schema -->
+
+The `Schema` type is the default schema parameter given by [`FeatureProviderProps`](#featureproviderprops), meaning `FeatureProviderProps` needs no type argument.
+
+## `VariantInfo`
+
+<!-- reference @evanion/feature#VariantInfo -->
+
+The `VariantInfo` type is the constraint every schema parameter in this package is written against: `S extends Record<keyof S, VariantInfo | never>`, where `never` is the entry a variant-free feature carries.
+
+## Where to go next
+
+- [Getting started](../getting-started): the provider, the memoised context and
+  the bound hooks, in the order you write them
+- [Core API reference](/feature/api): every type react-feature re-exports, and
+  the functions a server calls
+- [Decisions](/feature/decisions): what a decision carries and what each
+  `reason` means

@@ -1,0 +1,50 @@
+.react-feature-demo__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.react-feature-demo__input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--baize-border, #ccc);
+  border-radius: 4px;
+  background: var(--baize-surface, transparent);
+  color: inherit;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9rem;
+}
+
+.react-feature-demo__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.react-feature-demo__cta {
+  padding: 0.5rem 1rem;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: default;
+}
+
+.react-feature-demo__pairs {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 1rem 0 0;
+  font-size: 0.9rem;
+}
+
+.react-feature-demo__pairs dt {
+  font-family: var(--font-mono, monospace);
+  opacity: 0.75;
+}
+
+.react-feature-demo__pairs dd {
+  margin: 0;
+  font-family: var(--font-mono, monospace);
+}

@@ -2,6 +2,7 @@ import { useMDXComponents as getThemeComponents } from 'nextra-theme-docs';
 import FieldWriteDemo from './components/acl/FieldWriteDemo';
 import UnevaluableDemo from './components/acl/UnevaluableDemo';
 import AstroRenderDemo from './components/astro-widget/AstroRenderDemo';
+import ProviderDemo from './components/react-feature/ProviderDemo';
 import AccessDemo from './components/landing/AccessDemo';
 import ComposeSpecimen from './components/landing/ComposeSpecimen';
 import DataDemo from './components/landing/DataDemo';
@@ -151,6 +152,7 @@ export function useMDXComponents(components) {
     FieldWriteDemo,
     UnevaluableDemo,
     AstroRenderDemo,
+    ProviderDemo,
     ComposeSpecimen,
     DataDemo,
     LuhnSpecimen,
