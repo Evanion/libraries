@@ -1295,7 +1295,7 @@ The package already refuses the value on the way out: `snapshot` raises `Feature
 - `libs/feature/src/lib/types.ts` (edit: `EvaluationContext.now`. Task 5 writes the `Condition` docblock in this file, Task 7 the `Reason` and `ToggleResult` docblocks, and Task 17 the `Decisions` and `Plan` declarations)
 - `libs/feature/src/lib/instant.ts` (edit: `RANGE` arrives here and `contextEpoch` is added)
 - `libs/feature/src/lib/conditions.ts` (edit: the two clock branches of `evaluateCondition`, its docblock, and the local `RANGE` const)
-- `libs/feature/src/lib/features.ts` (edit: `withNow` and `snapshot`'s refusal message. Task 15 adds `for` to this file, Task 16 edits `snapshot`, and Task 17 edits the `Features` type parameter list)
+- `libs/feature/src/lib/features.ts` (edit: the `./instant.js` import, `withNow`, `snapshot`'s refusal message, and the `snapshot` docblock on the `Features` interface at lines 135-142, which says "an invalid `Date` describes no instant, so a `context.now` holding one raises a `FeatureConfigError`" and "`resolve`, `plan` and `toggle` state no instant, so they carry that `Date` into the decision". Both sentences narrow to `Date` and both are wrong once the field is an `Instant`; rewrite them to say the value, not the `Date`. Task 15 adds `for` to this file, Task 16 edits `snapshot`, and Task 17 edits the `Features` type parameter list)
 - `libs/feature/src/lib/bound.ts` (edit: the settling read Task 15 writes)
 - `libs/feature/src/lib/resolve-plan.ts` (edit: `ResolvePlanOptions.now` and its docblock)
 - `libs/feature/src/lib/conditions.spec.ts` (edit: one case inverted, four added)
@@ -1408,7 +1408,7 @@ export interface EvaluationContext {
   now?: Instant;
 ```
 
-- [ ] `libs/feature/src/lib/features.ts`: settle the field in `withNow`, and change `snapshot`'s message from `the Date at context/now names no instant` to `the value at context/now names no instant`, keeping the rest of the sentence and the `context/now` the `snapshot.spec.ts` cases match on:
+- [ ] `libs/feature/src/lib/features.ts`: add `contextEpoch` to the `./instant.js` import, which reads `import { instantEpoch } from './instant.js';` at line 3 and would otherwise raise `TS2304` on the block below. Then settle the field in `withNow`, and change `snapshot`'s message from `the Date at context/now names no instant` to `the value at context/now names no instant`, keeping the rest of the sentence and the `context/now` the `snapshot.spec.ts` cases match on:
 
 ```ts
 const withNow = (context: EvaluationContext = {}): SettledContext => ({
@@ -1526,7 +1526,21 @@ it('does not hold for an epoch number outside the range a Date holds', () => {
 
 - [ ] Add a `describe('contextEpoch')` to `libs/feature/src/lib/instant.spec.ts` holding the table: `undefined` answers `NaN`, a `Date` and the string it serializes to answer the same number, epoch milliseconds answer themselves, each end of the range answers itself, and a number one past either end answers `NaN`.
 
-- [ ] Three cases in `libs/feature/src/lib/snapshot.spec.ts`, against a store whose one rule carries an `after` window:
+- [ ] Three cases in `libs/feature/src/lib/snapshot.spec.ts`. The file's own fixture is `SPLIT`, a variants store carrying no rule, and these cases need a window, so declare one beside it and add the type the third case casts to. `snapshot.spec.ts` imports `Schema` from `./types.js` and nothing else from there, so `EvaluationContext` joins that line:
+
+```ts
+import type { EvaluationContext, Schema } from './types.js';
+
+const SALE = [
+  {
+    key: 'sale',
+    enabled: true,
+    rules: [{ when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }] }],
+  },
+] as const;
+```
+
+Then the three cases:
 
 ```ts
 it('states the instant a string named, in the one form a set carries', () => {
@@ -1561,7 +1575,7 @@ it('names the field for a string naming no instant', () => {
 ```
 
 - [ ] Four type-test sites assert the old type and fail without this edit. Three of them are `@ts-expect-error` directives that become `TS2578: Unused '@ts-expect-error' directive` the moment the field widens, and the fourth is an equality assertion:
-  - `libs/feature/src/lib/conditions.test-d.ts:206`, `expectTypeOf<EvaluationContext['now']>().toEqualTypeOf<Date | undefined>()`, becomes `toEqualTypeOf<Instant | undefined>()`. The file already imports `Instant`.
+  - `libs/feature/src/lib/conditions.test-d.ts:206`, `expectTypeOf<EvaluationContext['now']>().toEqualTypeOf<Date | undefined>()`, becomes `toEqualTypeOf<Instant | undefined>()`. The file already imports `Instant`. Its case title at line 205 reads `types the clock field as a Date and nothing else` and becomes `types the clock field as an instant`, for the reason the other three are renamed: a title that contradicts its own assertion is read by the next person as the assertion being wrong.
   - `libs/feature/src/lib/conditions.test-d.ts:225`, `refuses the clock field written as the string a wire format carries`, becomes `takes the clock field written as the string a wire format carries` with the directive and the old argument gone from the comment.
   - `libs/feature/src/lib/conformance.test-d.ts:67`, `refuses a fixture instant that arrives as the string the file holds`, becomes `takes a fixture instant that arrives as the string the file holds`.
   - `libs/feature/src/lib/resolve-plan-boundaries.test-d.ts:66`, `takes an instant as a Date and nothing else`, becomes `takes an instant in every form an Instant holds`.
@@ -1780,7 +1794,7 @@ export class FeaturesService {
 // #endregion features-service
 ```
 
-- [ ] Serve the document the other two applications build from, following `apps/shop-api/src/acl/policy.controller.ts`: a `GET /api/features` answering `{ version, config }` where `config` is `serializeConfig(features)` and `version` is the document's own, with a `#region serve-the-document` around the handler and a case in `features.controller.spec.ts` asserting the body parses back through `parseFeatureConfig`. The library ships no transport and this is the application's own endpoint, which is the same line `policy.controller.ts` sits on. Tasks 25 and 27 fetch it.
+- [ ] Serve the document the other two applications build from, following `apps/shop-api/src/acl/policy.controller.ts`: a `GET /api/features` answering `{ version, config }` where `config` is `serializeConfig(features)` and `version` is the document's own, with a `#region serve-the-document` around the handler and a case in `features.controller.spec.ts` asserting the body parses back through `parseFeatureConfig`. Register it in `features.module.ts`'s `controllers` array, the way `apps/shop-api/src/acl/acl.module.ts:53` registers its own, because a controller Nest never sees answers no request. The library ships no transport and this is the application's own endpoint, which is the same line `policy.controller.ts` sits on. Tasks 25 and 27 fetch it.
 
 - [ ] Read one flag where it changes an answer the API already gives: `GamesService` gates the field it adds to a catalogue row, with a `#region flag-on-the-row` around the read and a case in `games.service.spec.ts` that asserts both answers.
 
