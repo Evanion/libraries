@@ -1602,6 +1602,72 @@ Every page in this piece is drafted by the implementer, run through Gemma one pa
 
 No page in this piece teaches a feature administration service, a control plane, a dashboard, a poller, a websocket, SSE, a database adapter or a scheduler. A page may say the reader supplies its own source and show the two calls that install a document, `parseFeatureConfig` and `features.reload`, and stops there. `libs/feature/src/lib/core-boundary.spec.ts` is what holds the library to the same line.
 
+## Task 17c: the core resolves under the `react-server` condition
+
+**Deliverable:** a test proves `@evanion/feature` imports, resolves and answers under `node --conditions=react-server`, so a server component does the whole hydration path without `@evanion/react-feature`.
+
+**Why this task exists:** `apps/storefront-rsc` imports `@evanion/acl` in its app code and `@evanion/react-acl` nowhere but a test and its README, because under the `react-server` condition `createContext`, `useContext` and every stateful hook are absent. `apps/admin`, which is React Router with traditional server rendering, does the opposite: `app/access.ts` calls `createPolicyContext` and `app/shell.tsx:144` mounts `PolicyProvider` through `ComposeProvider`. Both are right for their framework, and this package will have the same split once Tasks 14 through 17b put `adoptDecisions`, `for`, the wire-safe `snapshot` and the widened clock in the core.
+
+Nothing asserts the half that makes the RSC pattern possible. `libs/react-feature/src/index.tsx`'s docblock argues the boundary and `libs/react-widget/src/index.ts`'s first line claims RSC importability in a comment; a comment fails no build. `libs/compose/src/react-server.test.ts` is the only test in the repository that proves such a claim, and it proves it by running Node under the condition against the built artifact, because the condition is a module-resolution fact that no jsdom test can observe.
+
+**Files:**
+
+- `libs/feature/src/lib/react-server.spec.ts` (new)
+
+**Interfaces consumed:**
+
+```ts
+// @evanion/feature, the built entry point
+export function createFeatures<const D extends Definitions>(definitions: D): Features<AsSchema<InferSchema<D>>>;
+export function adoptDecisions<F extends FeatureKey>(features: Features<Record<F, VariantInfo>>, set: DecisionSet<Record<F, VariantInfo>>, options?: AdoptOptions<F>): Decisions<F>;
+```
+
+**Interfaces produced:** none. This task adds a test and no export.
+
+### Steps
+
+- [ ] Write the failing test. Model it on `libs/compose/src/react-server.test.ts`: resolve the package root from `import.meta.dirname`, assert `dist/index.js` exists with a message naming the build, and run the body through `execFileSync(process.execPath, ['--conditions=react-server', '--input-type=module', '--eval', source])`.
+
+```ts
+it('builds a store, resolves, and adopts a set with no React on the path', () => {
+  const output = runUnderReactServer(`
+    import * as React from 'react';
+    import { createFeatures, adoptDecisions } from ${JSON.stringify(entryUrl)};
+
+    const features = createFeatures([
+      { key: 'sale', enabled: true,
+        rules: [{ when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }] }] },
+    ]);
+    const set = features.snapshot({ now: '2026-06-01T00:00:00Z' });
+    const adopted = adoptDecisions(features, set, { context: { now: set.now } });
+
+    console.log(JSON.stringify({
+      enabled: features.isEnabled('sale', { now: set.now }),
+      adopted: adopted.sale.enabled,
+      createContext: typeof React.createContext,
+    }));
+  `);
+
+  expect(JSON.parse(output)).toEqual({
+    enabled: true,
+    adopted: true,
+    // Proves the condition took effect: outside it this is 'function'.
+    createContext: 'undefined',
+  });
+});
+```
+
+- [ ] Run it and watch it fail for the right reason. Before `dist` exists the assertion on the entry fails with the build message; that is the correct first failure, not an error to work around.
+
+- [ ] Add a second case asserting the core carries no `'use client'` directive, anchored at a line start so prose explaining the absence does not count, over `src/index.ts`, every file under `src/lib/`, and `dist/index.js`. `libs/compose/src/react-server.test.ts:31` holds the regular expression; copy it rather than writing a second one.
+
+- [ ] Add a third case asserting `@evanion/react-feature`'s built entry point does carry the directive on its first line. The two cases together state the split as a fact: the core is condition-clean and the adapter is a client module, which is what makes both demo applications' opposite choices correct.
+
+- [ ] Check with `npx nx run-many -t lint test typecheck -p feature`. The test needs `@evanion/feature` and `@evanion/react-feature` built, so confirm `nx.json` or the project's `test` target already depends on `^build`; `libs/compose`'s does, which is why its own test can read `dist`.
+
+- [ ] Commit.
+
+
 ## Task 18: Getting started, extended, and the four bands
 
 **Deliverable:** `getting-started.mdx` carries the smallest thing that works and the second thing a reader always needs, and `_meta.ts` holds the four bands every later task adds a key to.
