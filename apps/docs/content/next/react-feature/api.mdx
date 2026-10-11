@@ -250,7 +250,11 @@ When comparing decisions made by different environments, the system identifies w
 
 <!-- reference @evanion/feature#Decision -->
 
-The `Decision` type is what [`useFeature`](#usefeature) returns, and what [`AnyDecisions`](#anydecisions) holds one per key.
+To handle the outcome of a feature check, the library uses the `Decision` type. This represents the specific decision made for a single feature.
+
+When you use [`useFeature`](#usefeature), the hook returns the erased form of this type, represented as `Decision<FeatureKey>`. Similarly, [`AnyDecisions`](#anydecisions) acts as a container that holds one of these decisions per key.
+
+It is important to note the distinction between the bare `Decision` type and `Decision<FeatureKey>`. Because the first parameter defaults to `string` but its constraint allows for a `number`, these are treated as two distinct types. If you use the bare name as a type annotation, it will refuse the value returned by the hook.
 
 ## `Decisions`
 
