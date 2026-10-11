@@ -80,9 +80,13 @@ jobs:
   main:
     runs-on: ubuntu-latest
     steps:
+      # A full clone, with no `filter`. nx release reads the files every commit
+      # since a tag changed, here and in each worktree the pin file's dry runs
+      # check out, and a treeless clone fetches each of those trees from GitHub
+      # one request at a time: 400 s for one dry run, against 5 s on a full
+      # clone, which is 10 MB.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          filter: tree:0
           fetch-depth: 0
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0

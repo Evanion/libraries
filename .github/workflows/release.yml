@@ -26,9 +26,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # nx release reads the full history to infer versions from
-          # conventional commits, and needs the tags to know where to start.
+          # conventional commits, and needs the tags to know where to start. No
+          # `filter`: it reads the files each commit changed, and a treeless
+          # clone fetches every one of those trees from GitHub on its own.
           fetch-depth: 0
-          filter: tree:0
           # Check out over SSH with a write deploy key rather than the default
           # GITHUB_TOKEN.
           #
