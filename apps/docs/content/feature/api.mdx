@@ -523,7 +523,7 @@ To understand why a specific feature is on or off, you look at a `Decision`. In 
 
 The engine treats these explanation fields as output only; nothing in `@evanion/feature` consults `reason`, `rule`, `rules`, `blockedBy`, `cause`, `variant`, `value`, or `assignment` to determine enablement, as verified in `reason-is-output-only.spec.ts`.
 
-`V` and `T` default to `string` and `unknown`, meaning a bare `Decision` provides the widened shape that the `@evanion/react-feature` context publishes.
+`V` and `T` default to `string` and `unknown`, and `F` defaults to `string`. The `@evanion/react-feature` context publishes `Decision<FeatureKey>` and not a bare `Decision`: `FeatureKey` is `string | number`, so a store keyed on a numeric enum produces a `Decision<7>` whose `key` does not assign to a bare `Decision`'s. The widening holds at the constraint, which is why `useFeature` returns `Decision<FeatureKey>`.
 
 When a variant is involved, `assignment` records how it was chosen:
 
