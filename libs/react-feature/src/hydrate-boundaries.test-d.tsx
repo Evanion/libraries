@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { describe, expectTypeOf, it } from 'vitest';
 
-import { createFeatures } from '../lib/features.js';
+import { createFeatures } from '@evanion/feature';
 import { createFeatureContext, FeatureProvider } from './index.js';
 import type { VersionMismatchPolicy } from './index.js';
 

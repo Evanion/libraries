@@ -361,10 +361,9 @@ describe('the docs navigation', () => {
    * undefined custom property and renders as the ground, silently.
    *
    * One sharing is allowed: within a group. The rendering group's three
-   * packages are one family, so they carry one hue to say so — the same way
-   * `feature` (universal + React) uses one. A hue must still be distinct across
-   * groups, or a reader scanning the cards learns one colour for two unrelated
-   * packages.
+   * packages are one family, so they carry one hue to say so — the same way the
+   * feature family uses one. A hue must still be distinct across groups, or a
+   * reader scanning the cards learns one colour for two unrelated packages.
    */
   it('gives every package a hue from the scale, distinct across groups', async () => {
     const navigation = await loadNavigation();

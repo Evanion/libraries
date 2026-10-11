@@ -2,8 +2,8 @@
 
 <WorkshopNotice slug="feature" />
 
-Two entry points. `@evanion/feature` is the core; `@evanion/feature/react` is
-the adapter.
+Two packages. `@evanion/feature` is the core; `@evanion/react-feature` is the
+React adapter.
 
 ## `createFeatures(definitions, options?)`
 
@@ -219,6 +219,21 @@ import {
 `'weighted' | 'sticky' | 'fallback'`, with no `'pinned'` case: only `decide`
 knows which rule matched, so `decide` applies a pin on top of the assignment
 `assignVariant` returned. See [Variants](/feature/variants).
+
+## `reportDivergence`
+
+<!-- reference @evanion/feature#reportDivergence example=divergence-report -->
+
+`@evanion/react-feature`'s provider calls it for every report its checks
+produced. An application that adopts a decision set outside React calls it with
+the observer it holds.
+
+## `ruleFields`
+
+<!-- reference @evanion/feature#ruleFields example=rule-fields -->
+
+A pinned assignment is only reproducible where the local context carries every
+field its rule read, and this is the list that question is asked against.
 
 ## `serializeConfig(features, envelope?)`
 
@@ -756,7 +771,7 @@ import {
   useFeature,
   useFeatureEnabled,
   useVariant,
-} from '@evanion/feature/react';
+} from '@evanion/react-feature';
 ```
 
 | Export                           | Signature                                              |

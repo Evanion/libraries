@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
-import * as core from '../index.js';
+import * as core from '@evanion/feature';
 import * as reactEntry from './index.js';
 
 /**
@@ -16,9 +16,10 @@ import * as reactEntry from './index.js';
  *
  * The names half is read off the sources instead, because nothing at runtime
  * holds it. The rule is parity with the core entry: every document type the
- * core publishes from `config.ts` is on the react entry, from `config.ts`, and
- * the react entry publishes no `config.ts` type the core keeps to itself. A
- * name added to one entry and forgotten on the other fails here.
+ * core publishes from `config.ts` is on the react entry, from
+ * `@evanion/feature`, and the react entry publishes no `@evanion/feature` type
+ * the core keeps to itself. A name added to one entry and forgotten on the
+ * other fails here.
  *
  * `config.ts`'s own declaration set is not the rule, in either direction. A
  * type it exports so `exported-type-closure.test.ts` passes is not thereby
@@ -44,13 +45,13 @@ import * as reactEntry from './index.js';
  * is the core entry's declaration and not a redeclaration beside it.
  */
 
-const CORE_ENTRY = join(import.meta.dirname, '../index.ts');
+const CORE_ENTRY = join(import.meta.dirname, '../../feature/src/index.ts');
 const REACT_ENTRY = join(import.meta.dirname, 'index.tsx');
-const CONFIG = join(import.meta.dirname, '../lib/config.ts');
+const CONFIG = join(import.meta.dirname, '../../feature/src/lib/config.ts');
 
-/** The module `config.ts` resolves as, from each entry. */
+/** The module the document types resolve as, from each entry. */
 const CORE_CONFIG_SPECIFIER = './lib/config.js';
-const REACT_CONFIG_SPECIFIER = '../lib/config.js';
+const REACT_CONFIG_SPECIFIER = '@evanion/feature';
 
 function parse(file: string, text: string): ts.SourceFile {
   return ts.createSourceFile(
@@ -125,17 +126,23 @@ interface Parity {
 /**
  * Reads an entry against the document types it is held to.
  *
- * Both halves are scoped to `specifier`, the module `config.ts` resolves as
- * from that entry. A name the entry takes from any other module is a type of
- * another module's and no business of this rule: it is `extra` only when it
- * comes from `config.ts`, and it leaves a published name `absent` because the
- * name a component file imports has to be the core's declaration and not a
- * second one beside it.
+ * `absent` is scoped to `specifier`, the module the document types resolve as
+ * from that entry. A name the entry takes from any other module leaves a
+ * published name `absent`, because the name a component file imports has to be
+ * the core's declaration and not a second one beside it.
+ *
+ * `extra` is scoped to `vocabulary`, the set `config.ts` declares. The react
+ * entry re-exports the document types and the decision-set types from one
+ * specifier, `@evanion/feature`, so the specifier no longer tells a document
+ * type from anything else the core publishes. `DecisionSet` and
+ * `DivergenceReport` are declared elsewhere and this rule has no opinion about
+ * them; a `config.ts` type the core keeps to itself is what it reports.
  */
 function parityWith(
   entry: ts.SourceFile,
   specifier: string,
   published: readonly string[],
+  vocabulary: readonly string[],
 ): Parity {
   const named = typeReExports(entry);
   const absent = published
@@ -143,7 +150,12 @@ function parityWith(
     .map((name) => `${name} from ${named.get(name) ?? 'nowhere'}`)
     .sort();
   const extra = [...named]
-    .filter(([name, from]) => from === specifier && !published.includes(name))
+    .filter(
+      ([name, from]) =>
+        from === specifier &&
+        vocabulary.includes(name) &&
+        !published.includes(name),
+    )
     .map(([name]) => name)
     .sort();
 
@@ -226,6 +238,7 @@ describe('the names the react entry re-exports', () => {
       read(REACT_ENTRY),
       REACT_CONFIG_SPECIFIER,
       CORE_DOCUMENT_TYPES,
+      DOCUMENT_TYPES,
     );
 
     expect(parity).toEqual({ absent: [], extra: [] });
@@ -242,18 +255,21 @@ describe('the names the react entry re-exports', () => {
 
 describe('the parity rule', () => {
   const PUBLISHED = ['FeatureConfig', 'ReloadResult'];
+  /** What `config.ts` declares, for a fixture: the set plus one it keeps. */
+  const VOCABULARY = [...PUBLISHED, 'Hidden'];
 
   function verdict(...clauses: readonly string[]): Parity {
     return parityWith(
       parse('entry.tsx', clauses.join('\n')),
       REACT_CONFIG_SPECIFIER,
       PUBLISHED,
+      VOCABULARY,
     );
   }
 
   it('takes an entry publishing the core names from config.ts', () => {
     const parity = verdict(
-      "export type { FeatureConfig, ReloadResult } from '../lib/config.js';",
+      "export type { FeatureConfig, ReloadResult } from '@evanion/feature';",
     );
 
     expect(parity).toEqual({ absent: [], extra: [] });
@@ -261,7 +277,7 @@ describe('the parity rule', () => {
 
   it('takes a type the entry publishes from a module config.ts is not', () => {
     const parity = verdict(
-      "export type { FeatureConfig, ReloadResult } from '../lib/config.js';",
+      "export type { FeatureConfig, ReloadResult } from '@evanion/feature';",
       "export type { FeatureKey } from '../lib/types.js';",
     );
 
@@ -270,7 +286,7 @@ describe('the parity rule', () => {
 
   it('names a document type the entry dropped', () => {
     const parity = verdict(
-      "export type { FeatureConfig } from '../lib/config.js';",
+      "export type { FeatureConfig } from '@evanion/feature';",
     );
 
     expect(parity).toEqual({
@@ -281,7 +297,7 @@ describe('the parity rule', () => {
 
   it('names a document type the entry takes from somewhere other than config.ts', () => {
     const parity = verdict(
-      "export type { FeatureConfig } from '../lib/config.js';",
+      "export type { FeatureConfig } from '@evanion/feature';",
       "export type { ReloadResult } from '../lib/reload.js';",
     );
 
@@ -293,8 +309,8 @@ describe('the parity rule', () => {
 
   it('names a config.ts type the entry publishes past the set', () => {
     const parity = verdict(
-      "export type { FeatureConfig, ReloadResult } from '../lib/config.js';",
-      "export type { Hidden } from '../lib/config.js';",
+      "export type { FeatureConfig, ReloadResult } from '@evanion/feature';",
+      "export type { Hidden } from '@evanion/feature';",
     );
 
     expect(parity).toEqual({ absent: [], extra: ['Hidden'] });

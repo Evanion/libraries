@@ -99,7 +99,7 @@ If you use the observer to track experiment "exposures," your data will be heavi
 
 Server Components cannot track when they are actually seen by a user. So the application records exposure where it renders, in a small client component, off the decision it already holds. The component calls `useFeature('checkout-cta')` and records `decision.variant`, `decision.assignment?.source`, `decision.assignment?.bucket` and `decision.rule` in an effect:
 
-```tsx twoslash file=libs/feature/docs/examples.md region=observe-exposure
+```tsx twoslash file=libs/react-feature/docs/examples.md region=observe-exposure
 
 ```
 

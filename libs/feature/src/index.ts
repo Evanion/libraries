@@ -2,7 +2,8 @@
  * `@evanion/feature` -- dependency-aware feature toggles.
  *
  * This entry is the core and imports no framework. It is what the API and the
- * build-time pass use. The React provider and hooks live on `@evanion/feature/react`.
+ * build-time pass use. The React provider and hooks live in
+ * `@evanion/react-feature`.
  */
 export { createFeatures } from './lib/features.js';
 export type {
@@ -28,6 +29,7 @@ export type {
   DecisionSet,
   SnapshotOptions,
 } from './lib/decision-set.js';
+export { reportDivergence } from './lib/divergence.js';
 export type {
   DivergenceObserver,
   DivergenceReport,
@@ -35,7 +37,7 @@ export type {
 } from './lib/divergence.js';
 export { serializeConfig } from './lib/serialize.js';
 export { validateConfig } from './lib/validate.js';
-export { DEFAULT_ROLLOUT_FIELD } from './lib/evaluate.js';
+export { DEFAULT_ROLLOUT_FIELD, ruleFields } from './lib/evaluate.js';
 
 export {
   DuplicateFeatureError,

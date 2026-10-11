@@ -375,10 +375,10 @@ describe('the document and the array createFeatures accepts', () => {
 
   /**
    * All three signatures name `DefinitionsOf` in the return type the emitter
-   * writes into the published declaration, and `package.json` publishes `.`,
-   * `./react` and `./package.json` only. A consumer writing a wrapper with an
-   * explicit return type has to spell the name, so the entry point exports it
-   * and not only the file that declares it.
+   * writes into the published declaration, and `package.json` publishes `.`
+   * and `./package.json` only. A consumer writing a wrapper with an explicit
+   * return type has to spell the name, so the entry point exports it and not
+   * only the file that declares it.
    */
   it('publishes the name the return type is written with', () => {
     expectTypeOf<PublishedDefinitionsOf<Definitions<'cta'>>>().toEqualTypeOf<

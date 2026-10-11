@@ -5,13 +5,13 @@ import {
   createFeatures,
   parseFeatureConfig,
   serializeConfig,
-} from '../index.js';
+} from '@evanion/feature';
 import { createFeatureContext, FeatureProvider, useFeature } from './index.js';
 import type {
   DecisionSet,
   DivergenceObserver,
   DivergenceReport,
-} from '../index.js';
+} from '@evanion/feature';
 
 /**
  * The input classes the provider answers at its edges.

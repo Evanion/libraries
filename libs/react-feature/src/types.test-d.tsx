@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { describe, expectTypeOf, it } from 'vitest';
-import { createFeatures } from '../lib/features.js';
-import type { Decision, FeatureKey } from '../lib/types.js';
+import { createFeatures } from '@evanion/feature';
+import type { Decision, FeatureKey } from '@evanion/feature';
 import {
   createFeatureContext,
   FeatureProvider,

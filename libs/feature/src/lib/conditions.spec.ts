@@ -5,7 +5,8 @@ import {
   validateConditions,
 } from './conditions.js';
 import { FeatureConfigError } from './errors.js';
-import type { Condition, FeatureDefinition, Instant } from './types.js';
+import { ruleFields } from './evaluate.js';
+import type { Condition, FeatureDefinition, Instant, Rule } from './types.js';
 import { everywhere, inZone } from './zones.js';
 
 const at = (iso: string) => ({ now: new Date(iso) });
@@ -289,6 +290,48 @@ describe('conditionFields', () => {
     expect(conditionFields({ field: 'plan', op: 'eq', value: 'pro' })).toEqual([
       'plan',
     ]);
+  });
+});
+
+describe('ruleFields', () => {
+  it('names every context field a rule reads, sorted and deduplicated', () => {
+    const rule: Rule = {
+      id: 'weekend-members',
+      when: [
+        { field: 'tier', op: 'eq', value: 'member' },
+        {
+          field: 'now',
+          op: 'day-of-week',
+          zone: 'Europe/Stockholm',
+          value: ['sat', 'sun'],
+        },
+      ],
+      rollout: { percent: 25, by: 'customerId' },
+    };
+
+    expect(ruleFields(rule)).toEqual(['customerId', 'now', 'tier']);
+  });
+
+  it('names the default rollout field for a rollout that declares no `by`', () => {
+    const rule: Rule = { id: 'a-quarter', rollout: { percent: 25 } };
+
+    expect(ruleFields(rule)).toEqual(['targetingKey']);
+  });
+
+  it('names one field for two conditions reading the same one', () => {
+    const rule: Rule = {
+      id: 'members-only',
+      when: [
+        { field: 'tier', op: 'ne', value: 'guest' },
+        { field: 'tier', op: 'in', value: ['member', 'owner'] },
+      ],
+    };
+
+    expect(ruleFields(rule)).toEqual(['tier']);
+  });
+
+  it('names nothing for a rule with no conditions and no rollout', () => {
+    expect(ruleFields({ id: 'always' })).toEqual([]);
   });
 });
 

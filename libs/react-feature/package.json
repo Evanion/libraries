@@ -1,0 +1,65 @@
+{
+  "name": "@evanion/react-feature",
+  "version": "0.0.1",
+  "description": "The React binding for @evanion/feature: a provider and hooks over an already-built feature store.",
+  "keywords": [
+    "react",
+    "feature-flags",
+    "feature-toggles",
+    "rollout",
+    "variants",
+    "hooks",
+    "typescript"
+  ],
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/react-feature#readme",
+  "bugs": {
+    "url": "https://github.com/Evanion/libraries/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Evanion/libraries.git",
+    "directory": "libs/react-feature"
+  },
+  "license": "MIT",
+  "author": "Mikael Pettersson",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@evanion/source": "./src/index.tsx",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo",
+    "src",
+    "!src/**/*.test.*",
+    "!src/**/*.spec.*",
+    "!src/**/*.test-d.*",
+    "!src/test-setup.ts",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@evanion/feature": "0.0.1"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@evanion/doc-examples": "*"
+  }
+}

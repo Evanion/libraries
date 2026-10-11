@@ -5,9 +5,9 @@ import {
   createFeatures,
   parseFeatureConfig,
   serializeConfig,
-} from '../index.js';
+} from '@evanion/feature';
 import { FeatureProvider, useFeature } from './index.js';
-import type { DivergenceReport, FeatureConfig } from '../index.js';
+import type { DivergenceReport, FeatureConfig } from '@evanion/feature';
 
 const SPLIT = [
   {

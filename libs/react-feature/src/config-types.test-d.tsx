@@ -42,11 +42,11 @@ import type {
   SerializedWindowCondition as CoreSerializedWindowCondition,
   ValidationResult as CoreValidationResult,
   ValueShape as CoreValueShape,
-} from '../index.js';
+} from '@evanion/feature';
 
 /**
- * `@evanion/feature/react` publishes the core's document types, not types of
- * its own that happen to look alike.
+ * `@evanion/react-feature` publishes the core's document types, and no types
+ * of its own that happen to look alike.
  *
  * The import list above is the first half of the claim: a name the entry stops
  * re-exporting fails this file at compile time. The identity cases are the

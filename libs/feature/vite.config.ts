@@ -1,25 +1,38 @@
 /// <reference types='vitest' />
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
 
 import { docExampleSources, docExamples } from '@evanion/doc-examples';
 
 const examples = docExamples();
 
 // No `build` section on purpose. The package is built by `tsc`
-// (tsconfig.lib.json), not bundled: a bundle is one module and cannot carry a
-// per-module `'use client'` directive, which `src/react/index.tsx` needs and
-// `src/index.ts` must not have. File-per-file emit gives each entry its own
-// module and keeps the directive where it belongs.
+// (tsconfig.lib.json), not bundled: file-per-file emit gives each entry its own
+// module, and `scripts/verify-packaging.mjs` resolves the published entry
+// against that output.
 export default defineConfig(() => ({
   root: import.meta.dirname,
   cacheDir: '../../node_modules/.vite/libs/feature',
   ...examples,
-  // `react()` after the doc-example plugins: `expectComments` is `enforce: 'pre'`
-  // and doctest reads what it wrote, so neither one's position here moves them.
-  plugins: [...examples.plugins, react()],
+  plugins: [...examples.plugins],
   test: {
+    name: '@evanion/feature',
     watch: false,
+    globals: true,
+    environment: 'node',
+    include: ['src/lib/**/*.{test,spec}.ts'],
+    // Without an explicit tsconfig, vitest falls back to the solution-style
+    // tsconfig.json (files: [], include: []). It then typechecks nothing and
+    // every expectTypeOf assertion passes whatever it asserts. Both extensions
+    // are listed because a glob keyed on one leaves a file the project owns
+    // unattributed.
+    typecheck: {
+      enabled: true,
+      tsconfig: './tsconfig.spec.json',
+      include: ['src/lib/**/*.test-d.{ts,tsx}'],
+    },
+    // The documented examples, executed. Every region is a `@evanion/feature`
+    // call and none of them touches a DOM.
+    includeSource: docExampleSources(),
     // `apps/docs/tools/test-statistics.mjs` reads report.json and
     // coverage-summary.json out of the coverage directory below, and
     // `tools/repo-checks/src/coverage-config.test.ts` holds every library to
@@ -34,53 +47,5 @@ export default defineConfig(() => ({
       reportsDirectory: './test-output/vitest/coverage',
       provider: 'v8' as const,
     },
-    projects: [
-      {
-        extends: true,
-        test: {
-          name: '@evanion/feature',
-          globals: true,
-          environment: 'node',
-          include: ['src/lib/**/*.{test,spec}.ts'],
-          // Without an explicit tsconfig, vitest falls back to the
-          // solution-style tsconfig.json (files: [], include: []). It then
-          // typechecks nothing and every expectTypeOf assertion passes
-          // whatever it asserts. Each project's `include` names the type tests
-          // it reports as its own, and both extensions are listed on both
-          // sides: a glob keyed on one extension leaves a file the project
-          // owns unattributed. tsconfig.spec.json reaches every type test in
-          // the package, so a file outside a project's `include` still
-          // compiles and surfaces under the other project as an unhandled
-          // source error.
-          typecheck: {
-            enabled: true,
-            tsconfig: './tsconfig.spec.json',
-            include: ['src/lib/**/*.test-d.{ts,tsx}'],
-          },
-          // The README's documented examples, executed. The core suite is the
-          // one that runs them: every region is a `@evanion/feature` call and
-          // none of them touches a DOM.
-          includeSource: docExampleSources(),
-        },
-      },
-      // The React adapter is the only part that needs a DOM. Kept as its own
-      // project so the core suite keeps running in `node`, where an accidental
-      // dependency on a browser global fails instead of passing.
-      {
-        extends: true,
-        test: {
-          name: '@evanion/feature:react',
-          globals: true,
-          environment: 'jsdom',
-          setupFiles: ['./src/test-setup.ts'],
-          include: ['src/react/**/*.{test,spec}.tsx'],
-          typecheck: {
-            enabled: true,
-            tsconfig: './tsconfig.spec.json',
-            include: ['src/react/**/*.test-d.{ts,tsx}'],
-          },
-        },
-      },
-    ],
   },
 }));
