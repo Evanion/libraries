@@ -3827,6 +3827,22 @@ describe('the envelope', () => {
     );
   });
 
+  it('takes contains over a declared optional array', () => {
+    const config: FeatureConfig = {
+      features: [
+        {
+          key: 'beta',
+          enabled: true,
+          rules: [{ when: [{ field: 'tags', op: 'contains', value: 'vip' }] }],
+        },
+      ],
+      schemaVersion: 's1',
+      schema: { context: { fields: { tags: 'string[]?' } } },
+    };
+
+    expect(validateConfig(config)).toEqual({ ok: true });
+  });
+
   it('refuses a window instant a Date constructor reads as NaN', () => {
     const config: FeatureConfig = {
       features: [
