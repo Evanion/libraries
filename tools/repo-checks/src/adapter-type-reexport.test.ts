@@ -1,6 +1,13 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -35,7 +42,33 @@ import { entriesOf, packages, type Entry } from './released-exports';
  * Read through the checker rather than off the import clauses, so an alias, a
  * barrel hop and a type reached through a re-exported function's signature all
  * report the same way.
+ *
+ * `adapter-type-reexport-allowance.json` is the ratchet, on the mechanism
+ * `doc-control-allowance.json` and `doc-fence-allowance.json` carry. A
+ * published declaration may name a sibling type the entry withholds on
+ * purpose, and the entry records which hole and the argument for it. The key
+ * is the hole the refusal names, the value is that argument, and a key the
+ * walk no longer finds is itself a failure, so a clause that lands takes its
+ * entry with it.
  */
+
+const ALLOWANCE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  'adapter-type-reexport-allowance.json',
+);
+
+/** The holes this repository withholds on purpose, each with its argument. */
+const allowance = JSON.parse(readFileSync(ALLOWANCE, 'utf8')) as Record<
+  string,
+  string
+>;
+
+/** One withheld sibling type: the hole the refusal names, and the refusal. */
+interface Hole {
+  /** `<specifier>: <exported> names <Type> from <owner>`. An allowance key. */
+  key: string;
+  message: string;
+}
 
 /** A released package's tree, keyed by the specifier that publishes it. */
 interface Released {
@@ -122,11 +155,11 @@ function programOf(entries: readonly Entry[]): ts.Program {
 }
 
 /** Every sibling type a published declaration names and its entry withholds. */
-function holes(entries: readonly Entry[]): string[] {
+function holes(entries: readonly Entry[]): Hole[] {
   const released = releasedRoots(entries);
   const program = programOf(entries);
   const checker = program.getTypeChecker();
-  const found: string[] = [];
+  const found: Hole[] = [];
   const seen = new Set<string>();
 
   for (const entry of entries) {
@@ -170,25 +203,75 @@ function holes(entries: readonly Entry[]): string[] {
             const key = `${entry.specifier}: ${exported.getName()} names ${name.text} from ${owner}`;
             if (seen.has(key)) continue;
             seen.add(key);
-            found.push(
-              `${key}, and ${entry.specifier} re-exports no such name. A ` +
+            found.push({
+              key,
+              message:
+                `${key}, and ${entry.specifier} re-exports no such name. A ` +
                 `consumer annotating that declaration has to import a second ` +
                 `package to write the annotation.`,
-            );
+            });
           }
         }
       }
     }
   }
 
-  return found.sort();
+  return found.sort((left, right) => (left.key < right.key ? -1 : 1));
+}
+
+/** The holes `allowed` does not account for, as the refusal states them. */
+function unallowed(
+  found: readonly Hole[],
+  allowed: Record<string, string>,
+): string[] {
+  return found
+    .filter((hole) => !(hole.key in allowed))
+    .map((hole) => hole.message)
+    .sort();
+}
+
+/** The keys of `allowed` the walk no longer finds. */
+function stale(
+  found: readonly Hole[],
+  allowed: Record<string, string>,
+): string[] {
+  const open = new Set(found.map((hole) => hole.key));
+
+  return Object.keys(allowed)
+    .filter((key) => !open.has(key))
+    .sort();
 }
 
 describe('an entry point that names a sibling package type', () => {
-  it('re-exports every one of them', async () => {
+  it('re-exports every one the allowance does not account for', async () => {
     const entries = (await packages()).flatMap(entriesOf);
 
-    expect(holes(entries)).toEqual([]);
+    expect(
+      unallowed(holes(entries), allowance),
+      "Add the name to the entry point's own `export type` clause, or " +
+        'record the hole and the argument for it in ' +
+        'adapter-type-reexport-allowance.json.',
+    ).toEqual([]);
+  });
+
+  it('records no allowance entry the walk no longer finds', async () => {
+    const entries = (await packages()).flatMap(entriesOf);
+
+    expect(
+      stale(holes(entries), allowance),
+      'These are recorded in adapter-type-reexport-allowance.json and the ' +
+        'entry point now re-exports the name. Remove the entry.',
+    ).toEqual([]);
+  });
+
+  it('gives an argument with every allowance entry', () => {
+    expect(
+      Object.entries(allowance)
+        .filter(([, reason]) => reason.trim() === '')
+        .map(([key]) => key),
+      'An allowance is the argument for withholding a name, written for the ' +
+        'reviewer who asks why. An empty one records nothing.',
+    ).toEqual([]);
   });
 
   it('is a rule at least one released binding is under', async () => {
@@ -250,7 +333,7 @@ describe('the rule, over a pair written to break it', () => {
     'export interface Props { store: Store; clock: Clock }\n';
 
   it('names the withheld type, the declaration and the package it came from', () => {
-    const reported = holes(pair(WITHHOLDS));
+    const reported = unallowed(holes(pair(WITHHOLDS)), {});
 
     expect(reported).toHaveLength(1);
     expect(reported[0]).toContain('@fixture/binding: Props names Clock');
@@ -258,31 +341,67 @@ describe('the rule, over a pair written to break it', () => {
   });
 
   it('says nothing about the one the binding did re-export', () => {
-    expect(holes(pair(WITHHOLDS)).join('\n')).not.toContain('Store');
+    expect(unallowed(holes(pair(WITHHOLDS)), {}).join('\n')).not.toContain(
+      'Store',
+    );
   });
 
   it('passes once the withheld type joins the clause', () => {
     expect(
-      holes(
-        pair(
-          "import type { Clock, Store } from '@fixture/core';\n" +
-            "export type { Clock, Store } from '@fixture/core';\n" +
-            'export interface Props { store: Store; clock: Clock }\n',
+      unallowed(
+        holes(
+          pair(
+            "import type { Clock, Store } from '@fixture/core';\n" +
+              "export type { Clock, Store } from '@fixture/core';\n" +
+              'export interface Props { store: Store; clock: Clock }\n',
+          ),
         ),
+        {},
       ),
     ).toEqual([]);
   });
 
+  it('says nothing about a hole the allowance accounts for', () => {
+    const found = holes(pair(WITHHOLDS));
+    const allowed = {
+      '@fixture/binding: Props names Clock from @fixture/core':
+        'The fixture withholds it, and this entry is what proves a recorded ' +
+        'hole goes unreported.',
+    };
+
+    expect(unallowed(found, allowed)).toEqual([]);
+    expect(stale(found, allowed)).toEqual([]);
+  });
+
+  it('reports an allowance entry the walk no longer finds', () => {
+    const closed = holes(
+      pair(
+        "import type { Clock, Store } from '@fixture/core';\n" +
+          "export type { Clock, Store } from '@fixture/core';\n" +
+          'export interface Props { store: Store; clock: Clock }\n',
+      ),
+    );
+
+    expect(
+      stale(closed, {
+        '@fixture/binding: Props names Clock from @fixture/core': 'landed',
+      }),
+    ).toEqual(['@fixture/binding: Props names Clock from @fixture/core']);
+  });
+
   it('says nothing about a sibling type named only inside a body', () => {
     expect(
-      holes(
-        pair(
-          "import type { Clock } from '@fixture/core';\n" +
-            'export function at(): string {\n' +
-            '  const clock: Clock = { now: new Date() };\n' +
-            '  return clock.now.toISOString();\n' +
-            '}\n',
+      unallowed(
+        holes(
+          pair(
+            "import type { Clock } from '@fixture/core';\n" +
+              'export function at(): string {\n' +
+              '  const clock: Clock = { now: new Date() };\n' +
+              '  return clock.now.toISOString();\n' +
+              '}\n',
+          ),
         ),
+        {},
       ),
       'A body is not published, so a type named only there is nameable by ' +
         'nobody and withholding it costs a consumer nothing.',
@@ -291,11 +410,14 @@ describe('the rule, over a pair written to break it', () => {
 
   it('says nothing about a type the binding declares itself', () => {
     expect(
-      holes(
-        pair(
-          'export interface Clock { now: Date }\n' +
-            'export interface Props { clock: Clock }\n',
+      unallowed(
+        holes(
+          pair(
+            'export interface Clock { now: Date }\n' +
+              'export interface Props { clock: Clock }\n',
+          ),
         ),
+        {},
       ),
     ).toEqual([]);
   });
