@@ -3,12 +3,10 @@
 /**
  * The React adapter: a provider and hooks over an already-built store.
  *
- * This is its own entry (`@evanion/feature/react`) and its own module for one
- * reason: `'use client'` is a per-module directive, and a bundle is one module.
- * `@evanion/react-widget` hit the same constraint from the other side -- its
- * answer was to have no client code at all, while this layer genuinely is client
- * code -- so the package is emitted file-per-file by `tsc` and the core entry
- * stays free of both the directive and any React import.
+ * `'use client'` is a per-module directive, and this module carries it. The
+ * directive is why the adapter is a package of its own: `@evanion/feature`
+ * imports no framework, declares no peer and must not carry the directive,
+ * which a single module published from both sides cannot do.
  *
  * Evaluation itself lives in the core. Nothing here decides anything.
  */
@@ -17,22 +15,21 @@ import { createContext, useContext, useMemo, useState } from 'react';
 import type { Context, ReactElement, ReactNode } from 'react';
 import { publishedDecisions } from './hydrate.js';
 import type { VersionMismatchPolicy } from './hydrate.js';
-import { reportDivergence } from '../lib/divergence.js';
-import type { DecisionSet } from '../lib/decision-set.js';
-import type {
-  DivergenceObserver,
-  DivergenceReport,
-} from '../lib/divergence.js';
-import type { Features } from '../lib/features.js';
-import type { DeepReadonly, FrozenWhenObserved } from '../lib/observe.js';
+import { reportDivergence } from '@evanion/feature';
 import type {
   Decision,
   Decisions,
+  DecisionSet,
+  DeepReadonly,
+  DivergenceObserver,
+  DivergenceReport,
   EvaluationContext,
   FeatureKey,
+  Features,
+  FrozenWhenObserved,
   Schema,
   VariantInfo,
-} from '../lib/types.js';
+} from '@evanion/feature';
 
 /**
  * The document types, re-exported so a component file imports one specifier.
@@ -65,7 +62,7 @@ export type {
   SerializedWindowCondition,
   ValidationResult,
   ValueShape,
-} from '../lib/config.js';
+} from '@evanion/feature';
 
 /**
  * What a provider publishes, at the erased types.
@@ -84,12 +81,12 @@ export type {
 export type AnyDecisions = Readonly<Record<FeatureKey, Decision<FeatureKey>>>;
 
 export type { VersionMismatchPolicy } from './hydrate.js';
-export type { DecisionOrigin, DecisionSet } from '../lib/decision-set.js';
+export type { DecisionOrigin, DecisionSet } from '@evanion/feature';
 export type {
   DivergenceObserver,
   DivergenceReport,
   DivergenceSide,
-} from '../lib/divergence.js';
+} from '@evanion/feature';
 
 interface FeatureContextValue {
   decisions: AnyDecisions;
@@ -118,7 +115,7 @@ function useContextValue(
   const value = useContext(context);
   if (!value) {
     throw new Error(
-      'useFeatures must be called inside a <FeatureProvider> (from @evanion/feature/react)',
+      'useFeatures must be called inside a <FeatureProvider> (from @evanion/react-feature)',
     );
   }
   return value;

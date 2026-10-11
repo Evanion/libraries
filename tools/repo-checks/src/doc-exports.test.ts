@@ -102,7 +102,7 @@ async function packages(): Promise<readonly DocumentedPackage[]> {
  * `@evanion/source` is the condition every package in this workspace maps to
  * its own `src/`, and it is what the docs app resolves a package through. A
  * specifier is held to the map rather than to `src/index.ts`, because the
- * packages are not all one entry: `@evanion/feature` publishes `./react`,
+ * packages are not all one entry: `@evanion/acl` publishes `./testing`,
  * `@evanion/astro-widget` publishes `./components/*`, and `@evanion/react-acl`
  * enters at `index.tsx`.
  */

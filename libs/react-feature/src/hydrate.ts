@@ -1,20 +1,22 @@
-import { reportDivergence } from '../lib/divergence.js';
-import { ruleFields } from '../lib/evaluate.js';
-import { ruleId } from '../lib/rule-id.js';
-import { assignVariant } from '../lib/variants.js';
-import type { DivergenceObserver } from '../lib/divergence.js';
-import type { DecisionSet } from '../lib/decision-set.js';
-import type { Features } from '../lib/features.js';
-import type { DeepReadonly } from '../lib/observe.js';
+import {
+  reportDivergence,
+  ruleFields,
+  ruleId,
+  assignVariant,
+} from '@evanion/feature';
 import type {
   Decision,
   Decisions,
+  DecisionSet,
+  DeepReadonly,
+  DivergenceObserver,
   EvaluationContext,
   FeatureDefinition,
   FeatureKey,
+  Features,
+  VariantAssignment,
   VariantInfo,
-} from '../lib/types.js';
-import type { VariantAssignment } from '../lib/variants.js';
+} from '@evanion/feature';
 
 /** What a provider does when the shipped version is not the store's. */
 export type VersionMismatchPolicy = 'use-shipped' | 're-resolve';
@@ -44,7 +46,7 @@ function instantOf(now: string): Date {
  * Whether this bundle is a production one.
  *
  * `process` is a Node global. This package ships as plain ESM with no bundling
- * step and no shim, so a browser loading `@evanion/feature/react` through an
+ * step and no shim, so a browser loading `@evanion/react-feature` through an
  * import map holds no `process` and reading one raises a `ReferenceError`, and
  * a shim that supplies `process` without `env` raises a `TypeError`. Either
  * one raises out of the provider's `useMemo`, so the whole tree fails to

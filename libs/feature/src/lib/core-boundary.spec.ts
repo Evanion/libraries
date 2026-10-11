@@ -7,7 +7,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 
 import ts from 'typescript';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -119,32 +119,6 @@ function foreignImports(directory: string): ForeignImport[] {
     .filter((each) => !each.specifier.startsWith('.'));
 }
 
-/** The directory under `root` a file sits in, or `''` for a file at the root. */
-function area(root: string, path: string): string {
-  const segments = relative(root, path).split(sep);
-  return segments.length > 1 ? (segments[0] as string) : '';
-}
-
-/**
- * Every foreign specifier under `root` the package does not allow itself.
- *
- * One exemption, and it names both halves: the specifier `react`, inside the
- * directory `react`, where the hooks import it and the manifest declares it an
- * optional peer. A driver imported beside those hooks is not exempt, and
- * neither is `react` imported from anywhere else.
- *
- * The directory is compared as a path segment. An exemption written as a
- * substring of the path lets `react.ts`, `react-native/` and `reactor/` out of
- * the scan, and the case below reads the `react` directory alone, so nothing
- * would read them at all.
- */
-function unallowedImports(root: string): ForeignImport[] {
-  return foreignImports(root).filter(
-    (each) =>
-      !(area(root, each.path) === 'react' && each.specifier === 'react'),
-  );
-}
-
 /** The names that start a timer or open a socket. */
 const RUNTIME_CALLS = [
   'setInterval',
@@ -217,8 +191,8 @@ interface Manifest {
  * The first case reads `dependencies`. An adapter declared under
  * `optionalDependencies` or either spelling of `bundledDependencies` reaches a
  * consumer's bundle as well, so all four fields answer here.
- * `peerDependencies` is the application's own install and the case below holds
- * it to `react` alone.
+ * `peerDependencies` is the application's own install, and the case below
+ * reads it as installing nothing.
  */
 function installedPackages(manifest: Manifest): string[] {
   const fields: readonly [
@@ -286,15 +260,15 @@ describe('the core', () => {
     expect(installedPackages(manifest())).toEqual([]);
   });
 
-  it('keeps react its only peer', () => {
+  it('declares no peer', () => {
     // A driver declared as a peer reaches the same bundle, and the application
-    // installs it. `react` is the one peer this package asks for, and
-    // `peerDependenciesMeta` marks it optional.
-    expect(Object.keys(manifest().peerDependencies ?? {})).toEqual(['react']);
+    // installs it. This package asks for none: the React provider and hooks
+    // are `@evanion/react-feature`, which declares `react` itself.
+    expect(Object.keys(manifest().peerDependencies ?? {})).toEqual([]);
   });
 
   it('imports no module outside itself', () => {
-    expect(unallowedImports(ROOT)).toEqual([]);
+    expect(foreignImports(ROOT)).toEqual([]);
   });
 
   it('starts no timer and opens no socket', () => {
@@ -305,23 +279,6 @@ describe('the core', () => {
   });
 });
 
-describe('the react entry', () => {
-  it('imports react and nothing else foreign', () => {
-    // The case above exempts the specifier `react` in this directory, because
-    // `react` is a peer and the entry imports it. This names what the
-    // directory may hold, so an exemption that widened would fail here.
-    const specifiers = [
-      ...new Set(foreignImports(join(ROOT, 'react')).map((e) => e.specifier)),
-    ].sort();
-
-    expect(specifiers).toEqual(['react']);
-  });
-
-  it('starts no timer and opens no socket either', () => {
-    expect(runtimeOffences(join(ROOT, 'react'))).toEqual([]);
-  });
-});
-
 describe('the files the scan reads', () => {
   it('reaches every entry the package publishes', () => {
     // Three assertions above read `[]` as a pass, so each one passes on a walk
@@ -329,7 +286,6 @@ describe('the files the scan reads', () => {
     const paths = named(ROOT, sources(ROOT));
 
     expect(paths).toContain('index.ts');
-    expect(paths).toContain('react/index.tsx');
     expect(paths).toContain('lib/config.ts');
     expect(paths).toContain('lib/features.ts');
   });
@@ -500,8 +456,8 @@ describe('the imports the scan reports', () => {
 
   it('reports no specifier a docblock names', () => {
     // The two shapes this package writes. `config.ts` documents an instant it
-    // converts from, and the `@example` fences on `features.ts` and
-    // `react/index.tsx` open with the import line a reader would type.
+    // converts from, and the `@example` fence on `features.ts` opens with the
+    // import line a reader would type.
     const root = tree({
       'config.ts': [
         "/** Converts from 'instant' to a Date. */",
@@ -543,59 +499,6 @@ describe('the imports the scan reports', () => {
     const root = tree({ 'store.ts': 'export const one = 1;\n' });
 
     expect(foreignImports(root)).toEqual([]);
-  });
-});
-
-describe('the exemption the scan allows', () => {
-  it('allows react inside the react directory', () => {
-    const root = tree({
-      'react/index.tsx': "import { useMemo } from 'react';\n",
-    });
-
-    expect(unallowedImports(root)).toEqual([]);
-  });
-
-  it('reports a driver imported beside the hooks', () => {
-    const root = tree({ 'react/store.ts': "import { Pool } from 'pg';\n" });
-
-    expect(unallowedImports(root).map((e) => e.specifier)).toEqual(['pg']);
-  });
-
-  it('reports react imported from outside the react directory', () => {
-    const root = tree({
-      'lib/features.ts': "import { useMemo } from 'react';\n",
-    });
-
-    expect(unallowedImports(root).map((e) => e.specifier)).toEqual(['react']);
-  });
-
-  it('reads a sibling directory whose name begins with react', () => {
-    // `src/react-native/` and `src/reactor/` both contain the text
-    // `src/react`, so an exemption matching the path as a substring drops them
-    // from this case, and `the react entry` below reads the `react` directory
-    // alone.
-    const root = tree({
-      'react-native/store.ts': "import { Pool } from 'pg';\n",
-      'reactor/pg.ts': "import { Client } from 'pg';\n",
-    });
-
-    expect(
-      named(
-        root,
-        unallowedImports(root).map((e) => e.path),
-      ),
-    ).toEqual(['react-native/store.ts', 'reactor/pg.ts']);
-  });
-
-  it('reads a module named react beside the directory', () => {
-    const root = tree({ 'react.ts': "import { Pool } from 'pg';\n" });
-
-    expect(
-      named(
-        root,
-        unallowedImports(root).map((e) => e.path),
-      ),
-    ).toEqual(['react.ts']);
   });
 });
 

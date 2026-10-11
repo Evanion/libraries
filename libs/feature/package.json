@@ -9,7 +9,6 @@
     "rollout",
     "targeting",
     "dependencies",
-    "react",
     "typescript"
   ],
   "homepage": "https://github.com/Evanion/libraries/tree/main/libs/feature#readme",
@@ -36,12 +35,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./react": {
-      "@evanion/source": "./src/react/index.tsx",
-      "types": "./dist/react/index.d.ts",
-      "import": "./dist/react/index.js",
-      "default": "./dist/react/index.js"
     }
   },
   "files": [
@@ -61,14 +54,6 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
-  },
-  "peerDependencies": {
-    "react": "^18.0.0 || ^19.0.0"
-  },
-  "peerDependenciesMeta": {
-    "react": {
-      "optional": true
-    }
   },
   "devDependencies": {
     "@evanion/doc-examples": "*"

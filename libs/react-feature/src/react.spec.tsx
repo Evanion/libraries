@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
-import { createFeatures, type Definitions } from '../lib/features.js';
+import { createFeatures, type Definitions } from '@evanion/feature';
 import {
   createFeatureContext,
   FeatureProvider,

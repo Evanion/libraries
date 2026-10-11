@@ -62,6 +62,9 @@
     },
     {
       "path": "./libs/react-acl"
+    },
+    {
+      "path": "./libs/react-feature"
     }
   ],
   "compilerOptions": {

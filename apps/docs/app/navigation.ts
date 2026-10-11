@@ -154,11 +154,11 @@ export interface DocumentedPackage {
    * The stack the package runs in, as a chip on its card.
    *
    * `universal` is the answer for a package that imports no framework: it runs
-   * wherever TypeScript does, and `any` said that to nobody. `@evanion/feature`
-   * says `universal + React` because both halves are true and dropping either
-   * misleads: the core imports no framework and the React adapter is a
-   * separate entry point. Each word has to be one
-   * `components/landing/platforms.ts` can paint.
+   * wherever TypeScript does, and `any` said that to nobody. A family states it
+   * once per member: `@evanion/feature` says `universal` and
+   * `@evanion/react-feature` says `React`, and the card carries a chip for
+   * each. Each word has to be one `components/landing/platforms.ts` can
+   * paint.
    */
   framework: string;
   /**
@@ -234,8 +234,8 @@ export const packages: readonly DocumentedPackage[] = [
     familyId: 'widget',
     framework: 'Astro',
     // The rendering group is one family, so its three packages share one hue —
-    // the same way `feature` (universal + React) uses one. A reader who has
-    // been in the React Widget pages recognises the family by colour.
+    // the same way the feature family uses one. A reader who has been in the
+    // React Widget pages recognises the family by colour.
     hue: 'sky',
     demo: 'bad-items',
     documented: true,
@@ -364,7 +364,8 @@ export const packages: readonly DocumentedPackage[] = [
     slug: 'feature',
     title: 'Feature',
     group: 'standalone',
-    framework: 'universal + React',
+    familyId: 'feature',
+    framework: 'universal',
     hue: 'amber',
     demo: 'rollouts',
     documented: true,
@@ -372,6 +373,19 @@ export const packages: readonly DocumentedPackage[] = [
     unversioned:
       'Its pages have not moved under content/next/. It is private and has ' +
       'no release, so its bare path serves the pages as written.',
+  },
+  {
+    name: '@evanion/react-feature',
+    root: 'libs/react-feature',
+    slug: 'react-feature',
+    title: 'React Feature',
+    group: 'standalone',
+    familyId: 'feature',
+    framework: 'React',
+    // One hue for the whole family, the way the rendering family carries `sky`.
+    hue: 'amber',
+    documented: false,
+    workshop: false,
   },
 ];
 
