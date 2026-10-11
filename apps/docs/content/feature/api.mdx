@@ -756,9 +756,21 @@ accepts.
 
 <!-- reference @evanion/feature#FeatureConfigError example=config-errors -->
 
-To handle any configuration failure in a single block, you can catch the base
-class for all configuration errors. The `FeatureConfigError` serves as the root
-for the other five errors described on this page.
+`FeatureConfigError` is the root of the other five errors on this page. The
+`createFeatures` function raises it directly for defects that none of those five
+specific names cover: specifically, a `when` written as a string, or a window
+boundary carrying `Number.NaN`. By using one `catch` over this base class, you
+can answer every defect the checker reports.
+
+The checker reports nothing about a variant `value` because `VariantSpec.value`
+is typed `unknown`. However, `createFeatures` clones the configuration it was
+handed; if a function or a symbol is placed under `value`, `structuredClone`
+will refuse it. Over a bare array, this refusal travels as the host's own
+`DataCloneError`, which names the leaf at the authoring site and is not a
+`FeatureConfigError`. When working over a served document, this same refusal
+arrives as a `FeatureConfigError` carrying the host's text, ensuring that a
+holder catching `FeatureConfigError` to keep their existing document also
+catches what would otherwise be a `DOMException`.
 
 ## `FeatureCycleError`
 
