@@ -145,6 +145,88 @@ describe("the eight core names this package's own declarations name", () => {
   });
 });
 
+/**
+ * The re-exported names carry the core's parameters, defaults and constraints.
+ *
+ * An identity case passes over an alias that widened on the way through:
+ * `export type Decision<F = any> = CoreDecision<F>` is the same type at every
+ * argument the identity cases write and admits arguments the core refuses. The
+ * cases below write the arguments the core refuses, and the ones whose default
+ * the documentation states.
+ */
+describe('the eight, at their parameters', () => {
+  it('refuses a feature key outside FeatureKey', () => {
+    // @ts-expect-error -- `F extends FeatureKey`, which is `string | number`
+    type Keyed = Decision<symbol>;
+    expectTypeOf<Keyed>().not.toBeNever();
+  });
+
+  it('takes a numeric key, which is the other half of FeatureKey', () => {
+    expectTypeOf<Decision<7>>().toEqualTypeOf<CoreDecision<7>>();
+  });
+
+  it('gives Decisions no schema default, because the core gives it none', () => {
+    // @ts-expect-error -- the schema is the whole content of the type
+    type Bare = Decisions;
+    expectTypeOf<Bare>().not.toBeNever();
+  });
+
+  it('refuses a schema whose entry is not a VariantInfo', () => {
+    // @ts-expect-error -- `Record<keyof S, VariantInfo | never>` is the bound
+    type Loose = Decisions<{ cta: string }>;
+    expectTypeOf<Loose>().not.toBeNever();
+  });
+
+  it('defaults Features to the union of both freezes', () => {
+    expectTypeOf<Features<OneKey>>().toEqualTypeOf<CoreFeatures<OneKey>>();
+  });
+
+  it('refuses a Frozen argument that is not a boolean', () => {
+    // @ts-expect-error -- `Frozen extends boolean`
+    type Odd = Features<OneKey, 'yes'>;
+    expectTypeOf<Odd>().not.toBeNever();
+  });
+
+  it('leaves the decisions alone for a store that freezes nothing', () => {
+    expectTypeOf<FrozenWhenObserved<false, Decisions<OneKey>>>().toEqualTypeOf<
+      CoreDecisions<OneKey>
+    >();
+  });
+
+  it('answers both forms for a store whose freeze is unsettled', () => {
+    expectTypeOf<
+      FrozenWhenObserved<boolean, Decisions<OneKey>>
+    >().toEqualTypeOf<CoreFrozenWhenObserved<boolean, CoreDecisions<OneKey>>>();
+  });
+
+  it('admits an attribute a rule reads, which EvaluationContext is open for', () => {
+    expectTypeOf<{
+      targetingKey: string;
+      tier: 'gold';
+    }>().toMatchTypeOf<EvaluationContext>();
+  });
+});
+
+/**
+ * `Schema` is the default `FeatureProviderProps` gives its schema parameter,
+ * which `apps/docs/content/next/react-feature/api.mdx` states under both
+ * entries. A default that moved would leave the page claiming a type argument
+ * is optional when it is not.
+ */
+describe('the default schema the props carry', () => {
+  it('is Schema, so the props need no type argument', () => {
+    expectTypeOf<FeatureProviderProps>().toEqualTypeOf<
+      FeatureProviderProps<Schema>
+    >();
+  });
+
+  it('refuses a schema entry the constraint does not admit', () => {
+    // @ts-expect-error -- a variant-free feature carries `never`, not `string`
+    type Wrong = FeatureProviderProps<{ cta: string }>;
+    expectTypeOf<Wrong>().not.toBeNever();
+  });
+});
+
 describe('the props the provider accepts across the boundary', () => {
   it("types features as the core's Features", () => {
     expectTypeOf<FeatureProviderProps<OneKey>['features']>().toEqualTypeOf<
