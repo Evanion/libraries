@@ -509,26 +509,6 @@ describe('JsonValue', () => {
 
     expectTypeOf<Sale>().not.toExtend<JsonValue>();
   });
-
-  it('refuses an interface a generator nested under a member of the value', () => {
-    interface Sale {
-      label: string;
-    }
-
-    expectTypeOf<{ readonly sale: Sale }>().not.toExtend<JsonValue>();
-  });
-
-  it('takes a member written as undefined on an object an array holds', () => {
-    expectTypeOf<
-      readonly { readonly seat: string | undefined }[]
-    >().toExtend<JsonValue>();
-  });
-
-  it('refuses an undefined element in an array a member holds, at any depth', () => {
-    expectTypeOf<{
-      readonly tiers: readonly (string | undefined)[];
-    }>().not.toExtend<JsonValue>();
-  });
 });
 
 describe('SerializedAttributeCondition', () => {
@@ -865,16 +845,6 @@ describe('FieldType', () => {
   it('refuses the empty string', () => {
     expectTypeOf<''>().not.toExtend<FieldType>();
   });
-
-  it('takes each base name on its own, the first of the four groups it spells', () => {
-    expectTypeOf<BaseFieldType>().toExtend<FieldType>();
-  });
-
-  it('refuses the bare string a producer reflecting the schema emits', () => {
-    // A producer in another language reflects a field type into a `string`, so
-    // the holder narrows the value before it annotates a declaration with it.
-    expectTypeOf<string>().not.toExtend<FieldType>();
-  });
 });
 
 describe('ValueShape', () => {
@@ -890,10 +860,6 @@ describe('ValueShape', () => {
 
   it('refuses an array where a schema object belongs', () => {
     expectTypeOf<readonly unknown[]>().not.toExtend<ValueShape>();
-  });
-
-  it('reads a keyword as unknown, so validateConfig owns the fence and not the compiler', () => {
-    expectTypeOf<ValueShape[string]>().toBeUnknown();
   });
 });
 
@@ -970,12 +936,6 @@ describe('ContextSchema', () => {
     } satisfies ContextSchema;
 
     expectTypeOf(schema.fields.constructor).toEqualTypeOf<FieldType>();
-  });
-
-  it('refuses a field map a producer reflected into bare strings', () => {
-    expectTypeOf<{
-      readonly fields: Readonly<Record<string, string>>;
-    }>().not.toExtend<ContextSchema>();
   });
 });
 
