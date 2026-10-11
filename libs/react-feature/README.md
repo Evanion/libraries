@@ -55,6 +55,10 @@ type ShopDecisions = DecisionSet<{
 function Shelf() {
   const { variant } = useVariant('shelf-sort');
 
+  // A feature that resolved off carries no variant, so the shop's own order
+  // answers that case and neither arm of the split does.
+  if (variant === undefined) return <p>Shop order</p>;
+
   return <p>{variant === 'popular' ? 'Most played first' : 'Newest first'}</p>;
 }
 
