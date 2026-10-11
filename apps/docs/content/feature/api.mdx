@@ -818,6 +818,60 @@ A number has to be an epoch a `Date` holds, and a `Date` has to hold an instant.
 
 A `Date` is taken as the instant it holds and is read no further, so `new Date('2026-01-01T00:00:00')` carries the constructing host's zone past every check. Build one from epoch milliseconds, or from a string the table accepts.
 
+## `FeatureSchema`
+
+<!-- reference @evanion/feature#FeatureSchema -->
+
+To define the typing contract of a document, you use the `schema` member, which is typed by `FeatureSchema`. This contract consists of two halves, each with its own vocabulary. The `context.fields` member declares the fields a condition may read and is typed by `ContextSchema`. Conversely, `features[key].variants[name]` declares the shape of a variant's value and is typed by `ValueShape`. [Distribution](../distribution#the-schemas-two-vocabularies) walks a document carrying both.
+
+The `@evanion/feature` engine treats these two vocabularies differently. When the engine reads a context field, it compares it with a closed operator set and checks it against the declared type during validation. However, the engine reads no variant value at all; instead, `valueOf` hands the value to the caller untouched.
+
+If a document carries neither `schema` nor `schemaVersion`, it declares no shapes, and the schema walk reports nothing about it. If a document carries an inline `schema` but no `schemaVersion`, it reports `missing-schema-version`, because a holder cannot cache a schema that names no value to cache it at.
+
+## `ContextSchema`
+
+<!-- reference @evanion/feature#ContextSchema -->
+
+To manage the available context fields in `@evanion/feature`, you use `ContextSchema`, where `fields` maps a context field's name to its `FieldType`. The `validateConfig` function reads this map twice over. If a condition is used over a field that the map omits, it reports `unknown-context-field`. If an operator is used that the declared type has no meaning for, it reports `field-type-mismatch`. For example, using `contains` over a field declared `boolean` asks whether a boolean holds a value, which `evaluateCondition` answers `false` for every subject. A document declaring no context fields declares no contract, and neither check runs.
+
+## `FieldType`
+
+<!-- reference @evanion/feature#FieldType -->
+
+The `FieldType` used in `@evanion/feature` is a template-literal union over `BaseFieldType`, admitting sixteen strings: each of the four base names on its own, each with `[]`, each with `?`, and each with `[]?` in that order. Consequently, `instant[]?` is a member while `instant?[]` is not.
+
+The `[]` suffix is what `field-type-mismatch` reads, since `contains` asks whether an array holds a value, while `eq`, `ne`, `in` and `not-in` compare a scalar. The `?` suffix marks a field that a complete context may leave out. Since no issue code reports a field a context omitted, only a generator and a reader act on that suffix.
+
+## `BaseFieldType`
+
+<!-- reference @evanion/feature#BaseFieldType -->
+
+`BaseFieldType` defines the four base names that a `FieldType` builds on. Among these, `instant` represents a point in time that the context carries as an ISO 8601 string or as epoch milliseconds.
+
+## `FeatureShape`
+
+<!-- reference @evanion/feature#FeatureShape -->
+
+To record the schema for a specific feature, `@evanion/feature` uses `FeatureShape`, which is held under `schema.features` at the feature's own key. Within this, `variants` maps a variant name to that variant's `ValueShape` in no significant order. The document's own `variants` array holds the order, and `VariantSpec.order` fixes where a variant sits in the bucketing walk.
+
+## `ValueShape`
+
+<!-- reference @evanion/feature#ValueShape -->
+
+To define the shape of a single variant value, `@evanion/feature` uses `ValueShape`, written as a JSON Schema 2020-12 object. The fence admits `type`, `properties`, `required`, `items`, `enum`, `const`, `additionalProperties`, `$defs`, `$ref`, `title` and `description`. A `$ref` resolves only to a `$defs` entry in the same document. Any other keyword reports `unfenced-schema`, including `allOf`, `anyOf`, `oneOf` and `not`. A remote `$ref` leaves a generator with a document it cannot resolve offline, and the four combinators produce Swift and Kotlin a reader cannot map back to the schema. An owner needing a union writes an `enum` over a discriminant.
+
+The `validateConfig` function tests a key only where a shape declares a keyword. Because `properties` and `$defs` hold a map from a name their author chose to a shape, the walk descends into each value and tests no name; thus, a property called `label` and a definition called `Label` are treated as data. Similarly, `items` and `additionalProperties` hold one shape, so the walk descends into the value. Keywords like `type`, `title`, `description`, `required`, `enum` and `const` hold data and the walk stops at them; therefore, a variant value carrying the key `oneOf` under a `const` remains legal.
+
+## `JsonValue`
+
+<!-- reference @evanion/feature#JsonValue -->
+
+When an attribute condition compares against a value as a document carries it, `@evanion/feature` uses `JsonValue`. `SerializedAttributeCondition.value` is this type, and `serializeConfig` writes it.
+
+In this type, an object member written as `undefined` is legal, but an array element is not. Because `canonical` filters an `undefined` member out and `JSON.stringify` omits it, an absent key and a key written as `undefined` digest alike. However, `canonical` writes an `undefined` array element as the text `undefined` while `JSON.stringify` writes it as `null`; this causes the publisher and the holder to compute two different digests over one array, leading the holder to report `digest-mismatch`.
+
+The object arm is an index signature. Since TypeScript derives one for a type alias and for an object literal, but never for an `interface`, a value annotated with a generated interface does not reach this type. A variant value carries no such fence: `SerializedVariantSpec.value` is `unknown`, which allows a quicktype or openapi-generator interface to land there.
+
 ## `FeatureConfigError`
 
 <!-- reference @evanion/feature#FeatureConfigError example=config-errors -->
