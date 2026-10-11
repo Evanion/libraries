@@ -296,6 +296,46 @@ Every entry point that resolves a decision reaches this function through the rul
 
 If a condition is defined over a field the context does not carry, it never holds; for this reason, `ne` and `not-in` answer `false` on an absent field. If a `day-of-week` condition names a zone that this runtime cannot format, it raises the host's `RangeError`. While `validateConfig` and `createFeatures` refuse such a zone when the configuration is supplied, a condition written by hand may have passed neither.
 
+## `canonical`
+
+<!-- reference @evanion/feature#canonical example=identity-primitives -->
+
+To ensure that two logically identical configurations produce the same hash regardless of how they were serialized, you need a stable text representation. The `canonical` function solves this by writing one text for a value, ensuring every object's keys are written in sorted order. This allows a producer in another language to emit keys in any order and still agree with a hash taken over the same configuration.
+
+The tool maintains a strict boundary between object keys and array elements: array order survives. Because `in: ['a', 'b']` and `in: ['b', 'a']` test the same membership, sorting a list would claim an equality the function does not generally possess, so `canonical` writes two different texts for them. A document that reorders a list is treated as a document somebody edited.
+
+To handle JavaScript's type idiosyncrasies, `@evanion/feature` applies the following rules:
+
+- An `undefined` property is dropped, so an absent key and a key written as `undefined` agree.
+- A `Date` is written as its ISO 8601 string.
+- A `bigint` is written as its digits with a trailing `n` (e.g., `10n` for `BigInt(10)`).
+- `NaN`, `Infinity`, and `-Infinity` are written behind a `number:` tag (e.g., `number:NaN` for `NaN`).
+- Functions and symbols are written using their own `toString()`.
+
+These distinctions are necessary because `JSON.stringify` loses precision—it returns `undefined` for functions and symbols, throws for `bigint`, and writes `null` for all three non-finite numbers. Since `evaluateCondition` compares an attribute condition's value with `===`, a rule holding `eq: NaN` must match no context, whereas one holding `eq: Infinity` matches a context carrying that number. `ruleId` derives a rule's id from this text, meaning those three rules require three distinct ids.
+
+Note that `configDigest` does not read this text. It performs a walk that writes non-finite numbers as `null`. This prevents a discrepancy where one holder parses `1e999` as `Infinity` and another, who cached the document via `JSON.stringify`, holds it as `null`.
+
+To optimize performance, a value that two paths reach is written once and the second path reads a memo. In a diamond 22 levels deep containing 45 objects and 2^22 paths to its leaf, the memo walks 45 of them in 34ms, whereas bare recursion costs 2.8s. The resulting text remains the same—88MB for that diamond—because JSON carries no sharing. Past 25 levels, both this function and `JSON.stringify` throw `RangeError: Invalid string length`; a document too deep to digest is a document too deep to serve.
+
+## `ruleId`
+
+<!-- reference @evanion/feature#ruleId example=identity-primitives -->
+
+To identify a rule within a `Decision`, you use `ruleId`. This function determines the id a rule carries, prioritizing an explicit `rule.id` if it exists. If a control plane assigns an id at rule creation, that value wins and the derivation never runs; similarly, an author can write `id: 'staff-only'` to ensure a specific name appears in logs.
+
+When an id must be derived, `ruleId` produces a string starting with `rule-` followed by eight hex digits of FNV-1a over the text of what the rule matches on: each condition, and the rollout's `by` and `seed`. This derivation is stable even if a rule is inserted above it, the list is reordered, a ramp is moved, or the document is emitted by a producer in another language. This is superior to a positional `#0`, which changes as soon as the list moves.
+
+The derivation specifically excludes `rollout.percent`. Because `by` and `seed` decide which subjects a rule can reach and `percent` decides how many of them it reaches now, an operator moving the percentage is running the same rule harder. Including the percentage in the hash would rename the rule on every ramp, causing an event stream from before the ramp to join to nothing after it. Consequently, two rollout rules on one feature that share conditions, `by`, and `seed` will derive the same id unless the author separates them with an explicit `rule.id`.
+
+Handling boundaries and field names:
+
+- A window condition's boundary is hashed as epoch milliseconds, so one instant written three ways reads as one value.
+- A boundary that names no instant is hashed as its own text, ensuring two hosts reading it against their own zones still derive one id. While `createFeatures` refuses strings, numbers, and `Date`s that name none, this path is what a caller reaching `ruleId` directly gets.
+- Every variable-length part of the text, including `op`, carries its length. This prevents collisions where a field name abuts an operator; for example, `{ field: 'usernot-', op: 'in' }` and `{ field: 'user', op: 'not-in' }` are opposite predicates and are written as different texts.
+
+The use of FNV-1a is a performance choice rather than a security one. Evaluation is synchronous, whereas Web Crypto's `digest` returns a promise, and no security property rests on the difficulty of finding a second rule that hashes the same. The hash walks UTF-16 code units to maintain the cross-language contract that implementations in other languages match.
+
 ## `serializeConfig(features, envelope?)`
 
 To write a `@evanion/feature` store out as one document, you use `serializeConfig()`. This function captures every definition, every rule with the `id` its author or its control plane gave it, and every variant with its name, weight, order and value.
@@ -843,6 +883,62 @@ ECMA-262 reads `2026-01-01T00:00:00` as local time. The rule derives one id on e
 A number has to be an epoch a `Date` holds, and a `Date` has to hold an instant. `createFeatures` refuses `Number.NaN`, which is what `Date.parse` and `new Date` answer for a string naming none, so a boundary computed from an unset environment variable is refused where it is written. It refuses a number past either end of the range a `Date` holds, -8640000000000000 to 8640000000000000, since a `before` boundary above that range holds at every instant and an `after` boundary at none.
 
 A `Date` is taken as the instant it holds and is read no further, so `new Date('2026-01-01T00:00:00')` carries the constructing host's zone past every check. Build one from epoch milliseconds, or from a string the table accepts.
+
+## `FeatureConfig`
+
+<!-- reference @evanion/feature#FeatureConfig example=config-document -->
+
+To transport feature definitions across a boundary, you use a configuration document. The `FeatureConfig` interface types that document: a canonical envelope over a list of definitions.
+
+There is no bare-array form, for the reason `Matrix` gives in `@evanion/acl`. By using an envelope, a foreign producer emitting JSON can state the version and the schema, ensuring one document crosses a boundary without needing a wrapper assembled at the call site.
+
+The `version` is compared with `!==`, and it is opaque and unordered. A consumer that could order two versions would act on the order, and both available actions are wrong: declining a lower version blocks a rollback (the operation an operator reaches for at 3am), and accepting only a higher version breaks a control plane serving two shards whose counters diverged. A consumer holding a version different from the one it wants fetches the document that version names.
+
+The `digest` is the `configDigest` of this document, and a holder that finds one verifies it. The `schema` carries the typing contract inline and `schemaVersion` names the schema's own version; a document may name `schemaVersion` alone. The `features` member holds one `SerializedDefinition` per feature.
+
+The `maxStale` value indicates how long the publisher believes a holder may keep this document, in milliseconds. This is advisory and no entry point in `@evanion/feature` reads it. The party that fetches is the party that acts on it: whatever reads the document holds the poller, knows the fetch instant because it performed the fetch, and shortens its interval, logs, refuses to start or serves a fallback document. This library holds no clock authority, and no endpoint answers which variant a subject gets, so every holder computes its own answer from the rules the document carries.
+
+The `F` parameter defaults to `FeatureKey`. An entry point that reads a whole document names the bare `FeatureConfig`, and a document keyed on a numeric enum reaches that parameter only while the default admits a number.
+
+See [Distribution](/feature/distribution) for what a document carries.
+
+## `ConfigEnvelope`
+
+<!-- reference @evanion/feature#ConfigEnvelope example=config-document -->
+
+When a serializer writes around a store, it uses `ConfigEnvelope` to define the envelope without its payload. It is `FeatureConfig` with `features` and `digest` dropped, and `digest` written back as `never`. `serializeConfig` takes one as its second argument and defaults to `features.envelope`, the envelope of the document the store installed.
+
+The `digest` is fenced to `never` rather than omitted. Omitting it would drop the member from the type and still admit a whole `FeatureConfig`, because TypeScript refuses an extra property on a fresh object literal and nowhere else. Because a document's `digest` is always the `configDigest` of that same document, a serializer that copied one from its caller would emit a document whose digest covers other bytes. Every holder recomputes it, disagrees, reports `digest-mismatch` and refuses the whole document, and no holder recovers on its own. `configDigest` is the one writer of the member.
+
+## `ValidationResult`
+
+<!-- reference @evanion/feature#ValidationResult example=config-validate -->
+
+To determine if a configuration is valid, you use `validateConfig`, which returns a `ValidationResult`. This result is discriminated on `ok`. The agreement arm is `{ ok: true }` and carries nothing else. The refusal arm carries every issue the walk found, so a caller reporting a bad document names all of its defects in one pass.
+
+## `ConfigIssue`
+
+<!-- reference @evanion/feature#ConfigIssue example=config-validate -->
+
+When `validateConfig` finds a defect, it reports it as a `ConfigIssue`. The `code` names the class of defect and `message` is the same text the thrown counterpart carries, where one exists. The `key` names the feature the issue is about, when it is about one. The `path` is a JSON pointer into the document, so a UI highlights the row.
+
+A `duplicate-feature` or `unknown-dependency` issue names a key, a `cycle` issue names none, and no graph issue names a member.
+
+## `ConfigIssueCode`
+
+<!-- reference @evanion/feature#ConfigIssueCode example=config-validate -->
+
+`ConfigIssueCode` is the closed set of 18 codes, one per class of defect, in four groups: the graph, the variants, the rules and the envelope. The [`validateConfig`](#validateconfigconfig) entry lists them.
+
+## `ReloadResult`
+
+<!-- reference @evanion/feature#ReloadResult example=config-reload -->
+
+To track the outcome of a configuration update, you use `ReloadResult`, which describes what a reload did and is discriminated on `ok`. Both arms carry `version`, and on both arms it names the document that is installed now.
+
+The agreement arm carries `previousVersion`, the version that was installed before, and `changed`, the keys whose stored intent differs from the previous document.
+
+The refusal keeps the previous document, so its `version` is the one that stayed and `rejected` is the candidate's version, which lets a log name what was refused. The `issues` member carries what `validateConfig` found.
 
 ## `FeatureSchema`
 

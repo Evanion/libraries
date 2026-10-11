@@ -1,21 +1,16 @@
 {
   "@evanion/feature": {
     "undocumented": [
-      "ConfigEnvelope",
-      "ConfigIssue",
-      "ConfigIssueCode",
       "DecisionOrigin",
       "DecisionSet",
       "DeepReadonly",
       "DivergenceObserver",
       "DivergenceReport",
       "DivergenceSide",
-      "FeatureConfig",
       "FeatureEvent",
       "FeatureOptions",
       "FrozenWhenObserved",
       "ReadonlyDate",
-      "ReloadResult",
       "SerializedAttributeCondition",
       "SerializedCondition",
       "SerializedDefinition",
@@ -24,11 +19,7 @@
       "SerializedVariantSpec",
       "SerializedWindowCondition",
       "SnapshotOptions",
-      "UnobservedOptions",
-      "ValidationResult",
-      "canonical",
-      "ruleId"
-    ],
-    "unexercised": ["canonical", "ruleId"]
+      "UnobservedOptions"
+    ]
   }
 }
