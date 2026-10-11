@@ -328,11 +328,18 @@ When an id must be derived, `ruleId` produces a string starting with `rule-` fol
 
 The derivation specifically excludes `rollout.percent`. Because `by` and `seed` decide which subjects a rule can reach and `percent` decides how many of them it reaches now, an operator moving the percentage is running the same rule harder. Including the percentage in the hash would rename the rule on every ramp, causing an event stream from before the ramp to join to nothing after it. Consequently, two rollout rules on one feature that share conditions, `by`, and `seed` will derive the same id unless the author separates them with an explicit `rule.id`.
 
-Handling boundaries and field names:
+When calculating a rule's identity, boundaries are processed to eliminate ambiguity between different representations of the same moment in time. A window condition's boundary is hashed as epoch milliseconds, so one instant written three ways reads as one value.
 
-- A window condition's boundary is hashed as epoch milliseconds, so one instant written three ways reads as one value.
-- A boundary that names no instant is hashed as its own text, ensuring two hosts reading it against their own zones still derive one id. While `createFeatures` refuses strings, numbers, and `Date`s that name none, this path is what a caller reaching `ruleId` directly gets.
-- Every variable-length part of the text, including `op`, carries its length. This prevents collisions where a field name abuts an operator; for example, `{ field: 'usernot-', op: 'in' }` and `{ field: 'user', op: 'not-in' }` are opposite predicates and are written as different texts.
+For a boundary that names no valid instant—a string, or a value `Instant` does not admit that a document parsed out of JSON carried in, such as `null`, an object, a boolean, or an array—the package treats the value as literal text and hashes it as its own text. Consequently, two hosts reading the rule against their own zones still derive one id, and two rules carrying different unusable boundaries keep different ids.
+
+There are exceptions for numbers and `Date` objects that name no instant:
+
+- Both are hashed as the text `NaN`. For example, `ruleId` over `Number.NaN` and over `new Date('nonsense')` derives `rule-a2b37cba` either way.
+- Where two such rules sit on one feature, `validateConfig` reports `duplicate-rule-id` for the pair on top of the `invalid-instant` it reports for each boundary.
+- `canonical` writes `null` for both, which would collide with a JSON-borne `null`, and the epoch is the reading this package has of a number and a `Date`.
+- `createFeatures` refuses every string, number and `Date` that names no instant, so this path is what a caller reaching `ruleId` directly gets.
+
+To prevent collisions where a field name abuts an operator, every variable-length part of the text, including `op`, carries its length. This ensures that predicates with similar character sequences but different boundaries are written as different texts. For example, `{ field: 'usernot-', op: 'in' }` and `{ field: 'user', op: 'not-in' }` are opposite predicates and are hashed uniquely.
 
 The use of FNV-1a is a performance choice rather than a security one. Evaluation is synchronous, whereas Web Crypto's `digest` returns a promise, and no security property rests on the difficulty of finding a second rule that hashes the same. The hash walks UTF-16 code units to maintain the cross-language contract that implementations in other languages match.
 
