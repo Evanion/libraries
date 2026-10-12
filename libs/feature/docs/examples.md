@@ -1674,6 +1674,21 @@ const unnamed: Rule = {
 
 ruleId(named); // -> 'staff-only'
 ruleId(unnamed); // -> 'rule-2d092ba6'
+
+// A number and a `Date` that name no instant are both read as `NaN`, so one
+// condition shape derives one id for either. The field and the operator are
+// hashed alongside the boundary, so the same pair under `field: 'start'`
+// derives `rule-bc1207e6`.
+const nanBoundary: Rule = {
+  when: [{ field: 'now', op: 'after', value: Number.NaN }],
+};
+
+const unreadableDate: Rule = {
+  when: [{ field: 'now', op: 'after', value: new Date('nonsense') }],
+};
+
+ruleId(nanBoundary); // -> 'rule-a2b37cba'
+ruleId(unreadableDate); // -> 'rule-a2b37cba'
 ```
 
 <!-- #endregion identity-primitives -->

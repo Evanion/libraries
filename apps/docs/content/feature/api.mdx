@@ -334,7 +334,7 @@ For a boundary that names no valid instant—a string, or a value `Instant` does
 
 To handle values that do not represent a valid point in time, `@evanion/feature` provides exceptions for `Number.NaN` and for a `Date` holding no instant:
 
-- Both are hashed as the text `NaN`; for example, `ruleId` over `Number.NaN` and over `new Date('nonsense')` derives `rule-a2b37cba` either way.
+- Both are hashed as the text `NaN`, meaning one condition shape derives one id for either. For example, `ruleId` over a rule whose only condition is `{ field: 'now', op: 'after', value: Number.NaN }` and over the same condition carrying `new Date('nonsense')` derives `rule-a2b37cba` either way. Because the field and the operator are hashed alongside the boundary, the same pair of boundaries under `field: 'start'` derives `rule-bc1207e6` instead.
 - Every other number is hashed as its own decimal digits, a number past the range a `Date` holds included. `8640000000000001` and `9e15` are two boundaries `createFeatures` refuses for naming no instant, and the two rules carrying them keep two ids.
 - Where two such rules sit on one feature, `validateConfig` reports `duplicate-rule-id` for the pair on top of the `invalid-instant` it reports for each boundary.
 - Since the epoch is the reading this package has of a number and a `Date`, `canonical` writes `null` for both, which would collide with a JSON-borne `null`.
