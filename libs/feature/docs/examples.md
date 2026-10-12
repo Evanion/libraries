@@ -1656,8 +1656,8 @@ ruleFields(weekendMembers); // -> ['customerId', 'now', 'tier']
 <!-- #region identity-primitives -->
 
 ```ts @import.meta.vitest
-import { canonical, ruleId } from '@evanion/feature';
-import type { Rule } from '@evanion/feature';
+import { canonical, ruleId, validateConfig } from '@evanion/feature';
+import type { FeatureConfig, Rule } from '@evanion/feature';
 
 // Two objects whose keys were written in two orders carry one text.
 canonical({ tier: 'gold', region: 'eu' }); // -> '{"region":"eu","tier":"gold"}'
@@ -1705,6 +1705,26 @@ const unreadableDateBefore: Rule = {
 
 ruleId(nanBefore); // -> 'rule-d7804a19'
 ruleId(unreadableDateBefore); // -> 'rule-d7804a19'
+
+// The `NaN` rule and the unreadable-`Date` rule on one feature answer one id,
+// which `validateConfig` reports alongside the defect on each boundary.
+const document = {
+  version: 7,
+  features: [
+    {
+      key: 'new-checkout',
+      enabled: false,
+      rules: [nanBoundary, unreadableDate],
+    },
+  ],
+} as unknown as FeatureConfig;
+
+const found = validateConfig(document);
+
+const codes = found.ok ? [] : found.issues.map((issue) => issue.code);
+
+codes.filter((code) => code === 'invalid-instant').length; // -> 2
+codes.includes('duplicate-rule-id'); // -> true
 ```
 
 <!-- #endregion identity-primitives -->
