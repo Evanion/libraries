@@ -499,6 +499,88 @@ describe('the digest across the hop', () => {
   });
 });
 
+describe('a window instant at the edges of what a document carries', () => {
+  const windowAt = (value: number | string): FeatureConfig => ({
+    features: [
+      {
+        key: 'sale',
+        enabled: true,
+        rules: [{ when: [{ field: 'now', op: 'after', value }] }],
+      },
+    ],
+  });
+
+  it('carries an instant of epoch zero, which a falsy test for the member would drop', () => {
+    const document = windowAt(0);
+
+    const result = parseFeatureConfig(document);
+
+    expect(result.ok && serializeConfig(result.features)).toEqual(document);
+  });
+
+  it('resolves an epoch-zero window the way the ISO string that spells it resolves', () => {
+    const numeric = parseFeatureConfig(windowAt(0));
+    const stringly = parseFeatureConfig(windowAt('1970-01-01T00:00:00.000Z'));
+    const past = { now: new Date(1) };
+    const on = { now: new Date(0) };
+
+    expect(numeric.ok && numeric.features.isEnabled('sale', past)).toBe(true);
+    expect(stringly.ok && stringly.features.isEnabled('sale', past)).toBe(true);
+    expect(numeric.ok && numeric.features.isEnabled('sale', on)).toBe(false);
+    expect(stringly.ok && stringly.features.isEnabled('sale', on)).toBe(false);
+  });
+
+  it('digests an epoch number and the ISO string that spells one instant apart', () => {
+    // The two forms decide one window alike, and the digest is over the text
+    // of the document: `canonicalDocument` writes the number as a number. A
+    // publisher that wants two holders to agree on a digest serves both of
+    // them one spelling.
+    expect(configDigest(windowAt(0))).not.toBe(
+      configDigest(windowAt('1970-01-01T00:00:00.000Z')),
+    );
+  });
+
+  it('digests an epoch of zero and one of minus zero alike', () => {
+    expect(configDigest(windowAt(-0))).toBe(configDigest(windowAt(0)));
+  });
+
+  it('carries the last instant a Date holds as the number a document writes', () => {
+    const document = windowAt(8_640_000_000_000_000);
+
+    const result = parseFeatureConfig(document);
+
+    expect(result.ok && serializeConfig(result.features)).toEqual(document);
+  });
+
+  it('carries the first instant a Date holds as the number a document writes', () => {
+    const document = windowAt(-8_640_000_000_000_000);
+
+    const result = parseFeatureConfig(document);
+
+    expect(result.ok && serializeConfig(result.features)).toEqual(document);
+  });
+
+  it('refuses an instant one millisecond past the range a Date holds', () => {
+    // `SerializedInstant` states the two JSON forms and no domain, so the
+    // number reaches the type and `windowFault` reads the range.
+    const result = parseFeatureConfig(windowAt(8_640_000_000_000_001));
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'invalid-instant',
+      path: '/features/0/rules/0/when/0/value',
+    });
+  });
+
+  it('refuses an instant one millisecond before the range a Date holds', () => {
+    const result = parseFeatureConfig(windowAt(-8_640_000_000_000_001));
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'invalid-instant',
+      path: '/features/0/rules/0/when/0/value',
+    });
+  });
+});
+
 describe('what the permutations prove', () => {
   it('splits the subjects it permutes across both variants', () => {
     const features = createFeatures({ features: body });
