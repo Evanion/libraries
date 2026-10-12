@@ -439,6 +439,8 @@ Because a document that arrived as JSON carries no literal, the compiler cannot 
 
 To define the features available to your application, you use a `FeatureDefinition`. The array of these is what `createFeatures` takes. A definitions literal gives the store its key union and its variant names, because `key` and `variants` carry the type parameters `InferSchema` reads. See [Configuration](/feature/configuration).
 
+To transmit a feature definition over the wire, `@evanion/feature` uses the [`SerializedDefinition`](#serializeddefinition) type. In this wire form, `rules` and `variants` hold the serialized forms of a rule and of a variant.
+
 ## `Definitions`
 
 <!-- reference @evanion/feature#Definitions -->
@@ -501,6 +503,8 @@ This type represents the TypeScript side of a store's typing. The other side is 
 
 To control when a feature resolves on, `@evanion/feature` uses a `Rule`. Rules are OR-ed: the feature resolves on when any one of them matches. A rule that declares neither `when` nor `rollout` matches every context, so an author narrowing anything writes at least one of the two. See [Rollouts](/feature/rollouts) for `rollout` and [Variants](/feature/variants) for `variant`.
 
+To transmit a rule over the wire, `@evanion/feature` uses the [`SerializedRule`](#serializedrule) type. This wire form ensures that conditions do not contain `Date` objects.
+
 ## `RolloutSpec`
 
 <!-- reference @evanion/feature#RolloutSpec -->
@@ -519,11 +523,15 @@ Unless overridden, the seed is the feature's own `seed`, and the feature key whe
 
 To specify a requirement within a rule, you use a `Condition`. A rule's `when` is an array of conditions and every one of them has to hold. `op` discriminates the three members, and `field` is `'now'` on the two that read the clock.
 
+To transmit a condition over the wire, `@evanion/feature` uses the [`SerializedCondition`](#serializedcondition) type. This wire form narrows both the instant and the attribute value to types that JSON can hold.
+
 ## `WindowCondition`
 
 <!-- reference @evanion/feature#WindowCondition -->
 
 To restrict a feature to a specific time frame, `@evanion/feature` provides the `WindowCondition`. `value` is an [`Instant`](#instant), and `createFeatures` refuses a boundary that names no moment every host reads the same way.
+
+To transmit a window condition over the wire, `@evanion/feature` uses the [`SerializedWindowCondition`](#serializedwindowcondition) type. In this wire form, the `value` is represented as either an ISO 8601 string or epoch milliseconds.
 
 ## `DayOfWeekCondition`
 
@@ -536,6 +544,8 @@ To target users based on the day of the week, you use the `DayOfWeekCondition`. 
 <!-- reference @evanion/feature#AttributeCondition -->
 
 To match a feature against user or system attributes, you use the `AttributeCondition`. `field` names a context member and `value` is the literal it is compared against. `in` and `not-in` read `value` as the array; `contains` reads the context member as the array.
+
+To transmit an attribute condition over the wire, `@evanion/feature` uses the [`SerializedAttributeCondition`](#serializedattributecondition) type. This wire form narrows the `value` to a `JsonValue`.
 
 ## `Weekday`
 
@@ -569,6 +579,8 @@ To declare one variant of a feature in `@evanion/feature`, an author writes a `V
 - `order` fixes where the variant sits in the bucketing walk. If an author leaves it out, the array index supplies the value.
 
 A control plane writes `order` explicitly so that a serializer that reorders the array still assigns identically. See [Variants](/feature/variants).
+
+To transmit a variant specification over the wire, `@evanion/feature` uses the [`SerializedVariantSpec`](#serializedvariantspec) type. This wire form keeps `value` as `unknown` and leaves the fence to `serializeConfig`.
 
 ## `VariantAssignment`
 
@@ -891,6 +903,8 @@ A number has to be an epoch a `Date` holds, and a `Date` has to hold an instant.
 
 A `Date` is taken as the instant it holds and is read no further, so `new Date('2026-01-01T00:00:00')` carries the constructing host's zone past every check. Build one from epoch milliseconds, or from a string the table accepts.
 
+To transmit an instant over the wire, `@evanion/feature` uses the [`SerializedInstant`](#serializedinstant) type. This wire form admits strings and numbers but refuses `Date` objects.
+
 ## `FeatureConfig`
 
 <!-- reference @evanion/feature#FeatureConfig example=config-document -->
@@ -901,7 +915,7 @@ There is no bare-array form, for the reason `Matrix` gives in `@evanion/acl`. By
 
 The `version` is compared with `!==`, and it is opaque and unordered. A consumer that could order two versions would act on the order, and both available actions are wrong: declining a lower version blocks a rollback (the operation an operator reaches for at 3am), and accepting only a higher version breaks a control plane serving two shards whose counters diverged. A consumer holding a version different from the one it wants fetches the document that version names.
 
-The `digest` is the `configDigest` of this document, and a holder that finds one verifies it. The `schema` carries the typing contract inline and `schemaVersion` names the schema's own version; a document may name `schemaVersion` alone. The `features` member holds one `SerializedDefinition` per feature.
+The `digest` is the `configDigest` of this document, and a holder that finds one verifies it. The `schema` carries the typing contract inline and `schemaVersion` names the schema's own version; a document may name `schemaVersion` alone. The `features` member holds one [`SerializedDefinition`](#serializeddefinition) per feature.
 
 The `maxStale` value indicates how long the publisher believes a holder may keep this document, in milliseconds. This is advisory and no entry point in `@evanion/feature` reads it. The party that fetches is the party that acts on it: whatever reads the document holds the poller, knows the fetch instant because it performed the fetch, and shortens its interval, logs, refuses to start or serves a fallback document. This library holds no clock authority, and no endpoint answers which variant a subject gets, so every holder computes its own answer from the rules the document carries.
 
@@ -1000,6 +1014,76 @@ When an attribute condition compares against a value as a document carries it, `
 In this type, an object member written as `undefined` is legal, but an array element is not. Because `canonical` filters an `undefined` member out and `JSON.stringify` omits it, an absent key and a key written as `undefined` digest alike. An `undefined` array element reaches no such agreement, since `canonical` writes it as the text `undefined` while `JSON.stringify` writes it as `null`, and the publisher and the holder would digest two different texts over one array. The `serializeConfig` function refuses that element and raises a `FeatureConfigError` naming the path, so no holder receives the document the two would disagree about.
 
 The object arm is an index signature. Since TypeScript derives one for a type alias and for an object literal, but never for an `interface`, a value annotated with a generated interface does not reach this type. A variant value carries no such fence: `SerializedVariantSpec.value` is `unknown`, which allows a quicktype or openapi-generator interface to land there.
+
+## `SerializedDefinition`
+
+<!-- reference @evanion/feature#SerializedDefinition -->
+
+To represent a feature in a static document, `@evanion/feature` uses the `SerializedDefinition` type. While a live store carries a [`FeatureDefinition`](#featuredefinition), a document carries one `SerializedDefinition` per feature. This type is the element type of `FeatureConfig['features']`, and it is what `serializeConfig` writes.
+
+The `SerializedDefinition` contains every member a live definition declares. The `key`, `enabled`, `dependsOn`, `seed`, `freezeTimeAtBuild`, `variantBy`, and `variantSeed` members travel exactly as the store holds them. The `rules` member holds [`SerializedRule`](#serializedrule) and the `variants` member holds [`SerializedVariantSpec`](#serializedvariantspec).
+
+Because a serialized definition is a definition a live store could hold, a holder can hand one from a parsed document to `createFeatures` untouched. A live definition does not reach this type, however, because a live condition admits a `Date`.
+
+The `F` parameter defaults to `FeatureKey` (the default used by `FeatureConfig`), allowing a helper annotated with the bare name to read a definition out of a bare document.
+
+## `SerializedRule`
+
+<!-- reference @evanion/feature#SerializedRule -->
+
+To define a rule within a document, `@evanion/feature` uses the `SerializedRule` type, where a live store would carry a [`Rule`](#rule). The `id` provided by a control plane or author travels as written, and the `rollout` and `variant` members travel untouched. The `when` member holds [`SerializedCondition`](#serializedcondition).
+
+Every member a live rule declares is present here. Since `when` stays optional, a document can carry a rule that ramps a percentage and matches on nothing. Every member is readonly; a holder that rewrote the condition list would match differently from every other process holding the document this digest names.
+
+A serialized rule is a rule a live store could hold. A live rule does not reach this type because its conditions admit a `Date`.
+
+## `SerializedCondition`
+
+<!-- reference @evanion/feature#SerializedCondition -->
+
+To define a condition within a document, `@evanion/feature` uses the `SerializedCondition` type, where a live store would carry a [`Condition`](#condition). This type is a union of three arms: [`SerializedWindowCondition`](#serializedwindowcondition), [`DayOfWeekCondition`](#dayofweekcondition) unchanged, and [`SerializedAttributeCondition`](#serializedattributecondition).
+
+A day-of-week condition needs no wire form of its own because its `zone` is a string and its `value` is an array of [`Weekday`](#weekday); JSON carries both as the store holds them. The other two arms each narrow the one member that admits a value JSON has no form for.
+
+## `SerializedWindowCondition`
+
+<!-- reference @evanion/feature#SerializedWindowCondition -->
+
+To represent a window condition in a document, `@evanion/feature` uses the `SerializedWindowCondition` type, where a live store would carry a [`WindowCondition`](#windowcondition). In this type, the `field` is `'now'`, the `op` is `'before'` or `'after'`, and `value` is a [`SerializedInstant`](#serializedinstant).
+
+A live window condition does not reach this type because `Instant` admits a `Date`. The two forms decide the window alike, since a window condition is read as a point in time and a string, a number, and a `Date` naming one instant all read to one epoch. The function [`serializeConfig`](#serializeconfigfeatures-envelope) converts the `Date` on the way out. Epoch milliseconds are a member of the type, which is what a producer with no ISO formatter writes.
+
+## `SerializedAttributeCondition`
+
+<!-- reference @evanion/feature#SerializedAttributeCondition -->
+
+To represent an attribute condition in a document, `@evanion/feature` uses the `SerializedAttributeCondition` type, where a live store would carry an [`AttributeCondition`](#attributecondition). The `field` and the `op` travel as the store holds them, and `value` narrows from `unknown` to [`JsonValue`](#jsonvalue).
+
+A serialized attribute condition is an attribute condition a live store could hold. A live one does not reach this type because its `value` admits a `Date`.
+
+This narrowing ensures that two processes that agree on a digest resolve alike. `evaluateCondition` compares this value with `===`, and `canonical` writes a `Date` and the ISO string a transport hands the holder as one text. A publisher holding the `Date` and a holder holding the string therefore digest alike and compare apart, and § 2 of the distribution spec reads two agreeing digests as a proof that two processes hold one configuration. `serializeConfig` refuses the `Date` here and names the path.
+
+The `value` is readonly. A holder that rewrote it would decide differently from the document every other process holds under the same digest.
+
+## `SerializedVariantSpec`
+
+<!-- reference @evanion/feature#SerializedVariantSpec -->
+
+To represent a variant in a document, `@evanion/feature` uses the `SerializedVariantSpec` type, where a live store would carry a [`VariantSpec`](#variantspec). The `name`, the `weight`, and the `order` travel as the store holds them.
+
+Unlike the attribute condition's value, the `value` here stays `unknown`. § 4 of the distribution spec picks JSON Schema for this member because quicktype and openapi-generator emit TypeScript interfaces from it; since TypeScript gives an interface no implicit index signature, a `JsonValue` here would refuse the generated type the notation was picked to produce. A variant value typed by such an interface lands here and type-checks.
+
+Because the type admits a value JSON cannot carry, [`serializeConfig`](#serializeconfigfeatures-envelope) is what refuses one. Its walk admits a string, a finite number, a boolean, `null`, an array, and a plain object, and it raises a `FeatureConfigError` naming the path for every other leaf, including a `Date`, a `Map`, a `Set`, and a `RegExp`. The `value` is readonly, because `valueOf` would answer one thing here and another in every process holding the document this digest names.
+
+## `SerializedInstant`
+
+<!-- reference @evanion/feature#SerializedInstant -->
+
+To represent an instant in a document, `@evanion/feature` uses the `SerializedInstant` type, which allows an ISO 8601 string or epoch milliseconds, but never a `Date`. This type holds the rule defined in decision 12 of the distribution spec.
+
+A `Date` is not a JSON value. [`Instant`](#instant) admits one (which is what an author writes in a TypeScript literal), and while `JSON.stringify` writes that `Date` as an ISO string, `JSON.parse` hands back a string. A holder reading a parsed document therefore holds a string; a document type that admitted a `Date` would promise the holder a value no parse produces.
+
+A serialized instant is an instant a live store holds, so the type annotates a live member too. The only member of a definition a `Date` reaches legally is `WindowCondition.value`, and [`serializeConfig`](#serializeconfigfeatures-envelope) handles the conversion: it writes that `Date` as its ISO string, raises a `FeatureConfigError` naming the path for a `Date` that names no instant, and refuses a `Date` at every other member of the document.
 
 ## `FeatureConfigError`
 

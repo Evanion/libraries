@@ -11,13 +11,6 @@
       "FeatureOptions",
       "FrozenWhenObserved",
       "ReadonlyDate",
-      "SerializedAttributeCondition",
-      "SerializedCondition",
-      "SerializedDefinition",
-      "SerializedInstant",
-      "SerializedRule",
-      "SerializedVariantSpec",
-      "SerializedWindowCondition",
       "SnapshotOptions",
       "UnobservedOptions"
     ]
