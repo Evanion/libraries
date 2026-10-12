@@ -45,6 +45,7 @@ import type {
 } from '../index.js';
 import type {
   AttributeCondition,
+  Condition,
   DayOfWeekCondition,
   FeatureDefinition,
   FeatureKey,
@@ -411,6 +412,18 @@ describe('SerializedInstant', () => {
   it('is narrower than the instant a store holds', () => {
     expectTypeOf<SerializedInstant>().toExtend<Instant>();
   });
+
+  it('admits a string that names no instant, which validateConfig reports', () => {
+    // The type states the two JSON forms and no domain. `windowFault` reads
+    // the contract, and `validateConfig` reports an offsetless date-time as
+    // `invalid-instant`.
+    expectTypeOf<'2026-10-01T00:00:00'>().toExtend<SerializedInstant>();
+    expectTypeOf<'next tuesday'>().toExtend<SerializedInstant>();
+  });
+
+  it('admits a number outside the range a Date holds, which validateConfig reports', () => {
+    expectTypeOf<8640000000000001>().toExtend<SerializedInstant>();
+  });
 });
 
 describe('SerializedWindowCondition', () => {
@@ -442,6 +455,10 @@ describe('SerializedWindowCondition', () => {
 
   it('refuses the live window condition a store holds', () => {
     expectTypeOf<WindowCondition>().not.toExtend<SerializedWindowCondition>();
+  });
+
+  it('is a window condition a live store could hold', () => {
+    expectTypeOf<SerializedWindowCondition>().toExtend<WindowCondition>();
   });
 });
 
@@ -605,6 +622,10 @@ describe('SerializedCondition', () => {
     expectTypeOf(condition.value).toEqualTypeOf<string[]>();
   });
 
+  it('is a condition a live store could hold', () => {
+    expectTypeOf<SerializedCondition>().toExtend<Condition>();
+  });
+
   it('refuses a Date in an attribute value, which digests as the string it is not', () => {
     const condition = {
       field: 'signedUpAt',
@@ -646,6 +667,23 @@ describe('SerializedRule', () => {
 
   it('refuses a live rule, whose conditions admit a Date', () => {
     expectTypeOf<Rule>().not.toExtend<SerializedRule>();
+  });
+
+  it('emits a rollout and a pinned variant at the types a live rule declares', () => {
+    expectTypeOf<SerializedRule['rollout']>().toEqualTypeOf<Rule['rollout']>();
+    expectTypeOf<SerializedRule['variant']>().toEqualTypeOf<Rule['variant']>();
+  });
+
+  it('leaves every member but the condition list writable, as Omit over a live rule does', () => {
+    const rule: SerializedRule = { id: 'ramp' };
+
+    rule.id = 'renamed';
+    rule.rollout = { percent: 10 };
+    rule.variant = 'sale';
+
+    expectTypeOf<Omit<SerializedRule, 'when'>>().toEqualTypeOf<
+      Omit<Rule, 'when'>
+    >();
   });
 
   it('refuses a write to its condition list', () => {
@@ -776,6 +814,18 @@ describe('SerializedDefinition', () => {
   it('refuses a live definition, whose rules admit a Date', () => {
     expectTypeOf<FeatureDefinition<'cta'>>().not.toExtend<
       SerializedDefinition<'cta'>
+    >();
+  });
+
+  it('is a definition a live store could hold, so a holder hands a parsed one to createFeatures', () => {
+    expectTypeOf<SerializedDefinition<'cta'>>().toExtend<
+      FeatureDefinition<'cta'>
+    >();
+  });
+
+  it('holds a parsed feature list createFeatures takes as its definitions', () => {
+    expectTypeOf<FeatureConfig<'cta'>['features']>().toExtend<
+      readonly FeatureDefinition<'cta'>[]
     >();
   });
 
