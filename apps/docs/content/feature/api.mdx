@@ -332,12 +332,13 @@ When calculating a rule's identity, boundaries are processed to eliminate ambigu
 
 For a boundary that names no valid instant—a string, or a value `Instant` does not admit that a document parsed out of JSON carried in, such as `null`, an object, a boolean, or an array—the package treats the value as literal text and hashes it as its own text. Consequently, two hosts reading the rule against their own zones still derive one id, and two rules carrying different unusable boundaries keep different ids.
 
-There are exceptions for numbers and `Date` objects that name no instant:
+To handle values that do not represent a valid point in time, `@evanion/feature` provides exceptions for `Number.NaN` and for a `Date` holding no instant:
 
-- Both are hashed as the text `NaN`. For example, `ruleId` over `Number.NaN` and over `new Date('nonsense')` derives `rule-a2b37cba` either way.
+- Both are hashed as the text `NaN`; for example, `ruleId` over `Number.NaN` and over `new Date('nonsense')` derives `rule-a2b37cba` either way.
+- Every other number is hashed as its own decimal digits, a number past the range a `Date` holds included. `8640000000000001` and `9e15` are two boundaries `createFeatures` refuses for naming no instant, and the two rules carrying them keep two ids.
 - Where two such rules sit on one feature, `validateConfig` reports `duplicate-rule-id` for the pair on top of the `invalid-instant` it reports for each boundary.
-- `canonical` writes `null` for both, which would collide with a JSON-borne `null`, and the epoch is the reading this package has of a number and a `Date`.
-- `createFeatures` refuses every string, number and `Date` that names no instant, so this path is what a caller reaching `ruleId` directly gets.
+- Since the epoch is the reading this package has of a number and a `Date`, `canonical` writes `null` for both, which would collide with a JSON-borne `null`.
+- Because `createFeatures` refuses every string, number and `Date` that names no instant, this path is what a caller reaching `ruleId` directly gets.
 
 To prevent collisions where a field name abuts an operator, every variable-length part of the text, including `op`, carries its length. This ensures that predicates with similar character sequences but different boundaries are written as different texts. For example, `{ field: 'usernot-', op: 'in' }` and `{ field: 'user', op: 'not-in' }` are opposite predicates and are hashed uniquely.
 
