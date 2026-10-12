@@ -379,9 +379,10 @@ describe('ruleId', () => {
 
   it('derives one id for the Dates and numbers that name no instant', () => {
     // Both write `NaN`, which is the reading this package has of either.
-    // `canonical` writes `null` for both and would collide with a JSON-borne
-    // `null`. `createFeatures` refuses both, so two rules reach one name here
-    // only through a caller holding the rules themselves.
+    // `canonical` writes `number:NaN` for the number and `null` for the
+    // `Date`, and reading the `Date` off `canonical` would collide with a
+    // JSON-borne `null`. `createFeatures` refuses both, so two rules reach one
+    // name here only through a caller holding the rules themselves.
     const asDate = ruleId({
       when: [{ field: 'now', op: 'after', value: new Date('nonsense') }],
     });
