@@ -17,9 +17,11 @@ import type { Condition, Instant, Rule } from './types.js';
  * each of them as itself, so the rules stay apart in a decision's per-rule
  * breakdown.
  *
- * A number and a `Date` that name no instant both write `NaN`. `canonical`
- * writes `null` for both, which would collide with a JSON-borne `null`, and
- * the epoch is the reading of them this package has.
+ * A number and a `Date` that name no instant both write `NaN`, which is the
+ * reading of either this package has. `canonical` writes `number:NaN` for the
+ * number and `null` for the `Date`, and that `null` is the text a JSON-borne
+ * `null` carries, so reading the `Date` off `canonical` would derive one id for
+ * it and for a rule holding `null`.
  */
 function instantText(value: Instant): string {
   const epoch = instantEpoch(value);

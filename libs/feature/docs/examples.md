@@ -1663,6 +1663,11 @@ import type { Rule } from '@evanion/feature';
 canonical({ tier: 'gold', region: 'eu' }); // -> '{"region":"eu","tier":"gold"}'
 canonical({ region: 'eu', tier: 'gold' }); // -> '{"region":"eu","tier":"gold"}'
 
+// A non-finite number carries a `number:` tag. A `Date` holding no instant is
+// written `null`, the text a JSON-borne `null` carries.
+canonical(Number.NaN); // -> 'number:NaN'
+canonical(new Date('nonsense')); // -> 'null'
+
 const named: Rule = {
   id: 'staff-only',
   when: [{ field: 'staff', op: 'eq', value: true }],
