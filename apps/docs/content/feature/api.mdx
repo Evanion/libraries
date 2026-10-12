@@ -1021,7 +1021,7 @@ The object arm is an index signature. Since TypeScript derives one for a type al
 
 To represent a feature in a static document, `@evanion/feature` uses the `SerializedDefinition` type. While a live store carries a [`FeatureDefinition`](#featuredefinition), a document carries one `SerializedDefinition` per feature. This type is the element type of `FeatureConfig['features']`, and it is what `serializeConfig` writes.
 
-The `SerializedDefinition` contains every member a live definition declares. The `key`, `enabled`, `dependsOn`, `seed`, `freezeTimeAtBuild`, `variantBy`, and `variantSeed` members travel exactly as the store holds them. The `rules` member holds [`SerializedRule`](#serializedrule) and the `variants` member holds [`SerializedVariantSpec`](#serializedvariantspec).
+The `SerializedDefinition` contains every member a live definition declares. The `key`, `enabled`, `dependsOn`, `seed`, `freezeTimeAtBuild`, `variantBy`, and `variantSeed` members carry the types a live definition declares. For a feature that declares variants and leaves the two bucketing members implicit, `serializeConfig` writes `variantBy` and `variantSeed` out. The `rules` member holds [`SerializedRule`](#serializedrule) and the `variants` member holds [`SerializedVariantSpec`](#serializedvariantspec).
 
 Because a serialized definition is a definition a live store could hold, a holder can hand one from a parsed document to `createFeatures` untouched. A live definition does not reach this type, however, because a live condition admits a `Date`.
 
@@ -1033,7 +1033,7 @@ The `F` parameter defaults to `FeatureKey` (the default used by `FeatureConfig`)
 
 To define a rule within a document, `@evanion/feature` uses the `SerializedRule` type, where a live store would carry a [`Rule`](#rule). The `id` provided by a control plane or author travels as written, and the `rollout` and `variant` members travel untouched. The `when` member holds [`SerializedCondition`](#serializedcondition).
 
-Every member a live rule declares is present here. Since `when` stays optional, a document can carry a rule that ramps a percentage and matches on nothing. Every member is readonly; a holder that rewrote the condition list would match differently from every other process holding the document this digest names.
+Every member a live rule declares is present here. Since `when` stays optional, a document can carry a rule that ramps a percentage and matches on nothing. The condition list is readonly; a holder that rewrote it would match differently from every other process holding the document this digest names.
 
 A serialized rule is a rule a live store could hold. A live rule does not reach this type because its conditions admit a `Date`.
 
@@ -1069,7 +1069,7 @@ The `value` is readonly. A holder that rewrote it would decide differently from 
 
 <!-- reference @evanion/feature#SerializedVariantSpec -->
 
-To represent a variant in a document, `@evanion/feature` uses the `SerializedVariantSpec` type, where a live store would carry a [`VariantSpec`](#variantspec). The `name`, the `weight`, and the `order` travel as the store holds them.
+To represent a variant in a document, `@evanion/feature` uses the `SerializedVariantSpec` type, where a live store would carry a [`VariantSpec`](#variantspec). The `name` and the `weight` travel as the store holds them, and `serializeConfig` writes an explicit `order` on every variant of a feature whose author left it implicit.
 
 Unlike the attribute condition's value, the `value` here stays `unknown`. § 4 of the distribution spec picks JSON Schema for this member because quicktype and openapi-generator emit TypeScript interfaces from it; since TypeScript gives an interface no implicit index signature, a `JsonValue` here would refuse the generated type the notation was picked to produce. A variant value typed by such an interface lands here and type-checks.
 
@@ -1083,7 +1083,7 @@ To represent an instant in a document, `@evanion/feature` uses the `SerializedIn
 
 A `Date` is not a JSON value. [`Instant`](#instant) admits one (which is what an author writes in a TypeScript literal), and while `JSON.stringify` writes that `Date` as an ISO string, `JSON.parse` hands back a string. A holder reading a parsed document therefore holds a string; a document type that admitted a `Date` would promise the holder a value no parse produces.
 
-A serialized instant is an instant a live store holds, so the type annotates a live member too. The only member of a definition a `Date` reaches legally is `WindowCondition.value`, and [`serializeConfig`](#serializeconfigfeatures-envelope) handles the conversion: it writes that `Date` as its ISO string, raises a `FeatureConfigError` naming the path for a `Date` that names no instant, and refuses a `Date` at every other member of the document.
+A serialized instant is an instant a live store holds, so the type can annotate a live member too. The only member of a definition a `Date` reaches legally is `WindowCondition.value`, and [`serializeConfig`](#serializeconfigfeatures-envelope) handles the conversion: it writes that `Date` as its ISO string, raises a `FeatureConfigError` naming the path for a `Date` that names no instant, and refuses a `Date` at every other member of the document.
 
 ## `FeatureConfigError`
 
