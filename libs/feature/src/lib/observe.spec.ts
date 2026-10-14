@@ -1099,3 +1099,147 @@ describe('what an observer can reach from plan and toggle', () => {
     expect(Object.isFrozen(result)).toBe(false);
   });
 });
+
+describe('the subject an event reports', () => {
+  const defs = [
+    { key: 'cta', enabled: true },
+    { key: 'nav', enabled: true },
+  ] as const;
+
+  /** The subject of the one event an observed `resolve` reported. */
+  const subjectOf = (
+    options: Parameters<typeof createFeatures>[1],
+    context: Record<string, unknown>,
+  ) => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { ...options, observe });
+
+    features.resolve(context);
+
+    return observe.mock.calls[0]?.[0] as { subject?: string | number };
+  };
+
+  it('carries a zero, which is a number the field legally holds', () => {
+    const event = subjectOf({ correlateBy: 'seat' }, { seat: 0 });
+
+    // The engine reads the type of the value and not its truth, so a subject
+    // identified by a zero reaches the event. A read on truth would drop it
+    // and the event would look like one from an anonymous request.
+    expect(event.subject).toBe(0);
+  });
+
+  it('carries an empty string, which is a string the field legally holds', () => {
+    const event = subjectOf({ correlateBy: 'pseudonym' }, { pseudonym: '' });
+
+    expect(event.subject).toBe('');
+  });
+
+  it('carries a NaN, because the field holds a number and nothing reads it', () => {
+    const event = subjectOf({ correlateBy: 'seat' }, { seat: Number.NaN });
+
+    // An application that writes `Number(header)` into the field writes NaN
+    // for a header that is not a number, and the event carries it. The engine
+    // does no arithmetic on the subject. The consumer decides what to do with
+    // a record whose subject is not a number it can group on.
+    expect(event.subject).toBeNaN();
+  });
+
+  it('carries no subject for a field holding a boolean', () => {
+    const event = subjectOf({ correlateBy: 'staff' }, { staff: false });
+
+    expect(event).not.toHaveProperty('subject');
+  });
+
+  it('carries no subject for a field holding a null', () => {
+    const event = subjectOf({ correlateBy: 'pseudonym' }, { pseudonym: null });
+
+    expect(event).not.toHaveProperty('subject');
+  });
+
+  it('carries no subject for a field the context holds as undefined', () => {
+    const event = subjectOf(
+      { correlateBy: 'pseudonym' },
+      { pseudonym: undefined },
+    );
+
+    expect(event).not.toHaveProperty('subject');
+  });
+
+  it('carries no subject for a field holding a bigint', () => {
+    const event = subjectOf({ correlateBy: 'seat' }, { seat: 42n });
+
+    // A bigint survives neither `JSON.stringify` nor a column typed for the
+    // `string | number` the event declares, so the engine carries nothing and
+    // the application points the field at a value a transport can write.
+    expect(event).not.toHaveProperty('subject');
+  });
+
+  it('carries no subject for a field holding a symbol', () => {
+    const event = subjectOf(
+      { correlateBy: 'pseudonym' },
+      { pseudonym: Symbol('p1') },
+    );
+
+    expect(event).not.toHaveProperty('subject');
+  });
+
+  it('carries no subject for a field holding a function', () => {
+    const event = subjectOf(
+      { correlateBy: 'pseudonym' },
+      { pseudonym: () => 'p1' },
+    );
+
+    expect(event).not.toHaveProperty('subject');
+  });
+
+  it('carries no subject for a field the context never set', () => {
+    const event = subjectOf(
+      { correlateBy: 'pseudonym' },
+      { targetingKey: 'u1' },
+    );
+
+    expect(event).not.toHaveProperty('subject');
+  });
+
+  it('carries no subject for an empty field name', () => {
+    const event = subjectOf({ correlateBy: '' }, { targetingKey: 'u1' });
+
+    // An empty string is a field name the type accepts and no context holds.
+    // The configured name wins over the default, so the event names no subject
+    // rather than falling back to the bucketing field.
+    expect(event).not.toHaveProperty('subject');
+  });
+
+  it('carries no subject for a field name a prototype supplies', () => {
+    const event = subjectOf(
+      { correlateBy: 'toString' },
+      { targetingKey: 'u1' },
+    );
+
+    // `Object.prototype.toString` answers the read for a context that set no
+    // such field. It is a function, so the engine carries nothing and no
+    // event reports a prototype member as the subject of a request.
+    expect(event).not.toHaveProperty('subject');
+  });
+
+  it('carries no subject for a field name the engine settles itself', () => {
+    const event = subjectOf(
+      { correlateBy: 'now' },
+      { now: new Date('2026-01-01T00:00:00.000Z') },
+    );
+
+    // The engine settles `now` into the context it resolves under, and the
+    // instant is already on the event at `at`. A `Date` is neither a string
+    // nor a number, so it reaches no subject.
+    expect(event).not.toHaveProperty('subject');
+  });
+
+  it('carries no subject for a call that passed no context at all', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    features.resolve();
+
+    expect(observe.mock.calls[0]?.[0]).not.toHaveProperty('subject');
+  });
+});
