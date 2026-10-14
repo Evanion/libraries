@@ -82,5 +82,13 @@
       "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
       "reason": "Gemma's rewrite of the react-acl pages (#416, #420) landed after @evanion/react-acl@0.1.0, and react-acl has no API change since that tag, so react-acl v0.1 takes the new text."
     }
+  },
+  "astro-widget": {
+    "v0.3": {
+      "version": "0.3.0",
+      "tag": "@evanion/astro-widget@0.3.0",
+      "sha": "2ee3e7e0afd6c0071047ca63dc9547169c598b38",
+      "reason": "Gemma's rewrite of the astro-widget pages (#416, #420) landed after @evanion/astro-widget@0.3.0, and 0.3.2 is its only change since, so astro-widget v0.3 takes the new text."
+    }
   }
 }
