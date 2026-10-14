@@ -57,6 +57,26 @@ function frozenWindow(freezeTimeAtBuild: boolean) {
   ] as const);
 }
 
+/** The same window, over a feature that also buckets the subject. */
+function windowedVariants() {
+  return createFeatures([
+    {
+      key: 'flash-sale',
+      enabled: true,
+      rules: [
+        {
+          id: 'window',
+          when: [{ field: 'now', op: 'before', value: BOUNDARY }],
+        },
+      ],
+      variants: [
+        { name: 'control', weight: 50 },
+        { name: 'blue', weight: 50 },
+      ],
+    },
+  ] as const);
+}
+
 /** A store whose two windows share one boundary, so one clock decides both. */
 function twoWindows() {
   return createFeatures([
@@ -121,6 +141,49 @@ describe('the instant a render-origin set hands the client', () => {
     expect(
       resolvePlan(features, plan, {}, { now: new Date(set.now) })['flash-sale']
         .enabled,
+    ).toBe(true);
+  });
+
+  it('buckets the subject the context carries beside the instant the option states', () => {
+    const features = windowedVariants();
+    const set = features.snapshot({ now: BEFORE });
+    const plan = features.plan({ now: BEFORE });
+    clockAt(AFTER);
+
+    expect(plan['flash-sale'].needs).toContain('targetingKey');
+
+    const decision = resolvePlan(
+      features,
+      plan,
+      { targetingKey: 'cust-0042' },
+      { now: new Date(set.now) },
+    )['flash-sale'];
+
+    expect(decision.enabled).toBe(true);
+    expect(decision.assignment?.source).toBe('weighted');
+  });
+
+  it('falls back for every subject when the context the call takes is empty', () => {
+    const features = windowedVariants();
+    const set = features.snapshot({ now: BEFORE });
+    const plan = features.plan({ now: BEFORE });
+    clockAt(AFTER);
+
+    const reports: DivergenceReport<FeatureKey>[] = [];
+    const decision = resolvePlan(
+      features,
+      plan,
+      {},
+      { now: new Date(set.now), onDivergence: (report) => reports.push(report) },
+    )['flash-sale'];
+
+    expect(decision.enabled).toBe(true);
+    expect(decision.assignment?.source).toBe('fallback');
+    expect(
+      reports.some(
+        (report) =>
+          report.kind === 'missing-field' && report.field === 'targetingKey',
+      ),
     ).toBe(true);
   });
 
