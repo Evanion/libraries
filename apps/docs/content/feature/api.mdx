@@ -688,7 +688,7 @@ A decision set crosses no service boundary. The process that produced it and the
 
 To state which kind of process resolved a set, `@evanion/feature` uses the `DecisionOrigin` type, which is `'render' | 'build'`.
 
-If a set is `'render'`, it came out of the request that produced the HTML. Its instant is seconds old, and the consumer reads it as the default for what it resolves locally. The consumer passes `set.now` as the `now` of [`ResolvePlanOptions`](#resolveplanoptions), ensuring that a window boundary falling between the server's instant and the client's call cannot move half the tree.
+If a set is `'render'`, it came out of the request that produced the HTML. Its instant is seconds old, and the consumer reads it as the default for what it resolves locally. The set records this instant as an ISO 8601 string. Since the `now` property of [`ResolvePlanOptions`](#resolveplanoptions) requires a `Date`, the consumer must wrap the value: `resolvePlan(features, plan, context, { now: new Date(set.now) })`. This wrapping ensures that if a window boundary falls between the server's instant and the client's call, the tree does not partially shift.
 
 If a set is `'build'`, it may be days old. The consumer passes no `now`, and the deferred remainder resolves against the client's own clock.
 
