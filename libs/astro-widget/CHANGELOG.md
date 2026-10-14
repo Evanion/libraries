@@ -1,3 +1,13 @@
+## 0.3.2 (2026-10-14)
+
+### 🩹 Fixes
+
+- **astro-widget:** require the node version astro itself needs ([cfa12205](https://github.com/Evanion/libraries/commit/cfa12205))
+
+### ❤️ Thank You
+
+- Mikael Pettersson @Evanion
+
 ## 0.3.1 (2026-09-29)
 
 ### 🚀 Features
