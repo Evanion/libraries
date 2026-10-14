@@ -21,11 +21,71 @@ import type {
 } from './types.js';
 
 /**
+ * The mutators a `Date` carries.
+ *
+ * Each one writes the instant in the internal slot, which `Object.freeze` does
+ * not cover, and each one has a name starting with `set`.
+ */
+const DATE_MUTATORS = Object.getOwnPropertyNames(Date.prototype).filter(
+  (name) => name.startsWith('set'),
+);
+
+/** The mutators a `Map` carries. They write the internal entry list. */
+const MAP_MUTATORS = ['set', 'delete', 'clear'];
+
+/** The mutators a `Set` carries. They write the internal entry list. */
+const SET_MUTATORS = ['add', 'delete', 'clear'];
+
+/**
+ * Replaces a built-in's mutators with own properties that throw, before the
+ * caller freezes the object.
+ *
+ * `Object.freeze` locks an object's own properties and covers no internal slot.
+ * A frozen `Date` still answers `setTime`, and a frozen `Map` still answers
+ * `set`, because each of those methods lives on the prototype and writes
+ * storage that no property describes. An own property shadows the prototype
+ * method, and the freeze that follows makes the shadow permanent.
+ *
+ * The replacement throws a `TypeError`, which is what a write to a frozen
+ * property throws under the strict mode every module runs in.
+ */
+function sealMutators(
+  value: object,
+  type: string,
+  methods: readonly string[],
+): void {
+  for (const method of methods) {
+    Object.defineProperty(value, method, {
+      value: () => {
+        throw new TypeError(
+          `@evanion/acl: ${type}.${method} was called on a frozen matrix. The policy hands out the object it holds, and a caller changes no decision.`,
+        );
+      },
+      writable: false,
+      enumerable: false,
+      configurable: false,
+    });
+  }
+}
+
+/**
  * Freezes a value and everything reachable from it.
  *
  * The walk is an explicit stack over a structure whose depth the matrix decides,
  * and a seen-set carries it over a shape that refers back to itself, which a
  * clone preserves.
+ *
+ * A `Date` keeps its instant in an internal slot, and a `Map` or a `Set` keeps
+ * its entries in one, so each one's mutators are sealed before it is frozen.
+ * `Object.freeze` alone leaves a window boundary writable: `toEpoch` reads
+ * `getTime()` on every evaluation, `Access.matrix` is a public getter, and a
+ * caller that moved the instant would change every later decision while
+ * `Object.isFrozen` still answered true.
+ *
+ * A value that is already frozen was sealed on the way there, so the walk
+ * leaves it alone. That guard keeps {@link sealMutators} from redefining a
+ * property it made non-configurable. Nothing on the hydration path arrives
+ * frozen: every permission reaches here through `structuredClone`.
  */
 function deepFreeze<T>(value: T): T {
   const stack: unknown[] = [value];
@@ -35,10 +95,30 @@ function deepFreeze<T>(value: T): T {
     const at = stack.pop();
     if (at === null || typeof at !== 'object') continue;
     if (seen.has(at)) continue;
+    if (Object.isFrozen(at)) continue;
     seen.add(at);
-    Object.freeze(at);
-    if (at instanceof Date) continue;
+    if (at instanceof Date) {
+      sealMutators(at, 'Date', DATE_MUTATORS);
+      Object.freeze(at);
+      continue;
+    }
+    if (at instanceof Map) {
+      for (const [key, held] of at) {
+        stack.push(key);
+        stack.push(held);
+      }
+      sealMutators(at, 'Map', MAP_MUTATORS);
+      Object.freeze(at);
+      continue;
+    }
+    if (at instanceof Set) {
+      for (const held of at) stack.push(held);
+      sealMutators(at, 'Set', SET_MUTATORS);
+      Object.freeze(at);
+      continue;
+    }
     for (const nested of Object.values(at)) stack.push(nested);
+    Object.freeze(at);
   }
 
   return value;
