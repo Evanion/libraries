@@ -740,11 +740,12 @@ The `DivergenceSide` type allows `@evanion/feature` to isolate the values provid
 Depending on the reporter, a report may fill these sides differently:
 
 - **`resolvePlan`**: Fills neither side. Because it holds a plan and a context, its `'missing-field'` report names the feature at `key` and the field at `field` and states no answer on either side. An observer written for it reads `key`, `field`, and `message`. If an observer attempts to read `report.shipped.version`, it raises a `TypeError`, which [`reportDivergence`](#reportdivergence) discards, leaving the divergence unreported.
-- **`@evanion/react-feature`**: Holds a shipped set beside a local store. It fills both sides for a `'config-version'`, an `'unversioned'`, and a `'decision-differs'` report. It fills `shipped` alone on the two `'missing-field'` reports where there is no local answer to state: either the store declares no feature the server shipped a variant for, or it declares that feature with no variants at all.
+- **`@evanion/react-feature`**: Holds a shipped set beside a local store. It attaches both sides for a `'config-version'`, an `'unversioned'`, and a `'decision-differs'` report. It attaches `shipped` alone on the two `'missing-field'` reports where there is no local answer to state: either the store declares no feature the server shipped a variant for, or it declares that feature with no variants at all.
 
 A report fills the members of a side based on its `kind`. All four members of a side are optional:
 
-- A version report fills `version` on each side.
+- A `'config-version'` report fills `version` on both sides. Each process named a version, and the two differ.
+- An `'unversioned'` report attaches both sides and leaves `version` absent on whichever side carried none, which is the condition the report exists to name. Both are absent where neither process holds a versioned document. So an observer that has narrowed a report to a version kind still guards `version` itself before it reads through it, or it raises the `TypeError` [`reportDivergence`](#reportdivergence) discards.
 - A variant report fills `variant` and the `source` that assigned it (one of `'weighted'`, `'pinned'`, `'sticky'`, or `'fallback'`, the four a [`Decision`](#decision)'s `assignment` carries).
 - A `'decision-differs'` report fills `enabled` as well.
 
