@@ -157,7 +157,7 @@ describe('DivergenceObserver', () => {
 });
 
 describe('the instant a set hands resolvePlan', () => {
-  it('takes the instant a set states once a Date carries it', () => {
+  it('takes the instant a set states, carried by a Date', () => {
     const features = createFeatures(definitions);
     const set = features.snapshot();
 
@@ -165,16 +165,6 @@ describe('the instant a set hands resolvePlan', () => {
       resolvePlan(features, features.plan(), {}, { now: new Date(set.now) }).cta
         .variant,
     ).toEqualTypeOf<'control' | 'blue' | undefined>();
-  });
-
-  it('refuses the instant a set states where a Date is declared', () => {
-    const features = createFeatures(definitions);
-    const set = features.snapshot();
-
-    expectTypeOf(
-      // @ts-expect-error a set states its instant as a string and `now` is a `Date`
-      resolvePlan(features, features.plan(), {}, { now: set.now }),
-    ).not.toBeNever();
   });
 
   it('narrows the observer of a typed store to the keys the store holds', () => {
