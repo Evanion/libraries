@@ -799,147 +799,76 @@ To handle missing data during resolution, you provide a callback to the `onDiver
 
 `resolvePlan` always has a `now`. It takes the one on the context, failing that the one on `ResolvePlanOptions`, and failing both the client's own clock. A deferred entry whose `needs` names `now` therefore resolves against a real instant and reports nothing. A window rule on a feature that did not set `freezeTimeAtBuild` defers on `now`, so that entry is the plan working as designed and not a divergence.
 
-### `FeatureEvent<S>`
+## `FeatureEvent`
 
-```ts signature
-type FeatureEvent<S extends Record<keyof S, VariantInfo | never>> =
-  | {
-      readonly type: 'resolve';
-      readonly at: ReadonlyDate;
-      readonly decisions: DeepReadonly<Decisions<S>>;
-      readonly subject?: string | number;
-      readonly version?: string;
-    }
-  | {
-      [K in keyof S & FeatureKey]: {
-        readonly type: 'is-enabled';
-        readonly at: ReadonlyDate;
-        readonly key: K;
-        readonly decision: DeepReadonly<Decisions<S>[K]>;
-        readonly subject?: string | number;
-        readonly version?: string;
-      };
-    }[keyof S & FeatureKey]
-  | {
-      readonly type: 'plan';
-      readonly at: ReadonlyDate;
-      readonly plan: DeepReadonly<Plan<S>>;
-      readonly subject?: string | number;
-      readonly version?: string;
-    }
-  | {
-      readonly type: 'toggle';
-      readonly at: ReadonlyDate;
-      readonly result: DeepReadonly<ToggleResult<keyof S & FeatureKey>>;
-      readonly subject?: string | number;
-      readonly version?: string;
-    };
-```
+<!-- reference @evanion/feature#FeatureEvent example=observe-one-key -->
 
-One event per public entry point call, carrying the value the caller received.
-The `is-enabled` member is written as a mapped type the union closes over, so
-one member pairs `key: 'checkout-cta'` with the decision that key resolves to. A
-flat object typing `key` as the union of every key and `decision` as the union
-of every decision would let a consumer who narrowed on `key` read a decision
-belonging to another feature.
+To report what a public entry point answered, `@evanion/feature` uses the `FeatureEvent` type. The store emits one event per public entry point call, and the event carries the value the caller received.
 
-No event carries an `EvaluationContext`. `at` is the instant the call settled
-on, `subject` is the identifier `correlateBy` names, copied out as a primitive,
-and `version` is the configuration version the store was built with. See
-[Observing](/feature/observing).
+The `type` member names the call that reported. A `'resolve'` event carries every decision at `decisions`, an `'is-enabled'` event carries one decision at `decision` beside the `key` it was asked for, a `'plan'` event carries the partition at `plan`, and a `'toggle'` event carries the write's report at `result`.
 
-### `FeatureOptions<S>` and `UnobservedOptions<S>`
+To ensure a consumer who narrows on `key` cannot read a decision belonging to another feature, the `'is-enabled'` member is written as a mapped type the union closes over; this pairs `key: 'checkout-cta'` with the decision that key resolves to, rather than using a flat object typing `key` and `decision` as unions of every possible value.
 
-```ts signature
-interface FeatureOptions<S extends Record<keyof S, VariantInfo | never>> {
-  observe?: (event: FeatureEvent<S>) => void | Promise<unknown>;
-  onObserveError?: (error: unknown, event: FeatureEvent<S>) => void;
-  correlateBy?: string; // defaults to 'targetingKey'
-  version?: string;
-}
+No event carries an `EvaluationContext`. The `at` member is the instant the call settled on, `subject` is the identifier [`correlateBy`](#featureoptions) names, copied out as a primitive, and `version` is the configuration version the store was built with. Every payload is deeply readonly, so the compiler refuses a write to it and the engine freezes what it emits. See [Observing](/feature/observing).
 
-type UnobservedOptions<S extends Record<keyof S, VariantInfo | never>> =
-  FeatureOptions<S> & { observe?: undefined };
-```
+## `FeatureOptions`
 
-`observe` is called once per public entry point call and the engine never awaits
-it. `onObserveError` replaces the `console.warn` the engine writes when an
-observer throws or rejects. Measured at forty features on an Apple M1 Pro under
-Node 24.20.0, the bare call ran at 23 microseconds, a synchronous no-op observer
-at 41, and an `async` no-op observer, with the thenable check and the attached
-rejection handler, at 44. The deep freeze a store carrying an observer runs
-accounts for that difference, and the emit and the thenable check stay within
-run-to-run noise of the bare call. So the number anyone should care about is what
-their own hook body does.
+<!-- reference @evanion/feature#FeatureOptions example=observe-install -->
 
-#### `observe` does not count exposures
+To install an observer and name the fields an event reports, you pass `FeatureOptions` to [`createFeatures`](#createfeaturesdefinitions-options) as its second argument. The interface declares four optional members:
 
-`resolve` decides every configured feature, so an observer fired from it reports
-a decision for every feature the request never rendered, and an experiment
-computed over those records measures the wrong denominator. The numbers look
-plausible and are wrong. The application writes an exposure record at its render
-site, off the fields the decision it already holds carries. See
-[Observing](/feature/observing#exposure-tracking-is-not-what-this-seam-carries)
-for the whole argument.
+- `observe`: called once per public entry point call, with the [`FeatureEvent`](#featureevent) that call produced. The engine never awaits it.
+- `onObserveError`: replaces the `console.warn` the engine writes when an observer throws or rejects.
+- `correlateBy`: the context field whose value identifies the subject on an event. Defaults to `targetingKey`.
+- `version`: the configuration version an event reports.
 
-#### Records in flight are lost at exit
+Because `FeatureOptions` declares `observe` optionally, options carrying an observer and options carrying none both satisfy it. [`UnobservedOptions`](#unobservedoptions) is the form that proves the absence.
 
-The engine awaits nothing, so a buffer the application has not drained is gone
-when the process exits, and a phone's operating system suspends a process
-without warning. The application drains that buffer on `SIGTERM` and on the
-background transition, and each runtime carries its own transport: a service
-writes to a log collector, and a browser writes with `navigator.sendBeacon` on
-`visibilitychange`. See
-[Observing](/feature/observing#records-in-flight-are-lost-at-exit) for the hook
-shape.
+The overhead of observation is minimal. Measured at forty features on an Apple M1 Pro under Node 24.20.0, the bare call ran at 23 microseconds, a synchronous no-op observer at 41, and an `async` no-op observer (including the thenable check and rejection handler) at 44. The deep freeze a store carrying an observer runs accounts for that difference, and the emit and the thenable check stay within run-to-run noise of the bare call. So the number anyone should care about is what their own hook body does.
 
-#### `FeatureOptions` and `UnobservedOptions`
+### `observe` does not count exposures
 
-`FeatureOptions` declares `observe` optionally, so options carrying an observer
-and options carrying none both satisfy it. `UnobservedOptions` pins the member
-to `undefined`, so only a value whose type proves the absence satisfies it, and
-that is the type the second `createFeatures` signature takes.
+You should not use the observer to track feature exposures. Because `resolve` decides every configured feature, an observer fired from it reports a decision for every feature the request never rendered; an experiment computed over those records measures the wrong denominator. The numbers look plausible and are wrong. The application should write an exposure record at its render site, using the fields the decision it already holds carries. See [Observing](/feature/observing#exposure-tracking-is-not-what-this-seam-carries) for the whole argument.
 
-### `FrozenWhenObserved<Frozen, T>`, `DeepReadonly<T>` and `ReadonlyDate`
+### Records in flight are lost at exit
 
-```ts signature
-type ReadonlyDate = Omit<Date, `set${string}`>;
+Because the engine awaits nothing, any buffer the application has not drained is lost when the process exits or when a phone's operating system suspends a process without warning. To prevent this, the application must drain that buffer on `SIGTERM` and on the background transition. Each runtime carries its own transport: a service writes to a log collector, and a browser writes with `navigator.sendBeacon` on `visibilitychange`. See [Observing](/feature/observing#records-in-flight-are-lost-at-exit) for the hook shape.
 
-type DeepReadonly<T> = T extends Date
-  ? ReadonlyDate
-  : T extends (...args: never[]) => unknown
-    ? T
-    : T extends readonly (infer E)[]
-      ? readonly DeepReadonly<E>[]
-      : T extends object
-        ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
-        : T;
+## `UnobservedOptions`
 
-type FrozenWhenObserved<Frozen extends boolean, T> = Frozen extends true
-  ? DeepReadonly<T>
-  : T;
-```
+<!-- reference @evanion/feature#UnobservedOptions -->
 
-A store carrying an observer freezes what it emits and answers the caller with
-that same object, so its `resolve`, `plan` and `toggle` answer
-`DeepReadonly<T>`. A store carrying none freezes nothing and answers `T`, so the
-package behaves differently under two configurations. The engine takes that
-asymmetry deliberately. At forty features the freeze adds 18 microseconds to a
-23 microsecond `resolve`, and a freeze on every call would add that to every
-user of the package whether or not they observe anything. A store nobody
-observes hands its record to nobody else, so the freeze protects nothing there.
+To let the compiler prove that a call installs no observer, `@evanion/feature` uses the `UnobservedOptions` type, which is [`FeatureOptions`](#featureoptions) with `observe` pinned to `undefined`.
 
-#### Why `ReadonlyDate` needs its own type
+Only a value whose type proves the absence satisfies it, and that is the type the second [`createFeatures`](#createfeaturesdefinitions-options) signature takes. A call that reaches that signature gets a store whose `resolve`, `plan` and `toggle` answer the mutable form.
 
-`ReadonlyDate` drops the mutators. `Readonly<Date>` marks the properties
-readonly and leaves `setTime`, `setHours` and the rest callable, and each of
-those writes an internal slot that `Object.freeze` does not cover. Every mutator
-on `Date` has a name starting with `set`, so the template literal names all of
-them and `Omit` drops them.
+An options value typed `FeatureOptions<S>`, and an object literal whose `observe` field holds `Fn | undefined`, both fail this type and therefore answer the frozen form. A wrapper forwarding an optional parameter cannot annotate its way past that, because the forwarded parameter's type is not `undefined`.
 
-`Frozen` is naked in `FrozenWhenObserved`, so a store whose observation the
-compiler cannot settle distributes to the union of both forms and a reader
-narrows it.
+## `FrozenWhenObserved`
+
+<!-- reference @evanion/feature#FrozenWhenObserved -->
+
+To type an answer whose readonly-ness the store decides, `@evanion/feature` uses the `FrozenWhenObserved` type.
+
+The store behaves differently under two configurations: a store carrying an observer freezes what it emits and answers the caller with [`DeepReadonly`](#deepreadonly), while a store carrying none freezes nothing and answers the type unwrapped.
+
+The engine takes that asymmetry deliberately to avoid unnecessary overhead. At forty features, the freeze adds 18 microseconds to a 23 microsecond `resolve`; a freeze on every call would penalize every user of the package whether or not they observe anything. Since a store nobody observes hands its record to nobody else, the freeze protects nothing there.
+
+Because `Frozen` is naked in `FrozenWhenObserved`, a store whose observation the compiler cannot settle distributes to the union of both forms, and the reader narrows it.
+
+## `DeepReadonly`
+
+<!-- reference @evanion/feature#DeepReadonly -->
+
+To mark every property readonly through arrays and nested objects, `@evanion/feature` uses the `DeepReadonly` type. In this process, a `Date` becomes a [`ReadonlyDate`](#readonlydate). Functions pass through unchanged, because mapping over their properties would erase the call signature.
+
+## `ReadonlyDate`
+
+<!-- reference @evanion/feature#ReadonlyDate -->
+
+To carry a `Date` a reader cannot move, `@evanion/feature` uses the `ReadonlyDate` type, which drops the mutators.
+
+This is necessary because `Readonly<Date>` marks properties readonly but leaves `setTime`, `setHours` and others callable; each of those writes an internal slot that `Object.freeze` does not cover. To prevent this, the `ReadonlyDate` type uses a template literal to name all mutators starting with `set` and `Omit` to drop them.
 
 ## `FeatureKey`
 

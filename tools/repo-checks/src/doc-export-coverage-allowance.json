@@ -1,12 +1,1 @@
-{
-  "@evanion/feature": {
-    "undocumented": [
-      "DeepReadonly",
-      "FeatureEvent",
-      "FeatureOptions",
-      "FrozenWhenObserved",
-      "ReadonlyDate",
-      "UnobservedOptions"
-    ]
-  }
-}
+{}
