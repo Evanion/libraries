@@ -45,13 +45,20 @@ export type FrozenWhenObserved<Frozen extends boolean, T> = Frozen extends true
   : T;
 
 /**
- * What an entry point reports after it answered.
+ * What an entry point reports after it has answered.
  *
- * One event per public call, carrying the value the caller received. `resolve`
- * reports every decision in one event, and no entry point reports one event per
- * feature. An auditor reading a `resolve` event knows the application asked for
- * every feature, and an auditor reading an `is-enabled` event knows it asked for
- * one.
+ * The engine produces one event for each `resolve`, `isEnabled`, `plan`,
+ * `toggle`, and `snapshot` call, carrying the value the caller received. No
+ * other member reports events: `variantOf` and `valueOf` read a field off a
+ * resolution the engine ran internally, and `isEnabled` reports nothing for a
+ * key the store was not built with.
+ *
+ * Because `snapshot` reports the same `'resolve'` event that `resolve` reports,
+ * four `type` values cover the five calls. Note that `resolve` reports every
+ * decision in one event; no entry point reports one event per feature. This
+ * distinction allows an auditor reading a `resolve` event to know the
+ * application asked for every feature, while an auditor reading an `is-enabled`
+ * event knows it asked for only one.
  *
  * Every payload is deeply readonly. An observer reads what the call returned
  * and changes no outcome, and the compiler refuses
@@ -119,7 +126,8 @@ export interface FeatureOptions<
   >,
 > {
   /**
-   * Called once per public entry point call. The engine never awaits it.
+   * Called once for each call that reports, receiving the `FeatureEvent` that
+   * call produced. The engine never awaits it.
    *
    * An observer that blocks turns an observability feature into an availability
    * incident. A decision costs under a microsecond and an audit transport on a
@@ -281,8 +289,9 @@ export function createEmitter<
   const observe = options.observe;
   if (!observe) {
     return () => {
-      // The engine calls this once per entry point call when no observer is
-      // installed.
+      // Every emit site in the engine sits behind its own `observed` guard, so
+      // nothing reaches this body there. It answers a caller that holds the
+      // emitter directly.
     };
   }
 
