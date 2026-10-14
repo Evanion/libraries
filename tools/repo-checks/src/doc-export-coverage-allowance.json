@@ -1,17 +1,11 @@
 {
   "@evanion/feature": {
     "undocumented": [
-      "DecisionOrigin",
-      "DecisionSet",
       "DeepReadonly",
-      "DivergenceObserver",
-      "DivergenceReport",
-      "DivergenceSide",
       "FeatureEvent",
       "FeatureOptions",
       "FrozenWhenObserved",
       "ReadonlyDate",
-      "SnapshotOptions",
       "UnobservedOptions"
     ]
   }

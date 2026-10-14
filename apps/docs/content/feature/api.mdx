@@ -661,6 +661,84 @@ If the operation is successful (`ok: true`), the result names the key and repeat
 
 If the operation fails (`ok: false`), it indicates a key the store does not hold, and no data is written.
 
+## `DecisionSet`
+
+<!-- reference @evanion/feature#DecisionSet example=snapshot -->
+
+To carry one subject's answers from the process that resolved them to the process that renders them, `@evanion/feature` uses the `DecisionSet` type. You produce one using `features.snapshot(context, options?)`.
+
+The set states four things:
+
+- `version`: The name of the configuration the decisions resolved under. This is absent for a store built from a definitions literal (which carries no version to state). A consumer compares it with `!==` and orders nothing.
+- `now`: The instant the decisions were resolved at, as an ISO 8601 string.
+- `origin`: A [`DecisionOrigin`](#decisionorigin).
+- `decisions`: [`Decisions<S>`](#decisions), which is deeply readonly for a store built with an observer.
+
+While `resolve` answers the decisions alone—leaving a consumer in another process unable to recover the version or the instant—a set states both. This allows a server to state the instant once so that no application must pass `now` by hand.
+
+`snapshot` reads the installed version before it emits its `resolve` event. If an observer calls `reload` on that event, it installs a new document, and `version` names the one the decisions resolved under.
+
+Because the set states its instant as an ISO 8601 string, `snapshot` raises a `FeatureConfigError` naming `context/now` for a `Date` that describes no instant. In contrast, `resolve`, `plan` and `toggle` state no instant; they carry that `Date` into the decision and stay total.
+
+A decision set crosses no service boundary. The process that produced it and the process that consumes it are two halves of one page load, which is the line § 8 of the published policy contracts spec draws between a document and a decision. To cross a service boundary, you use a [`FeatureConfig`](#featureconfig), and you use `configDigest` to prove two processes hold one.
+
+## `DecisionOrigin`
+
+<!-- reference @evanion/feature#DecisionOrigin -->
+
+To state which kind of process resolved a set, `@evanion/feature` uses the `DecisionOrigin` type, which is `'render' | 'build'`.
+
+If a set is `'render'`, it came out of the request that produced the HTML. Its instant is seconds old, and the consumer reads it as the default for what it resolves locally. The consumer passes `set.now` as the `now` of [`ResolvePlanOptions`](#resolveplanoptions), ensuring that a window boundary falling between the server's instant and the client's call cannot move half the tree.
+
+If a set is `'build'`, it may be days old. The consumer passes no `now`, and the deferred remainder resolves against the client's own clock.
+
+## `SnapshotOptions`
+
+<!-- reference @evanion/feature#SnapshotOptions example=snapshot -->
+
+To state anything beyond the context, you can pass a `SnapshotOptions` to `features.snapshot`. Its one member is `origin`, which defaults to `'render'`. A build pipeline that writes a set into a bundle passes `'build'`, because it is the party that knows the instant it stated is not a request's.
+
+The member states the provenance and moves no resolution. `snapshot` settles every feature the store holds at the instant the call read, and it reads no `freezeTimeAtBuild`; thus, a build-origin set states an answer for a `now`-dependent rule whose definition opted into no frozen window. If a pipeline wants the client to decide such a rule, it calls `plan` to defer it, and the client calls [`resolvePlan`](#resolveplan).
+
+## `DivergenceObserver`
+
+<!-- reference @evanion/feature#DivergenceObserver -->
+
+To hear about a divergence, you install a `DivergenceObserver`, which takes one [`DivergenceReport`](#divergencereport) and answers `void`. You can provide this at `onDivergence` in `resolvePlan`, or as a prop in both providers of `@evanion/react-feature`.
+
+An observer reads a report and alters no decision. [`reportDivergence`](#reportdivergence) is what calls it, and it discards whatever the observer raises, because an observer that takes down a render is worse than the divergence it was reporting. Because the compiler accepts a function answering anything where a `void` answer is expected, you can install an async function: `async (report) => { await post(report); }`. `reportDivergence` attaches a rejection handler to a thenable answer, which keeps Node from terminating the process over it.
+
+The `F` parameter is the key type the reports name, defaulting to `string`. A caller installing an observer on a typed store gets `keyof S & FeatureKey`.
+
+## `DivergenceReport`
+
+<!-- reference @evanion/feature#DivergenceReport -->
+
+To name what a process could not reproduce, and why, `@evanion/feature` uses the `DivergenceReport` type. A report is output only; nothing in the library reads one back, which is the invariant `reason-is-output-only.spec.ts` already holds for `reason`.
+
+The `kind` member names one of four cases:
+
+- `'config-version'`: the shipped set and the local store name different configuration versions.
+- `'unversioned'`: one of the two carries no version, so the comparison cannot be made at all.
+- `'missing-field'`: the local context carries no field the shipped answer's rule read, or a deferred plan entry names a field in `needs` that the context does not carry.
+- `'decision-differs'`: the local resolution answers a different `enabled`, `reason` or `variant` than the shipped decision.
+
+The report names the feature at `key` when one feature is at fault, and the context field at `field` on a `'missing-field'` report. The `shipped` and `local` members each hold a [`DivergenceSide`](#divergenceside). The `message` member is one sentence naming the cause and the fix, written for a developer reading a console.
+
+`resolvePlan` reports `'missing-field'` and nothing else, because a plan and a context are all it holds. The other three cases come from `@evanion/react-feature`'s provider, which holds a shipped set beside a local store.
+
+## `DivergenceSide`
+
+<!-- reference @evanion/feature#DivergenceSide -->
+
+To state one side of a comparison, `@evanion/feature` uses the `DivergenceSide` type. A [`DivergenceReport`](#divergencereport) carries one at `shipped` and one at `local`, so an observer reads what the server answered beside what the local process answers.
+
+All four members are optional, and a report fills the ones its `kind` compared:
+
+- A version report fills `version` on each side.
+- A variant report fills `variant` and the `source` that assigned it (one of `'weighted'`, `'pinned'`, `'sticky'` or `'fallback'`, the four a [`Decision`](#decision)'s `assignment` carries).
+- A `'decision-differs'` report fills `enabled` as well.
+
 ## `Plan`
 
 <!-- reference @evanion/feature#Plan -->
