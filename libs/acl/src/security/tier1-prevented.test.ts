@@ -1236,3 +1236,101 @@ describe('SEC-019 no hostile write escapes the decision it was narrowed against 
   });
   // #endregion sec-019
 });
+
+describe('SEC-021 a frozen matrix grants nothing a caller wrote into it (CWE-915)', () => {
+  // #region sec-021
+  /**
+   * `Object.freeze` locks own properties and covers no internal slot, so a
+   * frozen `Date` still answers `setTime`. A window boundary is a `Date` the
+   * matrix holds, `Access.matrix` is a public getter, and `toEpoch` reads
+   * `getTime()` on every evaluation, so a moved instant would decide every
+   * later request while `Object.isFrozen` answered true throughout.
+   */
+  const sale = () =>
+    local([
+      permission('listing', 'read', {
+        rules: [
+          when({
+            field: 'now',
+            op: 'after',
+            value: new Date('2030-01-01T00:00:00Z'),
+          }),
+        ],
+      }),
+    ]);
+
+  const boundaryOf = (access: ReturnType<typeof local>): Date =>
+    (
+      access.matrix.permissions[0]?.rules?.[0]?.when?.[0] as unknown as {
+        value: Date;
+      }
+    ).value;
+
+  it('refuses setTime on a window boundary, and the decision does not move', () => {
+    const access = sale();
+    const before = access.can({ id: 'u1' }, 'listing', 'read', { id: 'l1' });
+
+    expect(before.allowed).toBe(false);
+
+    const boundary = boundaryOf(access);
+
+    expect(Object.isFrozen(boundary)).toBe(true);
+    expect(() => boundary.setTime(0)).toThrow(TypeError);
+    expect(boundary.toISOString()).toBe('2030-01-01T00:00:00.000Z');
+    expect(access.can({ id: 'u1' }, 'listing', 'read', { id: 'l1' })).toEqual(
+      before,
+    );
+  });
+
+  it('refuses every mutator a Date carries, not only setTime', () => {
+    const boundary = boundaryOf(sale());
+
+    for (const name of Object.getOwnPropertyNames(Date.prototype).filter((n) =>
+      n.startsWith('set'),
+    )) {
+      expect(
+        () => (boundary as unknown as Record<string, () => void>)[name]?.(),
+        `${name} must refuse`,
+      ).toThrow(TypeError);
+    }
+  });
+
+  it('refuses the mutators a Map and a Set carry in a condition value', () => {
+    const access = local([
+      permission('listing', 'read', {
+        rules: [
+          when({
+            field: 'subject.tier',
+            op: 'eq',
+            value: new Map([['pro', 1]]) as unknown as string,
+          }),
+        ],
+      }),
+      permission('listing', 'write', {
+        rules: [
+          when({
+            field: 'subject.tier',
+            op: 'eq',
+            value: new Set(['pro']) as unknown as string,
+          }),
+        ],
+      }),
+    ]);
+    const held = access.matrix.permissions.map(
+      (each) =>
+        (each.rules?.[0]?.when?.[0] as unknown as { value: unknown }).value,
+    );
+    const [map, set] = held as [Map<string, number>, Set<string>];
+
+    expect(Object.isFrozen(map)).toBe(true);
+    expect(() => map.set('free', 1)).toThrow(TypeError);
+    expect(() => map.delete('pro')).toThrow(TypeError);
+    expect(() => map.clear()).toThrow(TypeError);
+    expect(() => set.add('free')).toThrow(TypeError);
+    expect(() => set.delete('pro')).toThrow(TypeError);
+    expect(() => set.clear()).toThrow(TypeError);
+    expect(map.get('pro')).toBe(1);
+    expect(set.has('pro')).toBe(true);
+  });
+  // #endregion sec-021
+});

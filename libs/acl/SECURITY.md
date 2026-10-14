@@ -21,7 +21,7 @@ claim.
 Tier 3 entries carry no passing defence, because a passing test there would
 imply one. Where an entry names a gap with no defence at all, it says so.
 
-Counts: 20 tier 1, 8 tier 2, 8 tier 3.
+Counts: 21 tier 1, 8 tier 2, 8 tier 3.
 
 ## Tier 1 — prevented
 
@@ -47,6 +47,7 @@ Counts: 20 tier 1, 8 tier 2, 8 tier 3.
 | SEC-018 | A clock or a boundary that does not parse, on either side                                                          | CWE-754            | A condition whose clock does not parse is `unusable-clock`, not a fail, and the state outranks a matching allow, so a time-gated deny goes on denying. A boundary that does not parse is an `InvalidConditionError` at construction                                     | `tier1-prevented.test.ts` › SEC-018 |
 | SEC-019 | A hostile write escaping the decision it was narrowed against                                                      | CWE-915            | Property over generated writes of authoring tokens, prototype names, unicode shapes and oversized keys: every picked key was marked `allowed`, and applying the result moves no prototype                                                                               | `tier1-prevented.test.ts` › SEC-019 |
 | SEC-020 | A document that is not an envelope reaching the engine                                                             | CWE-20             | A missing or non-array `permissions`, a version that is neither a string nor a number, a schema that is not one, a declared type that is not one, and a bare list with no envelope at all are all construction errors                                                   | `tier1-prevented.test.ts` › SEC-020 |
+| SEC-021 | A write into a frozen matrix: a `Date`, `Map` or `Set` the freeze did not cover                                    | CWE-915, CWE-471   | `Object.freeze` covers no internal slot, so the walk seals every mutator of a `Date`, `Map` and `Set` with an own property that throws before it freezes the object                                                                                                     | `tier1-prevented.test.ts` › SEC-021 |
 
 ## Tier 2 — the primitive exists, the consumer must use it
 
