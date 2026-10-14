@@ -85,8 +85,8 @@ const NOTICES = [
     what: 'the exposure warning on the API reference entry',
     spec: '§ 1',
     file: 'apps/docs/content/feature/api.mdx',
-    from: '### `FeatureOptions<S>`',
-    until: '### `FrozenWhenObserved',
+    from: '## `FeatureOptions`',
+    until: '## `FrozenWhenObserved`',
     phrases: [
       'does not count exposures',
       'the request never rendered',
@@ -111,8 +111,8 @@ const NOTICES = [
     what: 'the loss-at-exit note on the API reference entry',
     spec: '§ 6',
     file: 'apps/docs/content/feature/api.mdx',
-    from: '### `FeatureOptions<S>`',
-    until: '### `FrozenWhenObserved',
+    from: '## `FeatureOptions`',
+    until: '## `FrozenWhenObserved`',
     phrases: [
       'lost at exit',
       'suspends a process without warning',
@@ -166,8 +166,8 @@ const NOTICES = [
     what: "the guard's measurement on the API reference entry",
     spec: '§ 5',
     file: 'apps/docs/content/feature/api.mdx',
-    from: '### `FeatureOptions<S>`',
-    until: '### `FrozenWhenObserved',
+    from: '## `FeatureOptions`',
+    until: '## `FrozenWhenObserved`',
     phrases: [
       'the bare call ran at 23 microseconds',
       'accounts for that difference',
@@ -192,7 +192,7 @@ const NOTICES = [
     what: "the freeze asymmetry's reason on the API reference entry",
     spec: '§ 4.3',
     file: 'apps/docs/content/feature/api.mdx',
-    from: '### `FrozenWhenObserved',
+    from: '## `FrozenWhenObserved`',
     until: '## `FeatureKey`',
     phrases: [
       'behaves differently under two configurations',
