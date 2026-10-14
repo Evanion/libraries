@@ -803,7 +803,7 @@ To handle missing data during resolution, you provide a callback to the `onDiver
 
 <!-- reference @evanion/feature#FeatureEvent example=observe-one-key -->
 
-To report what a public entry point answered, `@evanion/feature` uses the `FeatureEvent` type. The store emits one event per public entry point call, and the event carries the value the caller received.
+To report the outcome of a call, `@evanion/feature` emits a `FeatureEvent`. The store emits one event for each `resolve`, `isEnabled`, `plan`, `toggle`, and `snapshot` call, carrying the value the caller received. No other member reports; `variantOf` and `valueOf` read a field from an internal resolution and emit nothing, and `isEnabled` emits nothing for a key the store was not built with.
 
 The `type` member names the call that reported. A `'resolve'` event carries every decision at `decisions`, an `'is-enabled'` event carries one decision at `decision` beside the `key` it was asked for, a `'plan'` event carries the partition at `plan`, and a `'toggle'` event carries the write's report at `result`.
 
@@ -817,7 +817,7 @@ No event carries an `EvaluationContext`. The `at` member is the instant the call
 
 To install an observer and name the fields an event reports, you pass `FeatureOptions` to [`createFeatures`](#createfeaturesdefinitions-options) as its second argument. The interface declares four optional members:
 
-- `observe`: called once per public entry point call, with the [`FeatureEvent`](#featureevent) that call produced. The engine never awaits it.
+- `observe`: called once for each call that reports, with the [`FeatureEvent`](#featureevent) that call produced. The engine never awaits it.
 - `onObserveError`: replaces the `console.warn` the engine writes when an observer throws or rejects.
 - `correlateBy`: the context field whose value identifies the subject on an event. Defaults to `targetingKey`.
 - `version`: the configuration version an event reports.
