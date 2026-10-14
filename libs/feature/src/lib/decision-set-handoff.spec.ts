@@ -174,7 +174,10 @@ describe('the instant a render-origin set hands the client', () => {
       features,
       plan,
       {},
-      { now: new Date(set.now), onDivergence: (report) => reports.push(report) },
+      {
+        now: new Date(set.now),
+        onDivergence: (report) => reports.push(report),
+      },
     )['flash-sale'];
 
     expect(decision.enabled).toBe(true);
