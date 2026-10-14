@@ -2,7 +2,7 @@
 
 <WorkshopNotice slug="feature" />
 
-The `observe` option of `createFeatures` installs a callback that receives one event for each `resolve`, `isEnabled`, `plan` and `toggle` call, carrying what that call returned.
+The `observe` option of `createFeatures` installs a callback that receives one event for each `resolve`, `isEnabled`, `plan`, `toggle` and `snapshot` call, carrying what that call returned.
 
 <PageSheet
   difficulty={3}
@@ -26,12 +26,14 @@ You install the observer as the `observe` option when calling `createFeatures`. 
 
 Every `@evanion/feature` event carries a standard envelope: the `at` instant, a `subject` read off the context's `targetingKey` by default, and the `version` option of `createFeatures` when you set one. The payload depends on the call:
 
-| Event Type   | Call                             | Payload                                                         |
-| :----------- | :------------------------------- | :-------------------------------------------------------------- |
-| `resolve`    | `resolve(context)`               | A record of decisions for every configured feature.             |
-| `is-enabled` | `isEnabled(key, context)`        | The specific decision for that one key.                         |
-| `plan`       | `plan(context)`                  | The build-time partition of settled vs. deferred features.      |
-| `toggle`     | `toggle(key, enabled, context?)` | The result of the change, a refused `unknown-feature` included. |
+| Event Type   | Call                                    | Payload                                                         |
+| :----------- | :-------------------------------------- | :-------------------------------------------------------------- |
+| `resolve`    | `resolve(context)`, `snapshot(context)` | A record of decisions for every configured feature.             |
+| `is-enabled` | `isEnabled(key, context)`               | The specific decision for that one key.                         |
+| `plan`       | `plan(context)`                         | The build-time partition of settled vs. deferred features.      |
+| `toggle`     | `toggle(key, enabled, context?)`        | The result of the change, a refused `unknown-feature` included. |
+
+These four event types cover five different calls. Because `snapshot` resolves every feature and reports a `resolve` event, a consumer filtering by `type` cannot distinguish between the two.
 
 `variantOf` and `valueOf` report nothing, and `isEnabled` for a key the store was not built with reports nothing either. `isEnabled` resolves the whole store to answer one question, and its event carries only the one decision the caller received:
 
