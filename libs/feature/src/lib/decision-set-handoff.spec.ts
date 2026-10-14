@@ -124,6 +124,32 @@ describe('the instant a render-origin set hands the client', () => {
     ).toBe(true);
   });
 
+  it('reads the instant on the context over the one the option states', () => {
+    const features = windowed();
+    const set = features.snapshot({ now: BEFORE });
+    const plan = features.plan({ now: BEFORE });
+
+    expect(
+      resolvePlan(features, plan, { now: AFTER }, { now: new Date(set.now) })[
+        'flash-sale'
+      ].enabled,
+    ).toBe(false);
+  });
+
+  it('keeps the window the server resolved on for a context stating the set instant', () => {
+    const features = windowed();
+    const set = features.snapshot({ now: BEFORE });
+    const plan = features.plan({ now: BEFORE });
+    clockAt(AFTER);
+
+    expect(
+      resolvePlan(features, plan, {
+        targetingKey: 'cust-0042',
+        now: new Date(set.now),
+      })['flash-sale'].enabled,
+    ).toBe(true);
+  });
+
   it('reads the client clock for a build-origin set that passes no instant', () => {
     const features = windowed();
     const set = features.snapshot({ now: BEFORE }, { origin: 'build' });

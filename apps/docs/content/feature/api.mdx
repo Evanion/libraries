@@ -688,9 +688,11 @@ A decision set crosses no service boundary. The process that produced it and the
 
 To state which kind of process resolved a set, `@evanion/feature` uses the `DecisionOrigin` type, which is `'render' | 'build'`.
 
-If a set is `'render'`, it came out of the request that produced the HTML. Its instant is seconds old, and the consumer reads it as the default for what it resolves locally. The set records this instant as an ISO 8601 string. Since the `now` property of [`ResolvePlanOptions`](#resolveplanoptions) requires a `Date`, the consumer must wrap the value: `resolvePlan(features, plan, context, { now: new Date(set.now) })`. This wrapping ensures that if a window boundary falls between the server's instant and the client's call, the tree does not partially shift.
+When a set is `'render'`, it was produced during the request that generated the HTML. Because its instant is only seconds old, the consumer treats it as the default for local resolution. The set records this instant as an ISO 8601 string. Since the `now` property of [`ResolvePlanOptions`](#resolveplanoptions) requires a `Date`, the consumer must wrap the value: `resolvePlan(features, plan, {}, { now: new Date(set.now) })`. This prevents a window boundary falling between the server's instant and the client's call from moving any part of the tree.
 
-If a set is `'build'`, it may be days old. The consumer passes no `now`, and the deferred remainder resolves against the client's own clock.
+`resolvePlan` reads `now` from the context before checking the option. If a consumer provides a context that already carries `now`, the set instant is stated on that context: `resolvePlan(features, plan, { ...context, now: new Date(set.now) })`. In this case, the option provided alongside the context is discarded, and the remainder resolves against the instant stored in the context.
+
+When a set is `'build'`, it may be days old. For these sets, the consumer passes no `now` value, allowing the deferred remainder to resolve against the client's own clock.
 
 ## `SnapshotOptions`
 
