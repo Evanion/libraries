@@ -599,6 +599,70 @@ describe('resolve and isEnabled', () => {
   });
 });
 
+describe('the calls that report and the calls that do not', () => {
+  const defs = [
+    {
+      key: 'cta',
+      enabled: true,
+      variants: [{ name: 'blue', weight: 1, value: { label: 'Get it' } }],
+    },
+  ] as const;
+
+  it('emits one resolve event from snapshot', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    const set = features.snapshot({ targetingKey: 'u1' });
+
+    // Four `type` values cover five reporting calls. A consumer filtering on
+    // `type === 'resolve'` reads this snapshot as a resolve, and
+    // `FeatureEvent` says so.
+    expect(observe).toHaveBeenCalledTimes(1);
+    const event = observe.mock.calls[0]?.[0];
+    expect(event.type).toBe('resolve');
+    expect(event.decisions).toBe(set.decisions);
+  });
+
+  it('emits nothing from variantOf', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    // The resolution runs internally and the caller receives one field off it.
+    // An event here would tell an auditor the application asked for every
+    // feature.
+    expect(features.variantOf('cta', { targetingKey: 'u1' })).toBe('blue');
+    expect(observe).not.toHaveBeenCalled();
+  });
+
+  it('emits nothing from valueOf', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, { observe });
+
+    expect(features.valueOf('cta', { targetingKey: 'u1' })).toEqual({
+      label: 'Get it',
+    });
+    expect(observe).not.toHaveBeenCalled();
+  });
+
+  it('emits nothing from reload', () => {
+    const observe = vi.fn();
+    const features = createFeatures(
+      { version: '1', features: [{ key: 'cta', enabled: true }] },
+      { observe },
+    );
+
+    // A reload answers its own report and decides nothing for a caller, so
+    // there is no value an event could carry.
+    const result = features.reload({
+      version: '2',
+      features: [{ key: 'cta', enabled: false }],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(observe).not.toHaveBeenCalled();
+  });
+});
+
 describe('plan and toggle', () => {
   const defs = [
     { key: 'parent', enabled: true },
