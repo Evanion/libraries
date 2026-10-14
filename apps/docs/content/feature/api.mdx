@@ -723,20 +723,29 @@ The `kind` member names one of four cases:
 - `'missing-field'`: the local context carries no field the shipped answer's rule read, or a deferred plan entry names a field in `needs` that the context does not carry.
 - `'decision-differs'`: the local resolution answers a different `enabled`, `reason` or `variant` than the shipped decision.
 
-The report names the feature at `key` when one feature is at fault, and the context field at `field` on a `'missing-field'` report. The `shipped` and `local` members each hold a [`DivergenceSide`](#divergenceside). The `message` member is one sentence naming the cause and the fix, written for a developer reading a console.
+When a single feature is at fault, the report names that feature at `key`. If the report is a `'missing-field'` type, the context field is named at `field`.
 
-`resolvePlan` reports `'missing-field'` and nothing else, because a plan and a context are all it holds. The other three cases come from `@evanion/react-feature`'s provider, which holds a shipped set beside a local store.
+The report tracks where the divergence occurred using the `shipped` and `local` members. Both are optional and hold a [`DivergenceSide`](#divergenceside) if the report has a side to state; a reader guards both before reading through them. To help the developer, the `message` member provides one sentence naming the cause and the fix, written for a developer reading a console.
+
+Different tools generate different reports. Because `resolvePlan` holds only a plan and a context, it reports `'missing-field'` and nothing else, filling neither side. The other three cases come from the `@evanion/react-feature` provider, which holds a shipped set beside a local store.
 
 ## `DivergenceSide`
 
 <!-- reference @evanion/feature#DivergenceSide -->
 
-To state one side of a comparison, `@evanion/feature` uses the `DivergenceSide` type. A [`DivergenceReport`](#divergencereport) carries one at `shipped` and one at `local`, so an observer reads what the server answered beside what the local process answers.
+To state one side of a comparison, `@evanion/feature` uses the `DivergenceSide` type.
 
-All four members are optional, and a report fills the ones its `kind` compared:
+The `DivergenceSide` type allows `@evanion/feature` to isolate the values provided by a server from those provided by a local process. The `shipped` and `local` members of a [`DivergenceReport`](#divergencereport) are both optional; a report fills a side only where it had one to state. Where it fills both, an observer reads what the server answered beside what the local process answers.
+
+Depending on the reporter, a report may fill these sides differently:
+
+- **`resolvePlan`**: Fills neither side. Because it holds a plan and a context, its `'missing-field'` report names the feature at `key` and the field at `field` and states no answer on either side. An observer written for it reads `key`, `field`, and `message`. If an observer attempts to read `report.shipped.version`, it raises a `TypeError`, which [`reportDivergence`](#reportdivergence) discards, leaving the divergence unreported.
+- **`@evanion/react-feature`**: Holds a shipped set beside a local store. It fills both sides for a `'config-version'`, an `'unversioned'`, and a `'decision-differs'` report. It fills `shipped` alone on the two `'missing-field'` reports where there is no local answer to state: either the store declares no feature the server shipped a variant for, or it declares that feature with no variants at all.
+
+A report fills the members of a side based on its `kind`. All four members of a side are optional:
 
 - A version report fills `version` on each side.
-- A variant report fills `variant` and the `source` that assigned it (one of `'weighted'`, `'pinned'`, `'sticky'` or `'fallback'`, the four a [`Decision`](#decision)'s `assignment` carries).
+- A variant report fills `variant` and the `source` that assigned it (one of `'weighted'`, `'pinned'`, `'sticky'`, or `'fallback'`, the four a [`Decision`](#decision)'s `assignment` carries).
 - A `'decision-differs'` report fills `enabled` as well.
 
 ## `Plan`
