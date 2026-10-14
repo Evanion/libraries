@@ -26,10 +26,6 @@ export interface ResolvePlanOptions<F extends FeatureKey = string> {
    * instant and the client's call cannot move half the tree. A set carrying
    * `origin: 'build'` states one that may be days old, and that caller passes
    * nothing, so this reads the client's own clock.
-   *
-   * The context wins where it carries `now`, so a caller handing this call a
-   * context that already states an instant states the set's instant there
-   * instead of here.
    */
   now?: Date;
   onDivergence?: DivergenceObserver<F>;
