@@ -688,11 +688,13 @@ A decision set crosses no service boundary. The process that produced it and the
 
 To state which kind of process resolved a set, `@evanion/feature` uses the `DecisionOrigin` type, which is `'render' | 'build'`.
 
-When a set is `'render'`, it was produced during the request that generated the HTML. Because its instant is only seconds old, the consumer treats it as the default for local resolution. The set records this instant as an ISO 8601 string. Since the `now` property of [`ResolvePlanOptions`](#resolveplanoptions) requires a `Date`, the consumer must wrap the value: `resolvePlan(features, plan, {}, { now: new Date(set.now) })`. This prevents a window boundary falling between the server's instant and the client's call from moving any part of the tree.
+When a set is `'render'`, it was produced by the request that generated the HTML. Because its instant is only seconds old, the consumer uses it as the default for local resolution. The set records this instant as an ISO 8601 string. Since the `now` property of [`ResolvePlanOptions`](#resolveplanoptions) requires a `Date` object, the consumer must wrap the value: `resolvePlan(features, plan, context, { now: new Date(set.now) })`. This call provides the two pieces of information required to answer the resolution logic: the context carries the subject the deferred entry buckets on, and the option carries the instant.
 
-`resolvePlan` reads `now` from the context before checking the option. If a consumer provides a context that already carries `now`, the set instant is stated on that context: `resolvePlan(features, plan, { ...context, now: new Date(set.now) })`. In this case, the option provided alongside the context is discarded, and the remainder resolves against the instant stored in the context.
+If the context is empty, the entry lacks the `targetingKey` named in `needs`. This triggers a [`'missing-field'`](#divergencereport) divergence report and results in every subject receiving the same variant. By including the subject in the context, a window boundary falling between the server's instant and the client's call will move no part of the tree.
 
-When a set is `'build'`, it may be days old. For these sets, the consumer passes no `now` value, allowing the deferred remainder to resolve against the client's own clock.
+`resolvePlan` settles `now` off the context before it reads the option. If a consumer holds a context that already carries `now`, they should state the set instant there instead: `resolvePlan(features, plan, { ...context, now: new Date(set.now) })`. When provided with such a context, any `now` value passed in the options argument is discarded.
+
+When a set is `'build'`, it may be days old. In this scenario, the consumer passes no `now` value, allowing the deferred remainder to resolve against the client's own clock.
 
 ## `SnapshotOptions`
 
