@@ -489,6 +489,66 @@ set.decisions['checkout-cta'].variant; // -> 'control'
 
 <!-- #endregion snapshot -->
 
+## Adopting a Snapshot in Another Process
+
+To synchronize feature decisions across different parts of your system, you use the `adoptDecisions` call.
+
+When a process receives a set of decisions—such as a snapshot sent from a server to a client—it must reconcile those decisions with its own local store. `@evanion/feature` handles this by comparing the version stated in the received set with the version the local store currently holds. The function reports every divergence to the `onDivergence` callback and returns the shipped decisions.
+
+<!-- #region adopt-decisions -->
+
+```ts @import.meta.vitest
+import {
+  adoptDecisions,
+  createFeatures,
+  serializeConfig,
+} from '@evanion/feature';
+import type { DecisionSet, DivergenceReport } from '@evanion/feature';
+
+const definitions = [
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ],
+  },
+];
+const v1 = serializeConfig(createFeatures(definitions), { version: 'v1' });
+const v0 = serializeConfig(createFeatures(definitions), { version: 'v0' });
+
+// The server resolves the set inside the request.
+const server = createFeatures(v1);
+const wire = JSON.stringify(server.snapshot({ targetingKey: 'cust-0042' }));
+
+// The client parses it and adopts it with a store built from the same document.
+const shipped = JSON.parse(wire) as DecisionSet;
+const reports: DivergenceReport[] = [];
+const client = createFeatures(v1);
+
+const decisions = adoptDecisions(client, shipped, {
+  context: { targetingKey: 'cust-0042' },
+  onDivergence: (report) => reports.push(report),
+});
+
+decisions['checkout-cta']?.variant; // -> 'control'
+reports.length; // -> 0
+
+// A client still holding the previous document reports the mismatch.
+const stale = createFeatures(v0);
+
+adoptDecisions(stale, shipped, {
+  context: { targetingKey: 'cust-0042' },
+  onDivergence: (report) => reports.push(report),
+});
+
+reports.map((report) => report.kind); // -> ['config-version']
+reports[0]?.message; // -> "these decisions were resolved under config version v1 and this store holds v0, so the two processes hold different configurations. Reload the store from the document the server used, or pass onVersionMismatch: 're-resolve'."
+```
+
+<!-- #endregion adopt-decisions -->
+
 ## Finishing a Build-Time Plan on the Client
 
 To finalize which features a user sees, you use `resolvePlan`.
