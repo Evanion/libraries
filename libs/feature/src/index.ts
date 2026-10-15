@@ -24,6 +24,8 @@ export { ruleId } from './lib/rule-id.js';
 export { parseFeatureConfig } from './lib/parse.js';
 export { resolvePlan } from './lib/resolve-plan.js';
 export type { ResolvePlanOptions } from './lib/resolve-plan.js';
+export { adoptDecisions } from './lib/adopt.js';
+export type { AdoptOptions, VersionMismatchPolicy } from './lib/adopt.js';
 export type {
   DecisionOrigin,
   DecisionSet,
