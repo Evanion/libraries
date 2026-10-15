@@ -187,19 +187,11 @@ at its previous value. See [Distribution](/feature/distribution).
 
 ### How `@evanion/feature` handles store types
 
-To understand how `@evanion/feature` manages type safety, you must distinguish between stores with known schemas and those without.
+To store a feature set that arrives at runtime—such as a store `parseFeatureConfig` builds from a fetched document—you use the bare `Features` type. Because `S` defaults to [`Schema`](#schema), the bare form names a store whose schema is determined at runtime.
 
-#### Working with Unseen Schemas
+This bare form is the standard for framework declarations. A Nest provider token holding a store built from a document, a member of Astro's `locals`, and a React Router context each write `features: Features | undefined`.
 
-When the compiler cannot see a store's schema, you name the store with the bare `Features` type, where `S` defaults to [`Schema`](#schema). This occurs when a store is built from a fetched document via `parseFeatureConfig`.
-
-Because these stores are dynamic, framework declarations use the bare form. For instance, a Nest provider token, a member of Astro's `locals`, and a React Router context each write `features: Features | undefined`.
-
-#### Working with Inferred Schemas
-
-To gain type safety for specific flags, you can use a store built from a literal. When you use `createFeatures([...])`, the library infers a schema; the resulting `variantOf` method then answers the specific variant names that schema declares.
-
-While the bare slot accepts these inferred stores, using the slot causes `variantOf` to answer `string | undefined` for any key. To preserve the specific variant names in your code, you should either keep the store's inferred type or explicitly name the schema as `Features<Flags>`.
+If you build a store from a literal, it will not fit that slot. When you use `createFeatures([...])`, the compiler infers a schema; the `variantOf` method then answers the variant names that schema declares. Because of this specific inference, the compiler refuses the assignment to the bare form with `TS2322` on the types `variantOf` returns. To fix this, a declaration holding a store built from a literal must name its schema: `Features<Flags>`.
 
 ### Handling frozen states in `@evanion/feature`
 
