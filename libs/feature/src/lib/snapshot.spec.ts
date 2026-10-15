@@ -845,6 +845,7 @@ describe('Features.snapshot', () => {
       ).snapshot(BEFORE_LAUNCH);
 
       const resolved = seen.find((event) => event.type === 'resolve');
+
       expect(resolved?.type === 'resolve' && resolved.decisions).toBe(
         set.decisions,
       );
