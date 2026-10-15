@@ -1449,6 +1449,47 @@ installed.ok ? [] : installed.issues.map((issue) => issue.code); // -> ['unknown
 
 <!-- #endregion config-install-refused -->
 
+<!-- #region open-form-slot -->
+
+```ts @import.meta.vitest
+import { parseFeatureConfig } from '@evanion/feature';
+import type {
+  DecisionSet,
+  FeatureConfig,
+  Features,
+  FrozenWhenObserved,
+  Plan,
+} from '@evanion/feature';
+
+// The document a fetch answers, whose keys the compiler never saw.
+const served: FeatureConfig = {
+  version: '2026-10-08.1',
+  features: [{ key: 'new-checkout', enabled: true }],
+};
+
+const installed = parseFeatureConfig(served);
+
+// The slot a framework declaration names, with no type argument.
+const slot: Features | undefined = installed.ok
+  ? installed.features
+  : undefined;
+
+// A loader hands the page the set, which holds either freeze.
+function loader(): DecisionSet | undefined {
+  return slot?.snapshot();
+}
+
+// A build step names the plan with the freeze left open.
+function build(): FrozenWhenObserved<boolean, Plan> | undefined {
+  return slot?.plan();
+}
+
+loader()?.decisions['new-checkout']?.enabled; // -> true
+build()?.['new-checkout']?.resolved; // -> true
+```
+
+<!-- #endregion open-form-slot -->
+
 <!-- #region config-envelope -->
 
 ```ts @import.meta.vitest

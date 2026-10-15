@@ -129,8 +129,6 @@ See [Observing](/feature/observing) for what an observer receives.
 variant position is what that key's schema entry declares. `K` below is
 `keyof S`.
 
-To manage a store whose schema is learned at runtime—such as a store `parseFeatureConfig` creates from a fetched document—you use `Features<S>`. Because `S` defaults to [`Schema`](#schema), the bare `Features` type is used for declarations demanded by a framework, such as a provider a Nest token holds, a member of Astro's `locals`, or a React Router context. Such a declaration writes `features: Features | undefined`.
-
 The second parameter is `Frozen`. A store built with an observer freezes what it
 emits and answers the caller with that same object, so `resolve`, `plan` and
 `toggle` answer the deeply readonly form for such a store and the mutable form
@@ -186,6 +184,27 @@ writes to `version` and `envelope`. In contrast, a `toggle` leaves both members
 unchanged because they identify the document served by a publisher, whereas a
 toggle is a local write. If a candidate is refused, every member above remains
 at its previous value. See [Distribution](/feature/distribution).
+
+### How `@evanion/feature` handles store types
+
+To store a feature set that arrives at runtime—such as a store `parseFeatureConfig` builds from a fetched document—you use the bare `Features` type. Because `S` defaults to [`Schema`](#schema), the bare form names a store whose schema is determined at runtime.
+
+This bare form is the standard for framework declarations. A Nest provider token holding a store built from a document, a member of Astro's `locals`, and a React Router context each write `features: Features | undefined`.
+
+If you build a store from a literal, it will not fit that slot. When you use `createFeatures([...])`, the compiler infers a schema; the `variantOf` method then answers the variant names that schema declares. Because of this specific inference, the compiler refuses the assignment to the bare form with `TS2322` on the types `variantOf` returns. To fix this, a declaration holding a store built from a literal must name its schema: `Features<Flags>`.
+
+### Handling frozen states in `@evanion/feature`
+
+The bare `Features` form leaves `Frozen` at `boolean`, which means `resolve` and `plan` on the slot answer the union of both freezes.
+
+This affects how decisions are passed through your application:
+
+- A loader carrying the decisions to a page returns `snapshot()` as the bare `DecisionSet`, which holds either freeze.
+- A build step names its plan `FrozenWhenObserved<boolean, Plan>`.
+
+```ts twoslash file=libs/feature/docs/examples.md region=open-form-slot
+
+```
 
 ## `features.for(context?)`
 
