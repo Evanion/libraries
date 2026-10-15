@@ -45,28 +45,38 @@ export type FrozenWhenObserved<Frozen extends boolean, T> = Frozen extends true
   : T;
 
 /**
- * What an entry point reports after it has answered.
+ * An entry point reports this event after it has answered.
  *
- * The engine produces one event for each `resolve`, `isEnabled`, `plan`,
- * `toggle`, and `snapshot` call, carrying the value the caller received. No
- * other member reports events: `variantOf` and `valueOf` read a field off a
- * resolution the engine ran internally, and `isEnabled` reports nothing for a
- * key the store was not built with.
+ * To track how features are accessed, the engine produces one event for each
+ * `resolve`, `isEnabled`, `plan`, `toggle`, and `snapshot` call. Other members
+ * do not report events: `variantOf` and `valueOf` read a field off a resolution
+ * the engine ran internally, and `isEnabled` reports nothing for a key the
+ * store was not built with.
  *
  * Because `snapshot` reports the same `'resolve'` event that `resolve` reports,
- * four `type` values cover the five calls. Note that `resolve` reports every
- * decision in one event; no entry point reports one event per feature. This
- * distinction allows an auditor reading a `resolve` event to know the
- * application asked for every feature, while an auditor reading an `is-enabled`
- * event knows it asked for only one.
+ * four `type` values cover the five calls. To distinguish the scope of a
+ * request, `resolve` reports every decision in one event rather than reporting
+ * one event per feature. This distinction allows an auditor reading a `resolve`
+ * event to know the application asked for every feature, while an auditor
+ * reading an `is-enabled` event knows it asked for only one.
  *
- * Every payload is deeply readonly. An observer reads what the call returned
- * and changes no outcome, and the compiler refuses
- * `event.decisions.cta.enabled = false` for a TypeScript consumer. A JavaScript
- * consumer ignores the type, and the engine freezes what it emits.
+ * The event payload is the record the call produced, though this is not always
+ * the value the caller received. While `resolve`, `plan` and `toggle` hand the
+ * caller the same object the event carries, `isEnabled` hands the caller a
+ * boolean and the event carries the decision that boolean was read from.
+ * Similarly, `snapshot` hands the caller a `DecisionSet` but the event carries
+ * only its `decisions`: the event has no `origin`, its `at` is a `Date` where
+ * the set states `now` as an ISO 8601 string, and its `version` is the
+ * `version` option of `createFeatures` where the set's `version` names the
+ * installed document.
  *
- * No event carries an `EvaluationContext`. An event carries the instant the
- * call settled on, the value it returned, and a subject identifier copied out
+ * To ensure an observer reads the payload and changes no outcome, every payload
+ * is deeply readonly. The compiler refuses
+ * `event.decisions.cta.enabled = false` for a TypeScript consumer, and for a
+ * JavaScript consumer who ignores the type, the engine freezes what it emits.
+ *
+ * Finally, no event carries an `EvaluationContext`. An event carries the
+ * instant the call settled on, its payload, and a subject identifier copied out
  * as a primitive.
  */
 export type FeatureEvent<

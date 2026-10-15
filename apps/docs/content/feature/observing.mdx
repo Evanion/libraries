@@ -2,7 +2,7 @@
 
 <WorkshopNotice slug="feature" />
 
-The `observe` option of `createFeatures` installs a callback that receives one event for each `resolve`, `isEnabled`, `plan`, `toggle` and `snapshot` call, carrying what that call returned.
+The `observe` option of `createFeatures` installs a callback that receives one event for each `resolve`, `isEnabled`, `plan`, `toggle` and `snapshot` call, carrying the record that call produced.
 
 <PageSheet
   difficulty={3}
@@ -14,17 +14,17 @@ The `observe` option of `createFeatures` installs a callback that receives one e
 
 ## How to Install an Observer
 
-When an `@evanion/feature` feature is off for a customer, the decision says whether the kill switch, a rollout, a parent or a time window turned it off, and the caller usually discards that decision. An observer keeps it.
+When an `@evanion/feature` feature is off for a customer, the decision says whether the kill switch, a rollout, a parent or a time window turned it off, and the caller usually discards that decision. To keep these records, you can install an observer.
 
-You install the observer as the `observe` option when calling `createFeatures`. The store calls it once for each call in the table below, and the event carries the value that call returned.
+You install the observer as the `observe` option when calling `createFeatures`. The store calls it once for each call in the table below, and the event carries the payload the table names.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=observe-install
 
 ```
 
-### The Four Event Types
+## The Four Event Types
 
-Every `@evanion/feature` event carries a standard envelope: the `at` instant, a `subject` read off the context's `targetingKey` by default, and the `version` option of `createFeatures` when you set one. The payload depends on the call:
+To track how `@evanion/feature` behaves, you can listen for events that carry a standard envelope: the `at` instant, a `subject` read off the context's `targetingKey` by default, and the `version` option of `createFeatures` when you set one. The payload depends on the call:
 
 | Event Type   | Call                                    | Payload                                                         |
 | :----------- | :-------------------------------------- | :-------------------------------------------------------------- |
@@ -35,7 +35,9 @@ Every `@evanion/feature` event carries a standard envelope: the `at` instant, a 
 
 These four event types cover five different calls. Because `snapshot` resolves every feature and reports a `resolve` event, a consumer filtering by `type` cannot distinguish between the two.
 
-`variantOf` and `valueOf` report nothing, and `isEnabled` for a key the store was not built with reports nothing either. `isEnabled` resolves the whole store to answer one question, and its event carries only the one decision the caller received:
+A `snapshot` event carries the set's `decisions` record and nothing else from the `DecisionSet` the caller received. It has no `origin`, and its `at` is a `Date` where the set states `now` as an ISO 8601 string. The event's `version` is the `version` option of `createFeatures`, and the set's `version` is the version of the installed document, so the two can differ; a store built from a versioned document with no `version` option reports no `version` on the event at all. An auditor matching snapshot events to the sets a server shipped joins on `subject`, the instant and the decisions.
+
+Note that `variantOf` and `valueOf` report nothing, and `isEnabled` for a key the store was not built with reports nothing either. While `isEnabled` resolves the whole store to answer one question, the caller receives a boolean and the event carries the one decision that boolean was read from:
 
 ```ts twoslash file=libs/feature/docs/examples.md region=observe-one-key
 
@@ -79,7 +81,7 @@ A server drains on `SIGTERM`. A browser drains on `visibilitychange` and writes 
 
 ## `correlateBy` and what reaches an event
 
-An `@evanion/feature` event carries no `EvaluationContext`. It carries the instant the call settled on, the value the call returned, and a subject identifier copied out as a string or number. `correlateBy` names the context field that identifier is read from, and it defaults to `targetingKey`.
+To understand how events are tracked in `@evanion/feature`, you must first understand what an event carries. An `@evanion/feature` event carries no `EvaluationContext`; instead, it carries the instant the call settled on, the payload the event type names, and a subject identifier copied out as a string or number. To determine which field to use for this identifier, `@evanion/feature` uses `correlateBy`, which names the context field the identifier is read from and defaults to `targetingKey`.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=observe-correlate
 

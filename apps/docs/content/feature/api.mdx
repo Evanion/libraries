@@ -803,13 +803,39 @@ To handle missing data during resolution, you provide a callback to the `onDiver
 
 <!-- reference @evanion/feature#FeatureEvent example=observe-one-key -->
 
-To report the outcome of a call, `@evanion/feature` emits a `FeatureEvent`. The store emits one event for each `resolve`, `isEnabled`, `plan`, `toggle`, and `snapshot` call, carrying the value the caller received. No other member reports; `variantOf` and `valueOf` read a field from an internal resolution and emit nothing, and `isEnabled` emits nothing for a key the store was not built with.
+To track how features are evaluated in a running application, `@evanion/feature` provides a way to observe the outcome of store calls via a `FeatureEvent`.
 
-The `type` member names the payload, using four values to cover the five reporting calls. A `'resolve'` event carries every decision at `decisions`; since both `resolve` and `snapshot` report this way, the event does not distinguish which of the two calls ran. An `'is-enabled'` event carries the `key` requested and one decision at `decision`, a `'plan'` event carries the partition at `plan`, and a `'toggle'` event carries the write's report at `result`.
+### Reporting Events
+
+The `@evanion/feature` store emits one event for each `resolve`, `isEnabled`, `plan`, `toggle`, and `snapshot` call. No other member reports; `variantOf` and `valueOf` read a field from an internal resolution and emit nothing, and `isEnabled` emits nothing for a key the store was not built with.
+
+The `type` member names the payload, using four values to cover the five reporting calls:
+
+- **`'resolve'`**: Emitted by `resolve`. It carries every decision at `decisions`, the same record `resolve` returned.
+- **`'is-enabled'`**: Emitted by `isEnabled`. It carries the `key` requested and, at `decision`, the decision the boolean `isEnabled` returned was read from.
+- **`'plan'`**: Emitted by `plan`. It carries at `plan` the partition `plan` returned.
+- **`'toggle'`**: Emitted by `toggle`. It carries at `result` the report `toggle` returned.
+
+### Snapshot Events
+
+When `snapshot` is called, the store reports a `'resolve'` event. Because of this, the event does not say which of the two calls ran.
+
+The event carries the set's `decisions` record and nothing else from the [`DecisionSet`](#decisionset) the caller received. It has no `origin`. Its `at` is a `Date` naming the same instant as the set's ISO 8601 `now`.
+
+The `version` handling differs between the event and the set: the event's `version` is the `version` option of `createFeatures`, while the set's `version` is the version of the document the store had installed. Consequently, a store built from a versioned document with no `version` option emits a snapshot event with no `version` at all. An auditor who matches snapshot events to the sets a server shipped has `subject`, the instant and the decisions to join on.
+
+### Type Safety and Metadata
 
 To ensure a consumer who narrows on `key` cannot read a decision belonging to another feature, the `'is-enabled'` member is written as a mapped type the union closes over; this pairs `key: 'checkout-cta'` with the decision that key resolves to, rather than using a flat object typing `key` and `decision` as unions of every possible value.
 
-No event carries an `EvaluationContext`. The `at` member is the instant the call settled on, `subject` is the identifier [`correlateBy`](#featureoptions) names, copied out as a primitive, and `version` is the configuration version the store was built with. Every payload is deeply readonly, so the compiler refuses a write to it and the engine freezes what it emits. See [Observing](/feature/observing).
+Common metadata is shared across all events:
+
+- **Context**: No event carries an `EvaluationContext`.
+- **Timing**: The `at` member is the instant the call settled on.
+- **Identity**: `subject` is the identifier [`correlateBy`](#featureoptions) names, copied out as a primitive.
+- **Versioning**: `version` is the `version` option passed to `createFeatures`, absent when the store was given none.
+
+Every payload is deeply readonly, so the compiler refuses a write to it and the engine freezes what it emits. See [Observing](/feature/observing).
 
 ## `FeatureOptions`
 
