@@ -623,6 +623,44 @@ describe('the calls that report and the calls that do not', () => {
     expect(event.decisions).toBe(set.decisions);
   });
 
+  it('reports the decisions of a snapshot and none of the set members beside them', () => {
+    const observe = vi.fn();
+    const document = {
+      version: '2026-11-01',
+      features: [{ key: 'cta', enabled: true }],
+    };
+    const now = new Date('2026-11-02T08:00:00.000Z');
+
+    // The set's `version` names the installed document and the event's names
+    // the `version` option, so a store given no option reports none.
+    const unversioned = createFeatures(document, { observe });
+    const plain = unversioned.snapshot(
+      { targetingKey: 'u1', now },
+      { origin: 'build' },
+    );
+    const event = observe.mock.calls[0]?.[0];
+
+    expect(plain).toMatchObject({
+      version: '2026-11-01',
+      now: '2026-11-02T08:00:00.000Z',
+      origin: 'build',
+    });
+    expect(Object.keys(event).sort()).toEqual([
+      'at',
+      'decisions',
+      'subject',
+      'type',
+    ]);
+    expect(event.at.toISOString()).toBe(plain.now);
+    expect(event.decisions).toBe(plain.decisions);
+
+    const optioned = createFeatures(document, { observe, version: 'option' });
+    const set = optioned.snapshot({ targetingKey: 'u1', now });
+
+    expect(set.version).toBe('2026-11-01');
+    expect(observe.mock.calls[1]?.[0].version).toBe('option');
+  });
+
   it('emits nothing from variantOf', () => {
     const observe = vi.fn();
     const features = createFeatures(defs, { observe });
