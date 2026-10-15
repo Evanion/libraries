@@ -378,9 +378,12 @@ function declarationOf(context, resolved, name, kind) {
     // A name the checker resolves to a type declared inside the package is
     // private to it. Types only: a declaration's parameter names and property
     // names resolve too, and printing one puts `decision: Decision` at the top
-    // of the fence as though it were a statement.
+    // of the fence as though it were a statement. A name the declaration file
+    // imports from a sibling module resolves to the import, and the alias is
+    // followed to the declaration that module prints.
     const symbol = checker.resolveName(each, from, ts.SymbolFlags.Type, false);
-    const target = symbol?.getDeclarations()?.[0];
+    const target =
+      symbol && resolveAlias(symbol, checker).getDeclarations()?.[0];
     const standalone =
       target &&
       (ts.isInterfaceDeclaration(target) ||

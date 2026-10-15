@@ -371,6 +371,26 @@ export type Decisions<S extends Record<keyof S, VariantInfo | never> = Schema> =
     [K in keyof S]: DecisionOf<K, S[K]>;
   };
 
+/**
+ * The variant names each feature's decision can carry, keyed like `Decisions`.
+ *
+ * `variantOf` answers `VariantNames<S>[K] | undefined`. Each entry reads the
+ * name off `Decisions<S>[K]`, so `variantOf` and the decision it comes from
+ * name the same variants. A feature declaring no variants maps to `never`:
+ * `DecisionOf` drops `variant` for it, and `infer V` off an absent optional
+ * property answers `never`.
+ *
+ * `variantOf` indexes this map with its generic `K`, and that indexed access is
+ * what lets a store built from a literal fill the bare `Features` slot. The
+ * compiler relates the literal store's `'control' | 'blue'` to the slot's
+ * `VariantNames<Schema>[K]` through `VariantNames<Schema>[string]`, which is
+ * `string`. A conditional type written on `K` stays unresolved while `K` is
+ * generic, and the compiler relates no variant name to it.
+ */
+export type VariantNames<S extends Record<keyof S, VariantInfo | never>> = {
+  [K in keyof S]: Decisions<S>[K] extends { variant?: infer V } ? V : never;
+};
+
 /** One feature's build-time plan. */
 export interface PlanEntry<
   F extends FeatureKey = string,

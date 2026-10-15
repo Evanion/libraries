@@ -156,6 +156,18 @@ describe('reading an export off its declarations', () => {
     ).not.toContain('ReactNode');
   });
 
+  it('prints a private type the declaration file imports from a sibling module', () => {
+    const found = readReference(workspaceRoot, '@evanion/feature', 'Features');
+
+    expect(
+      found.signature?.prelude.some((each) =>
+        each.startsWith('type VariantNames<'),
+      ),
+      '`features.d.ts` imports `VariantNames` from `./types.js`, and the ' +
+        'package publishes it nowhere, so the fence declares it above the cut.',
+    ).toBe(true);
+  });
+
   it('keeps a name the entry publishes on the documented specifier', () => {
     const found = readReference(
       workspaceRoot,
