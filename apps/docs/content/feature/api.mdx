@@ -827,7 +827,11 @@ A report fills the members of a side based on its `kind`. All four members of a 
 
 For [Build-time planning](/feature/build-time), `@evanion/feature` uses `Plan`, which contains one plan entry per feature. This uses the same `never` guard as `Decisions`, ensuring a feature declaring no variants receives a plan entry whose decision contains no `variant` or `value` keys.
 
-To handle the results of `plan()` on a store whose schema arrived at runtime, you use `Plan<S>`. Because `S` defaults to [`Schema`](#schema), the bare `Plan` type is used by build steps that write the plan out before any schema is known.
+`S` defaults to [`Schema`](#schema), so the bare `Plan` holds what `plan()` answers on a store built with no observer, at any schema, and on a store typed `Features<Schema, false>`.
+
+To understand how types change when a store is observed, consider how `@evanion/feature` handles the `Frozen` state. A store held in the bare `Features` slot, or built by `parseFeatureConfig`, leaves `Frozen` at `boolean`, and its `plan()` answers `Plan | DeepReadonly<Plan>`.
+
+This creates a type mismatch because the deeply readonly member types the `Date` a failed window condition in a plan entry's decision can carry as a `ReadonlyDate`, which the mutable form refuses; consequently, the bare `Plan` does not accept that union and the compiler reports `TS2322`. To resolve this, a build step that writes the plan of such a store names it `FrozenWhenObserved<boolean, Plan>`, which is the type `plan()` answers there. The example under `Features<S>` shows that build step.
 
 ## `PlanEntry`
 
