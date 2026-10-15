@@ -29,8 +29,10 @@ import type {
   InferSchema,
   Plan,
   PlanEntry,
+  RuleOutcome,
   ToggleResult,
   VariantInfo,
+  WindowCondition,
 } from './types.js';
 
 /**
@@ -572,6 +574,62 @@ function changedKeys(
   return changed;
 }
 
+/** The window condition an outcome failed on, when a `Date` bounds it. */
+function failedWindowDate(
+  outcome: RuleOutcome,
+): (WindowCondition & { value: Date }) | undefined {
+  const failed = outcome.failed;
+  if (failed?.field !== 'now') return undefined;
+  if (failed.op !== 'before' && failed.op !== 'after') return undefined;
+  const value: unknown = failed.value;
+  return value instanceof Date ? { ...failed, value } : undefined;
+}
+
+/**
+ * The decisions a decision set carries over a wire, with every window `Date` a
+ * failed rule outcome names stated as its ISO 8601 string.
+ *
+ * `JSON.stringify` writes a `Date` as that string and `JSON.parse` hands the
+ * string back, so a set carrying the `Date` comes back from one hop unequal to
+ * the set that went out. `serializeConfig` states a window `Date` the same way
+ * for the document (`serialize.ts:181-189`), and `snapshot` states `now` the
+ * same way for the set (`features.ts:1133`).
+ *
+ * An attribute condition's `value` stays as the definition wrote it, `Date` or
+ * not, and a window's string or number is already a value JSON carries.
+ *
+ * A decision naming no window `Date` is the object `resolveAll` answered. One
+ * naming one is copied, with its outcome list, the outcome and the condition,
+ * because `resolve` shares `resolveAll` and answers the `Date` in place, and the
+ * condition is the store's own. `createFeatures` refuses a window `Date` holding
+ * no instant, so `toISOString` raises nothing here.
+ */
+function wireDecisions(
+  decisions: Record<FeatureKey, Decision<FeatureKey>>,
+): Record<FeatureKey, Decision<FeatureKey>> {
+  const wire = (decision: Decision<FeatureKey>): Decision<FeatureKey> => {
+    const rules = decision.rules;
+    if (!rules?.some((outcome) => failedWindowDate(outcome))) return decision;
+    return {
+      ...decision,
+      rules: rules.map((outcome): RuleOutcome => {
+        const window = failedWindowDate(outcome);
+        if (!window) return outcome;
+        return {
+          ...outcome,
+          failed: { ...window, value: window.value.toISOString() },
+        };
+      }),
+    };
+  };
+
+  // `Object.fromEntries` defines each key as an own data property, so a feature
+  // keyed `__proto__` stays a decision and sets no prototype.
+  return Object.fromEntries(
+    Object.entries(decisions).map(([key, decision]) => [key, wire(decision)]),
+  ) as Record<FeatureKey, Decision<FeatureKey>>;
+}
+
 /**
  * The envelope a store installs for a document: its members, cloned, frozen,
  * and carrying neither the payload nor the digest.
@@ -1058,7 +1116,9 @@ export function createFeatures(
     // and `DecisionSet.version` names the configuration the set's decisions
     // resolved under, which the consumer's `!==` comparison relies on.
     const version = installed.version;
-    const decisions = frozenWhenObserved(resolveAll(evaluationContext));
+    const decisions = frozenWhenObserved(
+      wireDecisions(resolveAll(evaluationContext)),
+    );
 
     if (observed) {
       emit({

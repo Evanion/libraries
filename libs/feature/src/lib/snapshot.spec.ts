@@ -6,7 +6,7 @@ import { parseFeatureConfig } from './parse.js';
 import { serializeConfig } from './serialize.js';
 import type { FeatureConfig } from './config.js';
 import type { FeatureEvent } from './observe.js';
-import type { Schema } from './types.js';
+import type { Condition, Schema } from './types.js';
 
 const SPLIT = [
   {
@@ -557,6 +557,114 @@ describe('Features.snapshot', () => {
     expect(Object.keys(set.decisions)).toEqual(['constructor', '__proto__']);
     expect(({} as Record<string, unknown>)['polluted']).toBeUndefined();
     expect(set.decisions['__proto__']?.enabled).toBe(false);
+  });
+
+  describe('the set a wire carries', () => {
+    const BEFORE_LAUNCH = { now: new Date('2026-10-09T00:00:00Z') };
+
+    /** A store whose one rule fails on `condition` at {@link BEFORE_LAUNCH}. */
+    const gated = (condition: Condition, observe?: () => void) => {
+      const definitions = [
+        {
+          key: 'launch-sale',
+          enabled: true,
+          rules: [{ id: 'launch', when: [condition] }],
+        },
+      ];
+      return observe
+        ? createFeatures(definitions, { observe })
+        : createFeatures(definitions);
+    };
+
+    /** What a frozen and an unfrozen decision both carry of a failed rule. */
+    interface FailedRule {
+      readonly rules?: readonly {
+        readonly failed?: { readonly value: unknown };
+      }[];
+    }
+
+    /** The condition a set states as the reason its one rule failed. */
+    const failedOn = (set: {
+      readonly decisions: Readonly<Partial<Record<string, FailedRule>>>;
+    }) => set.decisions['launch-sale']?.rules?.[0]?.failed;
+
+    it('survives a JSON round trip for a window a Date bounds', () => {
+      const set = gated({
+        field: 'now',
+        op: 'after',
+        value: new Date('2027-01-01T00:00:00Z'),
+      }).snapshot(BEFORE_LAUNCH);
+
+      expect(JSON.parse(JSON.stringify(set))).toEqual(set);
+    });
+
+    it('states the Date a window carries as ISO 8601', () => {
+      const set = gated({
+        field: 'now',
+        op: 'after',
+        value: new Date('2027-01-01T00:00:00Z'),
+      }).snapshot(BEFORE_LAUNCH);
+
+      expect(failedOn(set)?.value).toBe('2027-01-01T00:00:00.000Z');
+    });
+
+    it('carries the string a window states as the definition wrote it', () => {
+      const set = gated({
+        field: 'now',
+        op: 'after',
+        value: '2027-01-01T00:00:00Z',
+      }).snapshot(BEFORE_LAUNCH);
+
+      expect(failedOn(set)?.value).toBe('2027-01-01T00:00:00Z');
+      expect(JSON.parse(JSON.stringify(set))).toEqual(set);
+    });
+
+    it('carries the epoch milliseconds a window states as the definition wrote them', () => {
+      const set = gated({
+        field: 'now',
+        op: 'after',
+        value: 1798761600000,
+      }).snapshot(BEFORE_LAUNCH);
+
+      expect(failedOn(set)?.value).toBe(1798761600000);
+      expect(JSON.parse(JSON.stringify(set))).toEqual(set);
+    });
+
+    it('leaves the Date the store holds in place for resolve', () => {
+      const launch = new Date('2027-01-01T00:00:00Z');
+      const features = gated({ field: 'now', op: 'after', value: launch });
+      features.snapshot(BEFORE_LAUNCH);
+
+      expect(
+        features.resolve(BEFORE_LAUNCH)['launch-sale']?.rules?.[0]?.failed
+          ?.value,
+      ).toEqual(launch);
+    });
+
+    it('states the window as ISO 8601 in the set a store carrying an observer freezes', () => {
+      const set = gated(
+        { field: 'now', op: 'after', value: new Date('2027-01-01T00:00:00Z') },
+        () => undefined,
+      ).snapshot(BEFORE_LAUNCH);
+
+      expect(failedOn(set)?.value).toBe('2027-01-01T00:00:00.000Z');
+      expect(Object.isFrozen(failedOn(set))).toBe(true);
+    });
+
+    // Ruling 5 leaves an attribute condition's literal as the definition wrote
+    // it. JSON.stringify writes a Date there as a string and JSON.parse keeps
+    // the string, so this one value does not come back as it went out.
+    it('carries a Date an attribute condition compares against, which a round trip does not restore', () => {
+      const memberSince = new Date('2027-01-01T00:00:00Z');
+      const set = gated({
+        field: 'memberSince',
+        op: 'eq',
+        value: memberSince,
+      }).snapshot({ ...BEFORE_LAUNCH, memberSince: new Date(0) });
+
+      expect(failedOn(set)?.value).toEqual(memberSince);
+      expect(JSON.parse(JSON.stringify(set))).not.toEqual(set);
+    });
   });
 });
 
