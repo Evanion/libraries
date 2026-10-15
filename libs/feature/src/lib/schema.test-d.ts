@@ -5,7 +5,9 @@ import type {
   InferSchema,
   Plan,
   RuleOutcome,
+  Schema,
 } from './types.js';
+import type { FrozenWhenObserved } from './observe.js';
 import { parseFeatureConfig } from './parse.js';
 import type { Features, DecisionSet } from '../index.js';
 
@@ -216,19 +218,46 @@ describe('a numeric key', () => {
 // A declaration a framework demands: the slot a Nest token, an Astro `locals`
 // member or a React Router context writes, where the store's schema arrived at
 // runtime.
-declare const slot: Features | undefined;
-declare const published: Decisions;
-declare const planned: Plan;
-declare const shipped: DecisionSet;
+declare const held: Features;
+declare const unobserved: Features<Schema, false>;
 
-it('accepts a store built from a document at the open form', () => {
-  const parsed = parseFeatureConfig({ features: [] });
+type Parsed = Extract<
+  ReturnType<typeof parseFeatureConfig>,
+  { ok: true }
+>['features'];
+declare const parsed: Parsed;
 
-  expectTypeOf(parsed).toExtend<
-    { ok: true; features: Features } | { ok: false; issues: unknown }
-  >();
-  expectTypeOf(slot).toExtend<Features | undefined>();
-  expectTypeOf(published).toExtend<Decisions>();
-  expectTypeOf(planned).toExtend<Plan>();
-  expectTypeOf(shipped).toExtend<DecisionSet>();
+describe('the open forms, holding a store built from a document', () => {
+  it('accept the store parseFeatureConfig answers', () => {
+    expectTypeOf(parseFeatureConfig({ features: [] })).toExtend<
+      { ok: true; features: Features } | { ok: false; issues: unknown }
+    >();
+  });
+
+  it('hand the set off the open slot to the open DecisionSet', () => {
+    expectTypeOf(held.snapshot()).toExtend<DecisionSet>();
+    expectTypeOf(parsed.snapshot()).toExtend<DecisionSet>();
+  });
+
+  // `Frozen` stays `boolean` on the open slot and on a parsed store, so
+  // `resolve` and `plan` answer the union of both freezes. The deeply readonly
+  // member types a failed window condition's `value` as a `ReadonlyDate`, which
+  // the mutable form's `Instant` refuses.
+  it('answer both freezes off the open slot, which Decisions and Plan refuse', () => {
+    expectTypeOf(held.resolve()).toEqualTypeOf<
+      FrozenWhenObserved<boolean, Decisions>
+    >();
+    expectTypeOf(held.resolve()).not.toExtend<Decisions>();
+    expectTypeOf(held.plan()).toEqualTypeOf<
+      FrozenWhenObserved<boolean, Plan>
+    >();
+    expectTypeOf(held.plan()).not.toExtend<Plan>();
+    expectTypeOf(parsed.resolve()).not.toExtend<Decisions>();
+    expectTypeOf(parsed.plan()).not.toExtend<Plan>();
+  });
+
+  it('hand Decisions and Plan what a store with no observer answers', () => {
+    expectTypeOf(unobserved.resolve()).toExtend<Decisions>();
+    expectTypeOf(unobserved.plan()).toExtend<Plan>();
+  });
 });
