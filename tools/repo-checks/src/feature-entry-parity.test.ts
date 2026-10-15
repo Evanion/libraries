@@ -200,6 +200,14 @@ describe('the names the react entry re-exports', () => {
 
     expect(missing).toEqual([]);
   });
+
+  it('holds the extra check to a vocabulary that carries every core name', () => {
+    const undeclared = CORE_DOCUMENT_TYPES.filter(
+      (name) => !DOCUMENT_TYPES.includes(name),
+    );
+
+    expect(undeclared).toEqual([]);
+  });
 });
 
 describe('the parity rule', () => {
@@ -264,6 +272,136 @@ describe('the parity rule', () => {
 
     expect(parity).toEqual({ absent: [], extra: ['Hidden'] });
   });
+
+  it('takes the document types inside a mixed clause beside a value', () => {
+    const parity = verdict(
+      "export { type FeatureConfig, FeatureProvider, type ReloadResult } from '@evanion/feature';",
+    );
+
+    expect(parity).toEqual({ absent: [], extra: [] });
+  });
+
+  it('takes a core type config.ts does not declare from the same specifier', () => {
+    const parity = verdict(
+      "export type { DecisionSet, FeatureConfig, ReloadResult } from '@evanion/feature';",
+    );
+
+    expect(parity).toEqual({ absent: [], extra: [] });
+  });
+
+  it('names every document type an entry re-exports as a value', () => {
+    const parity = verdict(
+      "export { FeatureConfig, ReloadResult } from '@evanion/feature';",
+    );
+
+    expect(parity).toEqual({
+      absent: ['FeatureConfig from nowhere', 'ReloadResult from nowhere'],
+      extra: [],
+    });
+  });
+
+  it('names the whole set when the entry re-exports with a star', () => {
+    const parity = verdict("export type * from '@evanion/feature';");
+
+    expect(parity).toEqual({
+      absent: ['FeatureConfig from nowhere', 'ReloadResult from nowhere'],
+      extra: [],
+    });
+  });
+
+  it('names a document type the entry declares itself', () => {
+    const parity = verdict(
+      "export type { FeatureConfig } from '@evanion/feature';",
+      'export type ReloadResult = { readonly changed: readonly string[] };',
+    );
+
+    expect(parity).toEqual({
+      absent: ['ReloadResult from nowhere'],
+      extra: [],
+    });
+  });
+
+  it('names a document type the entry publishes under another name', () => {
+    const parity = verdict(
+      "export type { FeatureConfig, ReloadResult as Reloaded } from '@evanion/feature';",
+    );
+
+    expect(parity).toEqual({
+      absent: ['ReloadResult from nowhere'],
+      extra: [],
+    });
+  });
+
+  it('names a document type the entry takes through a relative path into the core', () => {
+    const parity = verdict(
+      "export type { FeatureConfig } from '@evanion/feature';",
+      "export type { ReloadResult } from '../../feature/src/lib/config.js';",
+    );
+
+    expect(parity).toEqual({
+      absent: ['ReloadResult from ../../feature/src/lib/config.js'],
+      extra: [],
+    });
+  });
+
+  it('names nothing extra when the entry publishes the kept type from another module', () => {
+    const parity = verdict(
+      "export type { FeatureConfig, ReloadResult } from '@evanion/feature';",
+      "export type { Hidden } from './hidden.js';",
+    );
+
+    expect(parity).toEqual({ absent: [], extra: [] });
+  });
+});
+
+describe('the declaration reader', () => {
+  function declared(text: string): string[] {
+    return declaredTypes(parse('config.ts', text));
+  }
+
+  it('reads exported interfaces and type aliases, sorted', () => {
+    expect(
+      declared(
+        [
+          'export type Zeta = string;',
+          'export interface Alpha { readonly a: number }',
+          'export type Mid<T extends string = string> = { readonly t: T };',
+        ].join('\n'),
+      ),
+    ).toEqual(['Alpha', 'Mid', 'Zeta']);
+  });
+
+  it('leaves out a type the file declares without export', () => {
+    expect(
+      declared(
+        [
+          'type Kept = string;',
+          'interface AlsoKept { readonly a: number }',
+          'export type Public = Kept;',
+        ].join('\n'),
+      ),
+    ).toEqual(['Public']);
+  });
+
+  it('leaves out exported values, classes and enums', () => {
+    expect(
+      declared(
+        [
+          'export const LIMIT = 1;',
+          'export function parse(): void {}',
+          'export class Store {}',
+          'export enum Mode { A }',
+          'export type Shape = { readonly mode: Mode };',
+        ].join('\n'),
+      ),
+    ).toEqual(['Shape']);
+  });
+
+  it('leaves out a type the file publishes through a clause and not on its declaration', () => {
+    expect(
+      declared(['type Listed = string;', 'export type { Listed };'].join('\n')),
+    ).toEqual([]);
+  });
 });
 
 describe('the clause reader', () => {
@@ -301,5 +439,65 @@ describe('the clause reader', () => {
     );
 
     expect([...named]).toEqual([['FeatureConfig', './hooks.js']]);
+  });
+
+  it('records the name an aliased element publishes', () => {
+    const named = typeReExports(
+      parse(
+        'entry.tsx',
+        "export type { Internal as FeatureConfig } from '../lib/config.js';",
+      ),
+    );
+
+    expect([...named]).toEqual([['FeatureConfig', '../lib/config.js']]);
+  });
+
+  it('leaves out a clause with no module specifier', () => {
+    const named = typeReExports(
+      parse(
+        'entry.tsx',
+        ['type FeatureConfig = string;', 'export type { FeatureConfig };'].join(
+          '\n',
+        ),
+      ),
+    );
+
+    expect([...named]).toEqual([]);
+  });
+
+  it('leaves out star and namespace re-exports, which carry no names', () => {
+    const named = typeReExports(
+      parse(
+        'entry.tsx',
+        [
+          "export type * from '../lib/config.js';",
+          "export * from '../lib/config.js';",
+          "export * as config from '../lib/config.js';",
+          "export type * as types from '../lib/config.js';",
+        ].join('\n'),
+      ),
+    );
+
+    expect([...named]).toEqual([]);
+  });
+
+  it('reads a clause that spans lines and carries comments', () => {
+    const named = typeReExports(
+      parse(
+        'entry.tsx',
+        [
+          'export type {',
+          '  // the document',
+          '  FeatureConfig,',
+          '  /** the reload */ ReloadResult,',
+          "} from '@evanion/feature';",
+        ].join('\n'),
+      ),
+    );
+
+    expect([...named]).toEqual([
+      ['FeatureConfig', '@evanion/feature'],
+      ['ReloadResult', '@evanion/feature'],
+    ]);
   });
 });
