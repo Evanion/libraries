@@ -30,6 +30,7 @@ import type {
   Plan,
   PlanEntry,
   RuleOutcome,
+  Schema,
   ToggleResult,
   VariantInfo,
   WindowCondition,
@@ -57,9 +58,11 @@ import type {
  * parameter with it: `Features<Flags, false>` for a store built with no
  * observer, `Features<Flags, true>` for one built with an observer. A function
  * taking either store names both parameters and stays generic over `Frozen`.
+ * The bare `Features` serves a declaration a framework demands, where the
+ * store's schema arrived at runtime.
  */
 export interface Features<
-  S extends Record<keyof S, VariantInfo | never>,
+  S extends Record<keyof S, VariantInfo | never> = Schema,
   Frozen extends boolean = boolean,
 > {
   /** Every key, in the order the definitions were supplied. */

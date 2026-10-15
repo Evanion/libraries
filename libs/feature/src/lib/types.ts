@@ -366,9 +366,10 @@ export type DecisionOf<K, E> = [E] extends [never]
  * the schema a consumer writes as an `interface`, which is the one case the
  * hand-written schema exists for.
  */
-export type Decisions<S extends Record<keyof S, VariantInfo | never>> = {
-  [K in keyof S]: DecisionOf<K, S[K]>;
-};
+export type Decisions<S extends Record<keyof S, VariantInfo | never> = Schema> =
+  {
+    [K in keyof S]: DecisionOf<K, S[K]>;
+  };
 
 /** One feature's build-time plan. */
 export interface PlanEntry<
@@ -397,7 +398,7 @@ export interface PlanEntry<
 }
 
 /** One plan entry per feature, guarded on `never` exactly as `Decisions` is. */
-export type Plan<S extends Record<keyof S, VariantInfo | never>> = {
+export type Plan<S extends Record<keyof S, VariantInfo | never> = Schema> = {
   [K in keyof S]: [S[K]] extends [never]
     ? Omit<PlanEntry<K & FeatureKey>, 'decision'> & {
         decision?: DecisionOf<K, S[K]>;

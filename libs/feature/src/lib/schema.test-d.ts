@@ -6,6 +6,8 @@ import type {
   Plan,
   RuleOutcome,
 } from './types.js';
+import { parseFeatureConfig } from './parse.js';
+import type { Features, DecisionSet } from '../index.js';
 
 const defs = [
   {
@@ -209,4 +211,24 @@ describe('a numeric key', () => {
     >;
     expectTypeOf<Bad>().not.toBeNever();
   });
+});
+
+// A declaration a framework demands: the slot a Nest token, an Astro `locals`
+// member or a React Router context writes, where the store's schema arrived at
+// runtime.
+declare const slot: Features | undefined;
+declare const published: Decisions;
+declare const planned: Plan;
+declare const shipped: DecisionSet;
+
+it('accepts a store built from a document at the open form', () => {
+  const parsed = parseFeatureConfig({ features: [] });
+
+  expectTypeOf(parsed).toExtend<
+    { ok: true; features: Features } | { ok: false; issues: unknown }
+  >();
+  expectTypeOf(slot).toExtend<Features | undefined>();
+  expectTypeOf(published).toExtend<Decisions>();
+  expectTypeOf(planned).toExtend<Plan>();
+  expectTypeOf(shipped).toExtend<DecisionSet>();
 });
