@@ -382,7 +382,7 @@ const features = createFeatures([
     ],
   },
 ]);
-const shopper = { id: 'cust-0042', tier: 'gold' };
+const shopper = { id: 'cust-0001', tier: 'gold' };
 // ---cut---
 // Built per request, from the shopper the session names. `for` reads the
 // clock here, once.
@@ -390,8 +390,8 @@ const shop = features.for({ targetingKey: shopper.id, tier: shopper.tier });
 
 shop.isEnabled('new-checkout'); // -> true
 shop.isEnabled('express-pickup'); // -> true
-shop.variantOf('checkout-cta'); // -> 'control'
-shop.context.targetingKey; // -> 'cust-0042'
+shop.variantOf('checkout-cta'); // -> 'blue'
+shop.context.targetingKey; // -> 'cust-0001'
 ```
 
 <!-- #endregion bound-context -->

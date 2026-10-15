@@ -183,11 +183,20 @@ describe('for, inputs the first cases leave out', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-11-01T09:00:00.000Z'));
     const features = storefront();
-    const handle = features.for({ targetingKey: 'cust-0042', tier: 'gold' });
+    // cust-0001 buckets to 'blue'. A context with no targetingKey falls back
+    // to 'control', so a method that dropped the bound context answers
+    // differently.
+    const handle = features.for({ targetingKey: 'cust-0001', tier: 'gold' });
     // The store's own default instant moves past the handle's, so a method
     // that dropped the settled context would answer at the later clock.
     vi.setSystemTime(new Date('2027-01-01T00:00:00.000Z'));
     const at = handle.context;
+
+    expect(handle.resolve()['checkout-cta'].assignment?.source).toBe(
+      'weighted',
+    );
+    expect(handle.variantOf('checkout-cta')).toBe('blue');
+    expect(handle.valueOf('checkout-cta')).toEqual({ label: 'Get it' });
 
     expect(handle.resolve()).toEqual(features.resolve(at));
     expect(handle.isEnabled('launch-sale')).toBe(
