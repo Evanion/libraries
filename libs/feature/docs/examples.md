@@ -355,6 +355,47 @@ decisions['express-pickup']; // -> { key: 'express-pickup', enabled: true, reaso
 
 <!-- #endregion resolve-request -->
 
+<!-- #region bound-context -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+// Built once, when the process starts.
+const features = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [
+      {
+        id: 'after-launch',
+        when: [{ field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' }],
+      },
+    ],
+  },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50, value: { label: 'Get it' } },
+    ],
+  },
+]);
+const shopper = { id: 'cust-0042', tier: 'gold' };
+// ---cut---
+// Built per request, from the shopper the session names. `for` reads the
+// clock here, once.
+const shop = features.for({ targetingKey: shopper.id, tier: shopper.tier });
+
+shop.isEnabled('new-checkout'); // -> true
+shop.isEnabled('express-pickup'); // -> true
+shop.variantOf('checkout-cta'); // -> 'control'
+shop.context.targetingKey; // -> 'cust-0042'
+```
+
+<!-- #endregion bound-context -->
+
 <!-- #region cascade-reasons -->
 
 ```ts @import.meta.vitest
