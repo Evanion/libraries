@@ -8,7 +8,6 @@ import type {
   Plan,
   Schema,
   VariantInfo,
-  VariantNames,
 } from './types.js';
 
 /**
@@ -39,7 +38,9 @@ export interface BoundFeatures<
   /** What `Features.isEnabled` answers for the bound context. */
   isEnabled(key: keyof S & FeatureKey): boolean;
   /** What `Features.variantOf` answers for the bound context. */
-  variantOf<K extends keyof S>(key: K): VariantNames<S>[K] | undefined;
+  variantOf<K extends keyof S>(
+    key: K,
+  ): Decisions<S>[K] extends { variant?: infer V } ? V | undefined : undefined;
   /** What `Features.valueOf` answers for the bound context. */
   valueOf<K extends keyof S>(
     key: K,

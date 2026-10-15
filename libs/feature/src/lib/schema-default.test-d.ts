@@ -3,7 +3,6 @@ import { createFeatures } from './features.js';
 import type { DeepReadonly } from './observe.js';
 import { parseFeatureConfig } from './parse.js';
 import type {
-  BoundFeatures,
   Decision,
   DecisionSet,
   Decisions,
@@ -96,20 +95,13 @@ describe('a store built from a literal', () => {
     expectTypeOf(typed.snapshot()).toExtend<DecisionSet>();
   });
 
-  it('fits a slot declared as the bare Features, observed or not', () => {
-    const observed = createFeatures(defs, { observe: () => undefined });
-
-    expectTypeOf(typed).toExtend<Features>();
-    expectTypeOf(observed).toExtend<Features>();
-  });
-
-  it('fits a slot declared as the bare BoundFeatures', () => {
-    expectTypeOf(typed.for()).toExtend<BoundFeatures>();
-  });
-
-  it('answers its variant names through the bare slot as strings', () => {
-    const slot: Features = typed;
-
-    expectTypeOf(slot.variantOf('cta')).toEqualTypeOf<string | undefined>();
+  it('does not fit a slot declared as the bare Features', () => {
+    // `variantOf` on the bare store answers `string | undefined` for any key,
+    // and the typed store's generic `variantOf` answers `unknown` once the
+    // compiler compares the two signatures. The slot holds a store whose
+    // schema arrived at runtime.
+    // @ts-expect-error -- TS2322, the types returned by 'variantOf(...)'
+    const slot: Features | undefined = typed;
+    expectTypeOf(slot).not.toBeNever();
   });
 });

@@ -33,7 +33,6 @@ import type {
   Schema,
   ToggleResult,
   VariantInfo,
-  VariantNames,
   WindowCondition,
 } from './types.js';
 
@@ -59,9 +58,8 @@ import type {
  * parameter with it: `Features<Flags, false>` for a store built with no
  * observer, `Features<Flags, true>` for one built with an observer. A function
  * taking either store names both parameters and stays generic over `Frozen`.
- * The bare `Features` serves a declaration a framework demands. It holds a
- * store whose schema arrived at runtime and a store built from a literal, and
- * through it `variantOf` answers `string | undefined` for any key.
+ * The bare `Features` serves a declaration a framework demands, where the
+ * store's schema arrived at runtime.
  */
 export interface Features<
   S extends Record<keyof S, VariantInfo | never> = Schema,
@@ -112,15 +110,16 @@ export interface Features<
   /**
    * The assigned variant, or `undefined` for a feature that resolved off.
    *
-   * The type comes off `Decisions<S>[K]` through `VariantNames`, so a reader of
-   * `variantOf` sees what the decision for that key carries and the two cannot
-   * drift apart. A feature declaring no variants needs no guard here:
-   * `VariantNames` maps it to `never`, and `never | undefined` is `undefined`.
+   * The type comes off `Decisions<S>[K]`, so a reader of `variantOf` sees what
+   * the decision for that key carries and the two cannot drift apart. A feature
+   * declaring no variants needs no guard here: `DecisionOf` drops `variant` for
+   * that case, `infer V` off an absent optional property answers `never`, and
+   * `never | undefined` is `undefined`.
    */
   variantOf<K extends keyof S>(
     key: K,
     context?: EvaluationContext,
-  ): VariantNames<S>[K] | undefined;
+  ): Decisions<S>[K] extends { variant?: infer V } ? V | undefined : undefined;
   /** The assigned variant's configured value, when it declares one. */
   valueOf<K extends keyof S>(
     key: K,

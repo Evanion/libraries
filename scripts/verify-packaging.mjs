@@ -152,7 +152,12 @@ try {
         module: 'nodenext',
         moduleResolution: 'nodenext',
         jsx: 'react-jsx',
-        noEmit: true,
+        // A library built on these packages emits declarations, and tsc
+        // refuses with TS2883 when an exported binding's inferred type names a
+        // type no entry publishes. Emitting here is what reports it.
+        declaration: true,
+        emitDeclarationOnly: true,
+        outDir: 'emitted',
         skipLibCheck: true,
         // nestjs-correlation-id's public types come off decorated classes.
         experimentalDecorators: true,
@@ -234,6 +239,13 @@ const toggleConfig: FeatureDefinition<'payments-v3' | 'checkout-v2'>[] = [
 const toggles = createFeatures(toggleConfig);
 const toggleDecision: Decision<'payments-v3' | 'checkout-v2'> =
   toggles.resolve({ targetingKey: 'acct-1' })['checkout-v2'];
+// Exported helpers generic over the key, with the return type left to
+// inference. Their declarations print what variantOf answers for an unresolved
+// key, so every type in that answer has to be one the entry publishes.
+export const variantFor = <K extends 'payments-v3' | 'checkout-v2'>(key: K) =>
+  toggles.variantOf(key);
+export const boundVariantFor = <K extends 'payments-v3' | 'checkout-v2'>(key: K) =>
+  toggles.for().variantOf(key);
 // The React binding over an already-built store. The props type is the one a
 // declaration in an application names, and AnyDecisions is the widened form a
 // context can hold, so both have to resolve from the published declarations.
