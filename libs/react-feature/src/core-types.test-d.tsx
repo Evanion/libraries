@@ -176,6 +176,10 @@ describe('the eight, at their parameters', () => {
     expectTypeOf<Loose>().not.toBeNever();
   });
 
+  it("gives Features the core's Schema default", () => {
+    expectTypeOf<Features>().toEqualTypeOf<CoreFeatures<CoreSchema, boolean>>();
+  });
+
   it('defaults Features to the union of both freezes', () => {
     expectTypeOf<Features<OneKey>>().toEqualTypeOf<CoreFeatures<OneKey>>();
   });
