@@ -689,7 +689,11 @@ If a feature declares no variants, its entry drops the `variant` and `value` fie
 
 The signature names a helper, `DecisionOf`, which is internal to the package. It uses a `[E] extends [never]` guard to drop the variant keys. Because `never` is a subtype of every type, a plain `E extends VariantInfo` check would incorrectly take the variant branch for a feature with none and type its `variant` as `never` without reporting an error. The tuple wrap suppresses this distribution to ensure the branch asks the intended question.
 
-To handle the results of `resolve()` on a store whose schema arrived at runtime, you use `Decisions<S>`. Because `S` defaults to [`Schema`](#schema), the bare `Decisions` type is used for declarations a framework demands; for example, a loader that carries the decisions to a page names its return type with no type argument.
+`S` defaults to [`Schema`](#schema), so the bare `Decisions` holds what `resolve()` answers on a store built with no observer, at any schema, and on a store typed `Features<Schema, false>`.
+
+To handle the result of a store held in the bare `Features` slot, or built by `parseFeatureConfig`, you must account for how the `Frozen` state affects the return type. Because this configuration leaves `Frozen` at `boolean`, its `resolve()` method answers with `Decisions | DeepReadonly<Decisions>`.
+
+The `DeepReadonly<Decisions>` member types the `Date` a failed window condition in a rule outcome can carry as a `ReadonlyDate`, which the mutable `Decisions` form refuses; consequently, the bare `Decisions` type does not accept that union, and the compiler reports `TS2322`. To resolve this when a loader carries decisions from such a store to a page, the loader returns `snapshot()` and names its return type `DecisionSet`, which holds either freeze. The example under `Features<S>` shows that loader.
 
 ## `Cause`
 
