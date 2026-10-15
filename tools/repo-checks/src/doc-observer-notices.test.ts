@@ -72,7 +72,7 @@ const NOTICES = [
     what: 'the exposure warning on the `observe` member',
     spec: '§ 1',
     file: 'libs/feature/src/lib/observe.ts',
-    from: '   * Called once per public entry point call',
+    from: '   * Called once for each call that reports',
     until: '  observe?: (event',
     phrases: [
       'does not count exposures',
@@ -98,7 +98,7 @@ const NOTICES = [
     what: 'the loss-at-exit note on the `observe` member',
     spec: '§ 6',
     file: 'libs/feature/src/lib/observe.ts',
-    from: '   * Called once per public entry point call',
+    from: '   * Called once for each call that reports',
     until: '  observe?: (event',
     phrases: [
       'lost at exit',
@@ -153,7 +153,7 @@ const NOTICES = [
     what: "the guard's measurement on the `observe` member",
     spec: '§ 5',
     file: 'libs/feature/src/lib/observe.ts',
-    from: '   * Called once per public entry point call',
+    from: '   * Called once for each call that reports',
     until: '  observe?: (event',
     phrases: [
       'the bare call ran at 23 microseconds',
@@ -179,7 +179,7 @@ const NOTICES = [
     what: "the freeze asymmetry's reason on the `observe` member",
     spec: '§ 4.3',
     file: 'libs/feature/src/lib/observe.ts',
-    from: '   * Called once per public entry point call',
+    from: '   * Called once for each call that reports',
     until: '  observe?: (event',
     phrases: [
       'behaves differently under two configurations',
