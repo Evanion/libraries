@@ -13,9 +13,8 @@
 
 import { createContext, useContext, useMemo, useState } from 'react';
 import type { Context, ReactElement, ReactNode } from 'react';
-import { publishedDecisions } from './hydrate.js';
-import type { VersionMismatchPolicy } from './hydrate.js';
-import { reportDivergence } from '@evanion/feature';
+import { production } from './hydrate.js';
+import { adoptDecisions, reportDivergence } from '@evanion/feature';
 import type {
   Decision,
   Decisions,
@@ -29,6 +28,7 @@ import type {
   FrozenWhenObserved,
   Schema,
   VariantInfo,
+  VersionMismatchPolicy,
 } from '@evanion/feature';
 
 /**
@@ -108,7 +108,7 @@ export type {
  */
 export type AnyDecisions = Readonly<Record<FeatureKey, Decision<FeatureKey>>>;
 
-export type { VersionMismatchPolicy } from './hydrate.js';
+export type { VersionMismatchPolicy } from '@evanion/feature';
 export type { DecisionOrigin, DecisionSet } from '@evanion/feature';
 export type {
   DivergenceObserver,
@@ -246,14 +246,14 @@ const ON_MISMATCH: VersionMismatchPolicy = 'use-shipped';
  * render holds.
  *
  * § 4 requires both checks to report before React reconciles, so
- * `publishedDecisions` runs inside the memo body and the memo's dependency
+ * `adoptDecisions` runs inside the memo body and the memo's dependency
  * list decides how often each check runs. An observer prop written inline is a
  * new function on every render, and a memo depending on its identity re-ran
  * the sufficiency pass, re-resolved the store for the diff and re-sent every
  * report for a parent re-rendering on a keystroke. § 4 budgets one pass of
  * each per mount and § 3 reports `'unversioned'` once. The memo therefore
  * reads the prop's presence and not its identity, and presence is what
- * `publishedDecisions` asks about: it resolves for the diff only where
+ * `adoptDecisions` asks about: it resolves for the diff only where
  * something reads the result.
  *
  * The memo collects rather than delivers, because the observer a pass belongs
@@ -283,21 +283,23 @@ function usePublished<S extends Record<keyof S, VariantInfo | never>>(
 ): FeatureContextValue {
   const policy = onVersionMismatch ?? ON_MISMATCH;
   const installed = onDivergence !== undefined;
+  const compare = !production();
   const published = useMemo(() => {
     const reports: DivergenceReport<keyof S & FeatureKey>[] = [];
     const value: FeatureContextValue = {
       decisions: erased(
-        publishedDecisions(
-          features,
+        adoptDecisions(features, decisions, {
           context,
-          decisions,
-          policy,
-          installed ? (report) => reports.push(report) : undefined,
-        ),
+          onVersionMismatch: policy,
+          onDivergence: installed
+            ? (report) => reports.push(report)
+            : undefined,
+          compare,
+        }),
       ),
     };
     return { value, reports };
-  }, [features, context, decisions, policy, installed]);
+  }, [features, context, decisions, policy, installed, compare]);
 
   const [delivered, setDelivered] =
     useState<readonly DivergenceReport<keyof S & FeatureKey>[]>(UNDELIVERED);

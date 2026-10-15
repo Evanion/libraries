@@ -3,7 +3,6 @@ import { describe, expectTypeOf, it } from 'vitest';
 
 import { createFeatures } from '@evanion/feature';
 import { createFeatureContext, FeatureProvider } from './index.js';
-import type { VersionMismatchPolicy } from './index.js';
 
 /**
  * What the compiler accepts at the provider's three hydration props.
@@ -151,13 +150,5 @@ describe('createFeatureContext', () => {
     );
 
     expectTypeOf(element).toEqualTypeOf<ReactElement>();
-  });
-});
-
-describe('the policy union', () => {
-  it('holds the two values and no third', () => {
-    expectTypeOf<VersionMismatchPolicy>().toEqualTypeOf<
-      'use-shipped' | 're-resolve'
-    >();
   });
 });
