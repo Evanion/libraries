@@ -61,9 +61,11 @@ import type {
  * An authoring case written against the alias restates them and cannot fail on
  * its own: the mutation that reddens it reddens the core file first.
  *
- * `entry-surface.spec.tsx` holds the rest of the entry's claim. The names
- * arrive as types and never as values, and the set of them is the set the core
- * entry publishes, read off both entries rather than listed by hand.
+ * Two other files hold the rest of the entry's claim. `entry-surface.spec.tsx`
+ * holds that the names arrive as types and never as values.
+ * `tools/repo-checks/src/feature-entry-parity.test.ts` holds that the set of
+ * them is the set the core entry publishes, read off both entries and not
+ * listed by hand.
  */
 
 describe('the document types the react entry re-exports', () => {
