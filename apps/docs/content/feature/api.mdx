@@ -149,21 +149,22 @@ built with no observer and `Features<Flags, true>` for one built with an
 observer. A function that takes either store names both parameters and stays
 generic over `Frozen`.
 
-| Member                           | Returns                                                          | Notes                                        |
-| -------------------------------- | ---------------------------------------------------------------- | -------------------------------------------- |
-| `keys`                           | `readonly (keyof S & FeatureKey)[]`                              | every key, in configuration order            |
-| `config`                         | `readonly FeatureDefinition<keyof S & FeatureKey>[]`             | the stored intent, deeply frozen             |
-| `version`                        | `string \| number \| undefined`                                  | the installed document's version             |
-| `envelope`                       | `ConfigEnvelope`                                                 | that document's members, deeply frozen       |
-| `definition(key)`                | `FeatureDefinition<keyof S & FeatureKey> \| undefined`           |                                              |
-| `dependants(key)`                | `readonly (keyof S & FeatureKey)[]`                              | transitive, in dependency order              |
-| `resolve(context?)`              | `FrozenWhenObserved<Frozen, Decisions<S>>`                       | a decision per feature; writes nothing       |
-| `isEnabled(key, context?)`       | `boolean`                                                        | `false` for an unknown key                   |
-| `variantOf(key, context?)`       | `S[K]['variant'] \| undefined`                                   | `undefined` for a key declaring no variants  |
-| `valueOf(key, context?)`         | `S[K]['value'] \| undefined`                                     | `undefined` for a key declaring no variants  |
-| `plan(context?)`                 | `FrozenWhenObserved<Frozen, Plan<S>>`                            | build-time partition                         |
-| `toggle(key, enabled, context?)` | `FrozenWhenObserved<Frozen, ToggleResult<keyof S & FeatureKey>>` | the only writer; reports `willDisable`       |
-| `reload(config)`                 | `ReloadResult`                                                   | installs a candidate document, or refuses it |
+| Member                           | Returns                                                          | Notes                                          |
+| -------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------- |
+| `keys`                           | `readonly (keyof S & FeatureKey)[]`                              | every key, in configuration order              |
+| `config`                         | `readonly FeatureDefinition<keyof S & FeatureKey>[]`             | the stored intent, deeply frozen               |
+| `version`                        | `string \| number \| undefined`                                  | the installed document's version               |
+| `envelope`                       | `ConfigEnvelope`                                                 | that document's members, deeply frozen         |
+| `definition(key)`                | `FeatureDefinition<keyof S & FeatureKey> \| undefined`           |                                                |
+| `dependants(key)`                | `readonly (keyof S & FeatureKey)[]`                              | transitive, in dependency order                |
+| `resolve(context?)`              | `FrozenWhenObserved<Frozen, Decisions<S>>`                       | a decision per feature; writes nothing         |
+| `isEnabled(key, context?)`       | `boolean`                                                        | `false` for an unknown key                     |
+| `variantOf(key, context?)`       | `S[K]['variant'] \| undefined`                                   | `undefined` for a key declaring no variants    |
+| `valueOf(key, context?)`         | `S[K]['value'] \| undefined`                                     | `undefined` for a key declaring no variants    |
+| `plan(context?)`                 | `FrozenWhenObserved<Frozen, Plan<S>>`                            | build-time partition                           |
+| `for(context?)`                  | `BoundFeatures<S, Frozen>`                                       | the store bound to one context and one instant |
+| `toggle(key, enabled, context?)` | `FrozenWhenObserved<Frozen, ToggleResult<keyof S & FeatureKey>>` | the only writer; reports `willDisable`         |
+| `reload(config)`                 | `ReloadResult`                                                   | installs a candidate document, or refuses it   |
 
 `resolve`, `plan`, `variantOf`, `valueOf` and `toggle` all default `context.now`
 to `new Date()` at the call.
@@ -183,6 +184,44 @@ writes to `version` and `envelope`. In contrast, a `toggle` leaves both members
 unchanged because they identify the document served by a publisher, whereas a
 toggle is a local write. If a candidate is refused, every member above remains
 at its previous value. See [Distribution](/feature/distribution).
+
+## `features.for(context?)`
+
+To ensure a series of feature checks are evaluated against the same moment in time and the same user data, you can bind the store to a specific context. The `features.for(context?)` function performs this by returning a [`BoundFeatures<S, Frozen>`](#boundfeatures).
+
+This handle reads `context.now ?? new Date()` exactly once at the moment of the call; every subsequent method called on that handle resolves using that same instant. This prevents a request from straddling a window boundary. For example, without a handle, calling `isEnabled` at 23:59:59 and again one second later could yield different answers for a `now` rule set for midnight. By using a handle, the result remains consistent for the duration of the request.
+
+If the context provides an explicit `now` value, it takes precedence. This allows tests to pin the clock to a specific moment.
+
+Because a toggle writes intent for every caller rather than asking a question about a specific context, the handle carries no `toggle` method; callers must toggle directly on the store.
+
+A common use case for this pattern is in a NestJS service, an Express handler, or an Astro middleware. These environments can build one handle per request to ask multiple questions without threading the context through every function call or re-reading the clock.
+
+## `BoundFeatures`
+
+<!-- reference @evanion/feature#BoundFeatures example=bound-context -->
+
+`BoundFeatures<S, Frozen>` represents the answers for a single context with the evaluation instant settled. It is the return value of `features.for(context)`.
+
+The handle provides the following members:
+
+- `context`: The context every method resolves against, preserving the caller's own fields and the settled `now` value.
+- `resolve()`
+- `isEnabled(key)`
+- `variantOf(key)`
+- `valueOf(key)`
+- `plan()`
+- `snapshot(options?)`
+
+Each method asks the store the same question as the corresponding member of `Features`, but with the context and instant already supplied. The return types match those of the store; for instance, a store built with an observer will return the deeply readonly form from `resolve` and `plan`.
+
+The settled instant is available as an ISO 8601 string via `snapshot().now`. If `context.now` is an invalid `Date`, it is kept as given. In this case, `resolve()` will still answer, but `snapshot()` will raise the `FeatureConfigError` naming `context/now` (the same error raised by `features.snapshot`).
+
+The handle does not memoise decisions. If a `toggle` or `reload` occurs on the store between two calls on one handle, the second call will reflect that change. This ensures the handle always answers based on the truth held by the store, rather than a stale document.
+
+This binding pattern is mirrored in `@evanion/acl`, where `authorize(subject)` binds a subject in the same way.
+
+The example shows the store being built once, with a handle built per request from a shopper to ask three questions at one single instant.
 
 ## Core exports
 
