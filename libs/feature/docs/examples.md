@@ -1452,7 +1452,7 @@ installed.ok ? [] : installed.issues.map((issue) => issue.code); // -> ['unknown
 <!-- #region open-form-slot -->
 
 ```ts @import.meta.vitest
-import { parseFeatureConfig } from '@evanion/feature';
+import { createFeatures, parseFeatureConfig } from '@evanion/feature';
 import type {
   DecisionSet,
   FeatureConfig,
@@ -1486,6 +1486,20 @@ function build(): FrozenWhenObserved<boolean, Plan> | undefined {
 
 loader()?.decisions['new-checkout']?.enabled; // -> true
 build()?.['new-checkout']?.resolved; // -> true
+
+// A store built from a literal fills the same slot.
+const literal: Features | undefined = createFeatures([
+  {
+    key: 'checkout-button',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'green', weight: 50 },
+    ],
+  },
+] as const);
+
+literal?.isEnabled('checkout-button'); // -> true
 ```
 
 <!-- #endregion open-form-slot -->
