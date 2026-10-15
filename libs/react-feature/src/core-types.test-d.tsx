@@ -166,10 +166,8 @@ describe('the eight, at their parameters', () => {
     expectTypeOf<Decision<7>>().toEqualTypeOf<CoreDecision<7>>();
   });
 
-  it('gives Decisions no schema default, because the core gives it none', () => {
-    // @ts-expect-error -- the schema is the whole content of the type
-    type Bare = Decisions;
-    expectTypeOf<Bare>().not.toBeNever();
+  it("gives Decisions the core's Schema default", () => {
+    expectTypeOf<Decisions>().toEqualTypeOf<CoreDecisions<CoreSchema>>();
   });
 
   it('refuses a schema whose entry is not a VariantInfo', () => {
