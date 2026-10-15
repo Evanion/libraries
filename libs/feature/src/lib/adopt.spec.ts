@@ -187,10 +187,12 @@ describe('adoptDecisions', () => {
         ],
       },
     ];
-    const shipped = storeAt('v1', definitions).snapshot({
-      ...SUBJECT,
-      now: new Date('2026-06-01T00:00:00Z'),
-    });
+    // A 'build' set lends the adoption no instant, so the context it checks
+    // carries nothing at `now`.
+    const shipped = storeAt('v1', definitions).snapshot(
+      { ...SUBJECT, now: new Date('2026-06-01T00:00:00Z') },
+      { origin: 'build' },
+    );
     const reports: DivergenceReport<FeatureKey>[] = [];
 
     adoptDecisions(storeAt('v1', definitions), shipped, {
@@ -223,11 +225,10 @@ describe('adoptDecisions', () => {
         ],
       },
     ];
-    const shipped = storeAt('v1', definitions).snapshot({
-      ...SUBJECT,
-      plan: 'pro',
-      now: new Date('2026-06-01T00:00:00Z'),
-    });
+    const shipped = storeAt('v1', definitions).snapshot(
+      { ...SUBJECT, plan: 'pro', now: new Date('2026-06-01T00:00:00Z') },
+      { origin: 'build' },
+    );
     const reports: DivergenceReport<FeatureKey>[] = [];
 
     adoptDecisions(storeAt('v1', definitions), shipped, {
