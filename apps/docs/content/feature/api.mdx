@@ -719,6 +719,8 @@ While `resolve` answers the decisions alone—leaving a consumer in another proc
 
 Because the set states its instant as an ISO 8601 string, `snapshot` raises a `FeatureConfigError` naming `context/now` for a `Date` that describes no instant. In contrast, `resolve`, `plan` and `toggle` state no instant; they carry that `Date` into the decision and stay total.
 
+To move a `DecisionSet` over a wire, you serialize it as JSON. Because `JSON.stringify` converts a `Date` to an ISO 8601 string and `JSON.parse` cannot restore the original object, `@evanion/feature` ensures that any instant the store itself supplies—such as `now` or the `Date` bounding a window condition (`field: 'now'`, `op: 'before'` or `'after'`) in a failed rule outcome—is stated as a string, following the same pattern as `serializeConfig`. While a window bounded by a string or epoch milliseconds retains the value the definition wrote, and `resolve` keeps the window `Date` in place, certain literals provided in the definition are not carried across a JSON hop unchanged. A `Date` used by an [`AttributeCondition`](#attributecondition) or a variant's `value` is carried as the definition wrote it, meaning one JSON cycle turns that `Date` into a string. When every value in the set is one that JSON writes and reads back unchanged, `JSON.parse(JSON.stringify(set))` deep-equals the set.
+
 A decision set crosses no service boundary. The process that produced it and the process that consumes it are two halves of one page load, which is the line § 8 of the published policy contracts spec draws between a document and a decision. To cross a service boundary, you use a [`FeatureConfig`](#featureconfig), and you use `configDigest` to prove two processes hold one.
 
 ## `DecisionOrigin`
