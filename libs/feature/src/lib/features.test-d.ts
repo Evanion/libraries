@@ -5,7 +5,10 @@ import {
   type DefinitionsOrConfig,
   type Features,
 } from './features.js';
-import type { DefinitionsOf as PublishedDefinitionsOf } from '../index.js';
+import type {
+  BoundFeatures,
+  DefinitionsOf as PublishedDefinitionsOf,
+} from '../index.js';
 import type { FeatureConfig } from './config.js';
 import type { FeatureDefinition } from './types.js';
 
@@ -65,6 +68,34 @@ describe('createFeatures, explicit', () => {
       'control' | 'blue' | undefined
     >();
     expectTypeOf(features.valueOf('cta')).toEqualTypeOf<
+      { label: string } | undefined
+    >();
+  });
+});
+
+describe('for', () => {
+  interface MyFlags {
+    cta: { variant: 'control' | 'blue'; value: { label: string } };
+  }
+
+  it('binds a store with no observer to the mutable handle over its schema', () => {
+    const features = createFeatures<MyFlags>([{ key: 'cta', enabled: true }]);
+
+    expectTypeOf(features.for()).toEqualTypeOf<BoundFeatures<MyFlags, false>>();
+  });
+
+  it('binds a store carrying an observer to the frozen handle', () => {
+    const features = createFeatures<MyFlags>([{ key: 'cta', enabled: true }], {
+      observe: () => undefined,
+    });
+
+    expectTypeOf(features.for()).toEqualTypeOf<BoundFeatures<MyFlags, true>>();
+  });
+
+  it('answers valueOf off the handle with the schema value', () => {
+    const features = createFeatures<MyFlags>([{ key: 'cta', enabled: true }]);
+
+    expectTypeOf(features.for().valueOf('cta')).toEqualTypeOf<
       { label: string } | undefined
     >();
   });

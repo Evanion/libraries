@@ -13,6 +13,7 @@ export type {
   DefinitionsOrConfig,
   Features,
 } from './lib/features.js';
+export type { BoundFeatures } from './lib/bound.js';
 
 export { bucketOf, inRollout, murmur3 } from './lib/bucketing.js';
 export { assignVariant, variantSeedOf } from './lib/variants.js';

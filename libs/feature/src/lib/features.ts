@@ -1,4 +1,6 @@
 import { validateConditions } from './conditions.js';
+import { boundFeatures } from './bound.js';
+import type { BoundFeatures } from './bound.js';
 import { configCopier } from './document-copy.js';
 import { instantEpoch } from './instant.js';
 import { decide, planFeature } from './evaluate.js';
@@ -144,6 +146,15 @@ export interface Features<
     context?: EvaluationContext,
     options?: SnapshotOptions,
   ): DecisionSet<S, Frozen>;
+  /**
+   * The store bound to one context, with the instant settled at this call.
+   *
+   * `context.now ?? new Date()` is read here and every method on the handle
+   * resolves at it, so two questions asked inside one request cannot straddle a
+   * window boundary. An explicit `now` wins, which keeps the precedence
+   * `resolve` has and keeps a test able to pin the clock.
+   */
+  for(context?: EvaluationContext): BoundFeatures<S, Frozen>;
   /**
    * Writes intent, and reports which dependants go off with it.
    *
@@ -1276,7 +1287,7 @@ export function createFeatures(
     };
   };
 
-  return {
+  const features: Features<Record<FeatureKey, VariantInfo>, boolean> = {
     // Every reference below is read through an accessor. A value captured here
     // would keep naming the first document after a reload.
     get keys() {
@@ -1357,7 +1368,10 @@ export function createFeatures(
       resolveAll(withNow(context))[key]?.value as never,
     plan,
     snapshot,
+    for: (context) => boundFeatures(features, context),
     toggle,
     reload,
   };
+
+  return features;
 }
