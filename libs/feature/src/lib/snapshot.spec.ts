@@ -665,6 +665,222 @@ describe('Features.snapshot', () => {
       expect(failedOn(set)?.value).toEqual(memberSince);
       expect(JSON.parse(JSON.stringify(set))).not.toEqual(set);
     });
+
+    it('states the Date a before window carries as ISO 8601', () => {
+      const set = gated({
+        field: 'now',
+        op: 'before',
+        value: new Date('2026-01-01T00:00:00Z'),
+      }).snapshot(BEFORE_LAUNCH);
+
+      expect(failedOn(set)?.value).toBe('2026-01-01T00:00:00.000Z');
+      expect(JSON.parse(JSON.stringify(set))).toEqual(set);
+    });
+
+    it.each([
+      ['the epoch', 0, 'before', '1970-01-01T00:00:00.000Z'],
+      [
+        'an instant before the epoch',
+        Date.UTC(1969, 11, 31, 23, 59, 59, 999),
+        'before',
+        '1969-12-31T23:59:59.999Z',
+      ],
+      [
+        'a year past 9999',
+        Date.UTC(10000, 0, 1),
+        'after',
+        '+010000-01-01T00:00:00.000Z',
+      ],
+      [
+        'a year before 0',
+        Date.UTC(-1, 0, 1),
+        'before',
+        '-000001-01-01T00:00:00.000Z',
+      ],
+    ] as const)(
+      'states a window Date at %s as its ISO 8601 string',
+      (_, epoch, op, iso) => {
+        const set = gated({
+          field: 'now',
+          op,
+          value: new Date(epoch),
+        }).snapshot(BEFORE_LAUNCH);
+
+        expect(failedOn(set)?.value).toBe(iso);
+        expect(JSON.parse(JSON.stringify(set))).toEqual(set);
+      },
+    );
+
+    it('refuses a window Date naming no instant when the store is built', () => {
+      expect(() =>
+        gated({ field: 'now', op: 'after', value: new Date(Number.NaN) }),
+      ).toThrow(FeatureConfigError);
+    });
+
+    it('states every failed window across rules and features, and leaves the rest', () => {
+      const set = createFeatures([
+        {
+          key: 'launch-sale',
+          enabled: true,
+          rules: [
+            {
+              id: 'date',
+              when: [
+                {
+                  field: 'now',
+                  op: 'after',
+                  value: new Date('2027-01-01T00:00:00Z'),
+                },
+              ],
+            },
+            {
+              id: 'string',
+              when: [
+                { field: 'now', op: 'after', value: '2027-06-01T00:00:00Z' },
+              ],
+            },
+            {
+              id: 'closed',
+              when: [
+                {
+                  field: 'now',
+                  op: 'before',
+                  value: new Date('2026-01-01T00:00:00Z'),
+                },
+              ],
+            },
+          ],
+        },
+        {
+          key: 'weekend',
+          enabled: true,
+          rules: [
+            {
+              id: 'saturday',
+              when: [
+                {
+                  field: 'now',
+                  op: 'day-of-week',
+                  zone: 'UTC',
+                  value: ['sat'],
+                },
+              ],
+            },
+          ],
+        },
+        { key: 'plain', enabled: true },
+      ]).snapshot(BEFORE_LAUNCH);
+
+      expect(
+        set.decisions['launch-sale']?.rules?.map((outcome) => [
+          outcome.rule,
+          outcome.failed?.value,
+        ]),
+      ).toEqual([
+        ['date', '2027-01-01T00:00:00.000Z'],
+        ['string', '2027-06-01T00:00:00Z'],
+        ['closed', '2026-01-01T00:00:00.000Z'],
+      ]);
+      expect(set.decisions.weekend?.rules?.[0]?.failed).toEqual({
+        field: 'now',
+        op: 'day-of-week',
+        zone: 'UTC',
+        value: ['sat'],
+      });
+      expect(set.decisions.plain).toEqual({
+        key: 'plain',
+        enabled: true,
+        reason: 'default-on',
+      });
+      expect(JSON.parse(JSON.stringify(set))).toEqual(set);
+    });
+
+    // An attribute condition may name `now` as its field. Its literal is the
+    // definition's, which ruling 5 leaves alone.
+    it('carries a Date an attribute condition over now compares against', () => {
+      const launch = new Date('2027-01-01T00:00:00Z');
+      const set = gated({ field: 'now', op: 'eq', value: launch }).snapshot(
+        BEFORE_LAUNCH,
+      );
+
+      expect(failedOn(set)?.value).toBeInstanceOf(Date);
+      expect(failedOn(set)?.value).toEqual(launch);
+    });
+
+    it('survives a JSON round trip in the set a store carrying an observer freezes', () => {
+      const set = gated(
+        { field: 'now', op: 'after', value: new Date('2027-01-01T00:00:00Z') },
+        () => undefined,
+      ).snapshot(BEFORE_LAUNCH);
+
+      expect(JSON.parse(JSON.stringify(set))).toEqual(set);
+    });
+
+    it('hands the observer the decisions the set carries', () => {
+      const seen: FeatureEvent<Schema>[] = [];
+      const set = createFeatures(
+        [
+          {
+            key: 'launch-sale',
+            enabled: true,
+            rules: [
+              {
+                id: 'launch',
+                when: [
+                  {
+                    field: 'now',
+                    op: 'after',
+                    value: new Date('2027-01-01T00:00:00Z'),
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        {
+          observe: (event) => {
+            seen.push(event as FeatureEvent<Schema>);
+          },
+        },
+      ).snapshot(BEFORE_LAUNCH);
+
+      const resolved = seen.find((event) => event.type === 'resolve');
+      expect(resolved?.type === 'resolve' && resolved.decisions).toBe(
+        set.decisions,
+      );
+    });
+
+    it('survives a JSON round trip for a store parsed from the document a literal serializes', () => {
+      const document = serializeConfig(
+        gated({
+          field: 'now',
+          op: 'after',
+          value: new Date('2027-01-01T00:00:00Z'),
+        }),
+        { version: 'v1' },
+      );
+      const parsed = parseFeatureConfig(JSON.parse(JSON.stringify(document)));
+      if (!parsed.ok) throw new Error(JSON.stringify(parsed.issues));
+
+      const set = parsed.features.snapshot(BEFORE_LAUNCH);
+
+      expect(failedOn(set)?.value).toBe('2027-01-01T00:00:00.000Z');
+      expect(JSON.parse(JSON.stringify(set))).toEqual(set);
+    });
+
+    it('carries a Date a variant value holds, which a round trip does not restore', () => {
+      const launch = new Date('2027-01-01T00:00:00Z');
+      const set = createFeatures([
+        {
+          key: 'banner',
+          enabled: true,
+          variants: [{ name: 'only', weight: 100, value: { launch } }],
+        },
+      ]).snapshot({ ...BEFORE_LAUNCH, targetingKey: 'u-4711' });
+
+      expect(set.decisions.banner?.value).toEqual({ launch });
+      expect(JSON.parse(JSON.stringify(set))).not.toEqual(set);
+    });
   });
 });
 
