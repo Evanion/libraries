@@ -799,6 +799,47 @@ To handle missing data during resolution, you provide a callback to the `onDiver
 
 `resolvePlan` always has a `now`. It takes the one on the context, failing that the one on `ResolvePlanOptions`, and failing both the client's own clock. A deferred entry whose `needs` names `now` therefore resolves against a real instant and reports nothing. A window rule on a feature that did not set `freezeTimeAtBuild` defers on `now`, so that entry is the plan working as designed and not a divergence.
 
+## `adoptDecisions`
+
+<!-- reference @evanion/feature#adoptDecisions example=adopt-decisions -->
+
+To sync a process with decisions resolved by another process, you use `adoptDecisions(features, shipped, options?)`. This function takes a [`DecisionSet`](#decisionset) from another process and answers the decisions this process publishes. It imports no framework and runs in any program, though `@evanion/react-feature`'s providers call it.
+
+If `shipped` is left out, `@evanion/feature` answers `features.resolve(options.context)`.
+
+When provided with a set, `adoptDecisions` runs two checks before returning, reporting results through `onDivergence`:
+
+- **Version Check:** It compares the set's `version` with `features.version` using `!==`. If one side carries no version, it reports `'unversioned'`; if two versions differ, it reports `'config-version'`.
+- **Field Check:** It reports `'missing-field'` for every shipped decision the local process's context cannot reproduce. This includes features the store does not declare, features declared with no variants, bucketing fields the context lacks, or fields a pinning rule reads that the context lacks. It never names `now`.
+
+The return value depends on the version outcome: on a `'config-version'` mismatch, it returns the shipped decisions under `'use-shipped'` and resolves locally under `'re-resolve'`. An `'unversioned'` outcome always returns the shipped decisions.
+
+If `compare: true` and an observer is installed, `@evanion/feature` resolves locally once and reports `'decision-differs'` for every key where the `enabled`, `reason`, or `variant` differs. Because a store built with `observe` emits a `'resolve'` event, the local resolution happens at most once per call, and only when the comparison or `'re-resolve'` reads the result.
+
+The timing of local resolutions depends on the set type: for a `'render'` set, `now` is the default instant if `options.context` states none; for a `'build'` set, the instant is ignored and the local clock answers.
+
+## `AdoptOptions`
+
+<!-- reference @evanion/feature#AdoptOptions -->
+
+To configure how decisions are adopted, you pass an `AdoptOptions` object to [`adoptDecisions`](#adoptdecisions).
+
+- `context` is the evaluation context held by this process.
+- `onVersionMismatch` defaults to `'use-shipped'`.
+- `onDivergence` is a [`DivergenceObserver`](#divergenceobserver) and alters no decision.
+- `compare` defaults to `false`. Because the core reads no host global to determine this, the caller must state it. For example, `@evanion/react-feature` passes `true` outside a production bundle.
+
+## `VersionMismatchPolicy`
+
+<!-- reference @evanion/feature#VersionMismatchPolicy -->
+
+When the shipped version does not match the store's, you define the behavior using a `VersionMismatchPolicy` (`'use-shipped' | 're-resolve'`).
+
+- `'use-shipped'` publishes the shipped decisions, as the server already rendered from them and recorded an exposure for that variant.
+- `'re-resolve'` resolves against the local store.
+
+`@evanion/react-feature` re-exports this type for the `onVersionMismatch` prop of its providers.
+
 ## `FeatureEvent`
 
 <!-- reference @evanion/feature#FeatureEvent example=observe-one-key -->
