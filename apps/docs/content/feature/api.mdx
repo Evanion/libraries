@@ -129,6 +129,8 @@ See [Observing](/feature/observing) for what an observer receives.
 variant position is what that key's schema entry declares. `K` below is
 `keyof S`.
 
+To manage a store whose schema is learned at runtime—such as a store `parseFeatureConfig` creates from a fetched document—you use `Features<S>`. Because `S` defaults to [`Schema`](#schema), the bare `Features` type is used for declarations demanded by a framework, such as a provider a Nest token holds, a member of Astro's `locals`, or a React Router context. Such a declaration writes `features: Features | undefined`.
+
 The second parameter is `Frozen`. A store built with an observer freezes what it
 emits and answers the caller with that same object, so `resolve`, `plan` and
 `toggle` answer the deeply readonly form for such a store and the mutable form
@@ -668,6 +670,8 @@ If a feature declares no variants, its entry drops the `variant` and `value` fie
 
 The signature names a helper, `DecisionOf`, which is internal to the package. It uses a `[E] extends [never]` guard to drop the variant keys. Because `never` is a subtype of every type, a plain `E extends VariantInfo` check would incorrectly take the variant branch for a feature with none and type its `variant` as `never` without reporting an error. The tuple wrap suppresses this distribution to ensure the branch asks the intended question.
 
+To handle the results of `resolve()` on a store whose schema arrived at runtime, you use `Decisions<S>`. Because `S` defaults to [`Schema`](#schema), the bare `Decisions` type is used for declarations a framework demands; for example, a loader that carries the decisions to a page names its return type with no type argument.
+
 ## `Cause`
 
 <!-- reference @evanion/feature#Cause -->
@@ -799,6 +803,8 @@ A report fills the members of a side based on its `kind`. All four members of a 
 <!-- reference @evanion/feature#Plan -->
 
 For [Build-time planning](/feature/build-time), `@evanion/feature` uses `Plan`, which contains one plan entry per feature. This uses the same `never` guard as `Decisions`, ensuring a feature declaring no variants receives a plan entry whose decision contains no `variant` or `value` keys.
+
+To handle the results of `plan()` on a store whose schema arrived at runtime, you use `Plan<S>`. Because `S` defaults to [`Schema`](#schema), the bare `Plan` type is used by build steps that write the plan out before any schema is known.
 
 ## `PlanEntry`
 
