@@ -2043,3 +2043,102 @@ run({ id: 'cust-0002', tier: 'member' }); // -> { expressPickup: false }
 ```
 
 <!-- #endregion express-app -->
+
+## Pitfalls
+
+<!-- #region variant-value-date -->
+
+```ts @import.meta.vitest
+import {
+  FeatureConfigError,
+  createFeatures,
+  serializeConfig,
+} from '@evanion/feature';
+
+// A variant `value` is whatever the author wrote. The library hands it back
+// as written, and a `Date` in it is still a `Date` in this process.
+const features = createFeatures([
+  {
+    key: 'launch-banner',
+    enabled: true,
+    variants: [
+      {
+        name: 'standard',
+        weight: 1,
+        value: { endsAt: new Date('2026-12-24T00:00:00.000Z') },
+      },
+    ],
+  },
+] as const);
+
+const decision = features.resolve({ targetingKey: 'cust-0001' })[
+  'launch-banner'
+];
+
+decision.value.endsAt instanceof Date; // -> true
+
+// A browser that receives this decision as JSON reads a string.
+JSON.parse(JSON.stringify(decision.value)); // -> { endsAt: '2026-12-24T00:00:00.000Z' }
+
+// The same `Date` as a window condition's instant is the one member the
+// library writes as an ISO string. A variant value is not, so
+// `serializeConfig` refuses it and names the path.
+let refusal: unknown;
+try {
+  serializeConfig(features);
+} catch (error) {
+  refusal = error;
+}
+
+refusal instanceof FeatureConfigError; // -> true
+const refusedPath = (refusal as Error).message.slice(0, 58);
+
+refusedPath; // -> 'the value at /features/0/variants/0/value/endsAt is a Date'
+```
+
+<!-- #endregion variant-value-date -->
+
+<!-- #region null-bucketing-field -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'shop-banner',
+    enabled: true,
+    variantBy: 'shopperId',
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'gold', weight: 50 },
+    ],
+  },
+]);
+
+// The context carries `shopperId`, so a test that asks whether the field is
+// present passes. A `null` names no subject, and the assignment is the
+// control's fallback with no bucket.
+features.resolve({ shopperId: null })['shop-banner']; // -> { key: 'shop-banner', enabled: true, reason: 'default-on', variant: 'control', assignment: { source: 'fallback', by: 'shopperId' } }
+
+features.resolve({ shopperId: 'cust-1' })['shop-banner']; // -> { key: 'shop-banner', enabled: true, reason: 'default-on', variant: 'gold', assignment: { source: 'weighted', by: 'shopperId', bucket: 0.7257804982364178 } }
+```
+
+<!-- #endregion null-bucketing-field -->
+
+<!-- #region reload-discards-toggle -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([{ key: 'new-checkout', enabled: true }]);
+
+features.toggle('new-checkout', false);
+features.isEnabled('new-checkout'); // -> false
+
+// A reload installs the document it is handed. The toggle was a local write
+// against the previous document, and the new document does not carry it.
+features.reload({ features: [{ key: 'new-checkout', enabled: true }] }).ok; // -> true
+features.isEnabled('new-checkout'); // -> true
+```
+
+<!-- #endregion reload-discards-toggle -->
