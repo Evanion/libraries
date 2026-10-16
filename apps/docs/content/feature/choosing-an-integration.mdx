@@ -44,7 +44,7 @@ The evaluation context is carried per request via the framework's own mechanism.
 | [Next.js (React Server Components)](../nextjs) | the Server Component                              | React's `cache` binds one handle per page view                                         |
 | [React Router 8](../react-router)              | the loader, and the action again before it writes | middleware fills a React Router context that holds a function returning the handle     |
 
-While Express, NestJS, and Astro keep the handle on the server, Next.js and React Router also send the resolved set to a client tree. In React Router, the action resolves the flag a second time because the browser's copy cannot make decisions.
+While Express, NestJS, and Astro keep the handle on the server, Next.js and React Router also send the resolved set to a client tree. In React Router, the action resolves the flag a second time because a form post or a `curl` request reaches the action without passing through the loader or the tree.
 
 ## Where to go next
 
