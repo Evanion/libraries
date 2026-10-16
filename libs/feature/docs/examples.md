@@ -1739,6 +1739,67 @@ found.ok ? [] : found.issues.map((issue) => issue.code); // -> ['digest-mismatch
 
 <!-- #endregion config-digest-verified -->
 
+<!-- #region many-processes -->
+
+```ts @import.meta.vitest
+import {
+  configDigest,
+  createFeatures,
+  parseFeatureConfig,
+  serializeConfig,
+} from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+// shop-api holds the authored definitions and writes the document once.
+const shopApi = createFeatures([
+  { key: 'new-checkout', enabled: true },
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    dependsOn: ['new-checkout'],
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50, value: { label: 'Get it' } },
+    ],
+  },
+]);
+const document = serializeConfig(shopApi, {
+  version: '2026-10-08.1',
+  maxStale: 60_000,
+});
+const wire = JSON.stringify({ ...document, digest: configDigest(document) });
+
+// The storefront boots from the document.
+const storefront = parseFeatureConfig(JSON.parse(wire) as FeatureConfig);
+
+// The back office booted on yesterday's document and reloads today's.
+const backOffice = parseFeatureConfig({
+  version: '2026-10-07.4',
+  features: [{ key: 'new-checkout', enabled: false }],
+});
+
+if (!storefront.ok || !backOffice.ok) throw new Error('document refused');
+
+const reloaded = backOffice.features.reload(
+  JSON.parse(wire) as FeatureConfig,
+);
+
+reloaded.ok; // -> true
+reloaded.ok && reloaded.previousVersion; // -> '2026-10-07.4'
+storefront.features.version; // -> '2026-10-08.1'
+backOffice.features.version; // -> '2026-10-08.1'
+storefront.features.envelope.maxStale; // -> 60000
+
+const shopper = { targetingKey: 'cust-0042' };
+const decided = shopApi.variantOf('checkout-cta', shopper);
+
+decided; // -> 'control'
+storefront.features.variantOf('checkout-cta', shopper) === decided; // -> true
+backOffice.features.variantOf('checkout-cta', shopper) === decided; // -> true
+```
+
+<!-- #endregion many-processes -->
+
 ## Reporting and Reading Rules
 
 <!-- #region divergence-report -->
