@@ -1,7 +1,15 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import ReleaseNotice from './ReleaseNotice';
 import WorkshopNotice from './WorkshopNotice';
+
+vi.mock('../app/navigation', () => ({
+  packages: [
+    { name: '@evanion/luhn', slug: 'luhn', workshop: false },
+    { name: '@evanion/urn', slug: 'urn', workshop: false },
+    { name: '@evanion/unpublished', slug: 'unpublished', workshop: true },
+  ],
+}));
 
 /**
  * The invariant: what a page claims about a package matches what `npm install`
@@ -30,15 +38,15 @@ describe('the release notice', () => {
   });
 
   /**
-   * `@evanion/feature` is private, so a release run tags it and publishes
-   * nothing. Both notices on one page would have this one naming a version
+   * A package marked `workshop` is private, so a release run tags it and
+   * publishes nothing. Both notices on one page would have this one naming a version
    * `npm install` cannot resolve, directly under the panel saying so.
    */
   it('renders nothing where WorkshopNotice speaks', () => {
     const { container } = render(
       <>
-        <ReleaseNotice slug="feature" published={null} ahead={false} />
-        <WorkshopNotice slug="feature" />
+        <ReleaseNotice slug="unpublished" published={null} ahead={false} />
+        <WorkshopNotice slug="unpublished" />
       </>,
     );
 

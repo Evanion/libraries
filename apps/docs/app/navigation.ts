@@ -369,10 +369,7 @@ export const packages: readonly DocumentedPackage[] = [
     hue: 'amber',
     demo: 'rollouts',
     documented: true,
-    workshop: true,
-    unversioned:
-      'Its pages have not moved under content/next/. It is private and has ' +
-      'no release, so its bare path serves the pages as written.',
+    workshop: false,
   },
   {
     name: '@evanion/react-feature',
@@ -386,7 +383,7 @@ export const packages: readonly DocumentedPackage[] = [
     hue: 'amber',
     demo: 'getting-started',
     documented: true,
-    workshop: true,
+    workshop: false,
   },
 ];
 
