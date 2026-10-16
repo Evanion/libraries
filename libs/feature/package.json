@@ -57,5 +57,21 @@
   },
   "devDependencies": {
     "@evanion/doc-examples": "*"
+  },
+  "nx": {
+    "targets": {
+      "test": {
+        "dependsOn": [
+          "^build",
+          "build",
+          {
+            "projects": [
+              "@evanion/react-feature"
+            ],
+            "target": "build"
+          }
+        ]
+      }
+    }
   }
 }
