@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import * as React from 'react';
+import { createFeatures, serializeConfig } from '@evanion/feature';
 import {
   policy,
   serialize,
@@ -188,6 +189,21 @@ const EVENTS = [
   },
 ];
 
+/**
+ * What `GET /api/features` answers with. The spotlight reads one flag, and what
+ * it does with the answer is `features.server.test.tsx`'s subject, so the flag
+ * is off for everyone here.
+ */
+const FEATURES = (() => {
+  const config = serializeConfig(
+    createFeatures({
+      version: 'fixture@1',
+      features: [{ key: 'express-pickup', enabled: false }],
+    }),
+  );
+  return { version: config.version, config };
+})();
+
 /** Stands in for shop-api, recording what was asked for and on whose behalf. */
 function stubShopApi() {
   const calls: { path: string; subject: string | null }[] = [];
@@ -200,13 +216,15 @@ function stubShopApi() {
       const urn = decodeURIComponent(path.split('/').at(-1) ?? '');
       const body = path.endsWith('/policy')
         ? { version: MATRIX.version, matrix: MATRIX }
-        : path.endsWith('/games')
-          ? CATALOGUE
-          : path.includes('/games/')
-            ? CATALOGUE.find((game) => game.urn === urn)
-            : path.includes('/telemetry')
-              ? EVENTS
-              : { urn, quantity: 12, correlationId: 'c0ffee-1' };
+        : path.endsWith('/features')
+          ? FEATURES
+          : path.endsWith('/games')
+            ? CATALOGUE
+            : path.includes('/games/')
+              ? CATALOGUE.find((game) => game.urn === urn)
+              : path.includes('/telemetry')
+                ? EVENTS
+                : { urn, quantity: 12, correlationId: 'c0ffee-1' };
       return new Response(JSON.stringify(body), {
         headers: { 'content-type': 'application/json' },
       });
