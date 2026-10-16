@@ -1,61 +1,72 @@
 import type { MetaRecord } from 'nextra';
 
 /**
- * The order a reader meets `@evanion/feature` in: what a dependent toggle is,
- * the shop's two flags end to end, how a feature is written down, how one is
- * resolved, how a resolved one is held to a share of customers, and how a
- * resolved one is split across named variants. That is the whole core, in the
- * order it is used.
+ * The section is organized into four bands to guide the reader from starting
+ * the engine and wiring it into the stack to answering their specific question
+ * and finally looking up the mechanism. Separators divide the bands. A folder
+ * would add one more click between a reader and every page in it, on the
+ * reasoning `content/_meta.ts` gives.
  *
- * Getting Started sits second because it is the section's one narrative: it
- * writes the new checkout and express pickup down, resolves them for a
- * customer, and turns the parent off. Every page after it takes one of those
- * four steps apart, so a reader who has been through it meets each one already
- * holding the example.
+ * The narrative begins with `getting-started`, which serves as the single
+ * narrative for the section. This page writes a new checkout and express
+ * pickup, resolves them for a customer, demonstrates a rollout that places two
+ * customers in different buckets, and turns the parent off. Every subsequent
+ * page decomposes one of these steps, ensuring the reader arrives already
+ * holding the example. The filename is fixed by
+ * `docs/specs/2026-09-25-documentation-standard.md` and is required for every
+ * documented section by `tools/repo-checks/src/doc-floor.test.ts`.
  *
- * Variants follows Rollouts because variant assignment buckets a subject the
- * same way a rollout does. A reader who has met bucketing on that page reuses
- * it here.
+ * The `configuration` page follows because later pages rely on stored
+ * definitions. `decisions` follows configuration because a decision is the
+ * result of a definition resolution. `rollouts` is the demonstration page and
+ * follows decisions, as it is the first addition a reader makes to a flag after
+ * the on/off switch and is cited in `getting-started`. `variants` follows
+ * `rollouts` because variant assignment buckets a subject the same way a
+ * rollout does, allowing the reader to reuse the concept of bucketing. `build-
+ * time` closes the setup sequence by partitioning features into those
+ * resolvable now and those deferred for builds without evaluation context, a
+ * detail unnecessary for readers who do not render statically.
  *
- * Build-time planning follows Variants: partitioning features into resolvable
- * now and deferred is the specialist case, for a build that does not have the
- * evaluation context, and a reader who never renders statically never needs it.
- * The React binding is a section of its own at `/react-feature/`, because
- * `@evanion/react-feature` is a package of its own.
+ * Platforms follows the setup sequence because a platform guide represents the
+ * final step of setup. The React binding is excluded from this section since
+ * `@evanion/react-feature` maintains its own section at `/react-feature/`.
  *
- * Observing comes last of the pages a reader learns from. An observer reports
- * what an entry point returned, so the four events name a decision, a plan and
- * a toggle result, and a reader who has met all three reads an event as a
- * record of work already understood. It also carries the argument that exposure
- * tracking belongs at the render site, which a reader can only weigh once they
- * know that `resolve` decides every configured feature.
+ * The questions band uses the questions themselves as titles to match user
+ * searches. `distribution` is the only page where configuration comes from an
+ * external source, including a document served by a control plane, a reload
+ * that replaces it, and a digest compared by two processes. `observing` follows
+ * distribution. Because an observer reports what an entry point returned, its
+ * four events name a decision, a plan, and a toggle result, allowing a reader
+ * who understands all three to read an event as a record of known work. This
+ * page also argues that exposure tracking belongs at the render site, a point
+ * the reader can weigh once they know that `resolve` decides every configured
+ * feature.
  *
- * Distribution follows Observing because it is the only page where the
- * configuration arrives from an external source. While every previous page
- * writes definitions in a file, this one introduces a document served by a
- * control plane, a reload that replaces it, and a digest two processes
- * compare. A reader who has not yet met a decision, a variant, and a toggle
- * result has nothing to compare a reloaded document against; the page's
- * `changed` list names keys whose stored intent moved, which is the
- * distinction Observing just taught.
+ * The `api` page closes the section as the place where a reader looks up a name
+ * after the other content.
  *
- * Without this file Nextra orders the folder by filename, which opens the
- * section on the API reference. The labels drop the package name the pages
- * repeat: the section is already called Feature.
- *
- * A page not listed here is appended after these, so adding one is not a
- * requirement. Renaming one is: Nextra fails the build on a key naming a page it
- * cannot find, and `tools/repo-checks/src/docs-navigation.test.ts` fails first.
+ * Any page not listed here is appended to the end, so adding one is not
+ * required. Renaming one requires an edit here: Nextra throws on a key naming a
+ * page it cannot find, and `tools/repo-checks/src/docs-navigation.test.ts`
+ * fails first.
  */
 export default {
   index: 'Overview',
-  'getting-started': 'Getting Started',
-  configuration: 'Configuration',
-  decisions: 'Decisions',
+
+  'group-setup': { type: 'separator', title: 'Setup' },
+  'getting-started': 'Getting started',
+  configuration: 'Writing a feature down',
+  decisions: 'Resolving a feature',
   rollouts: 'Rollouts',
   variants: 'Variants',
-  'build-time': 'Build-time Planning',
-  observing: 'Observing',
-  distribution: 'Distribution',
+  'build-time': 'Build-time planning',
+
+  'group-platforms': { type: 'separator', title: 'Platforms' },
+
+  'group-questions': { type: 'separator', title: 'Questions' },
+  distribution: 'How do I serve my configuration?',
+  observing: 'What did the engine just answer?',
+
+  'group-reference': { type: 'separator', title: 'Reference' },
   api: 'API Reference',
 } satisfies MetaRecord;
