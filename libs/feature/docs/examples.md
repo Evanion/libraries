@@ -2075,7 +2075,7 @@ const decision = features.resolve({ targetingKey: 'cust-0001' })[
   'launch-banner'
 ];
 
-decision.value.endsAt instanceof Date; // -> true
+decision.value?.endsAt instanceof Date; // -> true
 
 // A browser that receives this decision as JSON reads a string.
 JSON.parse(JSON.stringify(decision.value)); // -> { endsAt: '2026-12-24T00:00:00.000Z' }
