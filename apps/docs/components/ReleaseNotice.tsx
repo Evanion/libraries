@@ -33,9 +33,8 @@ export interface ReleaseNoticeProps extends ReleaseState {
  * does not have, which is a caveat and gets a panel, and under `/next/` the
  * panel links the pages for the release they have.
  *
- * Nothing renders without a published version. That is `@evanion/feature` today
- * -- private, so nothing on npm to name -- and `WorkshopNotice` already says
- * more about it than this could.
+ * Nothing renders where no published version exists. `WorkshopNotice` says
+ * more about such a package than this could.
  */
 export default function ReleaseNotice({
   slug,
