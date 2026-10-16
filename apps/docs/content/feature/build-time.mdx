@@ -79,7 +79,13 @@ The example below shows `demo-night-booking` with the flag set and `gift-cards` 
 
 ```
 
-When a set is written into a bundle, it records an instant that may be days old. If a client calls `resolvePlan` on a plan from such a build, `resolvePlan` reads the client's own clock for the deferred remainder; this ensures `gift-cards` opens at the client's December 1st rather than at the instant the bundle was built. Entries that the build settled retain the build's instant. If an explicit `now` is provided in the context, it wins over both the build instant and the client clock.
+To manage feature flags that resolve at different times, you choose between a plan and a snapshot.
+
+To keep a feature like `gift-cards` available for the client to resolve locally, you write a plan into the bundle rather than a snapshot. The fence above is a `plan()` call. A plan carries no instant and no origin, and it leaves `gift-cards` as a `'deferred'` entry. The client then calls `resolvePlan` on that plan. Because `resolvePlan` reads the client's own clock for the deferred remainder, `gift-cards` opens at the client's December 1st and not at the instant the bundle was built. Entries the build settled keep their answer. If the context carries an explicit `now`, it wins over the `now` option and over the client clock.
+
+When you need a record of exactly when and where features were settled, `@evanion/feature` uses a `DecisionSet`. `Features.snapshot` returns a `DecisionSet`, which states the instant it settled at in `now` and where it came from in `origin`. A pipeline that writes a set into a bundle passes `origin: 'build'`, because `now` may then be days old and a consumer should read its own clock for the remainder. This option states provenance and moves no resolution.
+
+Unlike a plan, `snapshot` reads no `freezeTimeAtBuild` and settles `gift-cards` at the instant of the call, so a build-origin set does not leave it deferred. For what a consumer does with `origin`, see [Hydration](../hydration).
 
 ## Implementing the Plan in your App
 
