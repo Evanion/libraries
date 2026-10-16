@@ -1,0 +1,92 @@
+# NestJS
+
+<WorkshopNotice slug="feature" />
+
+The `apps/shop-api` application for the game shop serves as a reference for integrating feature flags into a NestJS environment. It resolves flags per request and serves the underlying definitions to the storefront and back office.
+
+`@evanion/feature` ships no dedicated Nest package. Because the library takes a plain context object and returns a decision, the only requirement for Nest is determining where that context comes from, which is typically the application's own request subject. A dedicated package would have to guess this implementation. The Limits page of this section lists what the library does not do.
+
+Every example in this guide uses the game shop domain: the flags `new-checkout` and `express-pickup`, and the subjects `staff:ada` (an operator) and `cust-0001` (a customer).
+
+<PageSheet
+  difficulty={4}
+  read={10}
+  hands={20}
+  requires={[
+    ['Resolving a feature', '../decisions'],
+    ['Many Processes', '../microservices'],
+  ]}
+  unlocks={[['API reference', '../api']]}
+/>
+
+## Declaring the flags in @evanion/feature
+
+To define the flags used by the game shop, you start by declaring their keys and rules. In the `ShopFlags` interface, both keys map to `never` because neither has variants; any key not named in this interface will result in a compile error at the call site.
+
+The `new-checkout` flag is enabled for any subject whose `roles` contain `operator`, and for 25% of customers via the `targetingKey` (using rule ids `staff` and `ramp`). The `express-pickup` flag has no rule of its own but `dependsOn` `new-checkout`, meaning it is enabled for the same people and turns off if its parent does.
+
+These definitions are passed to `createFeatures` inside a document that carries an opaque `version` string (`2026-10-16.1`). Holders compare this version using `!==` and should change it whenever a definition changes.
+
+```ts file=apps/shop-api/src/features/shop.features.ts region=shop-definitions
+
+```
+
+## Building the store once in @evanion/feature
+
+To make the feature store available across the application, you register it during the bootstrap process. Calling `FeaturesModule.forRoot()` executes `buildShopFeatures()` once and registers the resulting store under the `SHOP_FEATURES` token in a module marked `global: true`, following the same pattern as `AclModule.forRoot()` for the matrix.
+
+During this process, `createFeatures` validates the definitions and the dependency graph; any cycle or unknown dependency will stop the application from booting. The `FeaturesModule` lists `FeaturesController` and `FeaturesService`. Because `FeaturesService` reads from `SubjectService` (which is exported by `AclModule`), `AclModule.forRoot()` must also be imported. You should call `forRoot()` exactly once.
+
+```ts file=apps/shop-api/src/features/features.module.ts region=features-module
+
+```
+
+## The token in @evanion/feature
+
+The `SHOP_FEATURES` token is defined as a namespaced string rather than a bare string or a `Symbol()`. Because a global module shares one key space, a bare string could collide silently with another package. Conversely, since a symbol is identity-based, two copies of the application code would mint two different tokens, preventing Nest from resolving them.
+
+```ts file=apps/shop-api/src/features/feature.constants.ts region=feature-token
+
+```
+
+## Binding the store to the request in @evanion/feature
+
+To resolve flags for the current user, the `FeaturesService` acts as a plain singleton that reads the subject from `SubjectService`. The `SubjectService` holds an `AsyncLocalStorage` which is opened per request by the subject middleware. Using `Scope.REQUEST` is avoided here because it would propagate upward, causing every provider depending on it to be rebuilt per request and preventing them from receiving `onModuleInit`.
+
+The `current()` method calls `features.for({ targetingKey, roles })`, where the subject's `id` is used as the `targetingKey` and its `roles` are passed as the `roles` a rule reads. No request ID is passed to the context, as no rules target one.
+
+Because `for` reads the clock once at the moment of the call, a service reading several flags should take the handle once and read all flags from it to ensure they do not straddle a window boundary. Outside of a request, the context is empty with no `targetingKey`, and a rollout will place nobody.
+
+```ts file=apps/shop-api/src/features/features.service.ts region=features-service
+
+```
+
+## Reading a flag in @evanion/feature
+
+To apply a feature to business logic, the `GamesService` adds `expressPickup` to a catalogue row when the `express-pickup` flag resolves to "on" for the request subject. The member is set to `true` when the title's `availability` is `in-stock` and is absent when the flag is off. Because `findAll` takes the handle once, every row in a listing is decided at a single instant.
+
+```ts file=apps/shop-api/src/games/games.service.ts region=flag-on-the-row
+
+```
+
+## Serving the document in @evanion/feature
+
+To synchronize flags with other services, the application provides a `GET /api/features` endpoint that answers with `{ version, config }`. The `config` is generated via `serializeConfig(features)`, and the `version` is taken from the document. The storefront and back office then install this `config` using `parseFeatureConfig`, as described in [Many Processes](../microservices).
+
+The `FeaturesController` must be listed in the module's `controllers` array, as Nest will not route requests to a controller it does not see. Since the library ships no transport, this endpoint is implemented within the application, appearing on the same line as the `PolicyController` for `@evanion/acl`.
+
+```ts file=apps/shop-api/src/features/features.controller.ts region=serve-the-document
+
+```
+
+## Testing it in @evanion/feature
+
+To verify the integration, `games.service.spec.ts` builds the service using the real application definitions and a stubbed subject. It asserts that an operator in Stockholm receives `expressPickup: true` for a title in stock, and that the member is absent from the row when `new-checkout` is switched off (since `express-pickup` follows its parent).
+
+Additionally, `features.controller.spec.ts` parses the served document back through `parseFeatureConfig` and verifies that the result answers the same questions as the server's internal store.
+
+```ts file=apps/shop-api/src/games/games.service.spec.ts region=flag-on-the-row-spec
+
+```
+
+You now understand how to integrate feature flags into a NestJS application. From here, you can explore [Many Processes](../microservices), learn [How do I serve my configuration?](../distribution), or consult the [API reference](../api).
