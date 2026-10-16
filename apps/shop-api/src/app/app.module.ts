@@ -5,6 +5,7 @@ import {
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AclModule } from '../acl/acl.module.js';
 import { SubjectMiddleware } from '../acl/subject.middleware.js';
+import { FeaturesModule } from '../features/features.module.js';
 import { GamesModule } from '../games/games.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
 import { OrdersModule } from '../orders/orders.module.js';
@@ -13,16 +14,17 @@ import { TelemetryModule } from '../telemetry/telemetry.module.js';
 /**
  * The application's root module and DI graph entry point.
  *
- * CorrelationModule, AclModule and TelemetryModule are all declared `global`
- * where they are defined, so importing them once here is what makes
- * CorrelationService, SubjectService, the built matrix and TelemetryService
- * injectable throughout the feature modules without any of those modules
- * importing any of the three.
+ * CorrelationModule, AclModule, FeaturesModule and TelemetryModule are all
+ * declared `global` where they are defined, so importing them once here is what
+ * makes CorrelationService, SubjectService, the built matrix, FeaturesService
+ * and TelemetryService injectable throughout the feature modules without any
+ * of those modules importing any of them.
  */
 @Module({
   imports: [
     CorrelationModule.forRoot(),
     AclModule.forRoot(),
+    FeaturesModule.forRoot(),
     TelemetryModule,
     GamesModule,
     InventoryModule,
