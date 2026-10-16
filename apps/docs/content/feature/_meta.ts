@@ -57,6 +57,9 @@ import type { MetaRecord } from 'nextra';
  * page also argues that exposure tracking belongs at the render site, a point
  * the reader can weigh once they know that `resolve` decides every configured
  * feature.
+ * `testing` closes the band. It tests a decision, a rollout boundary and a
+ * variant assignment, and it sends the reader to the published fixtures for the
+ * agreement between two processes, so it follows the pages that explain each.
  *
  * The reference band opens with `limits` and `pitfalls`. `limits` lists what a
  * reader decides against before writing code: the nine things the library
@@ -96,6 +99,7 @@ export default {
   distribution: 'How do I serve my configuration?',
   hydration: 'How do two processes agree?',
   observing: 'What did the engine just answer?',
+  testing: 'How do I test a flag?',
 
   'group-reference': { type: 'separator', title: 'Reference' },
   limits: 'What it does not do',

@@ -1,0 +1,76 @@
+# How do I test a flag?
+
+<WorkshopNotice slug="feature" />
+
+To verify that a flag behaves as expected, you pin the context and the instant and read the answer. Because a decision in `@evanion/feature` is a pure function of the configuration, the context, and the instant, you can test your flags without a server, a fake transport, or a clock mock.
+
+<PageSheet
+  difficulty={3}
+  read={8}
+  hands={15}
+  requires={[
+    ['Resolving a feature', '../decisions'],
+    ['Rollouts', '../rollouts'],
+    ['Variants', '../variants'],
+  ]}
+  unlocks={[
+    ['How do two processes agree?', '../hydration'],
+    ['API reference', '../api'],
+  ]}
+/>
+
+## What a test of a flag covers
+
+When testing `@evanion/feature`, you generally verify four scenarios. The first three are ordinary unit tests against `createFeatures`, while the fourth involves running the fixtures published by the package.
+
+- **Pinned Decisions:** Verifying if a flag (e.g., `express-pickup`) is on for a specific shopper at a specific instant.
+- **Rollout Boundaries:** Ensuring a customer is included at 4.4% but excluded at 4.3%.
+- **Variant Assignments:** Determining which arm a known `targetingKey` (e.g., `cust-0001`) receives.
+- **Process Agreement:** Confirming that a second implementation or deployment of the library produces the same answer as the first.
+
+## What a test does not mock
+
+Because no network call happens inside a decision, you do not need a server or fake transport for the engine. `createFeatures` reads a literal or a document already in memory, and functions like `isEnabled`, `resolve`, `variantOf`, and `plan` never fetch data. If your application loads the document from a control plane, that fetch sits outside the engine; your test simply passes the parsed document to `createFeatures`.
+
+Similarly, the engine only reads the clock when the caller does not provide an instant, meaning the clock requires no mock.
+
+## How to pin the clock
+
+To ensure a test is deterministic, you can pass a specific instant as part of the context, as every entry point in `@evanion/feature` honours `context.now` over `new Date()`. By calling `features.for({ now })`, you settle the instant once for the entire handle. This ensures every question asked on that handle resolves at that exact instant, preventing two questions from straddling a window boundary.
+
+```ts twoslash file=libs/feature/docs/examples.md region=test-pinned-clock
+
+```
+
+## How to test a rollout at its boundary
+
+A customer is included in a rollout when their bucket times 100 is below the `percent`. Since the bucket is a pure hash of the seed and the targeting value, you can prove the edge of a rollout by asserting the answer for a named customer and picking percents on either side of their bucket.
+
+To do this, read the bucket with `bucketOf` first, then test the surrounding percents. Note that a percent exactly equal to the bucket times 100 excludes the customer, as the comparison is strict.
+
+```ts twoslash file=libs/feature/docs/examples.md region=test-rollout-boundary
+
+```
+
+## How to test a variant for a known key
+
+A variant assignment is a pure function of the `variantBy` field and the seed. To test this in `@evanion/feature`, assert the variant for a known `targetingKey`, call it twice to verify the answer is stable, and inspect the `assignment` property on the decision to identify the bucket the answer originated from.
+
+```ts twoslash file=libs/feature/docs/examples.md region=test-variant-assignment
+
+```
+
+## How to test that two processes agree
+
+To ensure different environments or languages produce identical results, the package provides conformance fixtures in the `conformance/` directory, which `conformance.spec.ts` runs against the engine.
+
+- `config-decisions.json`: Contains a document, a context, and the decisions `resolve` returns. This covers every reason: `default-on`, `explicitly-off`, `dependency-off`, `rule-match`, and `no-rule-matched`.
+- `plan-decisions.json`: Contains a document, the context of a build plan, the published plan, a client context, and the decisions `resolvePlan` finishes the plan with.
+
+A port of the engine to another language can run these same files to compare its decisions against the fixtures. In a TypeScript project, you can run these to verify that the installed version of `@evanion/feature` still answers as the fixture dictates.
+
+```ts twoslash file=libs/feature/docs/examples.md region=test-agreement
+
+```
+
+Because date-time strings without offsets are read as local time—which would lead to different results across machines—the fixtures state every instant with an explicit offset.
