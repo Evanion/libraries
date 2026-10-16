@@ -1992,8 +1992,9 @@ evaluateCondition(tabletopNight, lateWednesday); // -> false
 import { createFeatures } from '@evanion/feature';
 
 // Express is not a dependency of this package, so the two parameters a
-// handler takes are typed by the members the wiring reads. An Express
-// `Request` and `Response` satisfy both.
+// handler takes are typed by the members the wiring reads. Express's
+// `Response` satisfies `Res`. Its `Request` has no `user` member, so an
+// application declares `req.user` itself (Passport does).
 type Shopper = { id: string; tier: string };
 type Req = { user: Shopper };
 
