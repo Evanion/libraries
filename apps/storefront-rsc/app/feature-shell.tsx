@@ -32,6 +32,7 @@ export function FeatureShell({
   roles: string[];
   children: ReactNode;
 }) {
+  // #region client-provider
   const features = useMemo(() => {
     const parsed = parseFeatureConfig<ShopFlags>(config);
     if (!parsed.ok) {
@@ -53,4 +54,5 @@ export function FeatureShell({
       {children}
     </FeatureProvider>
   );
+  // #endregion client-provider
 }
