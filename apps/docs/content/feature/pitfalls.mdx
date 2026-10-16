@@ -25,9 +25,9 @@ As established in decision 14 of `docs/specs/2026-09-23-feature-variants.md`, a 
 
 ## An inline object as the provider context
 
-In `@evanion/feature`, the `FeatureProvider` memoises resolution based on the identity of its `context` prop. If you write an object literal inline in JSX, React creates a new object on every render, forcing the provider to resolve again every time.
+The `FeatureProvider` in `@evanion/react-feature` memoises resolution based on the identity of its `context` prop. If you write an object literal inline in JSX, React creates a new object on every render, forcing the provider to resolve again every time.
 
-This behavior is noted in the `context` docblock in `libs/react-feature/src/index.tsx`. The test `react.spec.tsx`, "resolves once per context rather than on every render", demonstrates that holding a stable reference results in only one `resolve` call across three renders. To prevent unnecessary re-resolutions, build your context outside the component or use `useMemo` keyed on the subject.
+This behavior is noted in the `context` docblock in `libs/react-feature/src/index.tsx`. The test `libs/react-feature/src/react.spec.tsx`, "resolves once per context rather than on every render", demonstrates that holding a stable reference results in only one `resolve` call across three renders. To prevent unnecessary re-resolutions, build your context outside the component or use `useMemo` keyed on the subject.
 
 ## Leaving out now in a tree that must agree with a server render
 
