@@ -7,6 +7,7 @@
  * demo apps would hide a breaking change behind a compile that still passes.
  */
 import type { Matrix } from '@evanion/acl';
+import type { FeatureConfig } from '@evanion/feature';
 
 import { ANONYMOUS_SUBJECT, type StorefrontSubject } from './subject.js';
 
@@ -62,6 +63,14 @@ export interface PolicyDocument {
   version: string | number | undefined;
   /** The contract itself, which a holder adopts with `parseMatrix`. */
   matrix: Matrix;
+}
+
+/** The feature definitions and their version, as `GET /features` returns them. */
+export interface FeaturesDocument {
+  /** What a holder compares against the version it already installed, with `!==`. */
+  version: string | number | undefined;
+  /** The definitions, which a holder installs with `parseFeatureConfig`. */
+  config: FeatureConfig;
 }
 
 /**
@@ -169,6 +178,18 @@ export class ShopApi {
    */
   policy(): Promise<Result<PolicyDocument>> {
     return this.request<PolicyDocument>('GET', '/policy');
+  }
+
+  /**
+   * The published feature definitions.
+   *
+   * Called by the feature store and not by a page, for the reason
+   * {@link ShopApi.policy} gives: a page reads a decision off `Astro.locals`,
+   * and a decision that waited on this would be a network call inside a flag
+   * check.
+   */
+  features(): Promise<Result<FeaturesDocument>> {
+    return this.request<FeaturesDocument>('GET', '/features');
   }
 
   /** The whole catalogue. */
