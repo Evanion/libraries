@@ -12,10 +12,10 @@ import { currentSubject } from './subject';
 /**
  * The flags this app asks about, and the variants each one splits across.
  *
- * Both are plain on/off, so each maps to `never`. This is this app's own type
+ * Both are plain on/off, so each maps to `never`. The type is this app's own,
  * for the reason the response types in `shop-api.ts` are: the document is the
- * contract, and a key the document does not carry resolves off rather than
- * compiling. A key missing from this map is a compile error at the call site.
+ * contract and no package exists to share a shape. A key this map does not name
+ * is a compile error at the call site.
  */
 export interface ShopFlags {
   'new-checkout': never;
@@ -53,6 +53,7 @@ export interface AdoptedFeatures {
  * the key, so a document shop-api republishes under a new version replaces this
  * one on the next page view.
  */
+// #region version-keyed-store
 let adopted:
   { version: string | number | undefined; value: AdoptedFeatures } | undefined;
 
@@ -77,6 +78,7 @@ function adopt(document: FeaturesDocument): AdoptedFeatures {
   adopted = { version: document.version, value };
   return value;
 }
+// #endregion version-keyed-store
 
 /**
  * shop-api's feature document, fetched once for the page view and adopted
