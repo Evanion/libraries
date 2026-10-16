@@ -1,0 +1,81 @@
+# Next.js (React Server Components)
+
+<WorkshopNotice slug="feature" />
+
+In a Next.js App Router application, the server component is the place where a flag is resolved. Using the game shop example with the `new-checkout` and `express-pickup` flags, the storefront in `apps/storefront-rsc` fetches the feature document from `shop-api`, builds a `Features` store from it, and binds that store to the shopper once per page view. A Server Component then reads a flag, and the resulting `DecisionSet` is shipped to the client tree.
+
+<PageSheet
+  difficulty={5}
+  read={12}
+  hands={25}
+  requires={[
+    ['How do two processes agree?', '../hydration'],
+    ['Many Processes', '../microservices'],
+  ]}
+  unlocks={[
+    ['How do I serve my configuration?', '../distribution'],
+    ['API reference', '../api'],
+  ]}
+/>
+
+## The store, keyed on the document version
+
+The `shop-api` serves `GET /api/features`, which returns a body containing a version and a `FeatureConfig`. In the app's `features.ts`, the last adopted document is held at module scope with the version as the key.
+
+The app calls `parseFeatureConfig`, which reports a refused document and throws nothing. The app throws on that report, so a failed parse fails the render and no page renders with every flag off. Since a `Features` instance holds definitions but no shopper, every read takes the context as an argument, allowing one store to be shared between requests and visitors. A new version simply replaces the store on the next page view.
+
+```ts file=apps/storefront-rsc/app/features.ts region=version-keyed-store
+
+```
+
+## One binding per page view
+
+To maintain a stable state across a single request, the app creates one binding per page view. React's cache ensures that the fetch happens once per page view, providing concurrent page views with their own isolated state. While the layout and each widget that reads a flag each call `currentFeatures()`, a single `GET /api/features` serves them all.
+
+The `currentFeatures` function binds the store using `features.for`, utilizing the shopper id as the `targetingKey` and the shopper's roles. Because `for` reads the clock once, every read off the resulting handle uses one instant. If `shop-api` is unreachable, the process throws and the render fails. Note that while the module-level variable mentioned previously is shared between requests, these cache-wrapped functions are not.
+
+```ts file=apps/storefront-rsc/app/features.ts region=per-request-features
+
+```
+
+## Reading a flag in a Server Component
+
+Once the store is bound, you can perform render decisions directly on the server. In `spotlight.tsx`, which is an async Server Component, the code awaits `currentFeatures()` after its access decision and asks `isEnabled('express-pickup')`.
+
+Because `express-pickup` dependsOn `new-checkout`, and `new-checkout` is enabled for operators and a quarter of customers (via the `staff` and `ramp` rule ids), `express-pickup` is enabled for the same people. This read is local and requires no network call. This flag serves as a render decision on the server; it does not decide who may call `shop-api`.
+
+```tsx file=apps/storefront-rsc/app/spotlight.tsx region=gate-on-the-server
+
+```
+
+## Shipping the set to the client
+
+To synchronize the server's decisions with the client, the layout calls `features.snapshot()` on the same handle and passes the `DecisionSet` to `FeatureShell`, a client module. This set contains its version, the instant it was resolved at, its origin (`'render'`), and the decisions themselves.
+
+Because the server states the instant, the client does not pass `now`. The layout also passes the `config` (the document), the `targetingKey`, and the roles. The provider then re-resolves the shipped set to check it; a provider missing a `targetingKey` would report a divergence for the `ramp` rule that is not actually one.
+
+```tsx file=apps/storefront-rsc/app/layout.tsx region=ship-the-set
+
+```
+
+## What crosses and what does not
+
+When moving data between environments, it is critical to distinguish between server-only closures and serializable data. A `Features` instance and a `BoundFeatures` instance are both closures over a frozen document; neither can be a prop of a client component, and both stay on the server.
+
+Conversely, a `DecisionSet` is plain data (version, ISO string for `now`, origin, and decisions) and can cross the boundary. The `FeatureConfig` document also crosses. The client module uses `parseFeatureConfig` to build its own store from the document and mounts `FeatureProvider` with the features, context, and decisions. The provider then publishes the shipped set. If the shipped version does not match the store's, it renders the shipped set unless `onVersionMismatch` is set to `'re-resolve'`. In this app, `FeatureShell` is the sole client module, the layout is its only importer, and the widgets import nothing from it. `region.server.test.tsx` holds both of those claims.
+
+```tsx file=apps/storefront-rsc/app/feature-shell.tsx region=client-provider
+
+```
+
+## Let the framework serialise the set
+
+The most important implementation detail is to let React's flight serializer handle the `DecisionSet`. By passing the `DecisionSet` as a prop to the client module, the set survives the transition intact.
+
+Avoid manually writing `JSON.stringify(set)` into a script tag (`type application/json`), as this loses the `Date` object: `JSON.stringify` writes a `Date` as an ISO string, and `JSON.parse` cannot restore it. While the store supplies most instants as strings (such as `now` or the `Date` bounding a window condition in a failed rule outcome), certain failed attribute conditions may have values written as `Date` objects. If you serialize by hand, the client will hold a string where `Condition` promises a `Date`. For more details, see the [DecisionSet entry in the API reference](../api#decisionset).
+
+## Where to go next
+
+- [How do two processes agree?](../hydration): Learn about the version check and the divergence report the provider runs.
+- [How do I serve my configuration?](../distribution): Learn about the document `shop-api` serves and how a holder reloads it.
+- [API reference](../api): See the technical specifications for `for`, `snapshot`, and `DecisionSet`.

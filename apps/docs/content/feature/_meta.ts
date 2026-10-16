@@ -28,14 +28,16 @@ import type { MetaRecord } from 'nextra';
  * detail unnecessary for readers who do not render statically.
  *
  * Platforms follows the setup sequence because a platform guide represents the
- * final step of setup. The React binding is excluded from this section since
- * `@evanion/react-feature` maintains its own section at `/react-feature/`.
+ * final step of setup. The React binding's own pages live in the section at
+ * `/react-feature/`; `nextjs` here covers the server half of an App Router
+ * application and the set it ships to the client.
  * `microservices` is the one page in the band that names no framework. It follows
  * a document from the process that writes it to the processes that install it.
  * `nestjs` follows it because the application it wires is the process that
  * writes that document. `express` sits between them: it wires one handle to
  * `res.locals` and reads it in a handler, which is the smaller of the two
- * application pages.
+ * application pages. `nextjs` closes the band: it is the one platform page whose
+ * process sends decisions to a client tree.
  *
  * The questions band uses the questions themselves as titles to match user
  * searches. `distribution` is the only page where configuration comes from an
@@ -73,6 +75,7 @@ export default {
   microservices: 'Many Processes',
   express: 'Express',
   nestjs: 'NestJS',
+  nextjs: 'Next.js (React Server Components)',
 
   'group-questions': { type: 'separator', title: 'Questions' },
   distribution: 'How do I serve my configuration?',
