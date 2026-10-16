@@ -28,7 +28,6 @@ const config = [
       'content/*/',
       '!content/next/',
       '!content/testing/',
-      '!content/feature/',
     ],
   },
 ];

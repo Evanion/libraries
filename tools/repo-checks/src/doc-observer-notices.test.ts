@@ -84,7 +84,7 @@ const NOTICES = [
   {
     what: 'the exposure warning on the API reference entry',
     spec: '§ 1',
-    file: 'apps/docs/content/feature/api.mdx',
+    file: 'apps/docs/content/next/feature/api.mdx',
     from: '## `FeatureOptions`',
     until: '## `FrozenWhenObserved`',
     phrases: [
@@ -110,20 +110,20 @@ const NOTICES = [
   {
     what: 'the loss-at-exit note on the API reference entry',
     spec: '§ 6',
-    file: 'apps/docs/content/feature/api.mdx',
+    file: 'apps/docs/content/next/feature/api.mdx',
     from: '## `FeatureOptions`',
     until: '## `FrozenWhenObserved`',
     phrases: [
       'lost at exit',
       'suspends a process without warning',
       '`navigator.sendBeacon` on `visibilitychange`',
-      '/feature/observing#records-in-flight-are-lost-at-exit',
+      '../observing#records-in-flight-are-lost-at-exit',
     ],
   },
   {
     what: 'the drain shape on the Observing page',
     spec: '§ 8',
-    file: 'apps/docs/content/feature/observing.mdx',
+    file: 'apps/docs/content/next/feature/observing.mdx',
     from: '## Records in flight are lost at exit',
     until: '## `correlateBy`',
     phrases: [
@@ -139,7 +139,7 @@ const NOTICES = [
   {
     what: "the guard's measurement on the Observing page",
     spec: '§ 5',
-    file: 'apps/docs/content/feature/observing.mdx',
+    file: 'apps/docs/content/next/feature/observing.mdx',
     from: '## An observer never awaits and never changes an outcome',
     until: '## When an observer throws',
     phrases: [
@@ -165,7 +165,7 @@ const NOTICES = [
   {
     what: "the guard's measurement on the API reference entry",
     spec: '§ 5',
-    file: 'apps/docs/content/feature/api.mdx',
+    file: 'apps/docs/content/next/feature/api.mdx',
     from: '## `FeatureOptions`',
     until: '## `FrozenWhenObserved`',
     phrases: [
@@ -191,7 +191,7 @@ const NOTICES = [
   {
     what: "the freeze asymmetry's reason on the API reference entry",
     spec: '§ 4.3',
-    file: 'apps/docs/content/feature/api.mdx',
+    file: 'apps/docs/content/next/feature/api.mdx',
     from: '## `FrozenWhenObserved`',
     until: '## `FeatureKey`',
     phrases: [
@@ -204,7 +204,7 @@ const NOTICES = [
   {
     what: "the freeze asymmetry's reason on the Observing page",
     spec: '§ 4.3',
-    file: 'apps/docs/content/feature/observing.mdx',
+    file: 'apps/docs/content/next/feature/observing.mdx',
     from: '## An observer never awaits and never changes an outcome',
     until: '## When an observer throws',
     phrases: [
@@ -217,7 +217,7 @@ const NOTICES = [
   {
     what: 'the options that answer the mutable form, on the API reference entry',
     spec: '§ 4.3',
-    file: 'apps/docs/content/feature/api.mdx',
+    file: 'apps/docs/content/next/feature/api.mdx',
     from: 'A call whose options settle neither question',
     until: '## `Features<S>`',
     phrases: [
@@ -256,7 +256,7 @@ const NOTICES = [
   {
     what: "the misspelled option's diagnostic, on the API reference entry",
     spec: '§ 4.3',
-    file: 'apps/docs/content/feature/api.mdx',
+    file: 'apps/docs/content/next/feature/api.mdx',
     from: "`O`'s constraint,",
     until: 'The pair below it exists',
     phrases: [
@@ -269,7 +269,7 @@ const NOTICES = [
   {
     what: 'the exposure example on the Observing page',
     spec: '§ 1',
-    file: 'apps/docs/content/feature/observing.mdx',
+    file: 'apps/docs/content/next/feature/observing.mdx',
     from: 'So the application records exposure where it renders',
     until: '## What the seam does cover',
     phrases: [
@@ -285,7 +285,7 @@ const NOTICES = [
   {
     what: 'the disclosure sentence beside `correlateBy`',
     spec: '§ 4.2',
-    file: 'apps/docs/content/feature/observing.mdx',
+    file: 'apps/docs/content/next/feature/observing.mdx',
     from: '## `correlateBy` and what reaches an event',
     until: '## Exposure tracking',
     phrases: [
