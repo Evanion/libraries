@@ -37,6 +37,12 @@
   ],
   "references": [
     {
+      "path": "../../libs/react-feature/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/feature/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/compose/tsconfig.lib.json"
     },
     {
