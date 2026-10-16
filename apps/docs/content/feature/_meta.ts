@@ -58,7 +58,10 @@ import type { MetaRecord } from 'nextra';
  * the reader can weigh once they know that `resolve` decides every configured
  * feature.
  *
- * The reference band opens with `advanced`, which covers what the pages before
+ * The reference band opens with `limits` and `pitfalls`. `limits` lists what a
+ * reader decides against before writing code: the nine things the library
+ * leaves to the application. `pitfalls` lists what a reader checks code against
+ * once there is some. `advanced` follows them and covers what the pages before
  * it leave at their defaults: the schema's two vocabularies, the rollout field
  * and seed, the `maxStale` budget, and the variant seed and sticky entries. The
  * `api` page closes the section as the place where a reader looks up a name
@@ -95,6 +98,8 @@ export default {
   observing: 'What did the engine just answer?',
 
   'group-reference': { type: 'separator', title: 'Reference' },
+  limits: 'What it does not do',
+  pitfalls: 'Pitfalls',
   advanced: 'Advanced',
   api: 'API Reference',
 } satisfies MetaRecord;
