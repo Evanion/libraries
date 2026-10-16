@@ -1,0 +1,53 @@
+# Choosing an integration
+
+<WorkshopNotice slug="feature" />
+
+Because `@evanion/feature` imports no framework, it treats every platform the same: it asks where the store is built and how the evaluation context reaches the decision call. This page helps you decide which platform guide to follow by asking where your application reads its flags. Every example in the following sections is set in the game shop, using the flags `new-checkout` and `express-pickup`.
+
+<PageSheet
+  difficulty={2}
+  read={5}
+  unlocks={[
+    ['Express', '../express'],
+    ['NestJS', '../nestjs'],
+    ['Next.js (React Server Components)', '../nextjs'],
+    ['React Router 8', '../react-router'],
+    ['Astro SSR', '../astro'],
+  ]}
+/>
+
+## Where is the decision read
+
+To pick the right integration for `@evanion/feature`, you must first determine where the flag evaluation occurs. There are three common patterns:
+
+- **A server that renders.** The page, component, or loader reads the flag on the server, and the browser receives only the result. Use [Astro SSR](../astro) for pages that ship no JavaScript, or [Next.js](../nextjs) for Server Components.
+- **A server that answers an API.** A handler reads the flag to determine the response content. Use [Express](../express) for a plain handler or [NestJS](../nestjs) for a service behind a guard.
+- **A client that holds decisions a server resolved.** The server resolves a `DecisionSet` and sends it to the browser, where a component reads it. Use [React Router 8](../react-router) for a loader that ships the set, [Next.js](../nextjs) for the set a Server Component ships, or [the react-feature pages](/react-feature/) for the provider and hooks that read it.
+
+A browser never resolves a flag on its own authority; the server owns the definitions and the context, and the client reads what the server decided.
+
+## The two mechanisms every platform needs
+
+Regardless of the platform, `@evanion/feature` requires two mechanisms to function. Each integration guide provides its own implementation of these patterns.
+
+**The Store**
+The store is built once at boot. The `createFeatures` function validates the definitions and the dependency graph, ensuring that cycles or unknown dependencies stop the process at start. If a process does not author its own definitions, it installs a document with `parseFeatureConfig` instead; [Many Processes](../microservices) describes how this document moves from the writing process to the installing processes. Because a `Features` instance holds definitions and no shopper, one store serves every request.
+
+**The Evaluation Context**
+The evaluation context is carried per request via the framework's own mechanism. The `features.for(context)` call turns the store and that context into a single handle. This handle reads the clock once, so every flag read from it uses the same instant. The context contains the `targetingKey` that places a shopper in a rollout and the attributes a rule reads. This data comes from the session the server verified, never from a header, query string, or posted field.
+
+| Platform                                       | Where the decision is read                        | How the context reaches it                                                             |
+| ---------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| [Express](../express)                          | the route handler                                 | a middleware writes the handle onto `res.locals.features`                              |
+| [NestJS](../nestjs)                            | `FeaturesService`, called by a guard or a service | the service reads the subject from an `AsyncLocalStorage` the request middleware opens |
+| [Astro SSR](../astro)                          | the page's frontmatter, once per request          | a middleware writes the handle onto `Astro.locals.features`                            |
+| [Next.js (React Server Components)](../nextjs) | the Server Component                              | React's `cache` binds one handle per page view                                         |
+| [React Router 8](../react-router)              | the loader, and the action again before it writes | middleware fills a React Router context that holds a function returning the handle     |
+
+While Express, NestJS, and Astro keep the handle on the server, Next.js and React Router also send the resolved set to a client tree. In React Router, the action resolves the flag a second time because the browser's copy cannot make decisions.
+
+## Where to go next
+
+- [Getting started](../getting-started): write a feature and resolve it for a shopper before you pick a platform.
+- [Many Processes](../microservices): follow one configuration document across the processes that hold it.
+- [API reference](../api): look up `createFeatures`, `parseFeatureConfig` and `for`.
