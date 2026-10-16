@@ -6,7 +6,7 @@ import { parseFeatureConfig } from './parse.js';
 import { serializeConfig } from './serialize.js';
 import type { FeatureConfig } from './config.js';
 import type { FeatureEvent } from './observe.js';
-import type { Condition, Schema } from './types.js';
+import type { Condition, EvaluationContext, Schema } from './types.js';
 
 const SPLIT = [
   {
@@ -15,6 +15,16 @@ const SPLIT = [
     variants: [
       { name: 'control', weight: 50 },
       { name: 'blue', weight: 50, value: { label: 'Get it' } },
+    ],
+  },
+] as const;
+
+const SALE = [
+  {
+    key: 'sale',
+    enabled: true,
+    rules: [
+      { when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }] },
     ],
   },
 ] as const;
@@ -66,6 +76,36 @@ describe('Features.snapshot', () => {
     expect(
       features.snapshot({ now: new Date('2026-10-09T11:22:33.444Z') }).now,
     ).toBe('2026-10-09T11:22:33.444Z');
+  });
+
+  it('states the instant a string named, in the one form a set carries', () => {
+    const features = createFeatures(SALE);
+
+    expect(features.snapshot({ now: '2026-06-01T00:00:00+01:00' }).now).toBe(
+      '2026-05-31T23:00:00.000Z',
+    );
+  });
+
+  it('resolves a context that crossed JSON as the one it came from', () => {
+    const features = createFeatures(SALE);
+    const held = { now: new Date('2026-06-01T00:00:00Z') };
+    const wire = JSON.parse(JSON.stringify(held)) as EvaluationContext;
+
+    expect(features.snapshot(wire).decisions).toEqual(
+      features.snapshot(held).decisions,
+    );
+    expect(features.snapshot(wire).now).toBe(features.snapshot(held).now);
+  });
+
+  it('names the field for a string naming no instant', () => {
+    const features = createFeatures(SALE);
+
+    expect(() => features.snapshot({ now: 'the first of June' })).toThrow(
+      FeatureConfigError,
+    );
+    expect(() => features.snapshot({ now: 'the first of June' })).toThrow(
+      /context\/now/,
+    );
   });
 
   it('carries no version for a store built from a literal', () => {

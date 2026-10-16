@@ -10,6 +10,7 @@ import type {
   EvaluationContext,
   FeatureDefinition,
   FeatureKey,
+  Instant,
   Plan,
   PlanEntry,
   VariantInfo,
@@ -26,8 +27,11 @@ export interface ResolvePlanOptions<F extends FeatureKey = string> {
    * instant and the client's call cannot move half the tree. A set carrying
    * `origin: 'build'` states one that may be days old, and that caller passes
    * nothing, so this reads the client's own clock.
+   *
+   * `DecisionSet.now` is an ISO 8601 string, and this takes every form an
+   * `Instant` does, so that caller writes `{ now: set.now }`.
    */
-  now?: Date;
+  now?: Instant;
   onDivergence?: DivergenceObserver<F>;
 }
 

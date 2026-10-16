@@ -1,3 +1,4 @@
+import { contextEpoch } from './instant.js';
 import type { DecisionSet, SnapshotOptions } from './decision-set.js';
 import type { Features } from './features.js';
 import type { FrozenWhenObserved } from './observe.js';
@@ -55,8 +56,9 @@ export interface BoundFeatures<
  * Binds `features` to `context`, reading `context.now ?? new Date()` once.
  *
  * An explicit `now` wins, the precedence `resolve` has. An invalid `Date` is
- * kept as given, so `snapshot` on the handle raises the refusal
- * `Features.snapshot` raises for it.
+ * kept as given, and a `now` naming no instant in another form settles to one,
+ * so `snapshot` on the handle raises the refusal `Features.snapshot` raises for
+ * it.
  */
 export function boundFeatures<
   S extends Record<keyof S, VariantInfo | never>,
@@ -67,7 +69,10 @@ export function boundFeatures<
 ): BoundFeatures<S, Frozen> {
   const settled: EvaluationContext = {
     ...context,
-    now: context?.now ?? new Date(),
+    now:
+      context?.now === undefined
+        ? new Date()
+        : new Date(contextEpoch(context.now)),
   };
 
   return {

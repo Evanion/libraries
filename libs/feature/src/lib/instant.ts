@@ -105,3 +105,28 @@ export function instantEpoch(value: Instant): number {
 
   return Date.parse(fixed);
 }
+
+/** The largest instant a `Date` holds, ECMA-262 21.4.1.1. */
+export const RANGE = 8_640_000_000_000_000;
+
+/**
+ * Epoch milliseconds for the instant a context resolves at, and `NaN` for a
+ * context naming none.
+ *
+ * `EvaluationContext.now` admits every form `Instant` does, because a context
+ * that crossed JSON carries the string its `Date` was written as. This reading
+ * is what makes the two resolve a window alike.
+ *
+ * A number outside the range a `Date` holds answers `NaN` here, which no other
+ * form reaches: a string is parsed and a `Date` is bounded, and only a
+ * caller's own number goes further. `Intl.DateTimeFormat.format` raises
+ * `RangeError` for such a value, and a comparison against it holds at every
+ * instant or at none, which is what `windowFault` refuses the same number at a
+ * boundary for.
+ */
+export function contextEpoch(now: Instant | undefined): number {
+  if (now === undefined) return Number.NaN;
+
+  const epoch = instantEpoch(now);
+  return Math.abs(epoch) > RANGE ? Number.NaN : epoch;
+}

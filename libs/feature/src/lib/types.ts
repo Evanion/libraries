@@ -221,7 +221,18 @@ export interface FeatureDefinition<F extends FeatureKey = string> {
  * defaulting to `new Date()` at the call.
  */
 export interface EvaluationContext {
-  now?: Date;
+  /**
+   * The instant every rule resolves against, in any of the three forms an
+   * `Instant` takes.
+   *
+   * A `Date` does not survive `JSON.stringify`, and a context reaching this
+   * library across an RSC payload, an island's props, a response body or a
+   * cookie carries the ISO 8601 string in its place. `instantEpoch` reads all
+   * three forms, so such a context resolves a window the way the context it
+   * was built from did. Every entry point settles the field to a `Date` before
+   * it resolves anything.
+   */
+  now?: Instant;
   /** The default rollout bucketing field. */
   targetingKey?: string;
   /**

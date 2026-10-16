@@ -59,11 +59,10 @@ describe('resolvePlan', () => {
     );
   });
 
-  it('takes an instant as a Date and nothing else', () => {
+  it('takes an instant in every form an Instant holds', () => {
     const features = createFeatures(definitions);
 
     expectTypeOf(
-      // @ts-expect-error -- `now` is a `Date`, not an ISO string.
       resolvePlan(features, {}, {}, { now: '2031-01-01T00:00:00Z' }),
     ).not.toBeNever();
   });

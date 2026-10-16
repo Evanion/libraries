@@ -621,7 +621,11 @@ To provide the data necessary for a decision, `@evanion/feature` requires an `Ev
 
 The context uses an index signature to admit any field a condition reads, while `targetingKey` is the field a rollout buckets on when the spec names none. The library reads `stickyVariants` and writes it nowhere; see [Variants](/feature/variants) for where an application keeps it.
 
-The `now` property is a `Date`. If a context crossed JSON, it carries the ISO 8601 string `JSON.stringify` wrote in its place. Because a window and a day-of-week condition read `now` as a `Date` and nothing else, every clock rule in the configuration answers `false` for such a context. A caller handing on a parsed body builds the `Date` back before the call.
+To control how the library evaluates time-based conditions, you provide a `now` property. This property accepts an `Instant`, which can be a `Date` object, the ISO 8601 string that `JSON.stringify` writes in a `Date`'s place, or epoch milliseconds.
+
+This flexibility allows a context to maintain consistency across different environments. Because it supports these formats, a context that crossed an RSC payload, an island's props, a response body, or a cookie resolves every window and day-of-week condition the same way the context it was serialized from did. Similarly, a caller handing on a parsed body passes it straight through.
+
+If a `now` property names no instant, every clock condition becomes unevaluable and answers `false`. Note that `snapshot` refuses such a value outright, as a decision set states its instant specifically as an ISO 8601 string.
 
 ## `RuleOutcome`
 
@@ -756,11 +760,11 @@ A decision set crosses no service boundary. The process that produced it and the
 
 To state which kind of process resolved a set, `@evanion/feature` uses the `DecisionOrigin` type, which is `'render' | 'build'`.
 
-When a set is `'render'`, it was produced by the request that generated the HTML. Because its instant is only seconds old, the consumer uses it as the default for local resolution. The set records this instant as an ISO 8601 string. Since the `now` property of [`ResolvePlanOptions`](#resolveplanoptions) requires a `Date` object, the consumer must wrap the value: `resolvePlan(features, plan, context, { now: new Date(set.now) })`. This call provides the two pieces of information required to answer the resolution logic: the context carries the subject the deferred entry buckets on, and the option carries the instant.
+When a set is `'render'`, it was produced by the request that generated the HTML. Because its instant is only seconds old, the consumer uses it as the default for local resolution. The set records this instant as an ISO 8601 string. Since the `now` property of [`ResolvePlanOptions`](#resolveplanoptions) takes an `Instant`, the consumer passes the value as it is: `resolvePlan(features, plan, context, { now: set.now })`. This call provides the two pieces of information required to answer the resolution logic: the context carries the subject the deferred entry buckets on, and the option carries the instant.
 
 If the context is empty, the entry lacks the `targetingKey` named in `needs`. This triggers a [`'missing-field'`](#divergencereport) divergence report and results in every subject receiving the same variant. By including the subject in the context, a window boundary falling between the server's instant and the client's call will move no part of the tree.
 
-`resolvePlan` settles `now` off the context before it reads the option. If a consumer holds a context that already carries `now`, they should state the set instant there instead: `resolvePlan(features, plan, { ...context, now: new Date(set.now) })`. When provided with such a context, any `now` value passed in the options argument is discarded.
+`resolvePlan` settles `now` off the context before it reads the option. If a consumer holds a context that already carries `now`, they should state the set instant there instead: `resolvePlan(features, plan, { ...context, now: set.now })`. When provided with such a context, any `now` value passed in the options argument is discarded.
 
 When a set is `'build'`, it may be days old. In this scenario, the consumer passes no `now` value, allowing the deferred remainder to resolve against the client's own clock.
 

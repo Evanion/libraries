@@ -1,5 +1,5 @@
 import { FeatureConfigError } from './errors.js';
-import { instantEpoch } from './instant.js';
+import { contextEpoch, instantEpoch, RANGE } from './instant.js';
 import type {
   Condition,
   EvaluationContext,
@@ -35,9 +35,6 @@ function weekdayIn(instant: Date, zone: string): Weekday | undefined {
 
   return WEEKDAYS.find((day) => day === formatted);
 }
-
-/** The largest instant a `Date` holds, ECMA-262 21.4.1.1. */
-const RANGE = 8_640_000_000_000_000;
 
 /**
  * Why a window boundary names no instant, and `undefined` when it names one.
@@ -135,9 +132,10 @@ export function conditionFields(condition: Condition): readonly string[] {
  * equal"; it is unevaluable, and treating it as true would switch features on
  * for exactly the contexts that carry the least information.
  *
- * A window and a day-of-week condition read `context.now` as a `Date` and
- * nothing else, so a context that crossed JSON and carries the ISO 8601 string
- * in its place answers false on every clock condition.
+ * A window and a day-of-week condition read `context.now` through
+ * `contextEpoch`, so a context that crossed JSON and carries the ISO 8601
+ * string in its place resolves the way the context it was built from did. A
+ * `now` naming no instant leaves both unevaluable, which is false.
  *
  * @throws {RangeError} the host's own, for a day-of-week `zone` this runtime
  * formats no time zone by. `createFeatures` and `validateConfig` refuse such a
@@ -149,20 +147,18 @@ export function evaluateCondition(
   context: EvaluationContext,
 ): boolean {
   if (condition.op === 'day-of-week') {
-    const now = context.now;
-    if (!(now instanceof Date) || Number.isNaN(now.getTime())) return false;
-    const day = weekdayIn(now, condition.zone);
+    const now = contextEpoch(context.now);
+    if (Number.isNaN(now)) return false;
+    const day = weekdayIn(new Date(now), condition.zone);
     return day !== undefined && condition.value.includes(day);
   }
 
   if (condition.op === 'before' || condition.op === 'after') {
-    const now = context.now;
-    if (!(now instanceof Date) || Number.isNaN(now.getTime())) return false;
+    const now = contextEpoch(context.now);
+    if (Number.isNaN(now)) return false;
     const boundary = instantEpoch(condition.value);
     if (Number.isNaN(boundary)) return false;
-    return condition.op === 'before'
-      ? now.getTime() < boundary
-      : now.getTime() > boundary;
+    return condition.op === 'before' ? now < boundary : now > boundary;
   }
 
   // `in` walks the prototype chain, so a condition over `constructor` or

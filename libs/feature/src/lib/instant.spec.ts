@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { FeatureConfigError } from './errors.js';
 import { createFeatures } from './features.js';
-import { instantEpoch } from './instant.js';
+import { contextEpoch, instantEpoch, RANGE } from './instant.js';
 import type { Instant } from './types.js';
 import { everywhere } from './zones.js';
 
@@ -41,6 +41,38 @@ function readings(value: string): number[] {
     parse.mockRestore();
   }
 }
+
+describe('contextEpoch', () => {
+  const written = new Date('2026-06-01T00:00:00Z');
+
+  it('answers NaN for a context naming no instant', () => {
+    expect(contextEpoch(undefined)).toBeNaN();
+  });
+
+  it('answers a Date and the string it serializes to the same number', () => {
+    expect(contextEpoch(written)).toBe(written.getTime());
+    expect(contextEpoch(written.toISOString())).toBe(contextEpoch(written));
+  });
+
+  it('answers epoch milliseconds as themselves', () => {
+    expect(contextEpoch(1767225600000)).toBe(1767225600000);
+  });
+
+  it('answers each end of the range as itself', () => {
+    expect(contextEpoch(RANGE)).toBe(RANGE);
+    expect(contextEpoch(-RANGE)).toBe(-RANGE);
+  });
+
+  it('answers NaN for a number one past either end of the range', () => {
+    expect(contextEpoch(RANGE + 1)).toBeNaN();
+    expect(contextEpoch(-RANGE - 1)).toBeNaN();
+  });
+
+  it('answers NaN for a string naming no instant', () => {
+    expect(contextEpoch('the first of June')).toBeNaN();
+    expect(contextEpoch('2026-06-01T00:00:00')).toBeNaN();
+  });
+});
 
 describe('instantEpoch', () => {
   it('reads a date-time carrying Z', () => {
