@@ -1983,3 +1983,62 @@ evaluateCondition(tabletopNight, lateWednesday); // -> false
 ```
 
 <!-- #endregion evaluate-condition -->
+
+## Express
+
+<!-- #region express-app -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+// Express is not a dependency of this package, so the two parameters a
+// handler takes are typed by the members the wiring reads. An Express
+// `Request` and `Response` satisfy both.
+type Shopper = { id: string; tier: string };
+type Req = { user: Shopper };
+
+// Built once, at module scope, and read for every request.
+const features = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [
+      {
+        id: 'gold-first',
+        when: [{ field: 'tier', op: 'in', value: ['gold'] }],
+      },
+    ],
+  },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+]);
+
+type Res = { locals: { features: ReturnType<typeof features.for> } };
+
+// Mounted after the session layer, which sets `req.user` from a verified
+// session. `for` reads the clock once, so every flag this request reads
+// shares one instant.
+const bindFeatures = (req: Req, res: Res, next: () => void) => {
+  res.locals.features = features.for({
+    targetingKey: req.user.id,
+    tier: req.user.tier,
+  });
+  next();
+};
+
+// The handler asks one question of the handle and returns the body it sends.
+const showCheckout = (_req: Req, res: Res) => ({
+  expressPickup: res.locals.features.isEnabled('express-pickup'),
+});
+
+const run = (user: Shopper) => {
+  const req = { user };
+  const res = { locals: {} } as Res;
+  bindFeatures(req, res, () => undefined);
+  return showCheckout(req, res);
+};
+
+run({ id: 'cust-0001', tier: 'gold' }); // -> { expressPickup: true }
+run({ id: 'cust-0002', tier: 'member' }); // -> { expressPickup: false }
+```
+
+<!-- #endregion express-app -->
