@@ -85,7 +85,7 @@ If you set `variantSeed` to the rollout's own seed, you correlate them. In the f
 
 ```
 
-To fix a variant's place during the walk through the bands, use `VariantSpec.order`. Without it, the array index is used (`bucketingPosition` returns `order ?? index`). To avoid inconsistency, a configuration document must declare `order` on every variant or on none. While `order` fixes the walk, changing a weight still moves the band boundaries.
+To fix a variant's place during the walk through the bands, use `VariantSpec.order`. Without it, the array index is used (`bucketingPosition` returns `order ?? index`). A store built in memory may omit it, but a configuration document is refused unless every variant declares `order`. While `order` fixes the walk, changing a weight still moves the band boundaries.
 
 The field used for assignment bucketing is `variantBy`, which defaults to `DEFAULT_ROLLOUT_FIELD`. To ensure two holders agree even if their defaults differ, `serializeConfig` explicitly writes `variantBy`, `variantSeed`, and the `order` for every variant. Like the rollout seed, changing `variantSeed` moves every customer to a new bucket.
 
