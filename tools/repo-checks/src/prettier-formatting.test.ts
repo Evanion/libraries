@@ -52,6 +52,16 @@ const IGNORE = ['.gitignore', '.prettierignore'].map((name) =>
   join(workspaceRoot, name),
 );
 
+/**
+ * How long the walk below may take.
+ *
+ * Prettier formats every file in the tree on one thread: about 1,000 files and
+ * 25 s on an idle machine. `nx affected -t test lint build --parallel=2` runs it
+ * beside builds and other suites, which stretches it several times over, past
+ * the 120 s the project's other tests get.
+ */
+const FORMAT_TIMEOUT = 600_000;
+
 /** Whether prettier would rewrite `path`, or null where it does not read it. */
 async function isFormatted(path: string): Promise<boolean | null> {
   const file = join(workspaceRoot, path);
@@ -67,19 +77,23 @@ async function isFormatted(path: string): Promise<boolean | null> {
 }
 
 describe('a file in the working tree', () => {
-  it('carries the formatting prettier gives it', async () => {
-    const unformatted: string[] = [];
+  it(
+    'carries the formatting prettier gives it',
+    async () => {
+      const unformatted: string[] = [];
 
-    for (const path of workingTreeFiles(workspaceRoot)) {
-      if ((await isFormatted(path)) === false) unformatted.push(path);
-    }
+      for (const path of workingTreeFiles(workspaceRoot)) {
+        if ((await isFormatted(path)) === false) unformatted.push(path);
+      }
 
-    expect(
-      unformatted.sort(),
-      'CI runs `npx prettier --check .` as its own job. Run ' +
-        '`npx prettier --write` over the files named here.',
-    ).toEqual([]);
-  });
+      expect(
+        unformatted.sort(),
+        'CI runs `npx prettier --check .` as its own job. Run ' +
+          '`npx prettier --write` over the files named here.',
+      ).toEqual([]);
+    },
+    FORMAT_TIMEOUT,
+  );
 });
 
 /**
