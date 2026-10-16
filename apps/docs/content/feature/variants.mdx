@@ -52,6 +52,8 @@ An explicit `order` on each variant fixes its position in the walk, so reorderin
 
 `variantSeed` defaults to the feature's `seed` (or its key) followed by `:variant`, so the split is bucketed apart from the rollout. Setting it to the rollout's own seed correlates the two: every member of a 50% rollout sits below the same 0.5 boundary a 50/50 split uses, and all of them get the control.
 
+[Advanced](../advanced#variant-seeds-and-sticky-assignment) covers what changing `variantSeed` does to a customer already placed.
+
 ```ts twoslash file=libs/feature/docs/examples.md region=variant-seed-shared
 
 ```
@@ -77,6 +79,8 @@ If you change the weights of a variant, some customers move to a different varia
 ```
 
 A sticky entry wins over the weights, ensuring that a user who has already seen a variant continues to see it even after the weights change. A rule pin still wins over a sticky entry, and an entry naming a variant the feature no longer declares is ignored.
+
+[Advanced](../advanced#variant-seeds-and-sticky-assignment) covers the order in which `assignVariant` reads a pin, a sticky entry and the weights.
 
 ## Edge Cases
 

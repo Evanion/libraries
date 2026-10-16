@@ -1,0 +1,110 @@
+# Advanced
+
+<WorkshopNotice slug="feature" />
+
+This page covers four things the earlier pages leave at their defaults: the schema a document carries, the field and seed a rollout buckets on, the `maxStale` budget, and the seed and sticky entries that fix a variant. Each section describes the default behavior, how to customize it, and how those changes affect customers already placed in buckets.
+
+<PageSheet
+  difficulty={4}
+  read={10}
+  hands={15}
+  requires={[
+    ['Rollouts', '../rollouts'],
+    ['Variants', '../variants'],
+    ['How do I serve my configuration?', '../distribution'],
+  ]}
+  unlocks={[['API reference', '../api']]}
+/>
+
+## Schema Typing and Its Two Vocabularies
+
+To ensure that feature flags and their values are type-safe across different languages, `@evanion/feature` allows a document to state a typing contract in `schema`, typed as `FeatureSchema`. This schema uses two distinct vocabularies for context and variants.
+
+The first is `ContextSchema`, found at `schema.context`. Its `fields` member maps a context field name to a `FieldType`—one of `'string'`, `'number'`, `'boolean'`, or `'instant'`. These types can be modified with `[]` for an array or a trailing `?` for a field that a complete context may omit (e.g., `'string?'`, `'number[]'`, `'string[]?'`). This is expressed as a flat string so a producer in any language can emit it via reflection.
+
+The `validateConfig` function ensures that `context.fields` declares every field a condition reads and that the operator matches the `[]` suffix of the declared type. It does not compare the condition value against the base type; for instance, a condition over a field declared as `number` that carries a string will still pass.
+
+The second vocabulary is used for variant values. `FeatureSchema.features[key].variants[name]` holds a `ValueShape`, which is a JSON Schema 2020-12 object. Because the engine never reads a variant value—`valueOf` simply hands it back untouched—the shape exists for code generators (like quicktype or openapi-generator) to emit TypeScript, Swift, or Kotlin.
+
+The `ValueShape` is restricted to a specific subset: `type`, `properties`, `required`, `items`, `enum`, `const`, `additionalProperties`, `$defs`, local `$ref` into `$defs`, `title`, and `description`. Any other keywords (such as `allOf`, `anyOf`, `oneOf`, `not`, or remote `$ref`) result in an `unfenced-schema` issue. If a producer needs a union, it must write an `enum` over a discriminant.
+
+To manage versioning, `schemaVersion` is provided as a string. A schema is immutable at its `schemaVersion`: a document naming `s7` and a schema published at `s7` cannot disagree, and publishers never rewrite a schema at a version already published. A document may name `schemaVersion` alone without an inline schema, or it may carry neither (which is legal and declares no shapes). However, a document with an inline `schema` but no `schemaVersion` triggers a `missing-schema-version` issue, as holders would be unable to cache or compare the schema.
+
+For examples of `unknown-context-field` and `unfenced-schema` refusals, see the distribution guide at [the schemas' two vocabularies](../distribution#the-schemas-two-vocabularies).
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-schema
+
+```
+
+This region shows a document with `schemaVersion: '2026-10-01'`, where `role` is declared as `'string'` and `tier` as `'string?'`. It defines a `control` variant of `checkout-cta` shaped as an object with a string `label`, and `validateConfig(typed)` returns `{ ok: true }`.
+
+## Custom Rollout Fields
+
+By default, `@evanion/feature` buckets rollouts using a specific context field.
+
+The constant `DEFAULT_ROLLOUT_FIELD` is the string `'targetingKey'`, exported from `@evanion/feature`. A rule's `rollout` is a `RolloutSpec` containing `percent`, `by`, and `seed`. The `by` property names the context field the rollout buckets on and defaults to `DEFAULT_ROLLOUT_FIELD`. The `seed` defaults to the feature's own `seed`, and then to the feature key.
+
+The bucket is calculated as `bucketOf(String(value), seed)`, where the value of the `by` field is converted to a string and hashed under the seed. Only `string` or `number` values are usable; a context lacking the `by` field is not considered a member of the rollout, even at 100%.
+
+Changing these values impacts your users differently:
+
+- **Changing `by`** buckets every customer on a different field. Every customer gets a new bucket, and the cohort at the same percentage becomes a different set of customers.
+- **Changing `seed`** hashes the same value under a different salt. Every customer's bucket moves, though they move together.
+
+In both cases, a customer who was in the 25% cohort may be out after the change, and vice versa. This differs from raising the `percent` alone, which only adds members and removes nobody (as detailed on the rollouts page).
+
+You should set `by` when the entity you want to hold steady is not the one in `targetingKey`—for example, bucketing on `storeId` so every user of a specific store sees the same experience. Set `seed` only to intentionally correlate two features. Because `ruleFields` reports the `by` field as a requirement, a plan will name it as a need if the context lacks it.
+
+When calling `serializeConfig`, `rollout.by` is written as the store holds it. If a rule declared no specific field, it carries no `by` in the document, and the holder falls back to its own `DEFAULT_ROLLOUT_FIELD`. It is recommended to explicitly name the field on any rule shipped to a process running a different release.
+
+```ts twoslash file=libs/feature/docs/examples.md region=rollout-spec
+
+```
+
+This region demonstrates bucketing `gift-cards` at 25% by `targetingKey` under the seed `'new-checkout'`, resulting in `cust-0101` being in and `cust-0007` being out.
+
+## The Freshness Budget
+
+To control how long a configuration remains valid, `@evanion/feature` documents can include `maxStale`.
+
+The `maxStale` member is a number of milliseconds representing how long the publisher believes a holder may keep the document. No entry point within `@evanion/feature`—including `parseFeatureConfig`, `reload`, `resolve`, `plan`, `toggle`, or `validateConfig`—reads this value. This is a deliberate design choice; as specified in decision 3 of the distribution spec, a store built from a document with `maxStale: 1` resolves identically to one without it.
+
+The responsibility for acting on this budget lies with the party performing the fetch. Because the fetcher knows the exact instant of retrieval, it can use `maxStale` to shorten its poll interval, log warnings, refuse to start, or serve a fallback document. The library itself holds no clock authority.
+
+For more details, see [maxStale travels and your poller is what acts on it](../distribution#maxstale-travels-and-your-poller-is-what-acts-on-it).
+
+## Variant Seeds and Sticky Assignment
+
+While rollouts determine if a feature is on, variant assignment determines which version a user sees.
+
+The `variantSeed` on a definition is the seed that variant assignment hashes under. By default, this is the feature's `seed` (or key) followed by `:variant`. This default differs from the rollout seed on purpose: using the same seed for both would place a 20% rollout's members exclusively in the lowest 20% of the variant space.
+
+If you set `variantSeed` to the rollout's own seed, you correlate them. In the following example, a 50% rollout and a 50/50 split share the seed `'checkout-cta'`, meaning `user-1` and `user-2` both receive the `control` variant.
+
+```ts twoslash file=libs/feature/docs/examples.md region=variant-seed-shared
+
+```
+
+To fix a variant's place during the walk through the bands, use `VariantSpec.order`. Without it, the array index is used (`bucketingPosition` returns `order ?? index`). To avoid inconsistency, a configuration document must declare `order` on every variant or on none. While `order` fixes the walk, changing a weight still moves the band boundaries.
+
+The field used for assignment bucketing is `variantBy`, which defaults to `DEFAULT_ROLLOUT_FIELD`. To ensure two holders agree even if their defaults differ, `serializeConfig` explicitly writes `variantBy`, `variantSeed`, and the `order` for every variant. Like the rollout seed, changing `variantSeed` moves every customer to a new bucket.
+
+For manual overrides, `context.stickyVariants` is a record mapping feature keys to variant names. The `assignVariant` function reads this record before checking the `variantBy` field. A context with a sticky entry and no `targetingKey` will still receive its variant with the source `'sticky'`.
+
+The order of precedence for assignment is:
+
+1. A rule pin.
+2. A sticky entry.
+3. The weights.
+
+If a sticky entry names a variant that the feature no longer declares, it is ignored and assignment falls back to the weights. The library reads `stickyVariants` but does not manage storage; the application is responsible for persisting the assignment (via session, cookie, or database) and passing it back in.
+
+Note that sticky assignments hold a customer through a weight change, but not through a rollout change: the rollout determines if the feature is active before variants are ever considered.
+
+```ts twoslash file=libs/feature/docs/examples.md region=variant-sticky
+
+```
+
+In this region, the context is `{ stickyVariants: { 'checkout-cta': 'blue' } }` with no `targetingKey`. The resulting decision has `variant: 'blue'`, `assignment: { source: 'sticky', by: 'targetingKey' }`, and `value: { label: 'Get it' }`.
+
+Now that you have mastered these advanced configurations, you can explore the full [API reference](../api).
