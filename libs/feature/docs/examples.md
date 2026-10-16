@@ -2262,3 +2262,134 @@ JSON.parse(JSON.stringify(decisions)); // -> fixture.decisions
 ```
 
 <!-- #endregion test-agreement -->
+
+<!-- #region adopt-definitions -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+// What the application holds today: one boolean per flag.
+const flags: Record<string, boolean> = {
+  'new-checkout': true,
+  'express-pickup': true,
+  'demo-night': false,
+};
+
+// Each entry becomes a definition, and `enabled` carries the boolean over.
+const features = createFeatures(
+  Object.entries(flags).map(([key, enabled]) => ({ key, enabled })),
+);
+
+features.isEnabled('new-checkout'); // -> true
+features.isEnabled('demo-night'); // -> false
+features.resolve({})['demo-night']?.reason; // -> 'explicitly-off'
+```
+
+<!-- #endregion adopt-definitions -->
+
+<!-- #region adopt-read-sites -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+// The check each component repeated was
+//   flags['new-checkout'] && flags['express-pickup']
+// `dependsOn` holds the pair, so the read site asks for one key.
+const features = createFeatures([
+  { key: 'new-checkout', enabled: true },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+]);
+
+features.isEnabled('express-pickup'); // -> true
+
+features.toggle('new-checkout', false);
+
+features.isEnabled('express-pickup'); // -> false
+features.resolve({})['express-pickup']?.reason; // -> 'dependency-off'
+```
+
+<!-- #endregion adopt-read-sites -->
+
+<!-- #region adopt-rollout -->
+
+```ts @import.meta.vitest
+import { bucketOf, createFeatures } from '@evanion/feature';
+
+// The old system kept `{ 'new-checkout': { percent: 10 } }`.
+const features = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [{ id: 'ten-percent', rollout: { percent: 10 } }],
+  },
+]);
+
+// This library places a customer by its own hash of the seed and the id, so
+// the customers the old system placed in its 10% are not the ones placed here.
+bucketOf('cust-0101', 'new-checkout'); // -> 0.04385687271133065
+features.isEnabled('new-checkout', { targetingKey: 'cust-0101' }); // -> true
+features.isEnabled('new-checkout', { targetingKey: 'cust-0007' }); // -> false
+
+// A context that carries no id never joins a rollout.
+features.isEnabled('new-checkout', {}); // -> false
+```
+
+<!-- #endregion adopt-rollout -->
+
+<!-- #region adopt-variants -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+// The old system kept `{ 'checkout-cta': { control: 50, blue: 50 } }` and
+// stored the arm each customer saw in the session.
+const features = createFeatures([
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50, order: 0 },
+      { name: 'blue', weight: 50, order: 1, value: { label: 'Get it' } },
+    ],
+  },
+]);
+
+// A customer the old system put in `blue` stays there while the session
+// carries the arm, whatever bucket the library would have chosen.
+const stored = { 'checkout-cta': 'blue' } as const;
+const decision = features.resolve({
+  targetingKey: 'cust-0101',
+  stickyVariants: stored,
+})['checkout-cta'];
+
+decision?.variant; // -> 'blue'
+decision?.assignment?.source; // -> 'sticky'
+```
+
+<!-- #endregion adopt-variants -->
+
+<!-- #region adopt-pushed -->
+
+```ts @import.meta.vitest
+import { parseFeatureConfig } from '@evanion/feature';
+
+// The transport stays the application's own. Its first payload installs the
+// store, and each later payload goes through `reload`.
+const first = parseFeatureConfig({
+  version: 7,
+  features: [{ key: 'new-checkout', enabled: true }],
+});
+
+if (!first.ok) throw new Error('the first payload was refused');
+const features = first.features;
+
+const pushed = features.reload({
+  version: 8,
+  features: [{ key: 'new-checkout', enabled: false }],
+});
+
+pushed; // -> { ok: true, version: 8, previousVersion: 7, changed: ['new-checkout'] }
+features.isEnabled('new-checkout'); // -> false
+```
+
+<!-- #endregion adopt-pushed -->
