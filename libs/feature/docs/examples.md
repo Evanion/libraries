@@ -1780,9 +1780,7 @@ const backOffice = parseFeatureConfig({
 
 if (!storefront.ok || !backOffice.ok) throw new Error('document refused');
 
-const reloaded = backOffice.features.reload(
-  JSON.parse(wire) as FeatureConfig,
-);
+const reloaded = backOffice.features.reload(JSON.parse(wire) as FeatureConfig);
 
 reloaded.ok; // -> true
 reloaded.ok && reloaded.previousVersion; // -> '2026-10-07.4'
