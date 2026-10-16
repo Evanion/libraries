@@ -1,0 +1,74 @@
+# Pitfalls
+
+<WorkshopNotice slug="feature" />
+
+<PageSheet
+  difficulty={3}
+  read={10}
+  requires={[['Overview', '../']]}
+  unlocks={[['API reference', '../api']]}
+/>
+
+The following eight mistakes will compile and run, but will result in behavior that contradicts the library's design. Each entry references a test in this repository that proves the behavior so you can verify it in the code.
+
+## A variant value that holds a Date
+
+When using `@evanion/feature`, a variant `value` is treated exactly as written. Because the library hands it back as-is, a `Date` in a value remains a `Date` in the process that resolved it, but becomes a string in a browser that receives the decision as JSON.
+
+This inconsistency is guarded by `serializeConfig`. It writes a `Date` as an ISO string at exactly one member: the instant of a window condition (`serialize.spec.ts`, "writes a Date in a window condition as its ISO string"). In all other cases, it refuses a `Date`. It will refuse a `Date` inside a variant value and name the path (`serialize.spec.ts`, "refuses a Date inside a variant value, which two processes read two ways"), and it will refuse a `Date` as the value of an attribute condition because `===` compares by identity (`serialize.spec.ts`, "refuses a Date at an attribute condition value, which === compares by identity").
+
+As established in decision 14 of `docs/specs/2026-09-23-feature-variants.md`, a variant value must round-trip through JSON. To avoid these pitfalls, write the instant as an ISO 8601 string or as epoch milliseconds, and build the `Date` object where the value is read.
+
+```ts twoslash file=libs/feature/docs/examples.md region=variant-value-date
+
+```
+
+## An inline object as the provider context
+
+In `@evanion/feature`, the `FeatureProvider` memoises resolution based on the identity of its `context` prop. If you write an object literal inline in JSX, React creates a new object on every render, forcing the provider to resolve again every time.
+
+This behavior is noted in the `context` docblock in `libs/react-feature/src/index.tsx`. The test `react.spec.tsx`, "resolves once per context rather than on every render", demonstrates that holding a stable reference results in only one `resolve` call across three renders. To prevent unnecessary re-resolutions, build your context outside the component or use `useMemo` keyed on the subject.
+
+## Leaving out now in a tree that must agree with a server render
+
+When a context leaves the `now` field out, `@evanion/feature` reads the clock at the moment of first resolution (`bound.spec.ts`, "reads the clock when the context names now as undefined"). This can cause a mismatch during hydration: a client tree resolving on its own clock might cross a window boundary that the server's render was inside.
+
+A set that a server ships specifies the exact instant it was resolved. A client that adopts this set will maintain the window the server resolved on, even after the client's own clock has crossed it (`decision-set-handoff.spec.ts`, "keeps a window the server resolved on after the client clock crossed it"). According to decision 9 of `docs/specs/2026-09-23-feature-hydration.md`, `now` travels with a decision set. To ensure consistency, pass `now` explicitly or pass the shipped `decisions`.
+
+## Reading reason or assignment as input
+
+Fields such as `reason`, `rule`, `rules`, `blockedBy`, `cause`, and `assignment` are intended as output only. They are provided to explain a decision, not to drive logic.
+
+The test `libs/feature/src/lib/reason-is-output-only.spec.ts` proves this by deleting every explanation field from each parent result before the next feature sees it, requiring the final decisions to remain identical. For example, a gate written as `reason !== 'explicitly-off'` is reading a string the engine adds only for explanation; the `enabled` boolean is the only correct gate. This invariant is defined under "Result" in `docs/specs/2026-09-11-feature-toggles.md`.
+
+## A null at the bucketing field
+
+If a context carries `shopperId: null`, it still passes presence tests like `'shopperId' in context`. However, because a boolean or a `null` does not name a specific subject, `@evanion/feature` cannot bucket the user.
+
+In this scenario, the variant assignment defaults to the control with a source of `fallback` and no bucket, meaning the experiment measures nobody (`variants.spec.ts`, "gives the control when the bucketing field holds a boolean or null"). Decision 6 of `docs/specs/2026-09-23-feature-variants.md` mandates that the control is the answer for an incomplete context. To avoid this, check the value of your bucketing field and leave the field out of the context entirely when you hold no subject.
+
+```ts twoslash file=libs/feature/docs/examples.md region=null-bucketing-field
+
+```
+
+## A reload that discards a local toggle
+
+The `toggle` function in `@evanion/feature` writes intent into the store held by the current process. However, the `reload` function installs the document it is handed; any toggle not present in that incoming document is discarded (`reload.spec.ts`, "discards a local toggle the incoming document does not carry").
+
+This follows decision 10 of `docs/specs/2026-09-23-feature-config-distribution.md`: the store's source of truth is the configuration source, and a toggle is merely a local write against it. Consequently, a process that polls and reloads will lose every local toggle at the next reload. If you need a change to persist, change the document at its source.
+
+```ts twoslash file=libs/feature/docs/examples.md region=reload-discards-toggle
+
+```
+
+## A key named constructor
+
+Because a bare index on a plain object walks the prototype chain, calling `decisions['constructor']` will read a function from `Object.prototype` if no decision actually holds that key.
+
+To prevent this, `@evanion/feature` accesses context fields, shipped decisions, plan entries, and sticky assignments using `Object.prototype.hasOwnProperty.call` (see `conditions.ts`, `adopt.ts`, `resolve-plan.ts`, and `variants.ts`). This is verified by `conditions.spec.ts` ("does not read the inherited context field %s", for `constructor`, `toString`, `valueOf`, `hasOwnProperty` and `__proto__`) and `adopt.spec.ts` ("names nothing for a shipped key off the prototype chain"). If your application code indexes a decision record using a key from data, you must use the same guard. The React hooks already implement this in `libs/react-feature/src/index.tsx`.
+
+## An observer that blocks
+
+The `@evanion/feature` engine calls observers and immediately moves on. If an observer returns a promise, the engine attaches a rejection handler but never awaits the resolution (`observe.spec.ts`, "returns before an async observer settles and lets it settle after").
+
+However, a synchronous observer runs inline. The observation seam spec (section 5) showed a forty-feature `resolve` taking 21 microseconds; adding a synchronous observer that blocks for 40 milliseconds on a transport increases the total call time to 40.02 milliseconds. Because `FeatureProvider` resolves during render, such a block hits the browser's main thread or a React server render. If an observer requires a network call, it should buffer the event and return immediately, allowing its own transport to flush the buffer separately, as detailed in `docs/specs/2026-09-23-feature-observation-seam.md`.
