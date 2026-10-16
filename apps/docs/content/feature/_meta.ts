@@ -33,7 +33,9 @@ import type { MetaRecord } from 'nextra';
  * `microservices` is the one page in the band that names no framework. It follows
  * a document from the process that writes it to the processes that install it.
  * `nestjs` follows it because the application it wires is the process that
- * writes that document.
+ * writes that document. `express` sits between them: it wires one handle to
+ * `res.locals` and reads it in a handler, which is the smaller of the two
+ * application pages.
  *
  * The questions band uses the questions themselves as titles to match user
  * searches. `distribution` is the only page where configuration comes from an
@@ -69,6 +71,7 @@ export default {
 
   'group-platforms': { type: 'separator', title: 'Platforms' },
   microservices: 'Many Processes',
+  express: 'Express',
   nestjs: 'NestJS',
 
   'group-questions': { type: 'separator', title: 'Questions' },
