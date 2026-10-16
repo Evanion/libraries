@@ -1,0 +1,138 @@
+# React Router 8
+
+<WorkshopNotice slug="feature" />
+
+Managing feature flags in a distributed application requires consistency across the request lifecycle. In a React Router 8 application, flags are resolved in three distinct places: the middleware that gives a request a handle, the loaders that read it, and the action that reads it again before it writes.
+
+The back office in `apps/admin` demonstrates this flow. It fetches the feature document from `shop-api`, binds it to the signed-in operator once per request, and ships the document and the resolved set from the shell loader. The browser then draws an express-pickup control based on that set, while the title route's action resolves the flag a second time before it writes. Every example is set in the game shop, using the flags `new-checkout` and `express-pickup`.
+
+<PageSheet
+  difficulty={5}
+  read={12}
+  hands={25}
+  requires={[
+    ['How do two processes agree?', '../hydration'],
+    ['Many Processes', '../microservices'],
+  ]}
+  unlocks={[
+    ['How do I serve my configuration?', '../distribution'],
+    ['API reference', '../api'],
+  ]}
+/>
+
+## One module for both runtimes
+
+To ensure the server and browser agree on which flags exist, they import one module. `features.ts` is not a `.server` module because both runtimes must name the same keys; `AdminFlags` maps both keys to `never` (plain on/off).
+
+`NO_FEATURES` is a store with every flag off. The `createFeatureContext(NO_FEATURES)` call takes its type parameter from this store and returns `FeatureProvider` and `useFeatureEnabled` bound to `AdminFlags`. This ensures that any key the type does not name results in a compile error. Because the document arrives per request, the default binding value is this "all-off" store; any tree mounted without a document will show no flagged controls. Both `useFeatureEnabled` and the provider are exported from `features.ts`, while loaders and actions perform their own decisions on the server.
+
+```ts file=apps/admin/app/features.ts region=bound-hooks
+
+```
+
+## One store per document version
+
+To avoid redundant parsing, the application manages stores based on document versions. The `adoptFeatures` function calls `parseFeatureConfig`, which reports a refused document without throwing; `adoptFeatures` then raises the report so the render fails rather than running with every flag off.
+
+Since a `Features` instance holds definitions but no actor, a single store is safe to share across different requests and users, provided every read takes the context as an argument. The document version keys the held store, compared using `!==`. If a document states no version, it is parsed every time. Both the server and the browser call this logic.
+
+```ts file=apps/admin/app/features.ts region=adopt-features
+
+```
+
+## Binding the store to the request's subject
+
+To resolve flags for a specific user, the application binds the store to the subject. The `pageFeatures` function adopts the document and calls `features.for` with `featureContext(subject)`, which provides the `{ targetingKey: subject.id, roles: subject.roles }`.
+
+Because `for` reads the clock once, every reader of the resulting handle decides at one instant, and the set the shell ships reflects that specific moment. The function returns both the handle and the config, as the handle consists of closures that cannot be serialized, while the browser requires the document to rebuild its own state.
+
+```ts file=apps/admin/app/features.ts region=page-features
+
+```
+
+## Fetching the document on the server
+
+To retrieve the latest configuration, the server performs a fetch during the request. `readFeatures` in `features.server.ts` (marked `.server.ts` to keep the fetch out of the browser bundle) calls `GET /api/features` via `getFeatures` in `shop-api.server.ts`, sending the correlation id and the subject header, and binds the document to the subject.
+
+If `shop-api` cannot be reached (`ShopApiUnavailable`), the system returns `noFeatures(subject)`, turning every flag off so the back office draws only controls that need no flag. Any other error is rethrown. This fetch obtains the definitions only; every decision following this step is a local function call.
+
+```ts file=apps/admin/app/features.server.ts region=read-features
+
+```
+
+## A context that holds a function, not the handle
+
+Because one process serves many concurrent requests, the application cannot use a module variable to store the feature handle. Instead, `featuresContext` is a React Router context created with `createContext` that holds a `ReadFeatures` function.
+
+The default value is `noFeatures` for an anonymous subject with no roles, ensuring that any loader reached without the middleware running decides against a subject every flag refuses. By holding a function rather than the handle itself, the first loader or action to ask fills a memo cell; this allows the shell loader, the page loader, and an action to share one fetch and one clock instant.
+
+```ts file=apps/admin/app/page-context.ts region=features-context
+
+```
+
+## Filling the context in middleware
+
+To ensure flags are available before loaders run, the application initializes the context in the middleware. `loadFeatures` is the shell route's second middleware, listed after `loadPageView`, which binds the correlation id and the subject that `loadFeatures` reads.
+
+`loadFeatures` fetches nothing; it simply installs an empty cell: `pending ??= readFeatures(...)`. It does not make decisions. The first loader or action to ask fills the cell, so a request that reads no flag fetches no document. The shell declares `middleware = [loadPageView, loadFeatures]`.
+
+```ts file=apps/admin/app/page-view.server.ts region=bind-features
+
+```
+
+## Shipping the document and the set
+
+To synchronize the client with the server, the application ships the resolved decisions. The shell loader awaits `featuresContext` and returns `features: { config, decisions: flags.snapshot() }`. Both of these are plain data.
+
+The handle remains on the server because it is composed of closures over a frozen document. The browser installs its own store from the shipped document. The set includes its version, the instant it was resolved, its origin, and the decisions, ensuring the tree draws exactly what the server decided.
+
+```tsx file=apps/admin/app/shell.tsx region=ship-the-set
+
+```
+
+## Mounting the provider
+
+To make flags available to the React tree, the shell mounts a provider. `Flags` is a component in `shell.tsx` listed in the shell's `ComposeProvider` as `provider(Flags, { features, subject: session.subject })`.
+
+The component adopts its own store from `features.config` using `useMemo` and builds the context with `featureContext(subject)` using the same targetingKey and roles the server used. This allows the provider to re-resolve the shipped set to check for divergences. Because React Router types loader data through serialization that writes `unknown` members as `undefined`, the shell restates the shipped type with a cast when passing the prop. The shell is the sole mount point.
+
+```tsx file=apps/admin/app/shell.tsx region=mount-features
+
+```
+
+## Toggling a control in the tree
+
+To conditionally render UI, the application uses a hook to read the shipped set. On the title route, `useFeatureEnabled('express-pickup')` checks the set; the route draws the "Offer express pickup" button (or "Withdraw express pickup" if already offered) only when the flag is on and the contract allows the subject to declare on the row (`mayDeclare`, from `useCan`).
+
+For example, an operator with `staff:ines` resolves `new-checkout` as on via the `staff` rule, and since `express-pickup` depends on it, the button shows. A customer outside the 25 percent ramp resolves both as off, and the button is not drawn. The hook reads a set and chooses whether to draw the control; it does not make new decisions.
+
+```tsx file=apps/admin/app/routes/title.tsx region=tree-toggles-flag
+
+```
+
+## Deciding again in the action
+
+To prevent unauthorized writes from forged client requests, the action resolves the flag a second time. A form post or a `curl` request reaches the action without passing through the loader or the tree. The `decidePickup` function reads `featuresContext` from the request's own context and asks `isEnabled('express-pickup')`.
+
+If the flag is off, it returns `{ refused: true, error }` and writes nothing. If on, it checks the contract: `access.can(subject, 'game', 'declare', game)`, the same check used for availability declarations. Only if both the flag and the contract pass does `setPickupOffer` write. The action calls this for the `offer-pickup` and `withdraw-pickup` intents. These are two separate answers; a subject for whom the flag is on but the contract refuses is still refused.
+
+```tsx file=apps/admin/app/routes/title.tsx region=action-asks-flag
+
+```
+
+## Testing the refusal
+
+To verify that flags correctly block actions, the system is tested using a mocked context. The spec calls the action directly with a `RouterContextProvider` whose `featuresContext` holds a handle resolved for a stockholm customer.
+
+While the contract allows that subject to declare on a stockholm title, the ramp is set to zero in the fixture, meaning the customer is outside it regardless of their ID hash. The test asserts that the result is `refused: true` and that `readPickupOffers` contains no entry for the urn.
+
+```tsx file=apps/admin/tests/features.spec.tsx region=refusing-the-offer
+
+```
+
+## Where to go next
+
+- [How do two processes agree?](../hydration): the version check and the divergence report the provider runs.
+- [How do I serve my configuration?](../distribution): the document shop-api serves and how a holder reloads it.
+- [Next.js (React Server Components)](../nextjs): the same split with server components.
+- [API reference](../api): `for`, `snapshot` and `DecisionSet`.
