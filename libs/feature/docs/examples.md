@@ -2175,7 +2175,7 @@ const shop = features.for({ targetingKey: 'cust-0001', now: beforeLaunch });
 
 shop.isEnabled('new-checkout'); // -> false
 shop.isEnabled('express-pickup'); // -> false
-shop.context.now?.toISOString(); // -> '2026-09-30T23:59:59.000Z'
+shop.context.now; // -> beforeLaunch
 ```
 
 <!-- #endregion test-pinned-clock -->
@@ -2237,6 +2237,7 @@ features.resolve({ targetingKey: 'cust-0001' })['checkout-cta']?.assignment; // 
 <!-- #region test-agreement -->
 
 ```ts @import.meta.vitest
+// @types: node
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
