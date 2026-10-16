@@ -1,13 +1,15 @@
 import { defineMiddleware } from 'astro:middleware';
 import { readCart } from './lib/cart.js';
+import { featureStore } from './lib/features.js';
 import { policyAccess } from './lib/policy.js';
 import { CORRELATION_HEADER, ShopApi } from './lib/shop-api.js';
 import { readSubject } from './lib/subject.js';
 
 /**
  * Opens the per-request context every page reads off `Astro.locals`: who is
- * asking, the matrix their permissions are decided on, one `ShopApi` carrying
- * this page view's correlation id, and the cart.
+ * asking, the matrix their permissions are decided on, the feature flags bound
+ * to them, one `ShopApi` carrying this page view's correlation id, and the
+ * cart.
  *
  * Middleware rather than a helper each page calls, because the correlation id
  * has to be one value for the whole page view -- several blocks on the landing
@@ -24,6 +26,11 @@ import { readSubject } from './lib/subject.js';
  * already adopted at module scope, so no decision on a page waits on the
  * network.
  *
+ * The flags follow the same rule. `featureStore` awaits a fetch only when this
+ * process holds no document or the window has expired, and `for` binds the
+ * installed store to this visitor once, so every page and every component of
+ * the request decides at one instant.
+ *
  * This runs per request only because the app is server-rendered. Under a
  * prerendered build it would run once at build time, which is the reason
  * astro.config.mjs sets `output: 'server'`.
@@ -36,6 +43,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.api = ShopApi.forRequest(context.request, subject);
   context.locals.cart = readCart(context.cookies);
   context.locals.access = await policyAccess(context.locals.api);
+  const features = await featureStore(context.locals.api);
+  context.locals.features = features.for({ targetingKey: subject.id });
 
   const response = await next();
 
