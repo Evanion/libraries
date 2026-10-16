@@ -1,11 +1,7 @@
 # Getting started
 
-<WorkshopNotice slug="feature">
-  <Text as="div" size="sm">
-    The examples on this page are regions of `libs/feature/docs/examples.md` and
-    run under `nx test @evanion/feature`.
-  </Text>
-</WorkshopNotice>
+The examples on this page are regions of `libs/feature/docs/examples.md` and
+run under `nx test @evanion/feature`.
 
 Baize is rolling out a new checkout, and express pickup is an option that only
 exists inside it. This page writes both down, resolves them for one customer,
@@ -45,7 +41,7 @@ not have.
 <Probe package="feature" probe="rollout" />
 
 Retype the id. Roughly one id in ten is in, a neighbouring id lands anywhere,
-and the same id always comes back the same. [Rollouts](/feature/rollouts) has
+and the same id always comes back the same. [Rollouts](../rollouts) has
 the bucket behind it and what happens when the percentage moves.
 
 ## Read why a flag is off
@@ -61,7 +57,7 @@ the one above:
 
 `cust-0107` is outside the new checkout's 25%, so the `after-launch` rule never
 matched, and express pickup is off with `blockedBy` naming the flag to look at.
-[Decisions](/feature/decisions) has the other four reasons.
+[Decisions](../decisions) has the other four reasons.
 
 ## Turn the parent off
 
@@ -83,6 +79,6 @@ without changing anything stored.
 ## Your own definitions
 
 You have two dependent flags resolving for a customer and a toggle that reports
-what it turned off. [Configuration](/feature/configuration) writes your own
+what it turned off. [Configuration](../configuration) writes your own
 definitions: every field, the precedence between them, and the conditions a rule
 can match on.

@@ -1,7 +1,5 @@
 # Astro SSR
 
-<WorkshopNotice slug="feature" />
-
 To manage feature flags in a server-rendered environment, you can integrate a feature store directly into your request pipeline. In the storefront example located in `apps/storefront`, the app uses `output: 'server'` to fetch a feature document from `shop-api` (GET `/api/features`), install it into a module-scoped store, and bind that store to the current visitor. This process populates `Astro.locals.features`, which the cart page then reads to toggle the `express-pickup` flag. Because the storefront ships no JavaScript to the browser and contains no islands, this page demonstrates how a server-rendered page reads a flag from the application's own code and explains how a client-side island would receive a decision from the library.
 
 <PageSheet

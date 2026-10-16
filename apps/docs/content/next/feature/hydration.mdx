@@ -1,7 +1,5 @@
 # How do two processes agree?
 
-<WorkshopNotice slug="feature" />
-
 When a storefront renders a page on the server and hydrates it in the browser, both sides must show the shopper the same checkout. To ensure this consistency, the server sends the decisions it made, and the client adopts them. The `@evanion/feature` package provides `Features.snapshot` to write those decisions as a `DecisionSet`, `adoptDecisions` to read one in a process that is not a React tree, and `resolvePlan` to finish a build-time plan once the subject is known.
 
 <PageSheet

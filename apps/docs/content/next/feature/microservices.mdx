@@ -1,7 +1,5 @@
 # Many Processes
 
-<WorkshopNotice slug="feature" />
-
 To ensure a consistent user experience across a distributed system, every process must agree on which feature variant a user sees. In a game shop architecture, this is achieved by separating the authoring of configuration from its consumption across three processes: `shop-api`, the storefront, and the back office.
 
 One process (`shop-api`) writes the configuration document using `serializeConfig`, while the others install it via `parseFeatureConfig` and `features.reload`. Because they all resolve the same shopper to the same variant, the user experience remains seamless regardless of which process handles the request.
