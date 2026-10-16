@@ -50,6 +50,13 @@ export interface Game {
   price: number;
   availability: Availability;
   /**
+   * Whether the title can be collected through express pickup.
+   *
+   * Present only on a response for a subject the `express-pickup` flag resolves
+   * on for. No catalogue row stores it: `GamesService` adds it per request.
+   */
+  expressPickup?: boolean;
+  /**
    * Slug of the shop that lists this title, e.g. `stockholm`.
    *
    * The access matrix compares it against the subject's own shop, so an
