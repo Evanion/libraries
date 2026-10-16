@@ -36,10 +36,12 @@ import type { MetaRecord } from 'nextra';
  * The questions band uses the questions themselves as titles to match user
  * searches. `distribution` is the only page where configuration comes from an
  * external source, including a document served by a control plane, a reload
- * that replaces it, and a digest compared by two processes. `observing` follows
- * distribution. Because an observer reports what an entry point returned, its
- * four events name a decision, a plan, and a toggle result, allowing a reader
- * who understands all three to read an event as a record of known work. This
+ * that replaces it, and a digest compared by two processes. `hydration`
+ * follows distribution because it compares that digest's version against the
+ * decisions a server ships. `observing` follows hydration. Because an
+ * observer reports what an entry point returned, its four events name a
+ * decision, a plan, and a toggle result, allowing a reader who understands all
+ * three to read an event as a record of known work. This
  * page also argues that exposure tracking belongs at the render site, a point
  * the reader can weigh once they know that `resolve` decides every configured
  * feature.
@@ -68,6 +70,7 @@ export default {
 
   'group-questions': { type: 'separator', title: 'Questions' },
   distribution: 'How do I serve my configuration?',
+  hydration: 'How do two processes agree?',
   observing: 'What did the engine just answer?',
 
   'group-reference': { type: 'separator', title: 'Reference' },
