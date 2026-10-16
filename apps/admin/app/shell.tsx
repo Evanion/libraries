@@ -76,11 +76,13 @@ export async function loader({ context }: Route.LoaderArgs) {
     // A string instant, which the hooks key their memos on by value. A `Date` is
     // a fresh object every render and re-evaluates the matrix each time.
     now: new Date().toISOString(),
+    // #region ship-the-set
     // The document and the set resolved from it, both plain data. The handle
     // stays here: it is closures over a frozen document. The browser installs
     // its own store from the document, and the set states the instant the
     // loaders decided at, so what the tree draws is what the server decided.
     features: { config, decisions: flags.snapshot() },
+    // #endregion ship-the-set
     navItems: defineNavItems([
       { id: 'mark', type: 'wordmark', props: { shop: 'Baize' } },
       {
