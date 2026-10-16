@@ -1,0 +1,96 @@
+# How do I move an application onto this?
+
+<WorkshopNotice slug="feature" />
+
+An application that already has flags moves onto `@evanion/feature` in four steps, and the application can be released after each one. The second step is where a flag can first depend on another flag, which most flag systems cannot express.
+
+<PageSheet
+  difficulty={3}
+  read={8}
+  hands={30}
+  requires={[
+    ['Writing a feature down', '../configuration'],
+    ['Rollouts', '../rollouts'],
+    ['Variants', '../variants'],
+    ['How do I serve my configuration?', '../distribution'],
+  ]}
+  unlocks={[
+    ['How do I test a flag?', '../testing'],
+    ['What it does not do', '../limits'],
+  ]}
+/>
+
+## Mapping your existing flags to @evanion/feature
+
+To move a project onto `@evanion/feature`, you first map your current flag implementations to their counterparts in the library. Using Baize's storefront as an example, the storefront today keeps a boolean map, a percentage for the new checkout, an A/B split for the checkout button, and an `&&` between express pickup and the new checkout in every component that shows pickup.
+
+| What the application holds today             | What it becomes                                           | Where it is covered                        |
+| -------------------------------------------- | --------------------------------------------------------- | ------------------------------------------ |
+| A map of flag name to boolean                | An array of definitions, one `{ key, enabled }` per entry | [Writing a feature down](../configuration) |
+| An `&&` between two flags at the read site   | `dependsOn` on the dependent definition                   | [Resolving a feature](../decisions)        |
+| A percentage of customers                    | A rule with a `rollout`                                   | [Rollouts](../rollouts)                    |
+| An A/B split with weights                    | `variants` with a `weight` each                           | [Variants](../variants)                    |
+| The arm a customer saw, kept in the session  | `stickyVariants` on the context                           | [Variants](../variants#sticky-variants)    |
+| A targeting attribute such as role or region | A condition in a rule's `when`                            | [Writing a feature down](../configuration) |
+
+Most flag systems have no dependency between flags. In those systems the dependency lives in the code that reads two flags, and it breaks when someone turns off the parent and forgets the children. `@evanion/feature` moves this into the definition via `dependsOn`. A parent that resolves off takes every dependent off in the same call, transitively, and the decision for the dependent has the reason `dependency-off`. This is the capability the move is worth making for.
+
+## Handling flags with no direct counterpart
+
+Two kinds of flag do not map onto definitions the way the rest do.
+
+A flag whose value a service answers per call has no counterpart. Every process that uses `@evanion/feature` holds the rules and decides locally, and the library refuses to answer a variant over the network (see [What it does not do](../limits)). Move the rules into definitions and serve them as a document. A server that wants the browser to see its answer sends a `snapshot`.
+
+A flag whose value a transport pushes stays where it is. The library has no transport. Keep the one the application has and install what it delivers through `parseFeatureConfig` at boot and `features.reload` on each push. [How do I serve my configuration?](../distribution) covers the document and the version it carries.
+
+```ts twoslash file=libs/feature/docs/examples.md region=adopt-pushed
+
+```
+
+`parseFeatureConfig` returns `ok: false` with a list of issues for a document it refuses, and `reload` returns `ok: false` and keeps the document that was installed. Neither throws, so a malformed push does not take down a running process.
+
+## How to move your application in order
+
+Each step below leaves the application releasable, because no step changes an answer until the one that names it.
+
+### 1. Setting up definitions
+
+Build the definitions from the map the application already has. Nothing reads them yet, and the old map still decides every flag.
+
+```ts twoslash file=libs/feature/docs/examples.md region=adopt-definitions
+
+```
+
+`createFeatures` validates the definitions when it builds the store. It throws on a duplicate key or a `dependsOn` that names a key nobody defined, so a mistake in the translation fails in the first release and not in front of a customer.
+
+### 2. Updating read sites
+
+Replace each `flags['express-pickup']` with `features.isEnabled('express-pickup', context)`. This step changes no answer, since no definition has a rule yet. Where a component checked the parent too, delete the check and add `dependsOn` to the dependent definition.
+
+```ts twoslash file=libs/feature/docs/examples.md region=adopt-read-sites
+
+```
+
+A read site that needs the reason a flag is on or off calls `resolve` and reads the `reason` of the decision.
+
+### 3. Implementing rollouts
+
+Replace the old percentage with a rule that carries a `rollout`. The library buckets a customer with its own hash of the seed and the `targetingKey`, so the customers the old system placed in its 10% are not the customers placed in this one. Some customers who had the new checkout lose it and some who did not get it. If that matters, release the rollout where losing a feature costs the least.
+
+```ts twoslash file=libs/feature/docs/examples.md region=adopt-rollout
+
+```
+
+From here the bucket does not move. Raising the percentage adds customers and removes none, and a customer is in or out on every request, process and device. A context with no `targetingKey` never joins a rollout, so every read site on this flag has to pass the customer's id.
+
+### 4. Migrating variants
+
+Replace the split with `variants`. A split changes who sees what, so it goes last, after the rollout cohort is stable. The session already stores the arm each customer saw. Pass it as `stickyVariants` and the library keeps the customer on that arm while the weights are new.
+
+```ts twoslash file=libs/feature/docs/examples.md region=adopt-variants
+
+```
+
+A sticky entry wins over the weights. A rule that pins a variant wins over a sticky entry. An entry that names a variant the feature no longer declares is ignored. A variant needs an `order` when the definitions arrive as a JSON document, and giving each variant one from the start means a later reorder of the array moves nobody.
+
+When the stored arms have aged out of the session, stop passing `stickyVariants` and the weights decide.
