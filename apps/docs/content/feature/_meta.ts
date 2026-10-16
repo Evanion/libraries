@@ -28,7 +28,8 @@ import type { MetaRecord } from 'nextra';
  * detail unnecessary for readers who do not render statically.
  *
  * Platforms follows the setup sequence because a platform guide represents the
- * final step of setup. The React binding's own pages live in the section at
+ * final step of setup. `choosing-an-integration` heads the band and sends a
+ * reader to the platform page that matches where the decision is read. The React binding's own pages live in the section at
  * `/react-feature/`; `nextjs` here covers the server half of an App Router
  * application and the set it ships to the client.
  * `microservices` is the one page in the band that names no framework. It follows
@@ -77,6 +78,7 @@ export default {
   'build-time': 'Build-time planning',
 
   'group-platforms': { type: 'separator', title: 'Platforms' },
+  'choosing-an-integration': 'Choosing an integration',
   microservices: 'Many Processes',
   express: 'Express',
   nestjs: 'NestJS',
