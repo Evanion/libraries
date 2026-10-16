@@ -1773,10 +1773,11 @@ const wire = JSON.stringify({ ...document, digest: configDigest(document) });
 const storefront = parseFeatureConfig(JSON.parse(wire) as FeatureConfig);
 
 // The back office booted on yesterday's document and reloads today's.
-const backOffice = parseFeatureConfig({
+const yesterday: FeatureConfig = {
   version: '2026-10-07.4',
   features: [{ key: 'new-checkout', enabled: false }],
-});
+};
+const backOffice = parseFeatureConfig(yesterday);
 
 if (!storefront.ok || !backOffice.ok) throw new Error('document refused');
 
