@@ -40,6 +40,9 @@ import type { MetaRecord } from 'nextra';
  * two platform pages whose process sends decisions to a client tree. `nextjs`
  * sends them from a Server Component, and `react-router` sends them from a
  * loader and resolves the flag again in an action.
+ * `astro` follows them as the platform page whose pages ship no JavaScript: it
+ * reads a flag in the page and sends a decision to the browser only through an
+ * island, which the storefront does not have.
  *
  * The questions band uses the questions themselves as titles to match user
  * searches. `distribution` is the only page where configuration comes from an
@@ -79,6 +82,7 @@ export default {
   nestjs: 'NestJS',
   nextjs: 'Next.js (React Server Components)',
   'react-router': 'React Router 8',
+  astro: 'Astro SSR',
 
   'group-questions': { type: 'separator', title: 'Questions' },
   distribution: 'How do I serve my configuration?',
