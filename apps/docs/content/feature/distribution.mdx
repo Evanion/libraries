@@ -158,6 +158,8 @@ The `maxStale` member indicates how long the publisher believes a holder may kee
 
 The party performing the fetch is responsible for acting on this value. Your poller should track the fetch instant and decide whether to shorten the interval, log a warning, refuse to start, or serve a fallback document. This library maintains no clock authority.
 
+[Advanced](../advanced#the-freshness-budget) states the same rule beside the other settings a document leaves at their defaults.
+
 ## The Schema's Two Vocabularies
 
 A `@evanion/feature` document defines its typing contract in `schema`, using two different notations for two different purposes. The engine reads a context field, compares it with a closed operator set, and checks it against the declared type at validation; it reads no variant value at all.
@@ -183,6 +185,8 @@ The supported JSON Schema subset is restricted to `type`, `properties`, `require
 ```
 
 A document that carries neither `schema` nor `schemaVersion` declares no shapes and is considered legal.
+
+[Advanced](../advanced#schema-typing-and-its-two-vocabularies) covers `ContextSchema`, `FeatureSchema`, `ValueShape` and `schemaVersion`.
 
 ## Where the Adapter Lives, and What No Endpoint Answers
 

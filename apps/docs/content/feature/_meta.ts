@@ -58,7 +58,10 @@ import type { MetaRecord } from 'nextra';
  * the reader can weigh once they know that `resolve` decides every configured
  * feature.
  *
- * The `api` page closes the section as the place where a reader looks up a name
+ * The reference band opens with `advanced`, which covers what the pages before
+ * it leave at their defaults: the schema's two vocabularies, the rollout field
+ * and seed, the `maxStale` budget, and the variant seed and sticky entries. The
+ * `api` page closes the section as the place where a reader looks up a name
  * after the other content.
  *
  * Any page not listed here is appended to the end, so adding one is not
@@ -92,5 +95,6 @@ export default {
   observing: 'What did the engine just answer?',
 
   'group-reference': { type: 'separator', title: 'Reference' },
+  advanced: 'Advanced',
   api: 'API Reference',
 } satisfies MetaRecord;
