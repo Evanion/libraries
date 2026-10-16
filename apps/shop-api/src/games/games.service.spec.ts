@@ -10,6 +10,11 @@ import {
   type ShopSubject,
 } from '../acl/shop-subject.model.js';
 import type { SubjectService } from '../acl/subject.service.js';
+import { FeaturesService } from '../features/features.service.js';
+import {
+  buildShopFeatures,
+  SHOP_DEFINITIONS,
+} from '../features/shop.features.js';
 import { GamesService } from './games.service.js';
 
 /** A SubjectService answering with one subject for every call. */
@@ -17,13 +22,29 @@ const subjectsStub = (subject?: ShopSubject): SubjectService =>
   ({ current: () => subject }) as unknown as SubjectService;
 
 /**
- * A service deciding on the app's real matrix.
- *
- * The matrix is the one the app boots with, so a rule that stops saying what
- * this file claims fails here rather than in production.
+ * The shop's definitions with `new-checkout` switched off, which turns off
+ * `express-pickup` for everyone through its dependency.
  */
-const serviceFor = (subject?: ShopSubject) =>
-  new GamesService(subjectsStub(subject), buildShopAccess());
+const CHECKOUT_OFF = SHOP_DEFINITIONS.map((definition) =>
+  definition.key === 'new-checkout'
+    ? { ...definition, enabled: false }
+    : definition,
+);
+
+/**
+ * A service deciding on the app's real matrix and the app's real definitions.
+ *
+ * Both are the ones the app boots with, so a rule that stops saying what this
+ * file claims fails here rather than in production.
+ */
+const serviceFor = (subject?: ShopSubject, definitions = SHOP_DEFINITIONS) => {
+  const subjects = subjectsStub(subject);
+  const features = new FeaturesService(
+    buildShopFeatures(definitions),
+    subjects,
+  );
+  return new GamesService(subjects, buildShopAccess(), features);
+};
 
 const STOCKHOLM_OPERATOR: ShopSubject = {
   id: 'staff:ada',
@@ -68,6 +89,34 @@ describe('GamesService', () => {
     expect(() => service.findByUrn('urn:game:does-not-exist')).toThrow(
       NotFoundException,
     );
+  });
+
+  describe('the express pickup flag', () => {
+    // #region flag-on-the-row-spec
+    it('marks an in-stock row when the flag is on for the subject', () => {
+      const service = serviceFor(STOCKHOLM_OPERATOR);
+
+      const row = service.findByUrn(STOCKHOLM_TITLE);
+
+      expect(row.expressPickup).toBe(true);
+    });
+
+    it('leaves the member off the row when the flag is off', () => {
+      const service = serviceFor(STOCKHOLM_OPERATOR, CHECKOUT_OFF);
+
+      const row = service.findByUrn(STOCKHOLM_TITLE);
+
+      expect(row).not.toHaveProperty('expressPickup');
+    });
+    // #endregion flag-on-the-row-spec
+
+    it('decides every row of a listing for the same subject', () => {
+      const service = serviceFor(STOCKHOLM_OPERATOR);
+
+      const rows = service.findAll();
+
+      expect(rows.every((row) => 'expressPickup' in row)).toBe(true);
+    });
   });
 
   describe('declare', () => {

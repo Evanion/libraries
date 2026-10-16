@@ -1,4 +1,5 @@
 import { pickAllowedFields, type Access } from '@evanion/acl';
+import type { BoundFeatures } from '@evanion/feature';
 import {
   BadRequestException,
   ForbiddenException,
@@ -11,6 +12,8 @@ import { ACL_ACCESS } from '../acl/acl.constants.js';
 import type { ShopObjects } from '../acl/shop.policy.js';
 import type { ShopSubject } from '../acl/shop-subject.model.js';
 import { SubjectService } from '../acl/subject.service.js';
+import { FeaturesService } from '../features/features.service.js';
+import type { ShopFlags } from '../features/shop.features.js';
 import { GAMES_CATALOGUE } from './games.catalogue.js';
 import type { Availability, Game } from './game.model.js';
 
@@ -43,11 +46,13 @@ export class GamesService {
     private readonly subjects: SubjectService,
     @Inject(ACL_ACCESS)
     private readonly access: Access<ShopSubject, ShopObjects>,
+    private readonly features: FeaturesService,
   ) {}
 
   /** The whole catalogue. Copies, so a caller cannot edit the shared rows. */
   findAll(): Game[] {
-    return GAMES_CATALOGUE.map((game) => this.current(game));
+    const flags = this.features.current();
+    return GAMES_CATALOGUE.map((game) => this.current(game, flags));
   }
 
   /**
@@ -61,7 +66,7 @@ export class GamesService {
     if (!game) {
       throw new NotFoundException(`No game found for ${urn}`);
     }
-    return this.current(game);
+    return this.current(game, this.features.current());
   }
 
   /**
@@ -114,8 +119,20 @@ export class GamesService {
   }
   // #endregion row-decision
 
-  /** One catalogue row with the declarations made against it applied. */
-  private current(game: Game): Game {
-    return { ...game, ...this.declared.get(game.urn) };
+  /**
+   * One catalogue row with the declarations made against it applied.
+   *
+   * The row gains `expressPickup` when `express-pickup` resolves on for the
+   * request's subject, and carries no such member otherwise. `flags` is the
+   * handle the caller took once, so every row of a listing is decided at one
+   * instant.
+   */
+  // #region flag-on-the-row
+  private current(game: Game, flags: BoundFeatures<ShopFlags>): Game {
+    const row = { ...game, ...this.declared.get(game.urn) };
+    if (!flags.isEnabled('express-pickup')) return row;
+
+    return { ...row, expressPickup: row.availability === 'in-stock' };
   }
+  // #endregion flag-on-the-row
 }

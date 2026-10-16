@@ -8,6 +8,9 @@ import {
 } from '../acl/shop-subject.model.js';
 import { SubjectService } from '../acl/subject.service.js';
 import { GameURN } from '../domain/game.urn.js';
+import { SHOP_FEATURES } from '../features/feature.constants.js';
+import { FeaturesService } from '../features/features.service.js';
+import { buildShopFeatures } from '../features/shop.features.js';
 import { GamesController } from './games.controller.js';
 import { GamesService } from './games.service.js';
 
@@ -24,7 +27,9 @@ const controllerFor = async (subject: ShopSubject) => {
     controllers: [GamesController],
     providers: [
       GamesService,
+      FeaturesService,
       { provide: ACL_ACCESS, useValue: buildShopAccess() },
+      { provide: SHOP_FEATURES, useValue: buildShopFeatures() },
       { provide: SubjectService, useValue: { current: () => subject } },
     ],
   }).compile();
