@@ -190,6 +190,8 @@ A document that carries neither `schema` nor `schemaVersion` declares no shapes 
 
 Adapters for databases, HTTP endpoints, or disk caches belong in the sibling package `@evanion/feature-source`, which is not written yet. Issue [#423](https://github.com/Evanion/libraries/issues/423) owns the adapter interface, a push source, and what a binding does with the advisory `maxStale`. Until then, the poller is your responsibility: fetch the document, call `parseFeatureConfig` at boot, and use `features.reload` on each poll.
 
+[Many Processes](../microservices) follows one document from the process that writes it to the processes that install it, and shows all three resolving the same shopper to the same variant.
+
 The `@evanion/feature` library does not provide a centralized endpoint to determine which variant a subject receives. Instead, every process holds the rules and computes its own answer from the installed document. Because two processes with the same digest hold the same rules, they reach their answers without communication; no decision-bubbling path is provided or planned.
 
 Agreement on a rollout assignment carries one condition the digest does not cover. `serializeConfig` writes `rollout.by` as the store holds it, so a rule declaring none carries no rollout field in the document, and `rolloutField` falls back to `DEFAULT_ROLLOUT_FIELD`, which is `targetingKey` in this release. Two holders on releases that name different defaults bucket such a rule on different context fields while `configDigest` reports one version on both sides.

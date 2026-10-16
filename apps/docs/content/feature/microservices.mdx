@@ -1,0 +1,86 @@
+# Many Processes
+
+<WorkshopNotice slug="feature" />
+
+To ensure a consistent user experience across a distributed system, every process must agree on which feature variant a user sees. In a game shop architecture, this is achieved by separating the authoring of configuration from its consumption across three processes: `shop-api`, the storefront, and the back office.
+
+One process (`shop-api`) writes the configuration document using `serializeConfig`, while the others install it via `parseFeatureConfig` and `features.reload`. Because they all resolve the same shopper to the same variant, the user experience remains seamless regardless of which process handles the request.
+
+<PageSheet
+  difficulty={4}
+  read={10}
+  hands={15}
+  requires={[
+    ['Distribution', '../distribution'],
+    ['Variants', '../variants'],
+  ]}
+  unlocks={[['API reference', '../api']]}
+/>
+
+## How shop-api Writes the Document
+
+To publish feature flags, `@evanion/feature` allows a central process like `shop-api` to author definitions and serialize them for others. `shop-api` holds the authored definitions, such as `new-checkout` and `checkout-cta` with its two variants. It builds a store from them with `createFeatures`, and writes the store out with `serializeConfig`. The `version` option names the document, and `maxStale` records how long `shop-api` thinks a holder may keep it.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-document
+
+```
+
+To ensure the document is not corrupted during transit, `shop-api` stamps it with a digest. Because `serializeConfig` leaves `digest` unset, `shop-api` calls `configDigest` on the document and writes the result into the `digest` member. This digest consists of 32 hex characters computed over the document's text. It excludes `version` and `digest` so that relabelling a document does not change its identity, and a publisher can compute the digest before writing it into the document. Every other member, including `maxStale`, is included in the digest.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-digest
+
+```
+
+## How the Storefront and the Back Office Parse It
+
+Once the configuration document reaches the storefront or back office as JSON, these processes must install it to begin resolving variants. A process hands the parsed value to `parseFeatureConfig`, which checks every member and reports every defect it finds, returning a store only when the document is valid. Both consumers call it the same way because neither holds any definition of its own.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-install
+
+```
+
+The resulting store retains the document's `version` and the rest of its envelope. A process that needs to log which document it is currently serving can use `features.version` to get the version the store was built from, and `features.envelope` to retrieve the `schemaVersion` and `maxStale`.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-envelope
+
+```
+
+## How a Running Process Reloads
+
+Because processes are long-lived, they must be able to update their configuration without restarting. If the back office started on yesterday's document and is still running, it calls `features.reload` when `shop-api` serves a new one.
+
+A reload validates the document using the same logic as `parseFeatureConfig` and installs it only upon success. The result names the new `version`, the `previousVersion`, and the keys in `changed`. If a document fails validation, the previous configuration continues to decide variants.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-reload
+
+```
+
+## Why the Three Processes Agree
+
+Consistency is achieved because each process holds the same rules and computes its own answer independently. No process asks another which variant a shopper gets. Because the bucket depends only on the shopper's `targetingKey` and the feature's seed, the same document gives the same answer in every process.
+
+The digest is the mechanism used to verify that documents match across the network. Since it survives a JSON hop, two processes that fetch the document separately can compute a digest to confirm they hold the same configuration.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-digest-hop
+
+```
+
+If a holder finds a `digest` on a document, it recomputes it. If the two values disagree, the document is refused with `digest-mismatch`.
+
+```ts twoslash file=libs/feature/docs/examples.md region=config-digest-verified
+
+```
+
+## All Three in One Fence
+
+The fence below demonstrates the complete lifecycle: `shop-api` serializes and stamps the digest, the storefront boots from the resulting JSON, and the back office boots from a previous document before reloading this new one. Finally, the fence asserts that all three processes resolve the same `targetingKey` to the same variant.
+
+```ts twoslash file=libs/feature/docs/examples.md region=many-processes
+
+```
+
+## What You Supply
+
+`@evanion/feature` evaluates the document it is handed but does not handle the transport. You must supply the source that carries the bytes from `shop-api` to the other processes, such as an HTTP endpoint, a file, or a queue. The library's responsibility ends at `parseFeatureConfig` and `features.reload`. Issue [#423](https://github.com/Evanion/libraries/issues/423) draws the line for the adapter package, and the Limits page of this section lists what the library does not do.
+
+[Distribution](../distribution) carries the reference for the document's members, the schema, and `maxStale`.
