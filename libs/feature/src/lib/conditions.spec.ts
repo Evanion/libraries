@@ -176,24 +176,59 @@ describe('evaluateCondition', () => {
       ).toBe(false);
     });
 
-    it('does not hold when the context carries now as the string JSON left behind', () => {
+    it('answers for a context that crossed JSON what it answers for the one it came from', () => {
       // `JSON.stringify` writes a `Date` as its ISO 8601 string and
-      // `JSON.parse` gives the string back, so a context that crossed a
-      // process boundary carries `now` as text. The window reads `now` as a
-      // `Date` and nothing else, so every clock rule in a configuration
-      // answers false for that context and `resolve` reports
-      // `no-rule-matched` rather than a field it could not read.
+      // `JSON.parse` gives the string back, so a context that crossed an RSC
+      // payload, an island's props, a response body or a cookie carries `now`
+      // as text. `contextEpoch` reads the three forms an `Instant` takes, so
+      // the window resolves off the string the way it resolves off the `Date`
+      // the string was written from.
       const condition: Condition = {
         field: 'now',
         op: 'after',
         value: '2026-01-01T00:00:00Z',
       };
-      const wire = JSON.parse(
-        JSON.stringify({ now: new Date('2026-06-01T00:00:00Z') }),
-      ) as EvaluationContext;
+      const held = at('2026-06-01T00:00:00Z');
+      const wire = JSON.parse(JSON.stringify(held)) as EvaluationContext;
 
       expect(wire.now).toBe('2026-06-01T00:00:00.000Z');
-      expect(evaluateCondition(condition, wire)).toBe(false);
+      expect(evaluateCondition(condition, wire)).toBe(
+        evaluateCondition(condition, held),
+      );
+      expect(evaluateCondition(condition, wire)).toBe(true);
+    });
+
+    it('reads an instant stated as epoch milliseconds', () => {
+      const condition: Condition = {
+        field: 'now',
+        op: 'after',
+        value: '2026-01-01T00:00:00Z',
+      };
+
+      expect(
+        evaluateCondition(condition, {
+          now: Date.parse('2026-06-01T00:00:00Z'),
+        }),
+      ).toBe(true);
+    });
+
+    it('does not hold for a now naming no instant, in any form', () => {
+      const condition: Condition = {
+        field: 'now',
+        op: 'after',
+        value: '2026-01-01T00:00:00Z',
+      };
+      const unusable: Instant[] = [
+        'the first of June',
+        '2026-06-01T00:00:00',
+        Number.NaN,
+        8_640_000_000_000_001,
+        new Date('nonsense'),
+      ];
+
+      for (const now of unusable) {
+        expect(evaluateCondition(condition, { now })).toBe(false);
+      }
     });
   });
 
@@ -202,6 +237,37 @@ describe('evaluateCondition', () => {
     // UTC day-of-week is wrong for every business rule anyone writes, which is
     // why the zone is required rather than defaulted.
     const instant = at('2026-10-01T03:00:00Z');
+
+    it('reads the weekday off a context that crossed JSON', () => {
+      const condition: Condition = {
+        field: 'now',
+        op: 'day-of-week',
+        zone: 'America/New_York',
+        value: ['wed'],
+      };
+      const wire = JSON.parse(JSON.stringify(instant)) as EvaluationContext;
+
+      expect(evaluateCondition(condition, wire)).toBe(
+        evaluateCondition(condition, instant),
+      );
+      expect(evaluateCondition(condition, wire)).toBe(true);
+    });
+
+    it('does not hold for an epoch number outside the range a Date holds', () => {
+      // `Intl.DateTimeFormat.format` raises `RangeError` for an invalid
+      // `Date`, so the guard refuses the number before the weekday is read
+      // and the condition answers the way every unevaluable one does.
+      const condition: Condition = {
+        field: 'now',
+        op: 'day-of-week',
+        zone: 'America/New_York',
+        value: ['wed'],
+      };
+
+      expect(evaluateCondition(condition, { now: 8_640_000_000_000_001 })).toBe(
+        false,
+      );
+    });
 
     it('reads the weekday in the zone the condition names', () => {
       const condition = (zone: string): Condition => ({

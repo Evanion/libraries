@@ -202,8 +202,10 @@ describe('AttributeCondition', () => {
 });
 
 describe('EvaluationContext', () => {
-  it('types the clock field as a Date and nothing else', () => {
-    expectTypeOf<EvaluationContext['now']>().toEqualTypeOf<Date | undefined>();
+  it('types the clock field as an instant', () => {
+    expectTypeOf<EvaluationContext['now']>().toEqualTypeOf<
+      Instant | undefined
+    >();
   });
 
   it('types the default bucketing field as a string', () => {
@@ -222,10 +224,10 @@ describe('EvaluationContext', () => {
     expectTypeOf<EvaluationContext['tier']>().toEqualTypeOf<unknown>();
   });
 
-  it('refuses the clock field written as the string a wire format carries', () => {
-    // @ts-expect-error `now` is a `Date`. `JSON.parse` of a serialized context
-    // hands back the ISO 8601 string, and `conditions.spec.ts` holds what
-    // every window and day-of-week condition then answers.
+  it('takes the clock field written as the string a wire format carries', () => {
+    // `JSON.parse` of a serialized context hands back the ISO 8601 string, and
+    // `conditions.spec.ts` holds what every window and day-of-week condition
+    // then answers.
     const context: EvaluationContext = { now: '2026-06-01T00:00:00Z' };
 
     expectTypeOf(context).toEqualTypeOf<EvaluationContext>();

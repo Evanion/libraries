@@ -2,7 +2,7 @@ import { validateConditions } from './conditions.js';
 import { boundFeatures } from './bound.js';
 import type { BoundFeatures } from './bound.js';
 import { configCopier } from './document-copy.js';
-import { instantEpoch } from './instant.js';
+import { contextEpoch, instantEpoch } from './instant.js';
 import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
 import { bucketingStated } from './variants.js';
@@ -139,12 +139,12 @@ export interface Features<
    * cannot recover either member from them. A set states both, so a server
    * states the instant once and no application passes `now` by hand.
    *
-   * `DecisionSet.now` is an ISO 8601 string and an invalid `Date` describes no
-   * instant, so a `context.now` holding one raises a `FeatureConfigError`
-   * naming the field. `serializeConfig` refuses a `Date` a document cannot
+   * `DecisionSet.now` is an ISO 8601 string and a value naming no instant has
+   * none to state, so a `context.now` holding one raises a
+   * `FeatureConfigError` naming the field. `serializeConfig` refuses a `Date` a document cannot
    * carry for the same reason (`serialize.ts:185-187`): a producer of wire
    * output states a value the format admits or it states nothing. `resolve`,
-   * `plan` and `toggle` state no instant, so they carry that `Date` into the
+   * `plan` and `toggle` state no instant, so they carry that value into the
    * decision and stay total.
    */
   snapshot(
@@ -991,7 +991,10 @@ export function createFeatures(
 
   const withNow = (context: EvaluationContext = {}): SettledContext => ({
     ...context,
-    now: context.now ?? new Date(),
+    now:
+      context.now === undefined
+        ? new Date()
+        : new Date(contextEpoch(context.now)),
   });
 
   /**
@@ -1111,7 +1114,7 @@ export function createFeatures(
     // a refused call reports no event and resolves nothing.
     if (Number.isNaN(evaluationContext.now.getTime())) {
       throw new FeatureConfigError(
-        'the Date at context/now names no instant, and a decision set states its instant as an ISO 8601 string',
+        'the value at context/now names no instant, and a decision set states its instant as an ISO 8601 string',
       );
     }
     // Read before the emit below, which calls an observer synchronously. A

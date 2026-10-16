@@ -602,7 +602,7 @@ In the client, where the subject is known, `resolvePlan` takes that plan plus a 
 - **Partially Settled:** A deferred entry whose enablement is settled keeps that enablement and gets its variant assigned.
 - **Unsettled:** A deferred entry carrying no decision goes through the rules against the client context.
 
-Because plans are generated at different stages, `resolvePlan` handles the passage of time differently to ensure consistency across the UI. If a plan was built by a server render, it states an instant seconds old. To prevent a window boundary from moving half the tree between the two calls, the caller passes that instant as `resolvePlan(features, plan, context, { now: new Date(set.now) })`. If a plan was built at build time, the stated instant may be days old. In this case, the caller passes no instant, and `resolvePlan` reads the client's own clock.
+Because plans are generated at different stages, `resolvePlan` handles the passage of time differently to ensure consistency across the UI. If a plan was built by a server render, it states an instant seconds old. To prevent a window boundary from moving half the tree between the two calls, the caller passes that instant as `resolvePlan(features, plan, context, { now: set.now })`. If a plan was built at build time, the stated instant may be days old. In this case, the caller passes no instant, and `resolvePlan` reads the client's own clock.
 
 <!-- #region resolve-plan -->
 

@@ -52,7 +52,7 @@ describe('for', () => {
     const now = new Date('2026-10-15T12:00:00.000Z');
     const handle = shop().for({ now });
 
-    expect(handle.context.now).toBe(now);
+    expect(handle.context.now).toEqual(now);
     expect(handle.isEnabled('launch-sale')).toBe(false);
   });
 

@@ -61,10 +61,9 @@ describe('resolvePlan', () => {
     >();
   });
 
-  it('refuses a fixture instant that arrives as the string the file holds', () => {
+  it('takes a fixture instant that arrives as the string the file holds', () => {
     expectTypeOf(
       resolvePlan(createFeatures(config), fixturePlan, {
-        // @ts-expect-error -- `now` is a `Date`; a fixture states ISO 8601.
         now: '2026-06-01T12:05:00.000Z',
       }),
     ).not.toBeNever();

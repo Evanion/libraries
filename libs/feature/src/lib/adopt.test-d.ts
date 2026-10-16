@@ -125,11 +125,16 @@ describe('adoptDecisions', () => {
     adoptDecisions(features, undefined, { context: 'u-1' });
   });
 
-  it('refuses a context whose now is not a Date', () => {
+  it('takes a context whose now is the ISO string a set carries', () => {
     adoptDecisions(features, undefined, {
-      // @ts-expect-error -- `now` is a `Date`, and the ISO string a set
-      // carries is what `adoptDecisions` parses itself.
       context: { now: '2026-01-01T00:00:00Z' },
+    });
+  });
+
+  it('refuses a context whose now is not an instant', () => {
+    adoptDecisions(features, undefined, {
+      // @ts-expect-error -- `now` is a `Date`, a string or a number.
+      context: { now: true },
     });
   });
 
