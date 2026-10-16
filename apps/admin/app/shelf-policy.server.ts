@@ -31,3 +31,24 @@ export function setShelfPolicy(urn: string, state: Availability): void {
 export function clearShelfPolicy(urn: string): void {
   policy.delete(urn);
 }
+
+/**
+ * The titles a shop offers for express pickup, held in process memory for the
+ * reason `policy` above is.
+ *
+ * Whether a shop may make the offer is the contract's question and whether the
+ * back office offers the control is the `express-pickup` flag's. This set only
+ * holds what an action wrote after both answered.
+ */
+const pickupOffers = new Set<string>();
+
+/** A snapshot, so a caller cannot write through the returned set. */
+export function readPickupOffers(): ReadonlySet<string> {
+  return new Set(pickupOffers);
+}
+
+/** Offers or withdraws express pickup for one title. */
+export function setPickupOffer(urn: string, offered: boolean): void {
+  if (offered) pickupOffers.add(urn);
+  else pickupOffers.delete(urn);
+}

@@ -22,6 +22,12 @@ import {
 } from '../app/shelf-policy.server.js';
 import { SUBJECT_HEADER, listGames } from '../app/shop-api.server.js';
 import type { Game } from '../app/shop-api.server.js';
+import {
+  FeatureProvider,
+  adoptFeatures,
+  featureContext,
+  noFeatures,
+} from '../app/features.js';
 import Shell from '../app/shell.js';
 import Title, { action } from '../app/routes/title.js';
 import { defineNavItems } from '../app/regions/nav.js';
@@ -331,6 +337,7 @@ describe('the contract itself', () => {
  */
 describe('the tree, which toggles what is shown', () => {
   function shellFor(subject: AdminSubject): string {
+    const { config, flags } = noFeatures(subject);
     return renderToStaticMarkup(
       <StaticRouter location="/">
         <Shell
@@ -344,6 +351,7 @@ describe('the tree, which toggles what is shown', () => {
               },
               matrix: SERVED_MATRIX,
               now: '2026-09-17T09:00:00.000Z',
+              features: { config, decisions: flags.snapshot() },
               navItems: defineNavItems([
                 { id: 'mark', type: 'wordmark', props: { shop: 'Baize' } },
                 {
@@ -404,35 +412,41 @@ describe('the tree, which toggles what is shown', () => {
             subject={subject}
             context={{ now: '2026-09-17T09:00:00.000Z' }}
           >
-            <SessionProvider
-              session={{
-                operator: 'Ines',
-                shop: 'Baize',
-                correlationId: 'admin-test',
-                subject,
-              }}
+            <FeatureProvider
+              features={adoptFeatures(noFeatures(subject).config)}
+              context={featureContext(subject)}
             >
-              <CartProvider>
-                <Title
-                  {...({
-                    loaderData: {
-                      row: {
-                        urn: row.urn,
-                        title: row.title,
-                        mechanisms: row.mechanisms,
-                        players: row.players,
-                        playtime: row.playtime,
-                        complexity: row.complexity,
-                        quantity: 3,
-                        availability: 'in stock',
-                        declared: false,
-                        shop: row.shop,
+              <SessionProvider
+                session={{
+                  operator: 'Ines',
+                  shop: 'Baize',
+                  correlationId: 'admin-test',
+                  subject,
+                }}
+              >
+                <CartProvider>
+                  <Title
+                    {...({
+                      loaderData: {
+                        row: {
+                          urn: row.urn,
+                          title: row.title,
+                          mechanisms: row.mechanisms,
+                          players: row.players,
+                          playtime: row.playtime,
+                          complexity: row.complexity,
+                          quantity: 3,
+                          availability: 'in stock',
+                          declared: false,
+                          shop: row.shop,
+                        },
+                        pickup: false,
                       },
-                    },
-                  } as Parameters<typeof Title>[0])}
-                />
-              </CartProvider>
-            </SessionProvider>
+                    } as Parameters<typeof Title>[0])}
+                  />
+                </CartProvider>
+              </SessionProvider>
+            </FeatureProvider>
           </PolicyProvider>
         ),
       },
