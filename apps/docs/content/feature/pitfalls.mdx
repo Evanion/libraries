@@ -39,7 +39,7 @@ A set that a server ships specifies the exact instant it was resolved. A client 
 
 Fields such as `reason`, `rule`, `rules`, `blockedBy`, `cause`, and `assignment` are intended as output only. They are provided to explain a decision, not to drive logic.
 
-The test `libs/feature/src/lib/reason-is-output-only.spec.ts` proves this by deleting every explanation field from each parent result before the next feature sees it, requiring the final decisions to remain identical. For example, a gate written as `reason !== 'explicitly-off'` is reading a string the engine adds only for explanation; the `enabled` boolean is the only correct gate. This invariant is defined under "Result" in `docs/specs/2026-09-11-feature-toggles.md`.
+The test `libs/feature/src/lib/reason-is-output-only.spec.ts` proves this for `reason`, `rule`, `rules`, `blockedBy` and `cause` by deleting every explanation field from each parent result before the next feature sees it, requiring the final decisions to remain identical. For example, a gate written as `reason !== 'explicitly-off'` is reading a string the engine adds only for explanation; the `enabled` boolean is the only correct gate. This invariant is defined under "Result" in `docs/specs/2026-09-11-feature-toggles.md`.
 
 ## A null at the bucketing field
 
