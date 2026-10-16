@@ -19,7 +19,7 @@ One process (`shop-api`) writes the configuration document using `serializeConfi
 
 ## How shop-api Writes the Document
 
-To publish feature flags, `@evanion/feature` allows a central process like `shop-api` to author definitions and serialize them for others. `shop-api` holds the authored definitions, such as `new-checkout` and `checkout-cta` with its two variants. It builds a store from them with `createFeatures`, and writes the store out with `serializeConfig`. The `version` option names the document, and `maxStale` records how long `shop-api` thinks a holder may keep it.
+To publish feature flags, `@evanion/feature` allows a central process like `shop-api` to author definitions and serialize them for others. `shop-api` holds the authored definitions, such as `new-checkout` and `express-pickup`, which depends on it. It builds a store from them with `createFeatures`, and writes the store out with `serializeConfig`. The `version` option names the document, and `maxStale` records how long `shop-api` thinks a holder may keep it.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=config-document
 
