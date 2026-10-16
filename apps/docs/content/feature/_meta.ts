@@ -36,8 +36,10 @@ import type { MetaRecord } from 'nextra';
  * `nestjs` follows it because the application it wires is the process that
  * writes that document. `express` sits between them: it wires one handle to
  * `res.locals` and reads it in a handler, which is the smaller of the two
- * application pages. `nextjs` closes the band: it is the one platform page whose
- * process sends decisions to a client tree.
+ * application pages. `nextjs` and `react-router` close the band: they are the
+ * two platform pages whose process sends decisions to a client tree. `nextjs`
+ * sends them from a Server Component, and `react-router` sends them from a
+ * loader and resolves the flag again in an action.
  *
  * The questions band uses the questions themselves as titles to match user
  * searches. `distribution` is the only page where configuration comes from an
@@ -76,6 +78,7 @@ export default {
   express: 'Express',
   nestjs: 'NestJS',
   nextjs: 'Next.js (React Server Components)',
+  'react-router': 'React Router 8',
 
   'group-questions': { type: 'separator', title: 'Questions' },
   distribution: 'How do I serve my configuration?',
