@@ -26,10 +26,13 @@ The new checkout is deferred because its rollout reads `targetingKey`, which a b
 
 ### Understanding the Plan Entry
 
-A feature is categorized into one of two states:
+`plan()` returns one of three kinds of entry for each feature, depending on whether the build context can settle the outcome.
 
-1. **Resolved (`resolved: true | false`)**: The decision is settled, because the fields the build has decide it: the feature is off, a parent is settled off, a rule matched with no rule above it waiting on a missing field, or the build refutes every rule. The `decision` object carries the final result.
-2. **Deferred (`resolved: 'deferred'`)**: The decision depends on context not yet available (e.g., the customer's `role` or `targetingKey`). The `needs` array lists, sorted, exactly which fields the request must provide to resolve this feature.
+1. **A Fully Resolved Entry**: When the build has enough information to make a final call, such as when a feature is off, a parent is settled off, a rule matched with no rule above it waiting on a missing field, or the build refutes every rule, it returns `resolved: true | false` with a `decision`.
+2. **A Deferred Entry without a Decision**: When nothing about the feature is settled, the entry is marked `resolved: 'deferred'` with no `decision`. In this case, the `needs` array lists, sorted, exactly which fields the request must provide to resolve it.
+3. **A Deferred Entry with a Decision**: When the build settles enablement but leaves the variant open, it returns `resolved: 'deferred'` with a `decision`. This `decision` carries `enabled` and `reason` but has no `variant`, while `needs` names `targetingKey`.
+
+`resolvePlan` processes these three states differently. It returns a settled entry's `decision` as it is and re-runs nothing. For a deferred entry with no `decision`, it decides the outcome against the client's context. For a deferred entry that already has a `decision`, it keeps the build's `enabled` and `reason` and computes only the variant assignment; this prevents a richer client context from flipping an enablement the build already settled.
 
 ### How Rules are Settled
 
@@ -56,15 +59,27 @@ A planned breakdown names a failed condition only where every request would name
 
 ```
 
+## What a Prerendered Page May Bake In
+
+A decision the build settled is one the build's own context decided. A decision that reads the subject is deferred and belongs to the request.
+
+Because `assignVariant` reads the subject, a build may bake in an enablement whose rules read no context, but it may not bake in a variant assignment. The variant example above shows both: the feature is enabled for everyone and the entry is still `'deferred'`, because the split needs `targetingKey`. Once a `targetingKey` is present the same call settles a variant. The split example below shows what a prerendered page ships from this: the settled enablements go into the HTML, and the deferred keys wait for the request.
+
+Rules that read `now` follow in the next section.
+
 ## Handling Time Windows
 
 Time is a special case in `@evanion/feature`. By default, `plan()` withholds `now` from a feature's rules, because whether a date window may be frozen into a build depends on how often you deploy. A window stays deferred even when the build's own clock is past it.
 
 However, you can opt in to freezing a time window at build time using the `freezeTimeAtBuild` property in your configuration. This is useful for sites that rebuild on a strict schedule (e.g., hourly) and can afford a small delay in feature activation. A frozen window disagrees with the request from the moment its boundary passes until the next build.
 
+The example below shows `demo-night-booking` with the flag set and `gift-cards` without it, despite both using the same rule.
+
 ```ts twoslash file=libs/feature/docs/examples.md region=freeze-time
 
 ```
+
+When a set is written into a bundle, it records an instant that may be days old. If a client calls `resolvePlan` on a plan from such a build, `resolvePlan` reads the client's own clock for the deferred remainder; this ensures `gift-cards` opens at the client's December 1st rather than at the instant the bundle was built. Entries that the build settled retain the build's instant. If an explicit `now` is provided in the context, it wins over both the build instant and the client clock.
 
 ## Implementing the Plan in your App
 
