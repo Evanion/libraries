@@ -1,3 +1,4 @@
+import { createFeatures } from '@evanion/feature';
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -67,15 +68,37 @@ function shopApiStub() {
   return calls;
 }
 
+/** The flags a store holds, bound to the subject the way the middleware binds them. */
+function flagsFor(subject: StorefrontSubject, expressPickup = false) {
+  return createFeatures([
+    { key: 'express-pickup', enabled: expressPickup },
+  ]).for({ targetingKey: subject.id });
+}
+
 /** The locals the middleware would have put on this request. */
-async function localsFor(subject: StorefrontSubject) {
+async function localsFor(subject: StorefrontSubject, expressPickup = false) {
   const api = new ShopApi('page-view-1', 'http://api.test/api', subject);
   return {
     api,
     cart: [{ urn: 'urn:game:azul', quantity: 1 }],
     subject,
     access: await policyAccess(api),
+    features: flagsFor(subject, expressPickup),
   };
+}
+
+/** The page's HTML for one GET of the cart. */
+async function viewCart(
+  subject: StorefrontSubject,
+  expressPickup: boolean,
+): Promise<string> {
+  const container = await AstroContainer.create();
+
+  return container.renderToString(Cart, {
+    routeType: 'page',
+    request: new Request('http://storefront.test/cart'),
+    locals: await localsFor(subject, expressPickup),
+  });
 }
 
 /** The page's response to one checkout POST. */
@@ -152,4 +175,18 @@ describe('POST /cart', () => {
     expect(response.status).toBe(403);
     expect(calls.some((call) => call.method === 'POST')).toBe(false);
   });
+});
+
+describe('GET /cart', () => {
+  // #region flag-gate-test
+  it('offers express pickup only while the flag is on', async () => {
+    shopApiStub();
+
+    const on = await viewCart(CUSTOMER_SUBJECT, true);
+    const off = await viewCart(CUSTOMER_SUBJECT, false);
+
+    expect(on).toContain('data-flag="express-pickup"');
+    expect(off).not.toContain('data-flag="express-pickup"');
+  });
+  // #endregion flag-gate-test
 });

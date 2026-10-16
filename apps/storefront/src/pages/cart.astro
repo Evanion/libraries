@@ -14,7 +14,7 @@ import { formatPrice } from '../lib/catalogue.js';
 import { decide, refusalText } from '../lib/policy.js';
 import type { Order } from '../lib/shop-api.js';
 
-const { access, api, subject } = Astro.locals;
+const { access, api, features, subject } = Astro.locals;
 
 let lines: CartLine[] = Astro.locals.cart;
 let order: Order | undefined;
@@ -270,6 +270,19 @@ const orderUrnValid = order ? OrderURN.isValidFormat(order.urn) : false;
             </div>
 
             <div class="cart__actions">
+              {/* #region flag-gate */}
+              {
+                features.isEnabled('express-pickup') && (
+                  <p
+                    class="baize-text baize-text--tone-moss baize-text--size-sm"
+                    data-flag="express-pickup"
+                  >
+                    Express pickup is on: collect this order in store once it is
+                    placed.
+                  </p>
+                )
+              }
+              {/* #endregion flag-gate */}
               {/* #region checkout-gate */}
               <form method="post" action="/cart">
                 <input type="hidden" name="intent" value="checkout" />

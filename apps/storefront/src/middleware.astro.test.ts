@@ -1,7 +1,9 @@
 import type { APIContext, MiddlewareNext } from 'astro';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { featuresResponse } from './lib/__fixtures__/shop-features.js';
 import { policyResponse } from './lib/__fixtures__/shop-policy.js';
+import { resetFeatureCache } from './lib/features.js';
 import { mayPlaceOrder, resetPolicyCache } from './lib/policy.js';
 import { CORRELATION_HEADER, SHOP_SUBJECT_HEADER } from './lib/shop-api.js';
 import {
@@ -35,10 +37,18 @@ function contextWith(cookie: string | undefined): APIContext {
 
 const next: MiddlewareNext = () => Promise.resolve(new Response('ok'));
 
+/** Answers each document the middleware reads, by the path it asked for. */
+function documentFor(input: Parameters<typeof fetch>[0]): Response {
+  return String(input).endsWith('/features')
+    ? featuresResponse('shop-api@1', 100)
+    : policyResponse();
+}
+
 beforeEach(() => {
   resetPolicyCache();
-  vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
-    Promise.resolve(policyResponse()),
+  resetFeatureCache();
+  vi.spyOn(globalThis, 'fetch').mockImplementation((input) =>
+    Promise.resolve(documentFor(input)),
   );
 });
 
@@ -80,16 +90,36 @@ describe('the storefront middleware', () => {
     );
   });
 
-  it('fetches the policy once, whatever the second request is', async () => {
+  it('fetches each document once, whatever the second request is', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
 
     await onRequest(contextWith(undefined), next);
     await onRequest(contextWith(JSON.stringify(CUSTOMER_SUBJECT)), next);
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
       'http://localhost:3000/api/policy',
+      'http://localhost:3000/api/features',
+    ]);
+  });
+
+  it('binds the flags to the subject of the request', async () => {
+    const context = contextWith(JSON.stringify(CUSTOMER_SUBJECT));
+
+    await onRequest(context, next);
+
+    expect(context.locals.features.context.targetingKey).toBe(
+      CUSTOMER_SUBJECT.id,
     );
+    expect(context.locals.features.isEnabled('express-pickup')).toBe(true);
+  });
+
+  it('draws a page with every flag off when the shop-api has no document', async () => {
+    vi.mocked(globalThis.fetch).mockRejectedValue(new Error('refused'));
+    const context = contextWith(undefined);
+
+    await onRequest(context, next);
+
+    expect(context.locals.features.isEnabled('express-pickup')).toBe(false);
   });
 
   it('states the subject on every outbound call', async () => {
