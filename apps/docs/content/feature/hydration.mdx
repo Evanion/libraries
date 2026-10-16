@@ -1,0 +1,111 @@
+# How do two processes agree?
+
+<WorkshopNotice slug="feature" />
+
+When a storefront renders a page on the server and hydrates it in the browser, both sides must show the shopper the same checkout. To ensure this consistency, the server sends the decisions it made, and the client adopts them. The `@evanion/feature` package provides `Features.snapshot` to write those decisions as a `DecisionSet`, `adoptDecisions` to read one in a process that is not a React tree, and `resolvePlan` to finish a build-time plan once the subject is known.
+
+<PageSheet
+  difficulty={4}
+  read={10}
+  hands={15}
+  requires={[
+    ['Distribution', '../distribution'],
+    ['Variants', '../variants'],
+    ['Build-time planning', '../build-time'],
+  ]}
+  unlocks={[['API reference', '../api']]}
+/>
+
+## What a Client Receives
+
+To synchronize a shopper's experience, the server provides a `DecisionSet` which represents one subject's answers for one instant, including the configuration that produced them. This set consists of four members:
+
+- `version`: the config version that produced the decisions. It is absent for a store built from a literal, which has no version to state.
+- `now`: the instant the decisions were resolved at, as an ISO 8601 string. It is required, because the consumer cannot recover it.
+- `origin`: `'render'` or `'build'`.
+- `decisions`: one decision per configured feature.
+
+A set never crosses a service boundary; the process that produced it and the process that consumes it are two halves of one page load. The configuration document is what crosses boundaries, a process covered on the Distribution page.
+
+To generate this set, `Features.snapshot` takes the context and returns the set. It reads its own clock when the context names no instant, and it defaults `origin` to `'render'`. A build pipeline that writes a set into a bundle passes `origin: 'build'`.
+
+```ts twoslash file=libs/feature/docs/examples.md region=snapshot
+
+```
+
+## Which Process Calls What
+
+Depending on the environment, the `@evanion/feature` package uses different entry points to handle adoption. `adoptDecisions` is what a non-React process calls. `FeatureProvider` is what a React tree calls, and it does the same work on the same rules. The provider, the hooks and the rest of the React surface are in the [`@evanion/react-feature` API reference](/react-feature/api). Everything else on this page applies to both.
+
+## How a Client Compares Versions
+
+When adopting decisions, the client must determine if its local configuration matches the server's. `adoptDecisions` compares `shipped.version` with `features.version` using `!==` without ordering them. This allows a digest or any composite string to work as a version, as they carry no inherent order. A publisher with no version scheme sets `version` to the digest from `configDigest`, which strips `version` and `digest` before it canonicalises, ensuring the comparison reads two digests.
+
+The comparison results in one of four outcomes:
+
+| Shipped   | Store               | Outcome                            |
+| :-------- | :------------------ | :--------------------------------- |
+| a version | the same version    | agreed, no report                  |
+| a version | a different version | `kind: 'config-version'`, reported |
+| a version | none                | `kind: 'unversioned'`, reported    |
+| none      | any                 | `kind: 'unversioned'`, reported    |
+
+Every outcome returns the shipped decisions. If the caller passes no set at all, `adoptDecisions` returns `features.resolve(context)`.
+
+```ts twoslash file=libs/feature/docs/examples.md region=adopt-decisions
+
+```
+
+## Why a Mismatch Publishes the Shipped Decisions
+
+In the event of a version mismatch, the client prioritizes the shipped decisions to maintain consistency with the server. Because the server already rendered the HTML from the shipped decisions and recorded an exposure for the variant it shipped, a client that resolves again would produce a third answer—one the server never rendered and no exposure record names. This would cause experiment results to deviate by an unmeasurable amount.
+
+Furthermore, the client cannot determine which side is stale; a version mismatch only indicates that the documents differ.
+
+The trade-off is that a kill switch will not reach a page until the shopper loads it again. For applications that run no experiments and prioritize revocation latency, `onVersionMismatch: 're-resolve'` can be passed. With this option, a `config-version` mismatch makes `adoptDecisions` resolve against the local store and return that answer. An `unversioned` outcome never triggers this, as a store built from a literal would then discard the shipped set on every adoption.
+
+## The Two Sufficiency Checks
+
+To verify that the client can reproduce the server's logic, `adoptDecisions` performs sufficiency checks on every adoption. It reports a `missing-field` divergence for each decision it could not reproduce, while skipping decisions whose source is `'fallback'`, as the server could not bucket those either.
+
+- For a `'weighted'` or `'sticky'` assignment, the check runs `assignVariant` over this process's context. If the local assignment falls back, the report's `field` names the field this process needs to bucket with. This is the local store's bucketing field, which differs from the server's when the client store's `variantBy` names another field. It also names a field when the context carries a value `assignVariant` cannot bucket, such as `null`, an object or a boolean. A `'sticky'` assignment reads `context.stickyVariants` first, so a context that carries the sticky map needs no bucketing field.
+- For a `'pinned'` assignment, the check finds the rule that pinned it and names the first field that rule's conditions or rollout read, where the context carries nothing. It never names `now`, because every entry point fills it from the clock. The field at `assignment.by` decided nothing for a pin, so it is not named.
+
+If the store declares no such feature, or declares it with no variants, the report carries no `field`. In these cases, no context reproduces that assignment, and the fix is the document the store was built from.
+
+## The Four Kinds of Report
+
+When divergences are found, `onDivergence` receives a `DivergenceReport`. These reports are output only; the library does not read them back. To ensure stability, an observer that throws is swallowed so a failing observer cannot take down a render. Each report contains a `kind`, a one-sentence `message` naming the cause and fix, and the `shipped` and `local` sides where they apply.
+
+| Kind               | Raised when                                                                 | Carries                            |
+| :----------------- | :-------------------------------------------------------------------------- | :--------------------------------- |
+| `config-version`   | both sides state a version and the two differ                               | `shipped.version`, `local.version` |
+| `unversioned`      | the shipped set or the store states no version                              | the same two members               |
+| `missing-field`    | a sufficiency check fails                                                   | `key`, usually `field`             |
+| `decision-differs` | `compare: true` is passed and a local decision differs from the shipped one | `key`, `shipped`, `local`          |
+
+The `decision-differs` kind is the only one requiring a second resolution. This is enabled by passing `compare: true` alongside `onDivergence`. A second resolution emits a `resolve` event on a store built with `observe`. `@evanion/react-feature` passes the development read of that flag. A decision differs when `enabled`, `reason` or `variant` differ.
+
+Reports do not alter decisions; the shipped decisions still render even when a report indicates the process could not reproduce them.
+
+## What `origin` Decides About the Clock
+
+The `origin` field informs the consumer about the age of the `now` timestamp.
+
+A `'render'` set is produced during the request that generated the HTML, meaning its `now` is only seconds old. `adoptDecisions` uses this as the default `now` for all local resolutions to prevent a time-window boundary from shifting between the server's instant and the client's mount. A `now` value in the context takes precedence. If the set's `now` does not parse as a date, `adoptDecisions` reads the process clock.
+
+A `'build'` set is produced during a build and its `now` may be days old. In this case, `adoptDecisions` reads the process clock for local resolutions. However, entries a build settled keep the build's instant, which is what `freezeTimeAtBuild` opts a feature into.
+
+This approach bounds the unavoidable clock skew between machines, preventing the unbounded case where a client's `now` is simply whenever the bundle finished loading.
+
+## Finishing a Build-Time Plan
+
+Because a build has the configuration but no subject, it uses `features.plan` to settle every feature the configuration alone decides and defer the rest. Each deferred entry names the context fields it still needs. In the client, `resolvePlan` takes the plan and a context to provide one decision per configured feature.
+
+```ts twoslash file=libs/feature/docs/examples.md region=resolve-plan
+
+```
+
+A settled entry's decision passes through untouched. A deferred entry whose enablement is settled retains that enablement and receives its variant assignment. A deferred entry with no decision is processed through the rules against the client context.
+
+The caller decides the instant used by `resolvePlan`, as the plan or set already states one. When a server render built the plan, the caller passes that instant via `resolvePlan(features, plan, context, { now: set.now })`. When a build built the plan, the caller passes no instant, and `resolvePlan` reads the client's clock.
