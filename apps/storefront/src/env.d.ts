@@ -27,6 +27,7 @@ import type { StorefrontSubject } from './lib/subject.js';
  * type shared with the service: `BoundFeatures` with no type argument accepts
  * any string key, and a key the document does not carry resolves off.
  */
+// #region locals-members
 declare global {
   namespace App {
     interface Locals {
@@ -38,3 +39,4 @@ declare global {
     }
   }
 }
+// #endregion locals-members
