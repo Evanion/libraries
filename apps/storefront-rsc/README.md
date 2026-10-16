@@ -67,6 +67,17 @@ the reprice line on some rows and not on others.
 provider and hooks need `createContext`, which React's `react-server` build does
 not export, so a server component calls `access.can` directly.
 
+## Feature flags
+
+`app/features.ts` fetches `GET /features` once per page view and builds a
+`Features` store from it with `parseFeatureConfig`, keyed on the document's
+version. `app/layout.tsx` snapshots the flags for the page view's subject and
+hands the set to `app/feature-shell.tsx`, the one client module in this app,
+which mounts `FeatureProvider` over the page. The spotlight reads
+`express-pickup` on the server from the same handle.
+
+The widgets import nothing from the shell, so the claim above stands for them.
+
 ## What holds the claim up
 
 - `app/region.server.test.tsx` runs all three components under React's
@@ -79,6 +90,11 @@ not export, so a server component calls `access.can` directly.
   no telemetry widget and no telemetry request, that a manager gets both, that
   one `GET /policy` serves a render mounting all three, and that
   `@evanion/react-acl` throws on `createContext` when it is evaluated here.
+- `app/features.server.test.tsx` asserts that the flags resolve for the subject,
+  that one `GET /features` serves a page view, that a new version replaces the
+  store, and that the layout ships a set that survives `JSON.stringify`. The
+  last case of `region.server.test.tsx` holds the shell to being the only client
+  module, mounted by the layout alone.
 - `scripts/verify-packaging.mjs` asserts the published `@evanion/react-widget`
   carries no client directive and imports no client-only React API.
 - The page's HTML arrives with the data in it; the client bundle carries neither
