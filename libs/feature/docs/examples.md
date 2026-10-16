@@ -2142,3 +2142,122 @@ features.isEnabled('new-checkout'); // -> true
 ```
 
 <!-- #endregion reload-discards-toggle -->
+
+<!-- #region test-pinned-clock -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [
+      {
+        id: 'after-launch',
+        when: [{ field: 'now', op: 'after', value: '2026-10-01T00:00:00Z' }],
+      },
+    ],
+  },
+  { key: 'express-pickup', enabled: true, dependsOn: ['new-checkout'] },
+]);
+
+const beforeLaunch = new Date('2026-09-30T23:59:59Z');
+const afterLaunch = new Date('2026-10-01T00:00:01Z');
+
+// `context.now` pins the clock for one question.
+features.isEnabled('new-checkout', { now: beforeLaunch }); // -> false
+features.isEnabled('express-pickup', { now: afterLaunch }); // -> true
+features.resolve({ now: afterLaunch })['new-checkout']?.reason; // -> 'rule-match'
+
+// `for({ now })` settles the instant once, for every question on the handle.
+const shop = features.for({ targetingKey: 'cust-0001', now: beforeLaunch });
+
+shop.isEnabled('new-checkout'); // -> false
+shop.isEnabled('express-pickup'); // -> false
+shop.context.now?.toISOString(); // -> '2026-09-30T23:59:59.000Z'
+```
+
+<!-- #endregion test-pinned-clock -->
+
+<!-- #region test-rollout-boundary -->
+
+```ts @import.meta.vitest
+import { bucketOf, createFeatures, inRollout } from '@evanion/feature';
+
+// `cust-0101` hashes to bucket 0.0438..., which is 4.38...% of the range.
+bucketOf('cust-0101', 'new-checkout'); // -> 0.04385687271133065
+
+// A customer is in when the bucket times 100 is below `percent`, so the
+// percent either side of 4.38... decides the answer.
+inRollout('cust-0101', 4.3, 'new-checkout'); // -> false
+inRollout('cust-0101', 4.4, 'new-checkout'); // -> true
+
+const features = createFeatures([
+  {
+    key: 'new-checkout',
+    enabled: true,
+    rules: [{ id: 'early-access', rollout: { percent: 4.4 } }],
+  },
+]);
+
+features.isEnabled('new-checkout', { targetingKey: 'cust-0101' }); // -> true
+features.isEnabled('new-checkout', { targetingKey: 'cust-0007' }); // -> false
+```
+
+<!-- #endregion test-rollout-boundary -->
+
+<!-- #region test-variant-assignment -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'checkout-cta',
+    enabled: true,
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50, value: { label: 'Get it' } },
+    ],
+  },
+]);
+
+// The same key lands in the same variant on every call, in every process.
+features.variantOf('checkout-cta', { targetingKey: 'cust-0001' }); // -> 'blue'
+features.variantOf('checkout-cta', { targetingKey: 'cust-0001' }); // -> 'blue'
+features.variantOf('checkout-cta', { targetingKey: 'cust-0002' }); // -> 'control'
+
+// The decision names the bucket the assignment came from.
+features.resolve({ targetingKey: 'cust-0001' })['checkout-cta']?.assignment; // -> { source: 'weighted', by: 'targetingKey', bucket: 0.6045857421122491 }
+```
+
+<!-- #endregion test-variant-assignment -->
+
+<!-- #region test-agreement -->
+
+```ts @import.meta.vitest
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { createFeatures } from '@evanion/feature';
+
+// The package publishes its fixtures in `conformance/`, beside `dist/`.
+const root = join(
+  dirname(createRequire(import.meta.url).resolve('@evanion/feature')),
+  '..',
+);
+const fixture = JSON.parse(
+  readFileSync(join(root, 'conformance', 'config-decisions.json'), 'utf8'),
+);
+
+const { now, ...context } = fixture.context;
+const features = createFeatures(fixture.config);
+const decisions = features.resolve({ ...context, now: new Date(now) });
+
+// Decisions are plain data, so a round trip through JSON gives what a port
+// would write out.
+JSON.parse(JSON.stringify(decisions)); // -> fixture.decisions
+```
+
+<!-- #endregion test-agreement -->
