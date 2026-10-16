@@ -2,6 +2,8 @@ import { createContext } from 'react-router';
 import type { Access } from '@evanion/acl';
 import { NO_ACCESS } from './access.js';
 import type { AdminObjects, AdminSubject } from './access.js';
+import { noFeatures } from './features.js';
+import type { PageFeatures } from './features.js';
 import type { ShelfRow } from './shelf.js';
 
 /**
@@ -53,6 +55,25 @@ export const subjectContext = createContext<AdminSubject>({
 export type ReadAccess = () => Promise<Access<AdminSubject, AdminObjects>>;
 
 export const accessContext = createContext<ReadAccess>(async () => NO_ACCESS);
+
+/**
+ * Reads shop-api's feature document once per request, however many callers ask.
+ *
+ * A function and not the handle, for the reason {@link ReadAccess} states: the
+ * middleware installs an empty memo cell, and the first loader or action to
+ * need a flag fills it. The shell loader, the page loader and an action share
+ * one fetch and one clock instant between them.
+ *
+ * A router context and not a module variable, because one process serves every
+ * request concurrently and each request resolves for its own subject.
+ */
+export type ReadFeatures = () => Promise<PageFeatures>;
+
+// #region features-context
+export const featuresContext = createContext<ReadFeatures>(async () =>
+  noFeatures({ id: 'anonymous', roles: [], shop: '' }),
+);
+// #endregion features-context
 
 /** The catalogue joined to stock, or the reason it could not be read. */
 export interface ShelfSnapshot {

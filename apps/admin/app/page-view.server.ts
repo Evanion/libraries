@@ -2,13 +2,16 @@ import type { MiddlewareFunction } from 'react-router';
 import { buildShelf } from './shelf.js';
 import { readShelfPolicy } from './shelf-policy.server.js';
 import { demoSubject, readAccess } from './access.server.js';
+import { readFeatures } from './features.server.js';
 import type { AdminSubject } from './access.js';
 import {
   accessContext,
   correlationContext,
+  featuresContext,
   shelfContext,
   subjectContext,
 } from './page-context.js';
+import type { PageFeatures } from './features.js';
 import type { ShelfSnapshot } from './page-context.js';
 import {
   ShopApiUnavailable,
@@ -54,6 +57,33 @@ export const loadPageView: MiddlewareFunction<Response> = async ({
   );
 };
 // #endregion bind-subject
+
+/**
+ * Gives the request a way to read the feature flags once.
+ *
+ * Declared as the shell route's second `middleware`, so it runs after
+ * `loadPageView` has bound the correlation id and the subject it reads. It
+ * fetches nothing itself, for the reason `accessContext` gives: the first
+ * loader or action to ask fills the cell, and every later one awaits the same
+ * promise.
+ *
+ * It binds the handle and it decides nothing. A flag decision belongs to the
+ * loader or the action that acts on it.
+ */
+// #region bind-features
+export const loadFeatures: MiddlewareFunction<Response> = async ({
+  context,
+}) => {
+  const correlationId = context.get(correlationContext);
+  const subject = context.get(subjectContext);
+
+  let pending: Promise<PageFeatures> | undefined;
+  context.set(
+    featuresContext,
+    () => (pending ??= readFeatures(correlationId, subject)),
+  );
+};
+// #endregion bind-features
 
 /**
  * The catalogue joined to stock and to the shop's own availability declarations.

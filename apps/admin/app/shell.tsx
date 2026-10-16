@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { Outlet, href } from 'react-router';
 import { ComposeProvider, provider } from '@evanion/compose';
 import type { Route } from './+types/shell';
-import { loadPageView } from './page-view.server.js';
+import { loadFeatures, loadPageView } from './page-view.server.js';
 import {
   accessContext,
   correlationContext,
+  featuresContext,
   shelfContext,
   subjectContext,
 } from './page-context.js';
@@ -16,7 +17,10 @@ import {
   useCan,
   useCapabilities,
 } from './access.js';
+import type { AdminSubject } from './access.js';
 import { operatorName } from './access.server.js';
+import { FeatureProvider, adoptFeatures, featureContext } from './features.js';
+import type { AdminFlags } from './features.js';
 import { availabilityCounts, shelfTotals } from './shelf.js';
 import {
   CartProvider,
@@ -28,6 +32,8 @@ import type { Session } from './providers.js';
 import { Nav, defineNavItems } from './regions/nav.js';
 import { Sidebar, defineSidebarItems } from './regions/sidebar.js';
 import { Text } from '@evanion/baize-ui';
+import type { ReactNode } from 'react';
+import type { DecisionSet, FeatureConfig } from '@evanion/feature';
 
 /**
  * The pathless layout every page sits inside: the provider stack, the nav region
@@ -37,13 +43,17 @@ import { Text } from '@evanion/baize-ui';
  * read. Its loader turns that into the two small regions' items, so the chrome
  * is configured data like the page under it rather than markup.
  */
-export const middleware: Route.MiddlewareFunction[] = [loadPageView];
+export const middleware: Route.MiddlewareFunction[] = [
+  loadPageView,
+  loadFeatures,
+];
 
 export async function loader({ context }: Route.LoaderArgs) {
   const correlationId = context.get(correlationContext);
   const subject = context.get(subjectContext);
   const access = await context.get(accessContext)();
   const shelf = await context.get(shelfContext)();
+  const { flags, config } = await context.get(featuresContext)();
   const totals = shelfTotals(shelf.rows);
 
   // Demo-grade, and stated here because this is where the page chrome reads it.
@@ -66,6 +76,11 @@ export async function loader({ context }: Route.LoaderArgs) {
     // A string instant, which the hooks key their memos on by value. A `Date` is
     // a fresh object every render and re-evaluates the matrix each time.
     now: new Date().toISOString(),
+    // The document and the set resolved from it, both plain data. The handle
+    // stays here: it is closures over a frozen document. The browser installs
+    // its own store from the document, and the set states the instant the
+    // loaders decided at, so what the tree draws is what the server decided.
+    features: { config, decisions: flags.snapshot() },
     navItems: defineNavItems([
       { id: 'mark', type: 'wordmark', props: { shop: 'Baize' } },
       {
@@ -130,8 +145,15 @@ export async function loader({ context }: Route.LoaderArgs) {
 
 // #region mount-provider
 export default function Shell({ loaderData }: Route.ComponentProps) {
-  const { session, matrix, navItems, sidebarItems, now, unavailable } =
-    loaderData;
+  const {
+    session,
+    matrix,
+    navItems,
+    sidebarItems,
+    now,
+    unavailable,
+    features,
+  } = loaderData;
 
   // Rebuilt when the document's version changes and not per render: the parse
   // validates, deep-clones and deep-freezes. See `adoptMatrix`.
@@ -145,6 +167,13 @@ export default function Shell({ loaderData }: Route.ComponentProps) {
           access,
           subject: session.subject,
           context,
+        }),
+        // React Router types loader data through its serialization mapping,
+        // which writes `unknown` members as `undefined`. The value is the set
+        // the loader returned, so the mount restates the shipped type.
+        provider(Flags, {
+          features: features as ShippedFeatures,
+          subject: session.subject,
         }),
         provider(SessionProvider, { session }),
         provider(ThemeProvider, { initialDensity: 'comfortable' }),
@@ -160,6 +189,49 @@ export default function Shell({ loaderData }: Route.ComponentProps) {
   );
 }
 // #endregion mount-provider
+
+/** What the shell loader ships: the document, and the set resolved from it. */
+interface ShippedFeatures {
+  config: FeatureConfig<keyof AdminFlags>;
+  decisions: DecisionSet<AdminFlags>;
+}
+
+/**
+ * Mounts the feature provider over the tree.
+ *
+ * The loader sent the document and the set, and this installs its own store
+ * from the document, because a `Features` is closures over a frozen document
+ * and cannot cross the loader's serialization boundary. The provider
+ * re-resolves the shipped set to check it, so the context carries the same
+ * `targetingKey` and `roles` the server resolved under.
+ */
+// #region mount-features
+function Flags({
+  features,
+  subject,
+  children,
+}: {
+  features: ShippedFeatures;
+  subject: AdminSubject;
+  children?: ReactNode;
+}) {
+  const store = useMemo(
+    () => adoptFeatures(features.config),
+    [features.config],
+  );
+  const context = useMemo(() => featureContext(subject), [subject]);
+
+  return (
+    <FeatureProvider
+      features={store}
+      context={context}
+      decisions={features.decisions}
+    >
+      {children}
+    </FeatureProvider>
+  );
+}
+// #endregion mount-features
 
 /**
  * The page chrome, inside the provider stack so it can read the matrix.

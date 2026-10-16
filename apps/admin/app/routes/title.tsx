@@ -13,16 +13,26 @@ import {
 } from '@evanion/baize-ui';
 import { Form, Link, href, isRouteErrorResponse } from 'react-router';
 import { pickAllowedFields } from '@evanion/acl';
+import type { Access } from '@evanion/acl';
 import type { Route } from './+types/title';
 import {
   accessContext,
   correlationContext,
+  featuresContext,
   shelfContext,
   subjectContext,
 } from '../page-context.js';
 import { useCan } from '../access.js';
-import { clearShelfPolicy, setShelfPolicy } from '../shelf-policy.server.js';
+import type { AdminObjects, AdminSubject } from '../access.js';
+import { useFeatureEnabled } from '../features.js';
+import {
+  clearShelfPolicy,
+  readPickupOffers,
+  setPickupOffer,
+  setShelfPolicy,
+} from '../shelf-policy.server.js';
 import { ShopApiUnavailable, listGames } from '../shop-api.server.js';
+import type { Game } from '../shop-api.server.js';
 import { useRestock } from '../providers.js';
 import {
   AVAILABILITY_STATES,
@@ -49,7 +59,7 @@ export async function loader({ context, params }: Route.LoaderArgs) {
     throw new Response(`No title ${params.urn} on the shelf`, { status: 404 });
   }
 
-  return { row };
+  return { row, pickup: readPickupOffers().has(row.urn) };
 }
 
 /**
@@ -95,6 +105,16 @@ export async function action({ context, request, params }: Route.ActionArgs) {
 
   const form = await request.formData();
   const intent = form.get('intent');
+
+  if (intent === 'offer-pickup' || intent === 'withdraw-pickup') {
+    return decidePickup(
+      context,
+      access,
+      subject,
+      game,
+      intent === 'offer-pickup',
+    );
+  }
 
   if (intent === 'clear') {
     const decision = access.can(subject, 'game', 'declare', game);
@@ -164,11 +184,44 @@ function refusal(reason: string) {
 }
 // #endregion action-decides
 
+/**
+ * Offers or withdraws express pickup for one title.
+ *
+ * Two answers have to hold, and neither is the browser's. The `express-pickup`
+ * flag is resolved here from the request's own handle, so a POST that never saw
+ * the button is refused when the flag is off for its subject. The contract is
+ * asked about the row, as it is for an availability declaration: the shop that
+ * lists the title makes the offer.
+ */
+// #region action-asks-flag
+async function decidePickup(
+  context: Route.ActionArgs['context'],
+  access: Access<AdminSubject, AdminObjects>,
+  subject: AdminSubject,
+  game: Game,
+  offered: boolean,
+) {
+  const { flags } = await context.get(featuresContext)();
+  if (!flags.isEnabled('express-pickup')) {
+    return {
+      refused: true,
+      error: 'Express pickup is not on for this account. Nothing was written.',
+    };
+  }
+
+  const decision = access.can(subject, 'game', 'declare', game);
+  if (!decision.allowed) return refusal(decision.reason);
+
+  setPickupOffer(game.urn, offered);
+  return { pickup: offered };
+}
+// #endregion action-asks-flag
+
 export default function Title({
   loaderData,
   actionData,
 }: Route.ComponentProps) {
-  const { row } = loaderData;
+  const { row, pickup } = loaderData;
   const restock = useRestock();
 
   // #region tree-toggles
@@ -178,6 +231,13 @@ export default function Title({
   // one stated.
   const mayDeclare = useCan('game', 'declare', { shop: row.shop }).allowed;
   // #endregion tree-toggles
+
+  // #region tree-toggles-flag
+  // The same kind of convenience. The flag chooses whether the control is drawn
+  // and `action` asks again, so a browser holding a stale set draws a button
+  // the server refuses.
+  const pickupOn = useFeatureEnabled('express-pickup');
+  // #endregion tree-toggles-flag
 
   return (
     <>
@@ -281,6 +341,23 @@ export default function Title({
               </Button>
               <Button name="intent" type="submit" value="clear">
                 Clear
+              </Button>
+            </Form>
+          ) : null}
+
+          {mayDeclare && pickupOn ? (
+            <Form method="post" className="availability-form">
+              <Text as="span" size="sm">
+                {pickup
+                  ? 'Offered for express pickup.'
+                  : 'Not offered for express pickup.'}
+              </Text>
+              <Button
+                name="intent"
+                type="submit"
+                value={pickup ? 'withdraw-pickup' : 'offer-pickup'}
+              >
+                {pickup ? 'Withdraw express pickup' : 'Offer express pickup'}
               </Button>
             </Form>
           ) : null}

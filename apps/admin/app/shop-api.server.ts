@@ -13,6 +13,7 @@
  */
 import type { Matrix } from '@evanion/acl';
 import type { AdminSubject } from './access.js';
+import type { FeaturesDocument } from './features.js';
 
 /** One entry of the games catalogue, as `GET /games` returns it. */
 export interface Game {
@@ -160,6 +161,20 @@ export function getPolicy(
   subject: AdminSubject,
 ): Promise<PolicyDocument> {
   return get<PolicyDocument>('/policy', correlationId, subject);
+}
+
+/**
+ * The feature definitions shop-api publishes.
+ *
+ * The document alone, for the reason {@link getPolicy} gives: what comes back is
+ * installed with `parseFeatureConfig` and resolved here, and no flag is ever a
+ * network call.
+ */
+export function getFeatures(
+  correlationId: string,
+  subject: AdminSubject,
+): Promise<FeaturesDocument> {
+  return get<FeaturesDocument>('/features', correlationId, subject);
 }
 
 /**
