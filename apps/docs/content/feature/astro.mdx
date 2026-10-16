@@ -1,0 +1,88 @@
+# Astro SSR
+
+<WorkshopNotice slug="feature" />
+
+To manage feature flags in a server-rendered environment, you can integrate a feature store directly into your request pipeline. In the storefront example located in `apps/storefront`, the app uses `output: 'server'` to fetch a feature document from `shop-api` (GET `/api/features`), install it into a module-scoped store, and bind that store to the current visitor. This process populates `Astro.locals.features`, which the cart page then reads to toggle the `express-pickup` flag. Because the storefront ships no JavaScript to the browser and contains no islands, this page demonstrates how a server-rendered page reads a flag from the application's own code and explains how a client-side island would receive a decision from the library.
+
+<PageSheet
+  difficulty={4}
+  read={9}
+  hands={20}
+  requires={[
+    ['Many Processes', '../microservices'],
+    ['How do I serve my configuration?', '../distribution'],
+  ]}
+  unlocks={[
+    ['How do two processes agree?', '../hydration'],
+    ['API reference', '../api'],
+  ]}
+/>
+
+## Why the store is held at module scope
+
+In the storefront, `featureStore` in `apps/storefront/src/lib/features.ts` holds the store in module scope, similar to how the access matrix is held in `policy.ts`. This store is built from the document served by `GET /api/features` and is replaced only when the version changes or the 60-second `FEATURES_REVALIDATE_MS` window expires.
+
+The construction process (`parseFeatureConfig`) validates, deep-clones, and deep-freezes the document; every subsequent decision is a local call over this frozen copy. Because a `Features` instance holds definitions but no specific actor, a single store serves every request and user, with each read taking its context as an argument. This ensures the same definitions apply to every visitor. When a matching version is detected, the installed store is reused to avoid re-validating the same bytes during a poll. If a fetch fails or the library refuses a document, the held store remains in place and the window stays open so the next request can retry. If nothing is held, the system defaults to a store with no definitions, turning every flag off. Because `parseFeatureConfig` reports a refused document rather than throwing, a bad revision will not cause the page to fail. To prevent redundant network calls, any renders in flight when the window expires share a single fetch (`inFlight`).
+
+```ts file=apps/storefront/src/lib/features.ts region=features-cache
+
+```
+
+When refreshing the store, a version that matches the currently held one only updates the `checkedAt` timestamp. A document that parses successfully replaces the held store.
+
+```ts file=apps/storefront/src/lib/features.ts region=features-refresh
+
+```
+
+## Binding the store to the visitor in middleware
+
+To ensure feature flags are available throughout the request, the middleware in `src/middleware.ts` runs on every request. This occurs because the app is server-rendered; in a prerendered build, this would run only once at build time.
+
+The middleware awaits `policyAccess` and `featureStore`, then writes `context.locals.features = features.for({ targetingKey: subject.id })` alongside the existing members (`subject`, `api`, `cart`, and `access`). The `for` method reads the clock once, ensuring every page and component within a single request makes decisions at the same instant. The `targetingKey` is the value used for rollout bucketing. For example, the shop's `new-checkout` flag ramps at 25 percent by `targetingKey`; since `express-pickup` depends on `new-checkout`, a visitor outside the ramp sees both flags as off. The middleware only awaits a fetch when the process holds no document or the revalidation window has expired.
+
+```ts file=apps/storefront/src/middleware.ts region=open-context
+
+```
+
+## Typing locals.features
+
+To provide type safety for the bound store, `env.d.ts` declares the member `features: BoundFeatures` without a type argument. This is marked as required because the middleware always binds a handle; if no document is available, it simply turns every flag off, allowing a page to read a flag without testing for the handle's existence.
+
+By omitting the type argument, `BoundFeatures` accepts any string key, and any key not carried by the document resolves to "off." In the storefront, the document serves as the contract since no type is shared with the service. This differs from the admin app, which declares `AdminFlags` to trigger compile errors for unknown keys.
+
+```ts file=apps/storefront/src/env.d.ts region=locals-members
+
+```
+
+## Reading a flag in a page
+
+To control the UI based on a feature, `cart.astro` reads the `express-pickup` flag using `features.isEnabled('express-pickup')` to determine whether to draw a line in the cart actions. This acts as a render gate, deciding what the page draws. It does not govern business logic such as who may order, which is handled by `order.create` in the access matrix. The `shop-api` resolves flags independently using its own copy.
+
+```astro file=apps/storefront/src/pages/cart.astro region=flag-gate
+
+```
+
+The following test verifies this behavior by rendering the page through the container API with a store where `express-pickup` is toggled on and off, asserting whether the `data-flag` attribute appears.
+
+```ts file=apps/storefront/src/pages/cart.astro.test.ts region=flag-gate-test
+
+```
+
+## What an island receives
+
+When considering how a decision reaches a component running in the browser, there are two patterns.
+
+The first, used in this repository, is for server-rendered pages: the page reads the flag and emits HTML. Nothing crosses to the browser, so nothing needs to be adopted. `cart.astro` follows this pattern.
+
+The second pattern is for islands that require a decision. Since the storefront currently has no islands, this is not shown in the storefront code, but the library provides a tested example. In this scenario, an island receives a `DecisionSet` as a prop. A non-React island then calls `adoptDecisions` to read it. The set is generated via `features.snapshot()` on the bound handle within the page frontmatter. The `adoptDecisions` function compares the version of the shipped set with the version of the store the island holds, reports any mismatch via `onDivergence`, and returns the decisions.
+
+```ts twoslash file=libs/feature/docs/examples.md region=adopt-decisions
+
+```
+
+## Where to go next
+
+- [How do two processes agree?](../hydration): learn about the version check and the divergence report.
+- [How do I serve my configuration?](../distribution): explore the document `shop-api` serves and how a holder reloads it.
+- [Many Processes](../microservices): understand how one document is managed across many holders.
+- [API reference](../api): detailed documentation for `for`, `snapshot`, `adoptDecisions`, and `DecisionSet`.
