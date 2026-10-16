@@ -1,7 +1,5 @@
 # React Router 8
 
-<WorkshopNotice slug="feature" />
-
 Managing feature flags in a distributed application requires consistency across the request lifecycle. In a React Router 8 application, flags are resolved in three distinct places: the middleware that gives a request a handle, the loaders that read it, and the action that reads it again before it writes.
 
 The back office in `apps/admin` demonstrates this flow. It fetches the feature document from `shop-api`, binds it to the signed-in operator once per request, and ships the document and the resolved set from the shell loader. The browser then draws an express-pickup control based on that set, while the title route's action resolves the flag a second time before it writes. Every example is set in the game shop, using the flags `new-checkout` and `express-pickup`.

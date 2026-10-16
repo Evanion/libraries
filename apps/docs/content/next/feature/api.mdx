@@ -1,7 +1,5 @@
 # API reference
 
-<WorkshopNotice slug="feature" />
-
 One entry point. `@evanion/feature` imports no framework and publishes
 everything below. The React binding is a package of its own, and
 [its API reference](/react-feature/api) has the provider, the hooks and the
@@ -121,7 +119,7 @@ since the forwarded parameter's type is not `undefined`. Such a wrapper branches
 on the parameter and calls `createFeatures` once per branch, and its own caller
 then reads the union of both forms and narrows it.
 
-See [Observing](/feature/observing) for what an observer receives.
+See [Observing](../observing) for what an observer receives.
 
 ## `Features<S>`
 
@@ -171,7 +169,7 @@ to `new Date()` at the call.
 
 `variantOf` and `valueOf` take their types off `Decisions<S>[K]`, so a reader of
 either sees what the decision for that key carries. Over the store
-[Variants](/feature/variants) builds,
+[Variants](../variants) builds,
 `features.variantOf('checkout-cta', { targetingKey: 'user-1' })` answers
 `'control'`, and `features.valueOf` on the same key and context answers
 `undefined`, because the control variant declares no value.
@@ -183,7 +181,7 @@ To install a new document, use `reload`, which is the only operation that
 writes to `version` and `envelope`. In contrast, a `toggle` leaves both members
 unchanged because they identify the document served by a publisher, whereas a
 toggle is a local write. If a candidate is refused, every member above remains
-at its previous value. See [Distribution](/feature/distribution).
+at its previous value. See [Distribution](../distribution).
 
 ### How `@evanion/feature` handles store types
 
@@ -424,7 +422,7 @@ This call takes no mode and it checks nothing. Because `configDigest` is the one
 
 The function handles dates and invalid types strictly. A `Date` at a window condition's `value` becomes its ISO 8601 string, but a `Date` at any other member throws `FeatureConfigError` naming the path. A value that holds itself, a `Map`, a `Set`, an `Error` and a non-finite `maxStale` throw the same way.
 
-See [Distribution](/feature/distribution) for what a document carries.
+See [Distribution](../distribution) for what a document carries.
 
 ## `configDigest(config)`
 
@@ -497,7 +495,7 @@ Because a document that arrived as JSON carries no literal, the compiler cannot 
 
 <!-- reference @evanion/feature#FeatureDefinition -->
 
-To define the features available to your application, you use a `FeatureDefinition`. The array of these is what `createFeatures` takes. A definitions literal gives the store its key union and its variant names, because `key` and `variants` carry the type parameters `InferSchema` reads. See [Configuration](/feature/configuration).
+To define the features available to your application, you use a `FeatureDefinition`. The array of these is what `createFeatures` takes. A definitions literal gives the store its key union and its variant names, because `key` and `variants` carry the type parameters `InferSchema` reads. See [Configuration](../configuration).
 
 To transmit a feature definition over the wire, `@evanion/feature` uses the [`SerializedDefinition`](#serializeddefinition) type. In this wire form, `rules` and `variants` hold the serialized forms of a rule and of a variant.
 
@@ -561,7 +559,7 @@ This type represents the TypeScript side of a store's typing. The other side is 
 
 <!-- reference @evanion/feature#Rule -->
 
-To control when a feature resolves on, `@evanion/feature` uses a `Rule`. Rules are OR-ed: the feature resolves on when any one of them matches. A rule that declares neither `when` nor `rollout` matches every context, so an author narrowing anything writes at least one of the two. See [Rollouts](/feature/rollouts) for `rollout` and [Variants](/feature/variants) for `variant`.
+To control when a feature resolves on, `@evanion/feature` uses a `Rule`. Rules are OR-ed: the feature resolves on when any one of them matches. A rule that declares neither `when` nor `rollout` matches every context, so an author narrowing anything writes at least one of the two. See [Rollouts](../rollouts) for `rollout` and [Variants](../variants) for `variant`.
 
 To transmit a rule over the wire, `@evanion/feature` uses the [`SerializedRule`](#serializedrule) type. This wire form ensures that conditions do not contain `Date` objects.
 
@@ -575,7 +573,7 @@ To ramp a feature across a share of subjects, a rule in `@evanion/feature` carri
 - `by` names the context field to bucket on, defaulting to `targetingKey`.
 - `seed` overrides the bucketing seed.
 
-Unless overridden, the seed is the feature's own `seed`, and the feature key when the definition names neither, which decorrelates a subject's bucket across different features. You should override it only to correlate two features deliberately, such as keeping a pair of flags rolling out to the same cohort. See [Rollouts](/feature/rollouts).
+Unless overridden, the seed is the feature's own `seed`, and the feature key when the definition names neither, which decorrelates a subject's bucket across different features. You should override it only to correlate two features deliberately, such as keeping a pair of flags rolling out to the same cohort. See [Rollouts](../rollouts).
 
 ## `Condition`
 
@@ -619,7 +617,7 @@ To specify a day of the week in a condition, use the `Weekday` type. These are t
 
 To provide the data necessary for a decision, `@evanion/feature` requires an `EvaluationContext`. Every call that resolves a decision takes one.
 
-The context uses an index signature to admit any field a condition reads, while `targetingKey` is the field a rollout buckets on when the spec names none. The library reads `stickyVariants` and writes it nowhere; see [Variants](/feature/variants) for where an application keeps it.
+The context uses an index signature to admit any field a condition reads, while `targetingKey` is the field a rollout buckets on when the spec names none. The library reads `stickyVariants` and writes it nowhere; see [Variants](../variants) for where an application keeps it.
 
 To control how the library evaluates time-based conditions, you provide a `now` property. This property accepts an `Instant`, which can be a `Date` object, the ISO 8601 string that `JSON.stringify` writes in a `Date`'s place, or epoch milliseconds.
 
@@ -631,7 +629,7 @@ If a `now` property names no instant, every clock condition becomes unevaluable 
 
 <!-- reference @evanion/feature#RuleOutcome -->
 
-To understand why a rule did or did not match, you can inspect the `RuleOutcome`. `failed` names the first condition that failed. An outcome `plan()` settled drops it when the walk stepped over a condition the build-time context could not read, because a request carrying that field may fail the rule on that one instead. [Build-time plans](/feature/build-time) states the rule.
+To understand why a rule did or did not match, you can inspect the `RuleOutcome`. `failed` names the first condition that failed. An outcome `plan()` settled drops it when the walk stepped over a condition the build-time context could not read, because a request carrying that field may fail the rule on that one instead. [Build-time plans](../build-time) states the rule.
 
 ## `VariantSpec`
 
@@ -642,7 +640,7 @@ To declare one variant of a feature in `@evanion/feature`, an author writes a `V
 - `weight` is relative: weights are normalised across the set, so they do not need to sum to 100, and raising one lowers every other share.
 - `order` fixes where the variant sits in the bucketing walk. If an author leaves it out, the array index supplies the value.
 
-A control plane writes `order` explicitly so that a serializer that reorders the array still assigns identically. See [Variants](/feature/variants).
+A control plane writes `order` explicitly so that a serializer that reorders the array still assigns identically. See [Variants](../variants).
 
 To transmit a variant specification over the wire, `@evanion/feature` uses the [`SerializedVariantSpec`](#serializedvariantspec) type. This wire form keeps `value` as `unknown` and leaves the fence to `serializeConfig`.
 
@@ -652,7 +650,7 @@ To transmit a variant specification over the wire, `@evanion/feature` uses the [
 
 `assignVariant` returns a `VariantAssignment`. This object contains the chosen `VariantSpec`, the `by` field it bucketed on and, in the case of `'weighted'`, the `bucket`.
 
-The `source` is `'weighted' | 'sticky' | 'fallback'`. There is no `'pinned'` case because only `decide` knows which rule matched, and `decide` applies a pin on top of the assignment `assignVariant` returned. A document author never writes one: `decide` reads the assignment into the decision it returns, and `@evanion/react-feature` reads it again when it compares a shipped decision against a local one. See [Variants](/feature/variants).
+The `source` is `'weighted' | 'sticky' | 'fallback'`. There is no `'pinned'` case because only `decide` knows which rule matched, and `decide` applies a pin on top of the assignment `assignVariant` returned. A document author never writes one: `decide` reads the assignment into the decision it returns, and `@evanion/react-feature` reads it again when it compares a shipped decision against a local one. See [Variants](../variants).
 
 ## `VariantInfo`
 
@@ -681,13 +679,13 @@ When a variant is involved, `assignment` records how it was chosen:
 - `bucket`: The bucket value (absent if the context carried no bucketing value).
 - `rule`: The name of the pinning rule (present only when `source` is `'pinned'`).
 
-See [Variants](/feature/variants) for more detail.
+See [Variants](../variants) for more detail.
 
 ## `Decisions`
 
 <!-- reference @evanion/feature#Decisions -->
 
-To resolve a full set of features, `@evanion/feature` uses `Decisions`, which maps one decision per feature, each narrowed to the schema entry for its own key. Over the store [Variants](/feature/variants) builds, a lookup like `features.resolve()['checkout-cta'].variant` results in `'control' | 'blue' | undefined`.
+To resolve a full set of features, `@evanion/feature` uses `Decisions`, which maps one decision per feature, each narrowed to the schema entry for its own key. Over the store [Variants](../variants) builds, a lookup like `features.resolve()['checkout-cta'].variant` results in `'control' | 'blue' | undefined`.
 
 If a feature declares no variants, its entry drops the `variant` and `value` fields but retains `rule`, `rules`, `blockedBy`, `cause`, and `assignment` as optional fields.
 
@@ -829,7 +827,7 @@ A report fills the members of a side based on its `kind`. All four members of a 
 
 <!-- reference @evanion/feature#Plan -->
 
-For [Build-time planning](/feature/build-time), `@evanion/feature` uses `Plan`, which contains one plan entry per feature. This uses the same `never` guard as `Decisions`, ensuring a feature declaring no variants receives a plan entry whose decision contains no `variant` or `value` keys.
+For [Build-time planning](../build-time), `@evanion/feature` uses `Plan`, which contains one plan entry per feature. This uses the same `never` guard as `Decisions`, ensuring a feature declaring no variants receives a plan entry whose decision contains no `variant` or `value` keys.
 
 `S` defaults to [`Schema`](#schema), so the bare `Plan` holds what `plan()` answers on a store built with no observer, at any schema, and on a store typed `Features<Schema, false>`.
 
@@ -954,7 +952,7 @@ Common metadata is shared across all events:
 - **Identity**: `subject` is the identifier [`correlateBy`](#featureoptions) names, copied out as a primitive.
 - **Versioning**: `version` is the `version` option passed to `createFeatures`, absent when the store was given none.
 
-Every payload is deeply readonly, so the compiler refuses a write to it and the engine freezes what it emits. See [Observing](/feature/observing).
+Every payload is deeply readonly, so the compiler refuses a write to it and the engine freezes what it emits. See [Observing](../observing).
 
 ## `FeatureOptions`
 
@@ -973,11 +971,11 @@ The overhead of observation is minimal. Measured at forty features on an Apple M
 
 ### `observe` does not count exposures
 
-You should not use the observer to track feature exposures. Because `resolve` decides every configured feature, an observer fired from it reports a decision for every feature the request never rendered; an experiment computed over those records measures the wrong denominator. The numbers look plausible and are wrong. The application should write an exposure record at its render site, using the fields the decision it already holds carries. See [Observing](/feature/observing#exposure-tracking-is-not-what-this-seam-carries) for the whole argument.
+You should not use the observer to track feature exposures. Because `resolve` decides every configured feature, an observer fired from it reports a decision for every feature the request never rendered; an experiment computed over those records measures the wrong denominator. The numbers look plausible and are wrong. The application should write an exposure record at its render site, using the fields the decision it already holds carries. See [Observing](../observing#exposure-tracking-is-not-what-this-seam-carries) for the whole argument.
 
 ### Records in flight are lost at exit
 
-Because the engine awaits nothing, any buffer the application has not drained is lost when the process exits or when a phone's operating system suspends a process without warning. To prevent this, the application must drain that buffer on `SIGTERM` and on the background transition. Each runtime carries its own transport: a service writes to a log collector, and a browser writes with `navigator.sendBeacon` on `visibilitychange`. See [Observing](/feature/observing#records-in-flight-are-lost-at-exit) for the hook shape.
+Because the engine awaits nothing, any buffer the application has not drained is lost when the process exits or when a phone's operating system suspends a process without warning. To prevent this, the application must drain that buffer on `SIGTERM` and on the background transition. Each runtime carries its own transport: a service writes to a log collector, and a browser writes with `navigator.sendBeacon` on `visibilitychange`. See [Observing](../observing#records-in-flight-are-lost-at-exit) for the hook shape.
 
 ## `UnobservedOptions`
 
@@ -1087,7 +1085,7 @@ The `maxStale` value indicates how long the publisher believes a holder may keep
 
 The `F` parameter defaults to `FeatureKey`. An entry point that reads a whole document names the bare `FeatureConfig`, and a document keyed on a numeric enum reaches that parameter only while the default admits a number.
 
-See [Distribution](/feature/distribution) for what a document carries.
+See [Distribution](../distribution) for what a document carries.
 
 ## `ConfigEnvelope`
 

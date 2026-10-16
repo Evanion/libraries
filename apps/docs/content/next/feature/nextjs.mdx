@@ -1,7 +1,5 @@
 # Next.js (React Server Components)
 
-<WorkshopNotice slug="feature" />
-
 In a Next.js App Router application, the server component is the place where a flag is resolved. Using the game shop example with the `new-checkout` and `express-pickup` flags, the storefront in `apps/storefront-rsc` fetches the feature document from `shop-api`, builds a `Features` store from it, and binds that store to the shopper once per page view. A Server Component then reads a flag, and the resulting `DecisionSet` is shipped to the client tree.
 
 <PageSheet
