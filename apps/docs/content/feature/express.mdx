@@ -1,0 +1,65 @@
+# Express
+
+<WorkshopNotice slug="feature" />
+
+An Express application wires @evanion/feature with one store built at module scope, one middleware that binds a handle to `res.locals`, and handlers that ask the handle. @evanion/feature ships no Express adapter: it takes a plain context object and returns a decision, so the only thing Express adds is where that context comes from. Express is not a dependency of the package. Every example is set in the game shop, with the flags `new-checkout` and `express-pickup` and the shoppers `cust-0001` (tier gold) and `cust-0002` (tier member).
+
+<PageSheet
+  difficulty={4}
+  read={10}
+  hands={15}
+  requires={[
+    ['Resolving a feature', '../decisions'],
+    ['Rollouts', '../rollouts'],
+  ]}
+  unlocks={[
+    ['NestJS', '../nestjs'],
+    ['Many Processes', '../microservices'],
+  ]}
+/>
+
+## An Express app that reads a flag with @evanion/feature
+
+To integrate flags into an Express app, you wire a feature store to your request lifecycle. The fence below shows the complete wiring.
+
+The store is built with `createFeatures` at module scope; `new-checkout` is on for tier gold (rule id `gold-first`) and `express-pickup` dependsOn `new-checkout`. `bindFeatures` reads the shopper off `req.user` and writes `features.for({ targetingKey, tier })` onto `res.locals.features`. `showCheckout` asks one question of the handle, `isEnabled('express-pickup')`, and returns the body it would send. The example types `req` and `res` by the members it reads, because Express is not a dependency of the package; an Express Request and Response satisfy both. The example runs as a test of the package: it asserts that `cust-0001` (gold) gets `{ expressPickup: true }` and `cust-0002` (member) gets `{ expressPickup: false }`, because `express-pickup` follows `new-checkout` off.
+
+```ts twoslash file=libs/feature/docs/examples.md region=express-app
+
+```
+
+| Piece             | Who writes it                                     | What it does                                                                                                                                  |
+| :---------------- | :------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------- |
+| features          | you, once, at module scope                        | Holds the definitions; `createFeatures` validates them and the dependency graph, so a cycle or unknown dependency stops the process at start. |
+| the session layer | your code (Passport, a JWT check, a cookie store) | Verifies the caller and sets `req.user`.                                                                                                      |
+| bindFeatures      | you, in one function                              | Calls `features.for` with the verified shopper and stores the handle on `res.locals`.                                                         |
+| the handler       | you, once per route                               | Reads flags off the handle and decides what the response holds.                                                                               |
+
+## Mount order decides which routes see the handle
+
+Because `router.use` is positional, the order of your middleware determines which routes have access to the feature handle. A route registered above `app.use(bindFeatures)` runs with `res.locals.features` unset: a handler that reads it throws a `TypeError` and Express answers 500.
+
+To avoid this, mount the session layer, then `bindFeatures`, on the router that carries the routes, before the routes. @evanion/feature cannot see the route table, but the application's own test over its route table can.
+
+## Where the context comes from
+
+The `bindFeatures` middleware passes the shopper the session layer verified and nothing else from the request. `targetingKey` is the shopper id and `tier` is the attribute the `gold-first` rule reads. A value read off a header, a query string or the body is the caller's claimed identity, so a rule or a rollout would place the caller on a claim: a caller could send `tier=gold` and see the new checkout. Rollout buckets are computed from `targetingKey`, so the same shopper lands in the same bucket on every request and in every process that holds the same definitions. A context without a `targetingKey` places nobody in a rollout.
+
+`features.for` reads the clock once, when the middleware runs. Every flag a handler reads off the handle uses that instant, so two reads in one request cannot fall on opposite sides of a window boundary that closed between them. Build the handle per request; do not keep it at module scope, as it holds one shopper and one instant.
+
+## Reading a flag before or after the route authorizes
+
+A flag is not a permission: `isEnabled` answers whether a feature is on for a context, and @evanion/feature does not decide who may call a route. This means an Express application must decide the order of authorization and flag checking.
+
+Two orders exist:
+
+- **Authorize first, then read the flag.** A caller who may not use the route gets the route's own refusal (401 or 403) whatever the flag says. Only a permitted caller can find out, from a 404 or a missing member, that the feature is off. Use this order for any route whose existence is itself private.
+- **Read the flag first, then authorize.** A caller refused by the flag gets the flag's answer, usually 404, before the route's authorization runs. The refusal then differs between a feature that is off and a caller who is not permitted, and an anonymous caller can tell the two apart. Use this order only for a route that is public to every caller.
+
+Pick one order for the application and mount it once, so a handler does not choose for itself. When the application also uses @evanion/acl, its guide for Express shows the authorization half of the same wiring.
+
+## Where to go next
+
+- [NestJS](../nestjs): The same boundary, with a service that holds the handle.
+- [Many Processes](../microservices): How the storefront and back office install the same definitions.
+- [API reference](../api): `for`, `isEnabled` and the rest of the handle.
