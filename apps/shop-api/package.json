@@ -79,6 +79,7 @@
   },
   "dependencies": {
     "@evanion/acl": "*",
+    "@evanion/feature": "0.0.1",
     "@evanion/nestjs-correlation-id": "*",
     "@evanion/urn": "*",
     "@nestjs/axios": "^12.0.1",
