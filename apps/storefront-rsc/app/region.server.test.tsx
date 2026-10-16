@@ -21,7 +21,7 @@ import { Widgets, items } from './widgets';
  * server renderer does with the promise it returns, and the fetches have
  * happened by the time the tree exists -- which is the assertion.
  *
- * The access layer is stubbed here. What each widget does with a decision is
+ * The access and feature layers are stubbed here. What each widget does with a decision is
  * `access.server.test.tsx`'s subject, and a real one in this file would put a
  * `GET /api/policy` in the middle of the request lists below, where the point is
  * which endpoint each widget goes to for its own data.
@@ -29,6 +29,10 @@ import { Widgets, items } from './widgets';
 
 vi.mock('next/headers', () => ({
   cookies: async () => ({ get: () => undefined }),
+}));
+
+vi.mock('./features', () => ({
+  currentFeatures: async () => ({ isEnabled: () => false }),
 }));
 
 vi.mock('./access', () => ({
@@ -262,14 +266,28 @@ describe('the region under latency', () => {
 });
 
 describe('the app source', () => {
-  it('carries no client directive', () => {
+  /** The `.ts` and `.tsx` modules in `app/`, with their text. */
+  function modules(): { file: string; source: string }[] {
     const dir = import.meta.dirname;
+    return readdirSync(dir)
+      .filter((file) => /\.tsx?$/.test(file))
+      .map((file) => ({ file, source: readFileSync(join(dir, file), 'utf8') }));
+  }
+
+  it('carries one client directive, in the module that mounts the flags provider', () => {
     // A directive is the first thing in a module and is written at column 0;
     // anchoring on that is what keeps a comment mentioning it from failing.
     const directive = /^['"]use client['"]/m;
-    const offenders = readdirSync(dir)
-      .filter((file) => /\.tsx?$/.test(file))
-      .filter((file) => directive.test(readFileSync(join(dir, file), 'utf8')));
-    expect(offenders).toEqual([]);
+    const offenders = modules()
+      .filter(({ source }) => directive.test(source))
+      .map(({ file }) => file);
+    expect(offenders).toEqual(['feature-shell.tsx']);
+  });
+
+  it('reaches that module from the layout alone, so no widget depends on it', () => {
+    const importers = modules()
+      .filter(({ source }) => /from '\.\/feature-shell'/.test(source))
+      .map(({ file }) => file);
+    expect(importers).toEqual(['layout.tsx']);
   });
 });

@@ -57,6 +57,12 @@
       "path": "../../libs/react-widget"
     },
     {
+      "path": "../../libs/react-feature"
+    },
+    {
+      "path": "../../libs/feature"
+    },
+    {
       "path": "../../internal/baize-ui"
     },
     {

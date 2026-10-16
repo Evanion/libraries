@@ -13,6 +13,7 @@ import {
 } from '@evanion/baize-ui';
 
 import { authorized } from './access';
+import { currentFeatures } from './features';
 import { fetchJson, urnPath, type Game, type Stock } from './shop-api';
 import {
   availabilityLabel,
@@ -40,6 +41,10 @@ import {
  * reprice decision waits for the row, because the matrix compares the title's
  * shop against the subject's and neither this component nor shop-api's guard can
  * answer that without the row in hand.
+ *
+ * `express-pickup` adds a line to the card. It is read on the server, from the
+ * handle the layout's set was snapshotted from, so the line and the client's
+ * copy of the decision come from one instant.
  */
 export async function Spotlight({ urn }: { urn: string }) {
   // #region decide-on-the-row
@@ -52,6 +57,11 @@ export async function Spotlight({ urn }: { urn: string }) {
   ]);
   const mayReprice = may.can('game', 'reprice', game).allowed;
   // #endregion decide-on-the-row
+
+  // #region gate-on-the-server
+  const flags = await currentFeatures();
+  const expressPickup = flags.isEnabled('express-pickup');
+  // #endregion gate-on-the-server
 
   return (
     <section aria-label={game.title} className="spotlight">
@@ -115,6 +125,11 @@ export async function Spotlight({ urn }: { urn: string }) {
           <span className="identifier">{stock.correlationId ?? 'none'}</span>{' '}
           for the stock request behind this card.
         </Text>
+        {expressPickup ? (
+          <Text size="sm" tone="moss">
+            Express pickup: collect this title from the shelf today.
+          </Text>
+        ) : null}
         {mayReprice ? (
           <Text size="sm" tone="moss">
             This title is yours to reprice.
