@@ -94,7 +94,11 @@ The `origin` field informs the consumer about the age of the `now` timestamp.
 
 A `'render'` set is produced during the request that generated the HTML, meaning its `now` is only seconds old. `adoptDecisions` uses this as the default `now` for all local resolutions to prevent a time-window boundary from shifting between the server's instant and the client's mount. A `now` value in the context takes precedence. If the set's `now` does not parse as a date, `adoptDecisions` reads the process clock.
 
-A `'build'` set is produced during a build and its `now` may be days old. In this case, `adoptDecisions` reads the process clock for local resolutions. However, entries a build settled keep the build's instant, which is what `freezeTimeAtBuild` opts a feature into.
+When a `'build'` set is produced, its `now` value may be days old. In this case, `adoptDecisions` reads the process clock for local resolutions. However, entries a build settled keep the build's instant.
+
+`Features.snapshot` with `origin: 'build'` settles every feature at the instant it read. It reads no `freezeTimeAtBuild`, so the set states an answer even for a `now`-dependent rule whose definition opted into no frozen window.
+
+If a pipeline wants the client to decide such a rule, it calls `plan` to defer it, and the client then calls `resolvePlan`. In that flow, `freezeTimeAtBuild` is what opts a feature into a frozen window.
 
 This approach bounds the unavoidable clock skew between machines, preventing the unbounded case where a client's `now` is simply whenever the bundle finished loading.
 
