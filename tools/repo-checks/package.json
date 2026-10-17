@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "@evanion/doc-examples": "*"
+    "@evanion/doc-examples": "*",
+    "next": "16.3.8"
   }
 }
