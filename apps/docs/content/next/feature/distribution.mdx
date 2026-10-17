@@ -15,7 +15,9 @@ A configuration reaches a process as one versioned document, and `parseFeatureCo
 
 ## What a Configuration Document Carries
 
-To move configuration across a boundary, `@evanion/feature` uses an envelope over a list of definitions. This envelope carries exactly six members; there is no bare-array form on the wire, ensuring a producer emitting JSON states the version and the schema beside the features without needing a wrapper assembled at the call site.
+To move configuration across a boundary, `@evanion/feature` uses an envelope over a list of definitions. This envelope ensures a producer emitting JSON states the version and the schema beside the features without needing a wrapper assembled at the call site, as there is no bare-array form on the wire.
+
+The envelope carries exactly six members:
 
 | Member          | Type                        | What it is                                                                 |
 | :-------------- | :-------------------------- | :------------------------------------------------------------------------- |
@@ -26,13 +28,13 @@ To move configuration across a boundary, `@evanion/feature` uses an envelope ove
 | `maxStale`      | `number`                    | Milliseconds. Advisory, and no entry point in this library reads it.       |
 | `features`      | `SerializedDefinition<F>[]` | The definitions, in the order a holder reads them.                         |
 
-If a seventh member is present, it is treated as an `unknown-member` issue and the whole document is refused. This strictness prevents a holder from dropping an unreadable member and evaluating the document as though the publisher had never sent it without reporting the failure.
+If a seventh member is present, the whole document is refused as an `unknown-member` issue. This strictness prevents a holder from dropping an unreadable member and evaluating the document as though the publisher had never sent it without reporting the failure.
 
 The envelope carries no `notBefore`, no `notAfter`, no `visibility` on a definition and no reduced serialization mode.
 
 ## Writing a Live Store Out as a Document
 
-To serve a store to other processes, you can write it out as a document. The `serializeConfig` function handles this by converting a `@evanion/feature` store into a single document. Because `configDigest` is defined over the serialized form, a control plane that built its store from rows calls this function to produce the form required for the digest.
+To serve a store to other processes, you can write it out as a document using the `serializeConfig` function. This call converts a `@evanion/feature` store into a single document. Because `configDigest` is defined over the serialized form, a control plane that built its store from rows calls this function to produce the form required for the digest.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=config-document
 
@@ -40,7 +42,7 @@ To serve a store to other processes, you can write it out as a document. The `se
 
 The second parameter is the envelope, which defaults to `features.envelope`. Note that `digest` is not writable here: `configDigest` is the sole writer of that member, and a serializer that copied a digest from its caller would emit a document whose digest covers other bytes.
 
-When handling dates, a `Date` at a window condition's `value` is converted to its ISO 8601 string. This ensures that `toEpoch` reads both the `Date` and the string to one epoch, allowing a window to decide identically in the publisher and the holder.
+To ensure consistency between the publisher and holder, a `Date` at a window condition's `value` is converted to its ISO 8601 string. This ensures that `toEpoch` reads both the `Date` and the string to one epoch, allowing a window to decide identically in both processes.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=config-document-rules
 
@@ -70,7 +72,7 @@ Because a document arriving as JSON carries no literal, the compiler cannot infe
 
 ## Every Refusal Reports Every Defect
 
-To ensure operators aren't stuck in a loop of fixing one error per deploy cycle, `validateConfig` reports every issue found in a document rather than just the first. This is the single checker used by every `@evanion/feature` entry point that reads a document.
+To ensure operators aren't stuck in a loop of fixing one error per deploy cycle, `@evanion/feature` uses `validateConfig` to report every issue found in a document rather than just the first. This is the single checker used by every entry point that reads a document.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=config-validate
 
@@ -94,7 +96,7 @@ Documents reaching this checker are assumed to have come through a store and a c
 
 ## Replacing a Document Without a Restart
 
-To update configuration without restarting a process, `features.reload` validates a candidate document and installs it by swapping one reference. It identifies the keys whose stored intent differs from the previous document.
+To update configuration without restarting a process, you can use `features.reload` to validate a candidate document and install it by swapping one reference. This call identifies the keys whose stored intent differs from the previous document.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=config-reload
 
@@ -126,7 +128,7 @@ A toggle does not touch `version` and `envelope`. These continue to name the doc
 
 ## Comparing Two Versions, and Verifying a Digest
 
-A `@evanion/feature` consumer compares `version` using `!==` and never orders them. Ordering versions is avoided because both potential actions are incorrect: declining a lower version blocks critical 3am rollbacks, and accepting only higher versions breaks control planes serving shards with diverged counters. Instead, a consumer holding the wrong version simply fetches the document that version names.
+An `@evanion/feature` consumer compares `version` using `!==` and never orders them. Ordering versions is avoided because both potential actions are incorrect: declining a lower version blocks critical 3am rollbacks, and accepting only higher versions breaks control planes serving shards with diverged counters. Instead, a consumer holding the wrong version simply fetches the document that version names.
 
 To verify the integrity of a document, `configDigest` returns 32 hex characters over the document's text, after removing `digest` and `version`.
 
@@ -160,7 +162,7 @@ The party performing the fetch is responsible for acting on this value. Your pol
 
 ## The Schema's Two Vocabularies
 
-A `@evanion/feature` document defines its typing contract in `schema`, using two different notations for two different purposes. The engine reads a context field, compares it with a closed operator set, and checks it against the declared type at validation; it reads no variant value at all.
+An `@evanion/feature` document defines its typing contract in `schema`, using two different notations for two different purposes. The engine reads a context field, compares it with a closed operator set, and checks it against the declared type at validation; it reads no variant value at all.
 
 `schema.context.fields` maps a field name to a flat `FieldType` string (`'string'`, `'number'`, `'boolean'`, or `'instant'`). These may include `[]` for arrays or `?` for optional fields. This structure allows a producer in any language to emit the schema via reflection.
 
