@@ -16,7 +16,7 @@ When a storefront renders a page on the server and hydrates it in the browser, b
 
 ## What a Client Receives
 
-To synchronize a shopper's experience, the server provides a `DecisionSet` which represents one subject's answers for one instant, including the configuration that produced them. This set consists of four members:
+To synchronize a shopper's experience, the server provides a `DecisionSet` which represents one subject's answers for one instant, including the configuration that produced them. In the `@evanion/feature` package, this set consists of four members:
 
 - `version`: the config version that produced the decisions. It is absent for a store built from a literal, which has no version to state.
 - `now`: the instant the decisions were resolved at, as an ISO 8601 string. It is required, because the consumer cannot recover it.
@@ -37,7 +37,7 @@ Depending on the environment, the `@evanion/feature` package uses different entr
 
 ## How a Client Compares Versions
 
-When adopting decisions, the client must determine if its local configuration matches the server's. `adoptDecisions` compares `shipped.version` with `features.version` using `!==` without ordering them. This allows a digest or any composite string to work as a version, as they carry no inherent order. A publisher with no version scheme sets `version` to the digest from `configDigest`, which strips `version` and `digest` before it canonicalises, ensuring the comparison reads two digests.
+When adopting decisions, the client must determine if its local configuration matches the server's. The `@evanion/feature` package handles this via `adoptDecisions`, which compares `shipped.version` with `features.version` using `!==` without ordering them. This allows a digest or any composite string to work as a version, as they carry no inherent order. A publisher with no version scheme sets `version` to the digest from `configDigest`, which strips `version` and `digest` before it canonicalises, ensuring the comparison reads two digests.
 
 The comparison results in one of four outcomes:
 
@@ -56,7 +56,7 @@ Every outcome returns the shipped decisions. If the caller passes no set at all,
 
 ## Why a Mismatch Publishes the Shipped Decisions
 
-In the event of a version mismatch, the client prioritizes the shipped decisions to maintain consistency with the server. Because the server already rendered the HTML from the shipped decisions and recorded an exposure for the variant it shipped, a client that resolves again would produce a third answer—one the server never rendered and no exposure record names. This would cause experiment results to deviate by an unmeasurable amount.
+In the event of a version mismatch, the `@evanion/feature` package prioritizes the shipped decisions to maintain consistency with the server. Because the server already rendered the HTML from the shipped decisions and recorded an exposure for the variant it shipped, a client that resolves again would produce a third answer—one the server never rendered and no exposure record names. This would cause experiment results to deviate by an unmeasurable amount.
 
 Furthermore, the client cannot determine which side is stale; a version mismatch only indicates that the documents differ.
 
@@ -73,7 +73,7 @@ If the store declares no such feature, or declares it with no variants, the repo
 
 ## The Four Kinds of Report
 
-When divergences are found, `onDivergence` receives a `DivergenceReport`. These reports are output only; the library does not read them back. To ensure stability, an observer that throws is swallowed so a failing observer cannot take down a render. Each report contains a `kind`, a one-sentence `message` naming the cause and fix, and the `shipped` and `local` sides where they apply.
+When divergences are found, the `@evanion/feature` package sends a `DivergenceReport` to `onDivergence`. These reports are output only; the library does not read them back. To ensure stability, an observer that throws is swallowed so a failing observer cannot take down a render. Each report contains a `kind`, a one-sentence `message` naming the cause and fix, and the `shipped` and `local` sides where they apply.
 
 | Kind               | Raised when                                                                 | Carries                            |
 | :----------------- | :-------------------------------------------------------------------------- | :--------------------------------- |
@@ -88,7 +88,7 @@ Reports do not alter decisions; the shipped decisions still render even when a r
 
 ## What `origin` Decides About the Clock
 
-The `origin` field informs the consumer about the age of the `now` timestamp.
+The `origin` field in the `@evanion/feature` package informs the consumer about the age of the `now` timestamp.
 
 A `'render'` set is produced during the request that generated the HTML, meaning its `now` is only seconds old. `adoptDecisions` uses this as the default `now` for all local resolutions to prevent a time-window boundary from shifting between the server's instant and the client's mount. A `now` value in the context takes precedence. If the set's `now` does not parse as a date, `adoptDecisions` reads the process clock.
 
