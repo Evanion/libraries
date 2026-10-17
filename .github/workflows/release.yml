@@ -14,6 +14,10 @@ on:
         description: 'Projects, comma separated. Same names as commit scopes. Empty releases everything affected.'
         type: string
         default: ''
+      version:
+        description: 'Exact version for every project named. Only for a first release after scripts/bootstrap-publish.mjs. Empty reads conventional commits.'
+        type: string
+        default: ''
 
 permissions:
   contents: write # create tags and GitHub releases
@@ -80,6 +84,25 @@ jobs:
           PROJECTS: ${{ inputs.projects }}
         run: node scripts/resolve-release-projects.mjs
 
+      # A version applies to every project the run releases, so it needs the
+      # projects named: with none, it would version everything affected at once.
+      # Exact versions only. A keyword such as `minor` is what conventional
+      # commits already decide.
+      - name: Check the version input
+        if: ${{ inputs.version != '' }}
+        env:
+          PROJECTS: ${{ inputs.projects }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -z "$PROJECTS" ]; then
+            echo "version needs projects: name the packages taking their first release" >&2
+            exit 1
+          fi
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "version must be an exact x.y.z; got \"$VERSION\"" >&2
+            exit 1
+          fi
+
       - name: Verify
         # Same target list as CI, including `check`. storefront's
         # inferred typecheck target is a disabled no-op (Astro's config sets
@@ -131,6 +154,7 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry-run }}
           PROJECTS: ${{ steps.projects.outputs.projects }}
+          VERSION: ${{ inputs.version }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # `nx release` publishes on its own unless told not to, so this step
         # passes --skip-publish -- without it, the Publish step below would
@@ -144,6 +168,9 @@ jobs:
         #     !args.yes && !args.skipPublish && !args.dryRun && hasNewVersion
         run: |
           args=(--skip-publish)
+          # A version is the specifier nx applies to every project named, in
+          # place of the bump conventional commits give.
+          if [ -n "$VERSION" ]; then args=("$VERSION" "${args[@]}"); fi
           # An empty PROJECTS omits the flag. `--projects ""` is a filter that
           # matches nothing, which nx reports as an internal bug rather than as
           # an empty release.

@@ -48,48 +48,42 @@ Two things to get right:
 ### 2. Bootstrap a package that has never been published
 
 npm will not let you configure a trusted publisher for a package that does not
-exist yet, so a new package needs one manual publish first, from a maintainer's
-machine with their own 2FA:
+exist yet. `scripts/bootstrap-publish.mjs` registers the name, from a
+maintainer's machine with their own 2FA, and release.yml publishes the first
+real version:
 
 ```bash
-npm login                       # if not already authenticated
-npx nx run-many -t build
-npm run verify:packaging        # same check CI runs before publishing
-cd libs/<name>
-npm publish --access public --no-provenance --otp=<code-from-your-authenticator>
+npm login                                                  # if not already authenticated
+node scripts/bootstrap-publish.mjs <otp> <name> [<name> ...]
 ```
 
-Both extra flags are needed:
+`<name>` is the folder under `libs/`. For each package the script:
 
-- `--no-provenance` overrides `publishConfig.provenance: true`, which fails
-  locally with _"Automatic provenance generation not supported for provider:
-  null"_ because provenance requires a CI provider. That setting is a deliberate
-  guardrail against accidental local publishing, so a bootstrap has to opt out of
-  it explicitly. The published version will have no attestation — this is the one
-  unavoidable cost of bootstrapping, and every release after it is attested.
-- `--otp` avoids npm's browser auth flow. That flow is worth avoiding here: npm
-  redacts the auth URL to `***` whenever stdout is not a TTY, so it is
-  unrecoverable from any captured output or from npm's own debug log. It only
-  appears in a live terminal. If your 2FA is web-only rather than TOTP, run the
-  publish in a real terminal rather than through a tool that captures output.
+1. publishes a code-free placeholder at `0.0.0` under the dist-tag `bootstrap`,
+2. adds `release.yml` in `Evanion/libraries` as its trusted publisher, with
+   `npm trust github`,
+3. deprecates the placeholder.
 
-`npm publish` from the workspace root fails with `EPRIVATE`, because the root
-`package.json` is private. Check where you are before publishing:
+All three steps take the same code, so one code usually covers several packages.
+A step already done is skipped. A package that fails, most often because the
+registry has not served a brand new name yet, is listed with the command that
+retries it under a fresh code.
 
-```bash
-node -p "require('./package.json').name"   # must print the package, not @evanion/open-source
-```
+The script refuses a private package and one that already has versions on the
+registry.
 
-The registry takes a minute or two to serve a brand new package. A 404
-immediately after publishing is propagation, not failure.
+Then run **Release** with `projects` naming the packages and `version` set to the
+version their manifests hold. Without a tag, nx reads every commit the package
+ever had, and under `adjustSemverBumpsForZeroMajorVersion` a package with only
+`feat` commits gets a patch on the version on disk. `version` gives nx the exact
+version instead, for the projects named. A dependent bootstrapped with its
+dependency goes in the same run, so the exact pin and the dependency move
+together.
 
-#### Then tag the commit you published
+The first real version is published by release.yml, so it is attested like every
+version after it. Only the placeholder has no provenance.
 
-```bash
-cd ../..
-git tag '@evanion/<name>@<version>' <sha>
-git push origin '@evanion/<name>@<version>'
-```
+#### A package published before it had a tag here
 
 `nx release` resolves a package's current version from its tag, and
 `releaseTag.pattern` is `{projectName}@{version}`. Without the tag it falls back
@@ -99,22 +93,13 @@ the package ever had rather than over the ones since it shipped.
 
 This is not hypothetical. `@evanion/luhn@2.0.1` was published from its own repo
 before the migration and carried no tag here, and the bump proposed for 3.0.0 was
-correct only by coincidence.
+correct only by coincidence. A package in that state needs its published version
+tagged by hand, at the commit it was published from:
 
-Finally, configure its trusted publisher as above. Every subsequent release goes
-through OIDC, and every version after the bootstrap is attested.
-
-#### `@evanion/widget` is waiting for this
-
-It is unpublished, and `@evanion/react-widget` and `@evanion/astro-widget` both
-name it as an exact dependency, so neither of them can be published until it
-exists on the registry. The order, once:
-
-1. Bootstrap-publish `libs/widget` at `0.1.0`, per the steps above.
-2. Tag and push `@evanion/widget@0.1.0` at the commit it was published from.
-3. Configure its trusted publisher (Evanion / libraries / `release.yml` /
-   `npm publish`).
-4. Run **Release** for `react-widget,astro-widget`.
+```bash
+git tag '@evanion/<name>@<version>' <sha>
+git push origin '@evanion/<name>@<version>'
+```
 
 ## In-workspace dependencies are pinned exactly
 
