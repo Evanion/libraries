@@ -79,6 +79,6 @@ The fence below demonstrates the complete lifecycle: `shop-api` serializes and s
 
 ## What You Supply
 
-`@evanion/feature` evaluates the document it is handed but does not handle the transport. You must supply the source that carries the bytes from `shop-api` to the other processes, such as an HTTP endpoint, a file, or a queue. The library's responsibility ends at `parseFeatureConfig` and `features.reload`. Issue [#423](https://github.com/Evanion/libraries/issues/423) draws the line for the adapter package, and the Limits page of this section lists what the library does not do.
+`@evanion/feature` evaluates the document it is handed but does not handle the transport. You must supply the source that carries the bytes from `shop-api` to the other processes, such as an HTTP endpoint, a file, or a queue. The library's responsibility ends at `parseFeatureConfig` and `features.reload`. Issue [#423](https://github.com/Evanion/libraries/issues/423) draws the line for the adapter package, and the [Limits](./limits) page of this section lists what the library does not do.
 
 [Distribution](../distribution) carries the reference for the document's members, the schema, and `maxStale`.

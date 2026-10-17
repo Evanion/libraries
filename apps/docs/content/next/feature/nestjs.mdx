@@ -2,7 +2,7 @@
 
 The `apps/shop-api` application for the game shop serves as a reference for integrating feature flags into a NestJS environment. It resolves flags per request and serves the underlying definitions to the storefront and back office.
 
-`@evanion/feature` ships no dedicated Nest package. Because the library takes a plain context object and returns a decision, the only requirement for Nest is determining where that context comes from, which is typically the application's own request subject. A dedicated package would have to guess this implementation. The Limits page of this section lists what the library does not do.
+`@evanion/feature` ships no dedicated Nest package. Because the library takes a plain context object and returns a decision, the only requirement for Nest is determining where that context comes from, which is typically the application's own request subject. A dedicated package would have to guess this implementation. The [Limits](./limits) page of this section lists what the library does not do.
 
 Every example in this guide uses the game shop domain: the flags `new-checkout` and `express-pickup`, and the subjects `staff:ada` (an operator) and `cust-0001` (a customer).
 
