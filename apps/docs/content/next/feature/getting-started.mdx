@@ -3,36 +3,31 @@
 The examples on this page are regions of `libs/feature/docs/examples.md` and
 run under `nx test @evanion/feature`.
 
-Baize is rolling out a new checkout, and express pickup is an option that only
-exists inside it. This page writes both down, resolves them for one customer,
-and turns the parent off.
+By the end of this page, you will have a store of features resolving for a customer, a rollout check, and a toggle that reports its transitive impact.
+
+## Prerequisites
+
+To start using `@evanion/feature`, you need a compatible runtime and the package installed in your project.
 
 ```bash
 npm install @evanion/feature
 ```
 
-## Write the flags down
+## How to define features
 
-A feature is stored intent: `enabled` is what the shop wants, and `rules`
-decide whether that intent reaches a given customer. `dependsOn` names the
-flags that have to resolve on first.
+To manage rollouts and dependencies, you first define the intent of your features in `@evanion/feature`. A feature consists of `enabled` (the shop's intent), `rules` (which determine if that intent reaches a customer), and `dependsOn` (the flags that must resolve first).
 
 ```ts twoslash file=libs/feature/docs/examples.md region=quick-start
 
 ```
 
-`createFeatures` validates the graph and returns a store. `isEnabled` resolves
-one flag for one context: `targetingKey` is the customer the rollout buckets on,
-and `now` is the instant the time window is read against.
+The `createFeatures` function validates this graph and returns a store. To determine if a feature is active for a specific user, you use `isEnabled`. This function requires a `targetingKey` to bucket the customer and a `now` timestamp to evaluate time windows.
 
-`cust-0042` and `cust-0107` get different answers because the 25% rollout put
-them in different buckets. Neither answer moves on the next request.
+For example, `cust-0042` and `cust-0107` receive different results because a 25% rollout places them in different buckets. These answers remain consistent across subsequent requests.
 
-## Ask which tenth a customer is in
+## How to check a customer's rollout bucket
 
-The rollout is a hash rather than a draw, so one customer's answer is the same
-everywhere and forever. That is the property a shop needs and a coin flip does
-not have.
+Because `@evanion/feature` uses a hash rather than a random draw, a customer's assignment is stable everywhere and forever—a property required by shops that a coin flip cannot provide.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=rollout
 
@@ -40,45 +35,28 @@ not have.
 
 <Probe package="feature" probe="rollout" />
 
-Retype the id. Roughly one id in ten is in, a neighbouring id lands anywhere,
-and the same id always comes back the same. [Rollouts](../rollouts) has
-the bucket behind it and what happens when the percentage moves.
+By retyping the ID, you can see that roughly one in ten IDs are "in," while neighboring IDs land anywhere. The same ID always returns the same result. For details on the underlying buckets and how percentage changes affect them, see [Rollouts](../rollouts).
 
-## Read why a flag is off
+## How to debug why a flag is off
 
-`isEnabled` answers with a boolean. `resolve` answers with one decision per
-flag, and the decision explains itself: `reason` says which of the five cases
-this is, and `dependency-off` carries the parent that blocked it. The store is
-the one above:
+While `isEnabled` returns a boolean, the `resolve` function in `@evanion/feature` provides a detailed decision for each flag. The `reason` field identifies which of the five possible cases occurred; for instance, `dependency-off` specifies the parent flag that blocked the feature. Using the store created above:
 
 ```ts twoslash file=libs/feature/docs/examples.md region=dependency-off
 
 ```
 
-`cust-0107` is outside the new checkout's 25%, so the `after-launch` rule never
-matched, and express pickup is off with `blockedBy` naming the flag to look at.
-[Decisions](../decisions) has the other four reasons.
+In this case, `cust-0107` falls outside the new checkout's 25% rollout. Consequently, the `after-launch` rule never matches, and express pickup is disabled with `blockedBy` naming the parent flag. You can find the other four reasons in [Decisions](../decisions).
 
-## Turn the parent off
+## How to toggle a feature
 
-`toggle` is the only call that writes. It sets `enabled` on the stored
-definition and reports which dependants go off with it.
+The `toggle` function is the only call in `@evanion/feature` that writes. It updates the `enabled` state of a stored definition and reports which dependent features are disabled as a result.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=toggle
 
 ```
 
-`willDisable` is transitive and in dependency order: demo night booking is
-behind express pickup, which is behind the new checkout. A confirmation dialog
-can show that list; a script can ignore it.
+The `willDisable` list is transitive and follows dependency order: for example, demo night booking depends on express pickup, which depends on the new checkout. This list can be used to power a confirmation dialog or be ignored by a script.
 
-Nothing else writes. `resolve` and `plan` are pure functions of the
-configuration, the context and the clock, so a window closing changes an answer
-without changing anything stored.
+No other functions write to the store. `resolve` and `plan` are pure functions of the configuration, the context, and the clock; thus, a time window closing will change an answer without modifying any stored data.
 
-## Your own definitions
-
-You have two dependent flags resolving for a customer and a toggle that reports
-what it turned off. [Configuration](../configuration) writes your own
-definitions: every field, the precedence between them, and the conditions a rule
-can match on.
+You now have two dependent flags resolving for a customer and a toggle that reports its impact. To learn how to write your own definitions, including every field, the precedence between them, and the conditions a rule can match on, see [Configuration](../configuration).
