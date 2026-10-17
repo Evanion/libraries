@@ -13,9 +13,9 @@
 
 ## Why Independent Flags Diverge
 
-Most feature flag systems, unlike `@evanion/feature`, treat every flag as an independent switch. Express pickup only exists inside the new checkout, so a flag that turns express pickup on for a customer who is not on the new checkout shows that customer a broken page.
+Most feature flag systems treat every flag as an independent switch, which creates a risk of broken user experiences when features have implicit dependencies. For example, express pickup only exists inside the new checkout; a flag that turns express pickup on for a customer who is not on the new checkout shows that customer a broken page.
 
-To prevent this, you would either have to:
+To prevent this, you would typically have to:
 
 - **Write manual checks** in every component: `if (features.newCheckout && features.expressPickup)`.
 - **Manage state manually**: Update every child flag whenever a parent changes.
@@ -24,15 +24,15 @@ With either approach, every component repeats the parent check, and the one that
 
 ## Dependency-Aware Resolution
 
-`@evanion/feature` moves the dependency logic into a hierarchical decision engine, so asking whether a feature is enabled checks the entire dependency chain, transitively, with no manual updates to any child flag.
+To solve this, `@evanion/feature` moves the dependency logic into a hierarchical decision engine. Asking whether a feature is enabled checks the entire dependency chain, transitively, with no manual updates to any child flag.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=cascade
 
 ```
 
-A feature's definition holds its intent, `enabled`, and its `rules`. A rule matches fields of the context you pass, such as a customer's `role`. A feature resolves on when it is enabled, every feature in its `dependsOn` resolves on, and one of its rules matches or it has none.
+In `@evanion/feature`, a feature's definition holds its intent, `enabled`, and its `rules`. A rule matches fields of the context you pass, such as a customer's `role`. A feature resolves on when it is enabled, every feature in its `dependsOn` resolves on, and one of its rules matches or it has none.
 
-In this example, express pickup is offered only to customers who are already on the new checkout. The new checkout's one rule matches a bookseller and nobody else, so for a customer it resolves to `false`, and express pickup resolves to `false` with it, even though its own definition has no rules and would resolve on alone.
+In the example above, express pickup is offered only to customers who are already on the new checkout. The new checkout's one rule matches a bookseller and nobody else, so for a customer it resolves to `false`, and express pickup resolves to `false` with it, even though its own definition has no rules and would resolve on alone.
 
 ## The Core and the React Package
 
@@ -42,7 +42,7 @@ In this example, express pickup is offered only to customers who are already on 
 
 ## What a Decision Carries
 
-When you resolve features with `@evanion/feature`'s `resolve()`, the library returns more than just a boolean. It returns a **decision** object for every feature:
+To provide more than a simple boolean, `@evanion/feature` returns a **decision** object for every feature when you call `resolve()`:
 
 - **`enabled`**: The final answer (true/false).
 - **`reason`**: A code naming _why_ the feature is on or off: `default-on`, `rule-match`, `explicitly-off`, `no-rule-matched` or `dependency-off`.
@@ -52,7 +52,7 @@ The `reason` field is for the person debugging a flag. If a feature is unexpecte
 
 ## The Store Never Writes
 
-In `@evanion/feature`, resolving is a pure function of the configuration, the context you pass and the current time. The only writer is `toggle()`, which sets a feature's `enabled` intent.
+Resolving in `@evanion/feature` is a pure function of the configuration, the context you pass and the current time. The only writer is `toggle()`, which sets a feature's `enabled` intent.
 
 The engine never writes resolved values back into the configuration. This ensures:
 
@@ -71,6 +71,8 @@ The engine never writes resolved values back into the configuration. This ensure
 - [What it does not do](./limits) lists all nine boundaries and the file that fixes each.
 
 ## What It Covers
+
+The following guides detail the capabilities of `@evanion/feature`:
 
 - [Configuration](./configuration): definitions, precedence and conditions.
 - [Decisions](./decisions): resolving, toggling and reading a reason.
