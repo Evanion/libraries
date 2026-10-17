@@ -78,3 +78,10 @@ updates:
         versions: ['^4.0.0']
       - dependency-name: '@shikijs/*'
         versions: ['^4.0.0']
+      # webpack-dev-server 6 runs outside Nx's range: @nx/webpack@23.3.0 (the
+      # latest published version) declares a peerDependency of
+      # `webpack-dev-server ^5.0.0`. `versions` is scoped to the 6.x line.
+      # Remove once an @nx/webpack release peers webpack-dev-server 6 (see
+      # dependabot PR #459).
+      - dependency-name: 'webpack-dev-server'
+        versions: ['^6.0.0']
