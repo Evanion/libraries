@@ -58,6 +58,7 @@ export const live = new Set([
   'DataDemo',
   'FieldWriteDemo',
   'UnevaluableDemo',
+  'ProviderDemo',
   'ComposeSpecimen',
   'LuhnSpecimen',
   'PolicySpecimen',
