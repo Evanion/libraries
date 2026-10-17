@@ -15,7 +15,7 @@ To release a feature to a fraction of your users, you use a `rollout`. A rule's 
 
 ## Stable, Deterministic Bucketing
 
-When rolling out features, you must ensure that a user's experience does not flicker. `@evanion/feature` keeps a customer in a rollout from one page to the next, because a customer who loses the new checkout between two pages cannot finish an order and nobody can reproduce the bug they report. It computes a bucket from a seed and a targeting value, using the hash behind the `inRollout` call [Getting Started](../getting-started#ask-which-tenth-a-customer-is-in) asked about two customers.
+When rolling out features, you must ensure that a user's experience does not flicker. `@evanion/feature` keeps a customer in a rollout from one page to the next, because a customer who loses the new checkout between two pages cannot finish an order and nobody can reproduce the bug they report. It computes a bucket from a seed and a targeting value, using the hash behind the `inRollout` call [Getting Started](../getting-started#how-to-check-a-customers-rollout-bucket) asked about two customers.
 
 <Probe package="feature" probe="rollout" />
 

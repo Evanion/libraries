@@ -24,7 +24,7 @@ Because `isEnabled()` evaluates the whole dependency graph on every call, a requ
 
 ### Example: Resolving a Request
 
-To see how this works in practice, consider a store containing the new checkout and express pickup from [Getting Started](../getting-started#write-the-flags-down), utilizing the `after-launch` rule and its 25% rollout:
+To see how this works in practice, consider a store containing the new checkout and express pickup from [Getting Started](../getting-started#how-to-define-features), utilizing the `after-launch` rule and its 25% rollout:
 
 ```ts twoslash file=libs/feature/docs/examples.md region=resolve-request
 
@@ -62,7 +62,7 @@ To determine exactly which part of the logic decided the outcome, you inspect th
 
 ## Reading the Dependency Cascade
 
-When a parent feature is disabled, `@evanion/feature` cascades that state to all dependants. In the example below, the new checkout is turned off in the chain [Getting Started](../getting-started#turn-the-parent-off) toggles, and the decisions for both dependants report `reason: 'dependency-off'`.
+When a parent feature is disabled, `@evanion/feature` cascades that state to all dependants. In the example below, the new checkout is turned off in the chain [Getting Started](../getting-started#how-to-toggle-a-feature) toggles, and the decisions for both dependants report `reason: 'dependency-off'`.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=cascade-reasons
 
