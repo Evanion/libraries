@@ -1,6 +1,6 @@
 # Rollouts
 
-A rule's `rollout` holds a feature to a percentage of customers, and `inRollout` decides whether one customer is in. A customer in the 10% stays in it on every request, process and device.
+To release a feature to a fraction of your users, you use a `rollout`. A rule's `rollout` holds a feature to a percentage of customers, and `inRollout` decides whether one customer is in. A customer in the 10% stays in it on every request, process and device.
 
 <PageSheet
   difficulty={3}
@@ -15,7 +15,7 @@ A rule's `rollout` holds a feature to a percentage of customers, and `inRollout`
 
 ## Stable, Deterministic Bucketing
 
-`@evanion/feature` keeps a customer in a rollout from one page to the next, because a customer who loses the new checkout between two pages cannot finish an order and nobody can reproduce the bug they report. It computes a bucket from a seed and a targeting value, using the hash behind the `inRollout` call [Getting Started](../getting-started#ask-which-tenth-a-customer-is-in) asked about two customers.
+When rolling out features, you must ensure that a user's experience does not flicker. `@evanion/feature` keeps a customer in a rollout from one page to the next, because a customer who loses the new checkout between two pages cannot finish an order and nobody can reproduce the bug they report. It computes a bucket from a seed and a targeting value, using the hash behind the `inRollout` call [Getting Started](../getting-started#ask-which-tenth-a-customer-is-in) asked about two customers.
 
 <Probe package="feature" probe="rollout" />
 
@@ -23,7 +23,7 @@ The probe calls `inRollout(id, 10, 'new-checkout')` for any id you type, and the
 
 ### How a Bucket is Derived
 
-The library hashes the `seed` and the `targetingKey` (e.g., a customer ID) with **MurmurHash3** into a bucket in `[0, 1)`, and a customer is in a rollout when the bucket times 100 is below `percent`.
+To determine membership, the library hashes the `seed` and the `targetingKey` (e.g., a customer ID) with **MurmurHash3** into a bucket in `[0, 1)`, and a customer is in a rollout when the bucket times 100 is below `percent`.
 
 This approach provides these guarantees:
 
@@ -45,7 +45,7 @@ This approach provides these guarantees:
 
 ## Defining a Rollout
 
-An `@evanion/feature` rollout is one more condition of the rule that carries it. A rule that has both a `when` list and a `rollout` matches only if the customer satisfies the conditions AND falls within the bucket range.
+To implement a partial release in `@evanion/feature`, you add a `rollout` as one more condition of the rule that carries it. A rule that has both a `when` list and a `rollout` matches only if the customer satisfies the conditions AND falls within the bucket range.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=rollout-spec
 
@@ -61,6 +61,8 @@ A feature-level `seed` on the definition replaces the key for every rollout in t
 
 ### Edge Cases and Constraints
 
+When configuring your rollout, be aware of how the bucketing logic handles specific data scenarios:
+
 - **Missing Targeting Keys**: If the context does not carry the field specified in `by`, the rollout is automatically rejected, even at 100%. So a context with no customer id never joins a rollout.
 - **Data Types**: Only `string` and `number` are usable as bucketing values. Objects, booleans, or nulls are treated as absent.
 - **Exact Bounds**: A `percent` of `0` includes nobody; `100` includes every context that carries the bucketing field.
@@ -71,9 +73,9 @@ A feature-level `seed` on the definition replaces the key for every rollout in t
 
 ## Why MurmurHash3?
 
-Many libraries use a simple modulus (e.g., `hash % 100`). This is problematic because it only uses the "low bits" of the hash, and a hash such as FNV-1a mixes those bits poorly, which skews the distribution.
+To achieve a uniform distribution, `@evanion/feature` avoids simple modulus operations (e.g., `hash % 100`). This is problematic because it only uses the "low bits" of the hash, and a hash such as FNV-1a mixes those bits poorly, which skews the distribution.
 
-`@evanion/feature` uses MurmurHash3's finalization to mix the entire 32-bit word and takes the bucket from all 32 bits, ensuring a uniform distribution over 2^32 buckets. It also length-prefixes the seed, so a seed and value pair such as (`ab`, `c`) can never hash the same as (`a`, `bc`), and flags whose keys share a prefix do not share buckets.
+Instead, the library uses MurmurHash3's finalization to mix the entire 32-bit word and takes the bucket from all 32 bits, ensuring a uniform distribution over 2^32 buckets. It also length-prefixes the seed, so a seed and value pair such as (`ab`, `c`) can never hash the same as (`a`, `bc`), and flags whose keys share a prefix do not share buckets.
 
 ## Exported Primitives
 
