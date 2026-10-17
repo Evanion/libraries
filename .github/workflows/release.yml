@@ -206,6 +206,7 @@ jobs:
         env:
           DRY_RUN: ${{ inputs.dry-run }}
           PROJECTS: ${{ steps.projects.outputs.projects }}
+          VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           if [ "$DRY_RUN" = "true" ]; then

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Tags HEAD, in this clone only, with the tags `nx release` would push for the
-// release set in $PROJECTS, so a dry run of the release workflow can run the
-// steps that read the new tags against the release it plans.
+// release set in $PROJECTS at $VERSION, so a dry run of the release workflow
+// can run the steps that read the new tags against the release it plans.
 //
 // The versions come from `releaseVersion` with `dryRun`, the call `nx release`
 // makes before it tags, and the tag names from `createGitTagValues`, the
@@ -20,11 +20,16 @@ const projects = (process.env.PROJECTS ?? '')
   .map((name) => name.trim())
   .filter(Boolean);
 
-// An empty list omits the filter, as the version step omits `--projects`.
+// The exact version a first release names, as the version step passes it.
+const specifier = process.env.VERSION ?? '';
+
+// An empty list omits the filter, as the version step omits `--projects`, and
+// an empty version leaves the bump to conventional commits.
 const { projectsVersionData, releaseGraph } = await releaseVersion({
   dryRun: true,
   verbose: false,
   ...(projects.length > 0 ? { projects } : {}),
+  ...(specifier !== '' ? { specifier } : {}),
 });
 
 const tags = createGitTagValues(
