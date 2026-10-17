@@ -15,13 +15,15 @@ A feature's `variants` split the customers it reaches across named versions, suc
 
 ## How Variants Work
 
-When an `@evanion/feature` feature is enabled and declares variants, the library assigns one of those variants to the customer from the same bucket [Rollouts](../rollouts) derives, under a separate seed. A customer who saw two variants would count in both arms of the test, so the assignment never moves between requests.
+To split a feature's audience into different experiences, you use variants. When an `@evanion/feature` feature is enabled and declares variants, the library assigns one of those variants to the customer from the same bucket [Rollouts](../rollouts) derives, under a separate seed. A customer who saw two variants would count in both arms of the test, so the assignment never moves between requests.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=variant-basics
 
 ```
 
 ### Weights, Values and Assignment
+
+The library determines which variant a customer sees based on several configuration properties:
 
 - **Weight**: Each variant has a weight. These are relative, not absolute. A split with weights `3` and `1` results in a 75%/25% distribution.
 - **Control**: The first variant in bucketing order is the control, the one a customer gets when nothing else decides.
@@ -34,13 +36,13 @@ When an `@evanion/feature` feature is enabled and declares variants, the library
 
 ## Bucketing Order and Seed
 
-`@evanion/feature` walks a feature's variants in order, and each one takes a band of the bucket range as wide as its share of the weight. The bucket's band decides the variant.
+To assign a variant, `@evanion/feature` walks a feature's variants in order, and each one takes a band of the bucket range as wide as its share of the weight. The bucket's band decides the variant.
 
 ### The Importance of `order`
 
 By default, the walk follows each variant's position in the `variants` array. If you reorder the array in a future deploy, the bands move, and customers move between variants with them.
 
-An explicit `order` on each variant fixes its position in the walk, so reordering the array moves nobody. It does not fix the bands: a weight change still moves the boundaries. A configuration document a store reads as JSON is refused unless every variant declares `order`.
+To prevent this, you can provide an explicit `order` on each variant to fix its position in the walk, so reordering the array moves nobody. This does not fix the bands: a weight change still moves the boundaries. A configuration document a store reads as JSON is refused unless every variant declares `order`.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=variant-order
 
@@ -48,7 +50,7 @@ An explicit `order` on each variant fixes its position in the walk, so reorderin
 
 ### The Variant Seed
 
-`variantSeed` defaults to the feature's `seed` (or its key) followed by `:variant`, so the split is bucketed apart from the rollout. Setting it to the rollout's own seed correlates the two: every member of a 50% rollout sits below the same 0.5 boundary a 50/50 split uses, and all of them get the control.
+The `variantSeed` determines how the variant bucket is derived. It defaults to the feature's `seed` (or its key) followed by `:variant`, so the split is bucketed apart from the rollout. Setting it to the rollout's own seed correlates the two: every member of a 50% rollout sits below the same 0.5 boundary a 50/50 split uses, and all of them get the control.
 
 [Advanced](../advanced#variant-seeds-and-sticky-assignment) covers what changing `variantSeed` does to a customer already placed.
 
@@ -60,7 +62,7 @@ An explicit `order` on each variant fixes its position in the walk, so reorderin
 
 ### Pinning via Rules
 
-You can override the weighted distribution of an `@evanion/feature` variant for specific customers. For example, you might want every bookseller to see the `blue` variant regardless of their bucket.
+You can override the weighted distribution of an `@evanion/feature` variant for specific customers using rules. For example, you might want every bookseller to see the `blue` variant regardless of their bucket.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=variant-pin
 
