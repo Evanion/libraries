@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@astrojs/node": "^11.1.6",
+    "@astrojs/node": "^11.1.7",
     "@evanion/acl": "*",
     "@evanion/astro-widget": "*",
     "@evanion/baize-ui": "*",
     "@evanion/feature": "*",
     "@evanion/urn": "*",
-    "astro": "^7.3.5",
+    "astro": "^7.3.8",
     "cookie": "^2.0.1"
   }
 }

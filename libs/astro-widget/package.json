@@ -60,7 +60,7 @@
     "@evanion/widget": "0.1.1"
   },
   "peerDependencies": {
-    "astro": "^7.3.4"
+    "astro": "^7.3.8"
   },
   "devDependencies": {
     "@evanion/doc-examples": "*"
