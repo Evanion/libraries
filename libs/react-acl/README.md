@@ -1,8 +1,8 @@
 # @evanion/react-acl
 
-**Context-aware authorization hooks for your React component tree.**
+**Stop duplicating authorization logic between your frontend and backend.**
 
-Stop prop-drilling authorization decisions through ten layers of components just to hide a single button. `@evanion/react-acl` lets any component ask, "Can the current user perform this action on this object?" without needing to know where the user or the policy lives.
+`@evanion/react-acl` lets you take a policy defined once as a serializable document and evaluate it locally within your React component tree. Instead of prop-drilling authorization decisions through ten layers of components just to hide a single button, any component can ask, "Can the current user perform this action on this object?" without needing to know where the user or the policy lives.
 
 <!-- #region server-render -->
 
