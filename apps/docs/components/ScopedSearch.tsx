@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { Search } from 'nextra/components';
+import { docsHref } from '../tools/docs-path.mjs';
 
 /**
  * The site search, scoped to the tree the reader is in.
@@ -20,7 +21,7 @@ import { Search } from 'nextra/components';
  */
 export default function ScopedSearch() {
   const pathname = usePathname();
-  const version = pathname.startsWith('/next/') ? 'next' : 'current';
+  const version = pathname.startsWith(docsHref('next/')) ? 'next' : 'current';
 
   return <Search searchOptions={{ filters: { version } }} />;
 }

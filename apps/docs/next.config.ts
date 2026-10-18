@@ -3,10 +3,13 @@ import { join } from 'node:path';
 import type { NextConfig } from 'next';
 import nextra from 'nextra';
 
+import { DOCS } from './tools/docs-path.mjs';
+
 // A plain Next config, not wrapped in @nx/next's `composePlugins`/`withNx`:
 // those are deprecated and removed in Nx 24, and Next transpiles workspace
 // libraries without them.
 const withNextra = nextra({
+  contentDirBasePath: DOCS,
   defaultShowCopyCode: true,
   latex: true,
   search: {

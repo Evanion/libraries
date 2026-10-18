@@ -1,4 +1,5 @@
 import type { MetaRecord } from 'nextra';
+import { docsHref } from '../tools/docs-path.mjs';
 import {
   groups,
   packages,
@@ -23,7 +24,7 @@ export type Tree = 'current' | 'next';
 function entry(item: DocumentedPackage, tree: Tree) {
   if (!item.documented) return { title: item.title, href: readmeUrl(item) };
   if (tree === 'next' && item.unversioned)
-    return { title: item.title, href: `/${item.slug}/` };
+    return { title: item.title, href: docsHref(`${item.slug}/`) };
 
   return item.title;
 }

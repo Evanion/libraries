@@ -1,5 +1,6 @@
 import type { MetaRecord } from 'nextra';
 import { packageGroups } from '../../app/sidebar';
+import { docsHref } from '../../tools/docs-path.mjs';
 
 /**
  * The sidebar under `/next/`, where every package serves the pages written on
@@ -15,5 +16,5 @@ export default {
   index: { title: 'All packages', href: '/' },
   ...packageGroups('next'),
   'group-repository': { type: 'separator', title: 'This repository' },
-  testing: { title: 'How it is tested', href: '/testing/' },
+  testing: { title: 'How it is tested', href: docsHref('testing/') },
 } satisfies MetaRecord;

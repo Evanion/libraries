@@ -1,6 +1,7 @@
 import { getPageMap } from 'nextra/page-map';
 import { PropsWithChildren } from 'react';
-import Chrome from '../chrome';
+import { docsHref } from '../../../tools/docs-path.mjs';
+import Chrome from '../../chrome';
 
 /**
  * The docs chrome over `/next/`, where every package serves the pages written
@@ -12,5 +13,7 @@ import Chrome from '../chrome';
  * than a branch of `(site)`.
  */
 export default async function NextLayout({ children }: PropsWithChildren) {
-  return <Chrome pageMap={await getPageMap('/next')}>{children}</Chrome>;
+  return (
+    <Chrome pageMap={await getPageMap(docsHref('next'))}>{children}</Chrome>
+  );
 }
