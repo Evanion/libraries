@@ -908,9 +908,16 @@
  * own material so the two halves never read as the same kind of thing: one is a
  * product, the other is the source that produced it.
  */
-.landing-access {
+.demo-layout.landing-access,
+.demo-layout.landing-feature {
+  gap: 0;
+  align-items: stretch;
+}
+
+/* The code panel's felt runs the full height of the frame; its text stays at the top. */
+.landing-access > .demo-layout__code,
+.landing-feature > .demo-layout__code {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .landing-access__app {
@@ -926,9 +933,17 @@
   gap: var(--baize-space-3);
   min-width: 0;
   padding: var(--baize-space-4);
-  border-left: 1px solid
+  border-top: 1px solid
     color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
   background: var(--baize-felt);
+}
+
+@media (min-width: 960px) {
+  .landing-access__policy {
+    border-top: 0;
+    border-left: 1px solid
+      color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  }
 }
 
 /* The app's own chrome: who is signed in, and the control that changes it. */
@@ -1146,10 +1161,6 @@ textarea.landing-access__field {
  * Authorization demo, so source and answers never read as one kind of thing.
  * The hue marks what the reader changed and what came out lit.
  */
-.landing-feature {
-  display: grid;
-}
-
 .landing-feature__document,
 .landing-feature__lane {
   display: grid;
@@ -1161,9 +1172,18 @@ textarea.landing-access__field {
 
 .landing-feature__document {
   background: var(--baize-felt);
+  border-top: 1px solid
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
 }
 
-.landing-feature__document + .landing-feature__lane,
+@media (min-width: 960px) {
+  .landing-feature__document {
+    border-top: 0;
+    border-left: 1px solid
+      color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+  }
+}
+
 .landing-feature__lane + .landing-feature__lane {
   border-top: 1px solid
     color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
@@ -1444,17 +1464,9 @@ textarea.landing-access__field {
 }
 
 @media (max-width: 52rem) {
-  .landing-access,
   .landing-cards,
   .landing-pair {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  /* Stacked, the policy sits under the app rather than beside it. */
-  .landing-access__policy {
-    border-left: 0;
-    border-top: 1px solid
-      color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
   }
 
   /*
