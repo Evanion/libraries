@@ -2,24 +2,7 @@
 
 **Context-aware authorization hooks for your React component tree.**
 
-Stop prop-drilling authorization decisions through ten layers of components just to hide a single button. `@evanion/react-acl` provides a set of hooks that allow any component in your tree to ask, "Can the current user perform this action on this object?" without needing to know where the user or the policy lives.
-
-## The Problem: The "Authorization Prop-Drill"
-
-In most React apps, authorization is handled by passing a `user` object or a `permissions` array down from the root. This leads to:
-
-1. **Prop-Drilling**: Passing authorization data through components that don't need it, just to reach a leaf component that does.
-2. **Fragile UI Logic**: Spreading `if (user.role === 'admin')` checks throughout your JSX, making it nearly impossible to change your permission model without editing every single component.
-
-## The Solution: Policy-Driven Hooks
-
-`@evanion/react-acl` brings the power of `@evanion/acl`'s serializable matrices directly into your React components. Instead of checking roles, you check **capabilities**.
-
-You wrap your app (or a sub-tree) in a `PolicyProvider`, and any child component can then use the `useCan` hook to make a decision.
-
-### Core Concept: Declarative UI Gating
-
-To define access on the server, `policy()` from `@evanion/acl` builds the rules, and `ShopAccess` hydrates `access.matrix` into a `PolicyProvider`. `EditControl` uses `useCan` to render its button only for the seller who listed the listing; Mika sees the button while Jo sees an empty string. This block runs in the package's test suite with imports from `react`, `react-dom/server`, `@evanion/acl` and `@evanion/react-acl`, where each `// ->` comment denotes the expression's value.
+Stop prop-drilling authorization decisions through ten layers of components just to hide a single button. `@evanion/react-acl` lets any component ask, "Can the current user perform this action on this object?" without needing to know where the user or the policy lives.
 
 <!-- #region server-render -->
 
@@ -93,15 +76,18 @@ renderFor(jo); // -> ''
 
 <!-- #endregion server-render -->
 
-## Key Features
+## Capabilities of @evanion/react-acl
 
-- 🧩 **Zero Prop-Drilling**: Components ask for what they need, when they need it.
-- 🎯 **Decoupled Logic**: The component doesn't know _why_ it's allowed (e.g., because it's an admin or the owner); it only knows _if_ it's allowed.
-- ⚡ **Local Decisions**: Every decision is evaluated in memory against the matrix the provider holds, so a UI toggle never waits on a network request.
-- 🛠️ **Type-Safe**: When used with `createPolicyContext`, your permission keys and object types are checked at compile time.
-- 📦 **Lightweight**: React 18 or 19 is the only peer dependency, and `@evanion/acl` is pinned as a dependency. The package is ESM only and needs Node 20 or newer.
+The package moves authorization from fragile UI logic—like spreading `if (user.role === 'admin')` checks through your JSX—to a declarative, policy-driven model using capabilities.
+
+- **Zero Prop-Drilling**: Components ask for what they need, when they need it, via the `useCan` hook.
+- **Decoupled Logic**: A component only knows _if_ it is allowed to act, not _why_ (e.g., whether it is because of a specific role or ownership).
+- **Local Decisions**: Decisions are evaluated in memory against the provider's matrix, so UI toggles do not wait on network requests.
+- **Type-Safety**: Use `createPolicyContext` to ensure permission keys and object types are checked at compile time.
 
 ## Installation
+
+`@evanion/react-acl` is ESM only and requires Node 20 or newer. It requires React 18 or 19 as a peer dependency and includes `@evanion/acl` as a dependency.
 
 ```bash
 npm install @evanion/react-acl @evanion/acl
@@ -109,11 +95,13 @@ npm install @evanion/react-acl @evanion/acl
 
 ## Security Contract
 
-A decision these hooks return is advisory: it changes what the user sees and protects nothing behind it. Before any write or sensitive read, your server must make the same check with `@evanion/acl`, and every layer decides for itself. The matrix in the browser is as fresh as the fetch that delivered it, so a revoked permission keeps granting there until a new matrix replaces it. The full security contract is in [SECURITY.md](https://github.com/Evanion/libraries/blob/main/libs/acl/SECURITY.md) and on the [security page](https://docs.evanion.com/acl/security/).
+A decision returned by these hooks is advisory; it changes the UI but protects nothing. Your server must perform the same check using `@evanion/acl` before any sensitive read or write. Because the matrix in the browser is only as fresh as the fetch that delivered it, a revoked permission remains active until the matrix is replaced.
+
+The full security contract is in [SECURITY.md](https://github.com/Evanion/libraries/blob/main/libs/acl/SECURITY.md) and on the [security page](https://docs.evanion.com/acl/security/).
 
 ## Documentation
 
-For the full API reference and integration guides, visit our documentation site:
+For the full API reference and integration guides, visit:
 
 👉 **[docs.evanion.com/react-acl](https://docs.evanion.com/react-acl/)**
 
