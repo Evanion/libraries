@@ -90,5 +90,13 @@
       "sha": "2ee3e7e0afd6c0071047ca63dc9547169c598b38",
       "reason": "Gemma's rewrite of the astro-widget pages (#416, #420) landed after @evanion/astro-widget@0.3.0, and 0.3.2 is its only change since, so astro-widget v0.3 takes the new text."
     }
+  },
+  "feature": {
+    "v0.1": {
+      "version": "0.1.0",
+      "tag": "@evanion/feature@0.1.0",
+      "sha": "e53b2d8577e2b480a671482e1eb6e5da39dab26b",
+      "reason": "Gemma's rewrite of the feature pages (#495, #499) and the Limits links (#500) landed after @evanion/feature@0.1.0"
+    }
   }
 }
