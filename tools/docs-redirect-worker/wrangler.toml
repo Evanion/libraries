@@ -1,0 +1,9 @@
+name = "docs-evanion-redirect"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+account_id = "314494abccacb8bfe11e5a10b913cc58"
+workers_dev = false
+
+[[routes]]
+pattern = "docs.evanion.com/*"
+zone_name = "evanion.com"
