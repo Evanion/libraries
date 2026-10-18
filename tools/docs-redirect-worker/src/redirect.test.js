@@ -16,6 +16,13 @@ describe('target', () => {
       'https://libs.evanion.com/docs/urn/getting-started.md',
     );
   });
+  it('leaves a path already under /docs where it is', () => {
+    expect(at('/docs/acl/errors/?q=1')).toBe(
+      'https://libs.evanion.com/docs/acl/errors/?q=1',
+    );
+    expect(at('/docs')).toBe('https://libs.evanion.com/docs');
+    expect(at('/docs/')).toBe('https://libs.evanion.com/docs/');
+  });
   it('keeps the query', () => {
     expect(at('/urn/?q=1')).toBe('https://libs.evanion.com/docs/urn/?q=1');
     expect(at('/?q=1')).toBe('https://libs.evanion.com/?q=1');
