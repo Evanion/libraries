@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { CodeView } from '../primitives/CodeView';
+import { DemoLayout } from '../primitives/DemoLayout';
 import { Scrubber } from '../primitives/Scrubber';
 import { LAUNCH, checkoutAt } from './schedule';
 
@@ -20,36 +21,42 @@ export default function ScheduleDemo() {
   const on = checkoutAt(minutes).enabled;
 
   return (
-    <div className="schedule-demo">
-      <CodeView
-        label="The document"
-        lines={[
-          { key: 'open', content: 'createFeatures([' },
-          { key: 'key', content: "  { key: 'new-checkout', enabled: true," },
-          {
-            key: 'rule',
-            lit: on,
-            content: `    rules: [{ when: [{ field: 'now', op: 'after', value: '${LAUNCH}' }] }] },`,
-          },
-          { key: 'close', content: '])' },
-        ]}
-      />
-      <Scrubber
-        label="Time on launch day"
-        min={0}
-        max={360}
-        step={1}
-        value={minutes}
-        format={clock}
-        marks={[
-          { value: LAUNCH_MINUTE, label: 'Launch 09:00' },
-          { value: FIRST_ON_MINUTE, label: 'On from 09:01' },
-        ]}
-        onChange={setMinutes}
-      />
-      <div className="schedule-demo__checkout" data-testid="checkout">
-        {on ? 'New checkout' : 'Old checkout'}
-      </div>
-    </div>
+    <DemoLayout
+      controls={
+        <div className="schedule-demo">
+          <Scrubber
+            label="Time on launch day"
+            min={0}
+            max={360}
+            step={1}
+            value={minutes}
+            format={clock}
+            marks={[
+              { value: LAUNCH_MINUTE, label: 'Launch 09:00' },
+              { value: FIRST_ON_MINUTE, label: 'On from 09:01' },
+            ]}
+            onChange={setMinutes}
+          />
+          <div className="schedule-demo__checkout" data-testid="checkout">
+            {on ? 'New checkout' : 'Old checkout'}
+          </div>
+        </div>
+      }
+      code={
+        <CodeView
+          label="The document"
+          lines={[
+            { key: 'open', content: 'createFeatures([' },
+            { key: 'key', content: "  { key: 'new-checkout', enabled: true," },
+            {
+              key: 'rule',
+              lit: on,
+              content: `    rules: [{ when: [{ field: 'now', op: 'after', value: '${LAUNCH}' }] }] },`,
+            },
+            { key: 'close', content: '])' },
+          ]}
+        />
+      }
+    />
   );
 }

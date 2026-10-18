@@ -15,6 +15,7 @@ import {
   type Role,
 } from './access';
 import { CodeView } from '../product/primitives/CodeView';
+import { DemoLayout } from '../product/primitives/DemoLayout';
 import { RoleSwitch } from './RoleSwitch';
 
 /** The listing the interface is built around. Copy, not lorem. */
@@ -108,132 +109,138 @@ export default function AccessDemo() {
   const canReview = decisions['review']?.allowed ?? false;
 
   return (
-    <div className="landing-access">
-      <div className="landing-access__app">
-        <div className="landing-access__chrome">
-          <span className="landing-access__who">{person.name}</span>
-          <RoleSwitch role={role} onChange={setRole} />
-        </div>
-
-        <article className="landing-access__doc">
-          <h3 className="landing-access__title">
-            {TITLE}
-            <span className="landing-access__status" data-status={status}>
-              {status}
-            </span>
-          </h3>
-          <p className="landing-access__byline">
-            Listed by Mika Persson, priced on Tuesday
-          </p>
-
-          {editing && canEdit ? (
-            <textarea
-              id={bodyId}
-              className="landing-access__body landing-access__field"
-              value={body}
-              onChange={(event) => setBody(event.target.value)}
-              aria-label="Listing description"
-            />
-          ) : (
-            <p className="landing-access__body">{body}</p>
-          )}
-
-          <ul className="landing-access__notes">
-            {notes.map((note) => (
-              <li key={`${note.by}-${note.text}`}>
-                <span className="landing-access__note-by">{note.by}</span>
-                {note.text}
-              </li>
-            ))}
-          </ul>
-
-          {composing && canReview ? (
-            <div className="landing-access__composer">
-              <input
-                className="landing-access__field"
-                value={draft}
-                placeholder="Write a review"
-                aria-label="Write a review"
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') postReview();
-                }}
-              />
-              <Button variant="quiet" onClick={postReview}>
-                Post
-              </Button>
+    <DemoLayout
+      className="landing-access"
+      controls={
+        <>
+          <div className="landing-access__app">
+            <div className="landing-access__chrome">
+              <span className="landing-access__who">{person.name}</span>
+              <RoleSwitch role={role} onChange={setRole} />
             </div>
-          ) : null}
-        </article>
 
-        <div className="landing-access__bar">
-          {granted.map((control) => (
-            <span key={control.action} className="landing-access__control">
-              <Button
-                variant={
-                  control.action === 'publish'
-                    ? 'primary'
-                    : control.action === 'edit'
-                      ? 'standard'
-                      : 'quiet'
-                }
-                onClick={() => press(control.action)}
-              >
-                {control.action === 'edit' && editing
-                  ? 'Done'
-                  : control.action === 'review' && composing
-                    ? 'Cancel'
-                    : control.label(listing)}
-              </Button>
-            </span>
-          ))}
-        </div>
-
-        <output className="baize-visually-hidden" aria-live="polite">
-          {`Signed in as ${person.name}, ${role}. ${
-            granted.length === 0
-              ? 'No controls.'
-              : `${granted
-                  .map((control) => control.label(listing))
-                  .join(', ')}.`
-          }`}
-        </output>
-      </div>
-
-      <div className="landing-access__policy">
-        <p className="landing-demo__label">access</p>
-        <CodeView
-          label="Access policy"
-          lines={source.map((line, index) => ({
-            key: String(index),
-            lit: isLit(line, decisions),
-            tone: line.rule?.side === 'deny' ? 'deny' : undefined,
-            content: line.segments.map((segment, at) =>
-              'text' in segment ? (
-                <span key={at}>{segment.text}</span>
-              ) : (
-                <span key={at} className="landing-access__grant">
-                  [
-                  {roles.map((option, position) => (
-                    <span key={option}>
-                      {position > 0 ? ', ' : null}
-                      <button
-                        type="button"
-                        className="landing-access__role"
-                        aria-pressed={grants[segment.grant].includes(option)}
-                        onClick={() => toggleGrant(segment.grant, option)}
-                      >
-                        &apos;{option}&apos;
-                      </button>
-                    </span>
-                  ))}
-                  ]
+            <article className="landing-access__doc">
+              <h3 className="landing-access__title">
+                {TITLE}
+                <span className="landing-access__status" data-status={status}>
+                  {status}
                 </span>
+              </h3>
+              <p className="landing-access__byline">
+                Listed by Mika Persson, priced on Tuesday
+              </p>
+
+              {editing && canEdit ? (
+                <textarea
+                  id={bodyId}
+                  className="landing-access__body landing-access__field"
+                  value={body}
+                  onChange={(event) => setBody(event.target.value)}
+                  aria-label="Listing description"
+                />
+              ) : (
+                <p className="landing-access__body">{body}</p>
+              )}
+
+              <ul className="landing-access__notes">
+                {notes.map((note) => (
+                  <li key={`${note.by}-${note.text}`}>
+                    <span className="landing-access__note-by">{note.by}</span>
+                    {note.text}
+                  </li>
+                ))}
+              </ul>
+
+              {composing && canReview ? (
+                <div className="landing-access__composer">
+                  <input
+                    className="landing-access__field"
+                    value={draft}
+                    placeholder="Write a review"
+                    aria-label="Write a review"
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') postReview();
+                    }}
+                  />
+                  <Button variant="quiet" onClick={postReview}>
+                    Post
+                  </Button>
+                </div>
+              ) : null}
+            </article>
+
+            <div className="landing-access__bar">
+              {granted.map((control) => (
+                <span key={control.action} className="landing-access__control">
+                  <Button
+                    variant={
+                      control.action === 'publish'
+                        ? 'primary'
+                        : control.action === 'edit'
+                          ? 'standard'
+                          : 'quiet'
+                    }
+                    onClick={() => press(control.action)}
+                  >
+                    {control.action === 'edit' && editing
+                      ? 'Done'
+                      : control.action === 'review' && composing
+                        ? 'Cancel'
+                        : control.label(listing)}
+                  </Button>
+                </span>
+              ))}
+            </div>
+
+            <output className="baize-visually-hidden" aria-live="polite">
+              {`Signed in as ${person.name}, ${role}. ${
+                granted.length === 0
+                  ? 'No controls.'
+                  : `${granted
+                      .map((control) => control.label(listing))
+                      .join(', ')}.`
+              }`}
+            </output>
+          </div>
+        </>
+      }
+      code={
+        <div className="landing-access__policy">
+          <p className="landing-demo__label">access</p>
+          <CodeView
+            label="Access policy"
+            lines={source.map((line, index) => ({
+              key: String(index),
+              lit: isLit(line, decisions),
+              tone: line.rule?.side === 'deny' ? 'deny' : undefined,
+              content: line.segments.map((segment, at) =>
+                'text' in segment ? (
+                  <span key={at}>{segment.text}</span>
+                ) : (
+                  <span key={at} className="landing-access__grant">
+                    [
+                    {roles.map((option, position) => (
+                      <span key={option}>
+                        {position > 0 ? ', ' : null}
+                        <button
+                          type="button"
+                          className="landing-access__role"
+                          aria-pressed={grants[segment.grant].includes(option)}
+                          onClick={() => toggleGrant(segment.grant, option)}
+                        >
+                          &apos;{option}&apos;
+                        </button>
+                      </span>
+                    ))}
+                    ]
+                  </span>
+                ),
               ),
-            ),
-          }))}
-        />
-      </div>
-    </div>
+            }))}
+          />
+        </div>
+      }
+    />
   );
 }
