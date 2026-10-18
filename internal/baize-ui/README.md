@@ -8,7 +8,7 @@ design, and this is the one place its values live.
 
 Private means private: `npm install @evanion/baize-ui` does not work and nothing
 outside this workspace can consume it. It is not on
-[docs.evanion.com](https://docs.evanion.com), which documents packages a reader
+[libs.evanion.com](https://libs.evanion.com/), which documents packages a reader
 can install. This file is the manual, and it is written for whoever is working in
 this repository.
 

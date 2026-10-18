@@ -118,11 +118,11 @@ npm install @evanion/react-feature @evanion/feature
 
 To master the implementation and explore worked examples, visit the full documentation site:
 
-👉 **[docs.evanion.com/react-feature](https://docs.evanion.com/react-feature/)**
+👉 **[libs.evanion.com/docs/react-feature](https://libs.evanion.com/docs/react-feature/)**
 
 The `@evanion/react-feature` hooks operate by reading a shared model of features, rules, variants, and decision sets. Because this model is defined in the core package, its detailed documentation is located here:
 
-👉 **[docs.evanion.com/feature](https://docs.evanion.com/feature/)**
+👉 **[libs.evanion.com/docs/feature](https://libs.evanion.com/docs/feature/)**
 
 ## License
 

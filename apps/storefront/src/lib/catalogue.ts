@@ -115,7 +115,7 @@ const BOX_ART: Readonly<Record<string, BoxArtPalette>> = {
  * deploys statically: all three apps then read the same pictures from one place
  * without any of them carrying binaries in git.
  */
-const BOX_ART_PHOTOS = 'https://docs.evanion.com/box-art';
+const BOX_ART_PHOTOS = 'https://libs.evanion.com/box-art';
 const PHOTOGRAPHED: ReadonlySet<string> = new Set<string>();
 
 /** The photograph of a game's box, for the titles that have one. */

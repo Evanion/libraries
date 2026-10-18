@@ -53,7 +53,7 @@ npm install @evanion/urn
 
 For the full API reference and worked examples, visit our documentation site:
 
-👉 **[docs.evanion.com/urn](https://docs.evanion.com/urn/)**
+👉 **[libs.evanion.com/docs/urn](https://libs.evanion.com/docs/urn/)**
 
 ## License
 

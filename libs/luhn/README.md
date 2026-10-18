@@ -46,7 +46,7 @@ npm install @evanion/luhn
 
 For the full API reference and worked examples, visit our documentation site:
 
-👉 **[docs.evanion.com/luhn](https://docs.evanion.com/luhn/)**
+👉 **[libs.evanion.com/docs/luhn](https://libs.evanion.com/docs/luhn/)**
 
 ## License
 

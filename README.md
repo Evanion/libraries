@@ -78,7 +78,7 @@ npx nx dev docs
 
 ## 📖 Documentation
 
-Visit our [documentation site](https://docs.evanion.com) for guides, interactive examples, and full API references for every library.
+Visit our [documentation site](https://libs.evanion.com/) for guides, interactive examples, and full API references for every library.
 
 ## 🚀 Releasing
 

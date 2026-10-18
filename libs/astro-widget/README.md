@@ -54,7 +54,7 @@ npm install @evanion/astro-widget
 
 For the full API reference and worked examples, visit our documentation site:
 
-👉 **[docs.evanion.com/astro-widget](https://docs.evanion.com/astro-widget/)**
+👉 **[libs.evanion.com/docs/astro-widget](https://libs.evanion.com/docs/astro-widget/)**
 
 ## License
 

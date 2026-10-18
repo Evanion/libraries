@@ -97,13 +97,13 @@ npm install @evanion/react-acl @evanion/acl
 
 A decision returned by these hooks is advisory; it changes the UI but protects nothing. Your server must perform the same check using `@evanion/acl` before any sensitive read or write. Because the matrix in the browser is only as fresh as the fetch that delivered it, a revoked permission remains active until the matrix is replaced.
 
-The full security contract is in [SECURITY.md](https://github.com/Evanion/libraries/blob/main/libs/acl/SECURITY.md) and on the [security page](https://docs.evanion.com/acl/security/).
+The full security contract is in [SECURITY.md](https://github.com/Evanion/libraries/blob/main/libs/acl/SECURITY.md) and on the [security page](https://libs.evanion.com/docs/acl/security/).
 
 ## Documentation
 
 For the full API reference and integration guides, visit:
 
-👉 **[docs.evanion.com/react-acl](https://docs.evanion.com/react-acl/)**
+👉 **[libs.evanion.com/docs/react-acl](https://libs.evanion.com/docs/react-acl/)**
 
 ## License
 

@@ -61,7 +61,7 @@ npm install @evanion/nestjs-correlation-id
 
 For the full API reference and integration guides, visit our documentation site:
 
-👉 **[docs.evanion.com/nestjs-correlation-id](https://docs.evanion.com/nestjs-correlation-id/)**
+👉 **[libs.evanion.com/docs/nestjs-correlation-id](https://libs.evanion.com/docs/nestjs-correlation-id/)**
 
 ## License
 

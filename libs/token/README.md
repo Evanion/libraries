@@ -38,7 +38,7 @@ npm install @evanion/token
 
 For the full API reference and worked examples, visit our documentation site:
 
-👉 **[docs.evanion.com/token](https://docs.evanion.com/token/)**
+👉 **[libs.evanion.com/docs/token](https://libs.evanion.com/docs/token/)**
 
 ## License
 

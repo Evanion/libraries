@@ -131,7 +131,7 @@ export function boxArtPalette(urn: string): BoxArtPalette | undefined {
  * a shared package between two demo apps would hide a breaking change behind a
  * compile that still passes.
  */
-const BOX_ART_PHOTOS = 'https://docs.evanion.com/box-art';
+const BOX_ART_PHOTOS = 'https://libs.evanion.com/box-art';
 const PHOTOGRAPHED: ReadonlySet<string> = new Set<string>();
 
 /** The photograph of a game's box, for the titles that have one. */
