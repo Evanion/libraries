@@ -63,11 +63,11 @@ npm install @evanion/feature
 
 For the full API reference and worked examples, visit the documentation site:
 
-👉 **[docs.evanion.com/feature](https://docs.evanion.com/feature/)**
+👉 **[libs.evanion.com/docs/feature](https://libs.evanion.com/docs/feature/)**
 
 If you need to integrate these features into a user interface, you can use the React binding provided by `@evanion/react-feature`. While the core `@evanion/feature` package provides the logic, `@evanion/react-feature` adds the `'use client'` directive, the necessary provider, and hooks that allow React components to read a store.
 
-👉 **[docs.evanion.com/react-feature](https://docs.evanion.com/react-feature/)**
+👉 **[libs.evanion.com/docs/react-feature](https://libs.evanion.com/docs/react-feature/)**
 
 ## License
 

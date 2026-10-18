@@ -135,7 +135,7 @@ A condition may read only fields the subject cannot write. A rule that keys on a
 
 **The Fix**: Keep the field out of every write path the rule guards, or key the rule on something the subject cannot reach: ownership set at creation, a role on the subject, a field the server alone writes.
 
-On the [security page](https://docs.evanion.com/acl/security/), the share dialog writes `sharedWith` and any customer reaches it, so a read rule keyed on `sharedWith` hands the list to whoever shares it with themselves. The rule keyed on `ownerId` holds, because no write path carries `ownerId`:
+On the [security page](https://libs.evanion.com/docs/acl/security/), the share dialog writes `sharedWith` and any customer reaches it, so a read rule keyed on `sharedWith` hands the list to whoever shares it with themselves. The rule keyed on `ownerId` holds, because no write path carries `ownerId`:
 
 ### Matrix freshness
 
@@ -143,7 +143,7 @@ A client holds the matrix it last fetched. When a permission is revoked, that cl
 
 A document that states no `version` leaves `access.version` undefined, and a `!==` against undefined decides nothing. A producer that wants the contract to hold states a version; a content hash of the document is enough.
 
-The whole mechanism the library supplies is the comparison. Fetching, deciding what to do with a mismatch, and rebuilding are yours, and the [security page](https://docs.evanion.com/acl/security/) shows them.
+The whole mechanism the library supplies is the comparison. Fetching, deciding what to do with a mismatch, and rebuilding are yours, and the [security page](https://libs.evanion.com/docs/acl/security/) shows them.
 
 Until that runs, the client grants what it last fetched. Nothing pushes an update to a holder. A holder that reports `fetchedAt` gets a freshness budget from the document's `maxStale`, and past `fetchedAt + min(maxStale, options.maxStale)` every key answers `stale-contract`. A holder that reports no `fetchedAt` claims no freshness and runs under no expiry.
 

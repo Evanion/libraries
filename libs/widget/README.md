@@ -62,7 +62,7 @@ To render these widgets, install the renderer for your specific framework:
 
 For the full API reference and worked examples, visit our documentation site:
 
-👉 **[docs.evanion.com/widget](https://docs.evanion.com/widget/)**
+👉 **[libs.evanion.com/docs/widget](https://libs.evanion.com/docs/widget/)**
 
 ## License
 

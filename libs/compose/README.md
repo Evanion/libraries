@@ -51,7 +51,7 @@ npm install @evanion/compose
 
 For detailed API references, migration guides from 1.x, and advanced type-checking patterns, visit the documentation site:
 
-👉 **[docs.evanion.com/compose](https://docs.evanion.com/compose/)**
+👉 **[libs.evanion.com/docs/compose](https://libs.evanion.com/docs/compose/)**
 
 ## License
 

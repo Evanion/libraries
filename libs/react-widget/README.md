@@ -51,7 +51,7 @@ npm install @evanion/react-widget
 
 For the full API reference and worked examples, visit our documentation site:
 
-👉 **[docs.evanion.com/react-widget](https://docs.evanion.com/react-widget/)**
+👉 **[libs.evanion.com/docs/react-widget](https://libs.evanion.com/docs/react-widget/)**
 
 ## License
 

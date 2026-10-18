@@ -50,13 +50,13 @@ npm install @evanion/acl
 
 ## Security Contract
 
-A decision is authoritative only where it runs in a trusted environment such as your server; in the browser the same `can` call is advisory and only changes what the user sees. Every layer decides for itself and trusts no earlier one. Because the matrix ships to the client in full, its names and structure are a public document; resolving the subject, covering every access path, and re-checking at write time remain your application's job. The full security contract is in [SECURITY.md](https://github.com/Evanion/libraries/blob/main/libs/acl/SECURITY.md) and on the [security page](https://docs.evanion.com/acl/security/).
+A decision is authoritative only where it runs in a trusted environment such as your server; in the browser the same `can` call is advisory and only changes what the user sees. Every layer decides for itself and trusts no earlier one. Because the matrix ships to the client in full, its names and structure are a public document; resolving the subject, covering every access path, and re-checking at write time remain your application's job. The full security contract is in [SECURITY.md](https://github.com/Evanion/libraries/blob/main/libs/acl/SECURITY.md) and on the [security page](https://libs.evanion.com/docs/acl/security/).
 
 ## Documentation
 
 For deep dives into the security model, field-level permissions, and integration guides for Next.js and Express, visit our documentation site:
 
-👉 **[docs.evanion.com/acl](https://docs.evanion.com/acl/)**
+👉 **[libs.evanion.com/docs/acl](https://libs.evanion.com/docs/acl/)**
 
 ## License
 
