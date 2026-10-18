@@ -14,5 +14,8 @@ export function target(url) {
 
   if (pathname === '/') return `${ORIGIN}/${search}`;
   if (ROOT_FILES.test(pathname)) return `${ORIGIN}${pathname}${search}`;
+  if (pathname === '/docs' || pathname.startsWith('/docs/'))
+    return `${ORIGIN}${pathname}${search}`;
+
   return `${ORIGIN}/docs${pathname}${search}`;
 }
