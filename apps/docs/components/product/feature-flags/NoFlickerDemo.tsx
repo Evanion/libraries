@@ -16,29 +16,31 @@ export default function NoFlickerDemo() {
   const still = usePrefersReducedMotion();
   return (
     <div className="no-flicker-demo">
-      <div>
-        <ReplayFrame
-          title="Decided in the browser after load (a typical setup)"
-          frames={
-            still
-              ? [
-                  <div key="both" className="no-flicker-demo__pair">
-                    <Checkout kind={firstPaint('client-only')} />
-                    <span aria-hidden="true">→</span>
-                    <Checkout kind={finalPaint()} />
-                  </div>,
-                ]
-              : [
-                  <Checkout key="first" kind={firstPaint('client-only')} />,
-                  <Checkout key="last" kind={finalPaint()} />,
-                ]
-          }
-          interval={900}
-          replayLabel="Replay"
-        />
-        <p>Simulation of a page that waits for the browser to decide.</p>
-        {still && <p>Old checkout first, swapped after load</p>}
-      </div>
+      <ReplayFrame
+        title="Decided in the browser after load (a typical setup)"
+        frames={
+          still
+            ? [
+                <div key="both" className="no-flicker-demo__pair">
+                  <Checkout kind={firstPaint('client-only')} />
+                  <span aria-hidden="true">→</span>
+                  <Checkout kind={finalPaint()} />
+                </div>,
+              ]
+            : [
+                <Checkout key="first" kind={firstPaint('client-only')} />,
+                <Checkout key="last" kind={finalPaint()} />,
+              ]
+        }
+        interval={900}
+        replayLabel="Replay"
+        caption={
+          <>
+            Simulation of a page that waits for the browser to decide.
+            {still && <> Old checkout first, swapped after load</>}
+          </>
+        }
+      />
       <ReplayFrame
         title="Decided on the server, adopted by the browser"
         frames={[<Checkout key="only" kind={firstPaint('adopted')} />]}
