@@ -16,6 +16,7 @@ import ts from 'typescript';
 import { visit } from 'unist-util-visit';
 
 import { allowed, live } from '../components/archive/surface.mjs';
+import { prefixDocsLink } from './docs-path.mjs';
 
 /**
  * One page, as a release shipped it, made safe to serve from `main`.
@@ -486,6 +487,7 @@ function literal(value) {
  * @param {{
  *   private: boolean,
  *   live: string,
+ *   roots: ReadonlySet<string>,
  *   probe: (pkg: string, name: string) => { label: string, input: string, call: string, value: string },
  *   provenance: { package: string, version: string, sha: string },
  * }} context
@@ -696,6 +698,57 @@ export function readProbe(read, pkg, name) {
 }
 
 /**
+ * Every root link into the documentation, under the docs prefix.
+ *
+ * A page cut from a commit spells its links to other sections from the site
+ * root. The site serves the documentation under `/docs`, so each of those links
+ * is prefixed; a link the page already spells under `/docs` is left as it is.
+ * The matrix explorer, which older pages link at the root, is a route of the
+ * `acl` section now. Code fences and inline code are code, not links.
+ *
+ * @param {string} source
+ * @param {ReadonlySet<string>} roots the first path segments of the docs tree
+ */
+export function docsLinks(source, roots) {
+  let fence = null;
+  const prefixed = (href) =>
+    prefixDocsLink(
+      href.replace(/^\/matrix-explorer(?=[/?#]|$)/, '/acl/matrix-explorer'),
+      new Set([...roots, 'matrix-explorer']),
+    );
+
+  return source
+    .split('\n')
+    .map((line) => {
+      const marker = line.match(FENCE);
+      if (marker) {
+        if (fence === null) fence = marker[2];
+        else if (marker[2].startsWith(fence)) fence = null;
+        return line;
+      }
+      if (fence !== null) return line;
+
+      return line
+        .split(/(`[^`]*`)/)
+        .map((part, index) =>
+          index % 2 === 1
+            ? part
+            : part
+                .replace(
+                  /\]\((\/[^)\s]*)\)/g,
+                  (_, href) => `](${prefixed(href)})`,
+                )
+                .replace(
+                  /(['"])(\/[a-z0-9-]+[^'"\s]*)\1/g,
+                  (_, quote, href) => `${quote}${prefixed(href)}${quote}`,
+                ),
+        )
+        .join('');
+    })
+    .join('\n');
+}
+
+/**
  * Cuts one page.
  *
  * @param {string} source the page at the pinned commit
@@ -738,6 +791,7 @@ export function cutPage(source, context) {
     probe: (pkg, name) => readProbe(context.read, pkg, name),
   });
   page = relativeLinks(page, context.own, context.page.replace(/\.mdx$/, ''));
+  page = docsLinks(page, context.roots);
   page = withNotice(page, context.notice);
 
   const faults = surfaceFaults(page);

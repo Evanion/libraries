@@ -837,7 +837,7 @@ describe('the directories the generator writes', () => {
       },
     ]);
 
-    expect(read('luhn/index.mdx')).toContain('](/next/luhn/)');
+    expect(read('luhn/index.mdx')).toContain('](/docs/next/luhn/)');
     expect(read('luhn/index.mdx')).not.toContain('<LuhnSpecimen');
   });
 
@@ -864,7 +864,7 @@ describe('the directories the generator writes', () => {
     ]);
 
     expect(read('luhn/index.mdx')).toMatch(
-      /<FrozenProbe label="phrase" input="gloomhaven" call="Luhn\.generate\('gloomhaven'\)" value="'Q'" package="@evanion\/luhn" version="3\.0\.0" sha="[0-9a-f]{7}" live="\/next\/luhn\/" \/>/,
+      /<FrozenProbe label="phrase" input="gloomhaven" call="Luhn\.generate\('gloomhaven'\)" value="'Q'" package="@evanion\/luhn" version="3\.0\.0" sha="[0-9a-f]{7}" live="\/docs\/next\/luhn\/" \/>/,
     );
   });
 
