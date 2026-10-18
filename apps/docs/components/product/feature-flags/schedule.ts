@@ -9,7 +9,7 @@ export function instantAt(minutes: number): Date {
   return new Date(START + minutes * 60_000);
 }
 
-/** The document: the new checkout turns on at the launch instant, for everyone. */
+/** The document: the new checkout turns on after the launch instant, for everyone. */
 export function scheduleStore() {
   return createFeatures([
     {

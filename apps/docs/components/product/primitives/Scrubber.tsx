@@ -42,6 +42,13 @@ export function Scrubber({
         {format(value)}
       </output>
       {marks && (
+        <p className="scrubber__marks">
+          {marks.map((m) => (
+            <span key={m.value}>{m.label}</span>
+          ))}
+        </p>
+      )}
+      {marks && (
         <datalist id={`${id}-marks`}>
           {marks.map((m) => (
             <option key={m.value} value={m.value} label={m.label} />
