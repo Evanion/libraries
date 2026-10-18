@@ -35,6 +35,12 @@ export const items = defineItems([
     meta: { rule: true },
   },
   {
+    id: 'feature',
+    type: 'pair',
+    props: { group: 'feature' },
+    meta: { rule: true },
+  },
+  {
     id: 'identifiers',
     type: 'cards',
     props: { group: 'identifiers' },

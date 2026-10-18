@@ -6,6 +6,7 @@ import ProviderDemo from './components/react-feature/ProviderDemo';
 import AccessDemo from './components/landing/AccessDemo';
 import ComposeSpecimen from './components/landing/ComposeSpecimen';
 import DataDemo from './components/landing/DataDemo';
+import FeatureDemo from './components/landing/FeatureDemo';
 import LuhnSpecimen from './components/landing/LuhnSpecimen';
 import PolicySpecimen from './components/landing/PolicySpecimen';
 import TokenSpecimen from './components/landing/TokenSpecimen';
@@ -155,6 +156,7 @@ export function useMDXComponents(components) {
     ProviderDemo,
     ComposeSpecimen,
     DataDemo,
+    FeatureDemo,
     LuhnSpecimen,
     PolicySpecimen,
     TokenSpecimen,
