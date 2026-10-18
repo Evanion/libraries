@@ -6,6 +6,7 @@ const page: ProductPage = {
   group: 'feature',
   packageName: '@evanion/feature',
   draft: false,
+  frontpageLink: 'See what it does',
   metadata: {
     title: 'Feature flags from a document you own',
     description:

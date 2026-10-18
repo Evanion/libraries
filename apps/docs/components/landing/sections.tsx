@@ -252,7 +252,7 @@ export function Pair({ group: id }: { group: string }) {
           <Text measured>{group.line}</Text>
           {product && (
             <a className="landing-route__product" href={`/${product.slug}/`}>
-              See what it does →
+              {product.frontpageLink} →
             </a>
           )}
         </div>

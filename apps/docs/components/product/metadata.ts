@@ -5,16 +5,20 @@ import type { ProductPage } from './types';
 export const ORIGIN = 'https://libs.evanion.com';
 const REPOSITORY = 'https://github.com/Evanion/libraries/tree/main';
 
+/** The tab title: the page's own wording, then the package it is about. */
+const titleOf = (page: ProductPage) =>
+  `${page.metadata.title} | ${page.packageName}`;
+
 const urlOf = (page: ProductPage) => `${ORIGIN}/${page.slug}/`;
 
 export function productMetadata(page: ProductPage): Metadata {
   return {
-    title: page.metadata.title,
+    title: { absolute: titleOf(page) },
     description: page.metadata.description,
     alternates: { canonical: urlOf(page) },
     openGraph: {
       type: 'website',
-      title: page.metadata.title,
+      title: titleOf(page),
       description: page.metadata.description,
       url: urlOf(page),
     },
