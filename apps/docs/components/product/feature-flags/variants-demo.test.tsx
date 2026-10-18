@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { assign, moved } from './variants';
+import { CROWD_SIZE } from '../primitives/crowd';
+import { assign, booksellerCount, moved } from './variants';
 import VariantsDemo from './VariantsDemo';
 
 describe('VariantsDemo', () => {
@@ -8,13 +9,15 @@ describe('VariantsDemo', () => {
     render(<VariantsDemo />);
     fireEvent.change(screen.getByRole('slider'), { target: { value: '70' } });
     expect(screen.getByTestId('moved')).toHaveTextContent(
-      /\d+ of 24 visitors now see a different button/,
+      new RegExp(`\\d+ of ${CROWD_SIZE} visitors now see a different button`),
     );
   });
-  it('marks the three booksellers when they are pinned', () => {
+  it('marks every bookseller when they are pinned', () => {
     const { container } = render(<VariantsDemo />);
     fireEvent.click(screen.getByRole('checkbox', { name: /booksellers/i }));
-    expect(container.querySelectorAll('[data-mark="pinned"]')).toHaveLength(3);
+    expect(container.querySelectorAll('[data-mark="pinned"]')).toHaveLength(
+      booksellerCount,
+    );
   });
 });
 
@@ -27,7 +30,7 @@ describe('VariantsDemo count', () => {
     expect(pinOnly).not.toBe(accumulated);
     fireEvent.click(screen.getByRole('checkbox', { name: /booksellers/i }));
     expect(screen.getByTestId('moved')).toHaveTextContent(
-      `${pinOnly} of 24 visitors now see a different button`,
+      `${pinOnly} of ${CROWD_SIZE} visitors now see a different button`,
     );
   });
 

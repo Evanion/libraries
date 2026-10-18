@@ -9,8 +9,8 @@ import {
   pages,
   requestContext,
   tally,
-  visitorIds,
 } from './rollout';
+import { crowdIds as visitorIds } from '../product/primitives/crowd';
 
 const [brass, azul] = pages;
 

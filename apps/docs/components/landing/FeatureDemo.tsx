@@ -1,5 +1,6 @@
 'use client';
 
+import { CROWD_SIZE } from '../product/primitives/crowd';
 import { useId, useMemo, useState } from 'react';
 import { CodeView } from '../product/primitives/CodeView';
 import { VisitorCrowd } from '../product/primitives/VisitorCrowd';
@@ -13,7 +14,6 @@ import {
   pages,
   source,
   tally,
-  visitorIds,
   type RolloutState,
 } from './rollout';
 
@@ -49,7 +49,7 @@ function Thumb({ kind, label }: { kind: 'old' | 'new'; label: string }) {
  * a build renders many pages and knows the category of each, so a family page
  * is answered before deploy and a strategy page has to wait for its visitors.
  * The slider belongs to the second: a rollout is decided when a visitor
- * arrives, and 24 of them are decided one by one. The slider never touches the
+ * arrives, and each of them is decided one by one. The slider never touches the
  * first lane. The picker changes the first lane and switches the second on or
  * dims it.
  *
@@ -209,7 +209,7 @@ export default function FeatureDemo() {
           <p className="landing-feature__count">
             {build.settledOff
               ? 'Decided before deploy: nobody on this page.'
-              : `${seen} of ${visitorIds.length} visitors see the new gallery.`}
+              : `${seen} of ${CROWD_SIZE} visitors see the new gallery.`}
           </p>
         </div>
         <p className="landing-feature__lesson">
@@ -237,7 +237,7 @@ export default function FeatureDemo() {
             : 'Tap or hover a dot to see that visitor.'}
         </p>
         <output className="baize-visually-hidden" aria-live="polite">
-          {`${seen} of ${visitorIds.length} visitors see the new gallery.`}
+          {`${seen} of ${CROWD_SIZE} visitors see the new gallery.`}
         </output>
       </section>
     </div>

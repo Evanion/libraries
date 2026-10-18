@@ -3,6 +3,7 @@ import {
   type Decision,
   type EvaluationContext,
 } from '@evanion/feature';
+import { crowdIds } from '../product/primitives/crowd';
 
 /**
  * The document behind the feature-flag demonstration, and the two moments it is
@@ -99,12 +100,6 @@ export function buildLane(store: Store, page: Page): BuildLane {
   };
 }
 
-/** The 24 visitors the request lane decides for, by their id. */
-export const visitorIds: readonly string[] = Array.from(
-  { length: 24 },
-  (_, index) => `cust-${String(index + 1).padStart(4, '0')}`,
-);
-
 /** One visitor and what the document decided for them on this request. */
 export interface Visitor {
   id: string;
@@ -118,7 +113,7 @@ export function requestContext(page: Page, id: string): EvaluationContext {
 
 /** `resolve()` once per visitor. */
 export function crowd(store: Store, page: Page): Visitor[] {
-  return visitorIds.map((id) => ({
+  return crowdIds.map((id) => ({
     id,
     gallery: store.resolve(requestContext(page, id))['new-gallery'],
   }));

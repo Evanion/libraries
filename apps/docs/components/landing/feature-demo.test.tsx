@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { CROWD_SIZE } from '../product/primitives/crowd';
 import { describe, expect, it } from 'vitest';
 import FeatureDemo from './FeatureDemo';
 import { buildFeatures, crowd, openingState, pages } from './rollout';
@@ -40,7 +41,9 @@ describe('the feature-flag demonstration component', () => {
       pages[0],
     ).filter((visitor) => visitor.gallery.enabled).length;
 
-    expect(container.querySelectorAll('.visitor-crowd__dot')).toHaveLength(24);
+    expect(container.querySelectorAll('.visitor-crowd__dot')).toHaveLength(
+      CROWD_SIZE,
+    );
     expect(lit(container)).toHaveLength(expected);
     expect(mock(container)).toBe('New gallery for some visitors');
   });
@@ -52,7 +55,7 @@ describe('the feature-flag demonstration component', () => {
     slide(0);
     expect(lit(container)).toHaveLength(0);
     slide(100);
-    expect(lit(container)).toHaveLength(24);
+    expect(lit(container)).toHaveLength(CROWD_SIZE);
     expect(mock(container)).toBe(before);
   });
 
@@ -72,7 +75,7 @@ describe('the feature-flag demonstration component', () => {
     ).toBeInTheDocument();
 
     pick(/Brass/);
-    expect(lit(container)).toHaveLength(24);
+    expect(lit(container)).toHaveLength(CROWD_SIZE);
     expect(
       container.querySelectorAll('.landing-feature__lane[data-dimmed]'),
     ).toHaveLength(0);
@@ -140,18 +143,18 @@ describe('the feature-flag demonstration component', () => {
 
     expect(row().contains(screen.getByRole('slider'))).toBe(true);
     expect(row().textContent).toContain(
-      `${expected} of 24 visitors see the new gallery.`,
+      `${expected} of ${CROWD_SIZE} visitors see the new gallery.`,
     );
     slide(100);
     expect(row().textContent).toContain(
-      '24 of 24 visitors see the new gallery.',
+      `${CROWD_SIZE} of ${CROWD_SIZE} visitors see the new gallery.`,
     );
 
     pick(/Azul/);
     expect(row().textContent).toContain(
       'Decided before deploy: nobody on this page.',
     );
-    expect(row().textContent).not.toContain('of 24');
+    expect(row().textContent).not.toContain(`of ${CROWD_SIZE}`);
   });
 
   it('says why Azul is not rolled out and shows the galleries', () => {

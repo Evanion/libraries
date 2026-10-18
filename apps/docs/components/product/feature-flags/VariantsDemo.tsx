@@ -5,7 +5,7 @@ import { VisitorCrowd, type CrowdMember } from '../primitives/VisitorCrowd';
 import { Scrubber } from '../primitives/Scrubber';
 import { assign, moved, visitors } from './variants';
 
-/** A two-way split over 24 visitors: move the split and see who switches, pin a group to one side. */
+/** A two-way split over the demo crowd: move the split and see who switches, pin a group to one side. */
 export default function VariantsDemo() {
   const [weight, setWeight] = useState(50);
   const [previous, setPrevious] = useState<Record<string, string> | null>(null);
