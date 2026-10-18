@@ -183,7 +183,9 @@ describe('FeatureDemo labels', () => {
     expect(
       container.querySelectorAll('.landing-feature__lane-note'),
     ).toHaveLength(2);
-    expect(container).toHaveTextContent(/once per page while the site builds/i);
+    expect(container).toHaveTextContent(
+      /for every visitor when the site builds/i,
+    );
     expect(container).toHaveTextContent(/for each visitor when they arrive/i);
   });
 });
