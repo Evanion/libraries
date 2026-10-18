@@ -8,6 +8,7 @@ import {
 } from '../../app/navigation';
 import AccessDemo from './AccessDemo';
 import DataDemo from './DataDemo';
+import FeatureDemo from './FeatureDemo';
 import { allFamilies, familiesOf, type Family } from './families';
 import { description } from './manifest';
 import LuhnSpecimen from './LuhnSpecimen';
@@ -200,6 +201,27 @@ function demonstration(family: Family) {
           </figcaption>
         </>
       );
+    // What the package decides is a document, and the claim is that the same
+    // document is read at two moments. A build that settles what it knows and a
+    // crowd that fills in as the rollout widens say that where a sentence
+    // cannot.
+    case 'feature':
+      return (
+        <>
+          <FeatureDemo />
+          <figcaption className="landing-proof__caption">
+            To manage these flags, you define a single configuration document.
+            At build time, the game page settles the gift-cards flag and bakes
+            it into the output because it requires no visitor data. The
+            new-checkout and express-pickup flags are deferred to the request
+            since they require a targetingKey. Once deployed, the same document
+            evaluates the visitor on each request. Increasing the rollout
+            percentage enables the feature for more visitors without revoking
+            access for those already lit. Disabling new-checkout settles both it
+            and the dependent express-pickup flag to off.
+          </figcaption>
+        </>
+      );
     default:
       return null;
   }
@@ -209,9 +231,9 @@ function demonstration(family: Family) {
  * A family, level with the group's own argument, and the demonstration under
  * both.
  *
- * The shape the two flagship families take: the title and line on the left, the
- * teaser on the right so a reader has the name before the demonstration, and the
- * demonstration full width below. One teaser per family, carrying the name and a
+ * The shape the families with a demonstration take: the title and line on the
+ * left, the teaser on the right so a reader has the name before the
+ * demonstration, and the demonstration full width below. One teaser per family, carrying the name and a
  * chip per runtime the family reaches and nothing else -- the section's own line
  * explains the concept once, and a paragraph each would say it twice more.
  *

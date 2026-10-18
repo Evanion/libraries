@@ -59,9 +59,10 @@ export interface PackageGroup {
  *
  * Ordered by how much of an application the group decides, widest first, with
  * the catch-all last. Rendering and authorization each shape a whole interface
- * and each is a core sold across runtimes, so they lead and they are the two
- * sections that carry a working demonstration; identifiers and codes act on one
- * string at a time and follow.
+ * and each is a core sold across runtimes, so they lead. Feature flags decide
+ * which parts of that interface a visitor gets and follow them. These three are
+ * the sections that carry a working demonstration; identifiers and codes act on
+ * one string at a time and follow.
  */
 export const groups: readonly PackageGroup[] = [
   {
@@ -75,6 +76,11 @@ export const groups: readonly PackageGroup[] = [
     line: 'Stop duplicating authorization logic between your frontend and backend. Define your policy once as a serializable document and evaluate it locally, on the server and in the browser.',
   },
   {
+    id: 'feature',
+    title: 'Feature flags from one document',
+    line: 'Define your flags in a plain document you own. One library evaluates these definitions across your entire stack, with a consistent Node.js API, build-time integration, and browser support. During a static build, the library settles every flag it already knows, leaving only the dynamic decisions for the request.',
+  },
+  {
     id: 'identifiers',
     title: 'Identifiers and codes',
     line: 'Stop letting typos in identifiers reach your database. Add check characters to IDs and mint human-readable codes that catch errors at the edge.',
@@ -82,7 +88,7 @@ export const groups: readonly PackageGroup[] = [
   {
     id: 'standalone',
     title: 'On their own',
-    line: 'Focused solutions for specific infrastructure pains, from request tracing to feature rollouts.',
+    line: 'Focused solutions for specific infrastructure pains, from request tracing to provider trees.',
   },
 ];
 
@@ -363,7 +369,7 @@ export const packages: readonly DocumentedPackage[] = [
     root: 'libs/feature',
     slug: 'feature',
     title: 'Feature',
-    group: 'standalone',
+    group: 'feature',
     familyId: 'feature',
     framework: 'universal',
     hue: 'amber',
@@ -376,7 +382,7 @@ export const packages: readonly DocumentedPackage[] = [
     root: 'libs/react-feature',
     slug: 'react-feature',
     title: 'React Feature',
-    group: 'standalone',
+    group: 'feature',
     familyId: 'feature',
     framework: 'React',
     // One hue for the whole family, the way the rendering family carries `sky`.

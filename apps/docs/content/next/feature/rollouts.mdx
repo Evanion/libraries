@@ -71,6 +71,14 @@ When configuring your rollout, be aware of how the bucketing logic handles speci
 
 ```
 
+## Watching a Rollout Widen
+
+The control below holds the document of three flags the game shop uses: `gift-cards`, `new-checkout` with a rollout on `targetingKey`, and `express-pickup`, which depends on `new-checkout`. Move the slider and the visitors the rollout reaches fill in without anyone dropping out. Turn the `new-checkout` switch off and the build settles both dependent flags itself, because a parent that is off settles its dependants off.
+
+<FeatureDemo />
+
+The build lane is `plan()` called with a context that names the game and no visitor. The request lane is `resolve()` called once per visitor with that visitor's id as the `targetingKey`.
+
 ## Why MurmurHash3?
 
 To achieve a uniform distribution, `@evanion/feature` avoids simple modulus operations (e.g., `hash % 100`). This is problematic because it only uses the "low bits" of the hash, and a hash such as FNV-1a mixes those bits poorly, which skews the distribution.
