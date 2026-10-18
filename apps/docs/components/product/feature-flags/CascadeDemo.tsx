@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { DecisionTree } from '../primitives/DecisionTree';
-import { LABELS, preview, tree } from './cascade';
+import { labelOf, preview, tree } from './cascade';
 
 /** Switch the new checkout off and see, before confirming, what goes with it. */
 export default function CascadeDemo() {
@@ -21,7 +21,7 @@ export default function CascadeDemo() {
           <p>
             Switching it off also turns off:{' '}
             {preview(true)
-              .map((key) => LABELS[key])
+              .map((key) => labelOf(key))
               .join(', ')}
             .
           </p>

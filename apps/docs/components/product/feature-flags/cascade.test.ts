@@ -17,7 +17,7 @@ describe('the cascade scene', () => {
       on: false,
       reason: expect.stringContaining('New checkout'),
     });
-    expect(root.children?.[0].children?.[0]).toMatchObject({ on: false });
-    expect(tree(true).children?.[0].children?.[0].on).toBe(true);
+    expect(root.children?.[0]?.children?.[0]).toMatchObject({ on: false });
+    expect(tree(true).children?.[0]?.children?.[0]?.on).toBe(true);
   });
 });

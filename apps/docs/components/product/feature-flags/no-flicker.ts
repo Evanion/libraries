@@ -1,8 +1,4 @@
-import {
-  adoptDecisions,
-  createFeatures,
-  type DecisionSet,
-} from '@evanion/feature';
+import { adoptDecisions, createFeatures } from '@evanion/feature';
 
 export const VISITOR = { targetingKey: 'cust-0042', role: 'member' };
 
@@ -20,7 +16,8 @@ function store() {
 
 /** The server's decisions for the visitor, as they arrive in the page: serialised and parsed. */
 export function serverSet() {
-  return JSON.parse(JSON.stringify(store().snapshot(VISITOR))) as DecisionSet;
+  const set = store().snapshot(VISITOR);
+  return JSON.parse(JSON.stringify(set)) as typeof set;
 }
 
 const paint = (enabled: boolean) => (enabled ? 'new' : 'old');
