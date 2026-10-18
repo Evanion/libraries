@@ -20,7 +20,7 @@ To pick the right integration for `@evanion/feature`, you must first determine w
 
 - **A server that renders.** The page, component, or loader reads the flag on the server, and the browser receives only the result. Use [Astro SSR](../astro) for pages that ship no JavaScript, or [Next.js](../nextjs) for Server Components.
 - **A server that answers an API.** A handler reads the flag to determine the response content. Use [Express](../express) for a plain handler or [NestJS](../nestjs) for a service.
-- **A client that holds decisions a server resolved.** The server resolves a `DecisionSet` and sends it to the browser, where a component reads it. Use [React Router 8](../react-router) for a loader that ships the set, [Next.js](../nextjs) for the set a Server Component ships, or [the react-feature pages](/react-feature/) for the provider and hooks that read it.
+- **A client that holds decisions a server resolved.** The server resolves a `DecisionSet` and sends it to the browser, where a component reads it. Use [React Router 8](../react-router) for a loader that ships the set, [Next.js](../nextjs) for the set a Server Component ships, or [the react-feature pages](/docs/react-feature/) for the provider and hooks that read it.
 
 A browser never resolves a flag on its own authority; the server owns the definitions and the context, and the client reads what the server decided.
 

@@ -60,8 +60,8 @@ export function authoredSection(slug: string): string {
 
 /**
  * The URL path a written page is served at, with the trailing slash the static
- * export gives every page: `content/next/acl/api.mdx` is `/next/acl/api/` and
- * `content/next/acl/index.mdx` is `/next/acl/`.
+ * export gives every page: `content/next/acl/api.mdx` is `/docs/next/acl/api/`
+ * and `content/next/acl/index.mdx` is `/docs/next/acl/`.
  */
 export function urlOf(page: string): string {
   const path = relative(CONTENT, page)
@@ -70,7 +70,7 @@ export function urlOf(page: string): string {
     .replace(/\.mdx?$/, '')
     .replace(/(^|\/)index$/, '');
 
-  return path === '' ? '/' : `/${path}/`;
+  return path === '' ? '/docs/' : `/docs/${path}/`;
 }
 
 /** Every directory holding a written file, `_meta` modules included. */
@@ -132,7 +132,7 @@ export function servedSections(): Record<string, ServedSection> {
 
 /**
  * Every content path the export serves a page at, without its slashes:
- * `acl/api`, `next/acl`, `urn/v1/api`, `testing`.
+ * `docs/acl/api`, `docs/next/acl`, `docs/urn/v1/api`, `docs/testing`.
  *
  * The written pages at the path they are written at, and each generated
  * version directory's pages at the path the generator wrote them.
@@ -144,13 +144,13 @@ export function servedPaths(): Set<string> {
 
   for (const [slug, section] of Object.entries(servedSections())) {
     for (const page of section.current.pages)
-      paths.add(page === '' ? slug : `${slug}/${page}`);
+      paths.add(page === '' ? `docs/${slug}` : `docs/${slug}/${page}`);
     for (const line of section.lines)
       for (const page of line.pages)
         paths.add(
           page === ''
-            ? `${slug}/${line.segment}`
-            : `${slug}/${line.segment}/${page}`,
+            ? `docs/${slug}/${line.segment}`
+            : `docs/${slug}/${line.segment}/${page}`,
         );
   }
 

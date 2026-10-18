@@ -1,6 +1,6 @@
 # API reference
 
-`@evanion/react-feature` exports one provider, four hooks, a factory that binds them to a store, and six types of its own. It re-exports 33 `@evanion/feature` types, names unchanged, from [`BaseFieldType`](#basefieldtype) down. The core's values, such as `createFeatures`, `parseFeatureConfig` and `serializeConfig`, come from `@evanion/feature` and are documented in [the core API reference](/feature/api).
+`@evanion/react-feature` exports one provider, four hooks, a factory that binds them to a store, and six types of its own. It re-exports 33 `@evanion/feature` types, names unchanged, from [`BaseFieldType`](#basefieldtype) down. The core's values, such as `createFeatures`, `parseFeatureConfig` and `serializeConfig`, come from `@evanion/feature` and are documented in [the core API reference](/docs/feature/api).
 
 ## `FeatureProvider`
 
@@ -18,7 +18,7 @@ To keep your store's schema and allow for nested stores, you can use `createFeat
 
 <!-- reference @evanion/react-feature#useFeature example=react-decisions -->
 
-To read a decision for a specific flag, use the `useFeature` hook. If you call it for a key the provider does not publish, it throws an error naming the key and the provider. The decision's `reason`, `rule` and `assignment` are what [the core's Decisions page](/feature/decisions) describes.
+To read a decision for a specific flag, use the `useFeature` hook. If you call it for a key the provider does not publish, it throws an error naming the key and the provider. The decision's `reason`, `rule` and `assignment` are what [the core's Decisions page](/docs/feature/decisions) describes.
 
 ## `useFeatures`
 
@@ -80,7 +80,7 @@ The `VersionMismatchPolicy` determines what a provider renders when the shipped 
 
 To categorize the data allowed in a context field, you use `BaseFieldType`. This type defines the four fundamental types a declared context field may hold: `'string'`, `'number'`, `'boolean'`, and `'instant'`.
 
-This serves as the foundation for [`FieldType`](#fieldtype). In practice, a React application that defines its own document schema will name this type there, and [Distribution](/feature/distribution) is where that schema is described.
+This serves as the foundation for [`FieldType`](#fieldtype). In practice, a React application that defines its own document schema will name this type there, and [Distribution](/docs/feature/distribution) is where that schema is described.
 
 ## `ConfigEnvelope`
 
@@ -88,7 +88,7 @@ This serves as the foundation for [`FieldType`](#fieldtype). In practice, a Reac
 
 When you need to handle a document without its associated payload, you use the `ConfigEnvelope` type. This is particularly useful for servers that serialize a store for the page they ship; the server will name this type during the call to `serializeConfig` on the core entry, which takes an envelope and writes it around a store.
 
-Note that the `digest` member is fenced to `never` because `configDigest` is the sole writer of that member. For more details on the serializer, see [the core API reference](/feature/api).
+Note that the `digest` member is fenced to `never` because `configDigest` is the sole writer of that member. For more details on the serializer, see [the core API reference](/docs/feature/api).
 
 ## `ConfigIssue`
 
@@ -102,7 +102,7 @@ The `ConfigIssue` type describes what a failed `validateConfig` lists. A compone
 
 To programmatically determine why a document was refused without relying on fragile message text, you can branch on a `ConfigIssueCode`. This type represents the `code` found on a [`ConfigIssue`](#configissue), with one unique code assigned per class of defect.
 
-These codes are produced by `validateConfig`, which is documented in [the core API reference](/feature/api).
+These codes are produced by `validateConfig`, which is documented in [the core API reference](/docs/feature/api).
 
 ## `ContextSchema`
 
@@ -110,13 +110,13 @@ These codes are produced by `validateConfig`, which is documented in [the core A
 
 A document describes its requirements through a schema. The `ContextSchema` type represents the half of the [`FeatureSchema`](#featureschema) dedicated to declaring the rules for context fields, with each field assigned a [`FieldType`](#fieldtype).
 
-The two vocabularies stated by a document are further described in [Distribution](/feature/distribution).
+The two vocabularies stated by a document are further described in [Distribution](/docs/feature/distribution).
 
 ## `FeatureConfig`
 
 <!-- reference @evanion/feature#FeatureConfig -->
 
-The `FeatureConfig` type is the served document a store is built from. A React application that reloads its store from a poller writes the handler beside the component, and that file names this type. [Distribution](/feature/distribution) is where a document is served and reloaded.
+The `FeatureConfig` type is the served document a store is built from. A React application that reloads its store from a poller writes the handler beside the component, and that file names this type. [Distribution](/docs/feature/distribution) is where a document is served and reloaded.
 
 ## `FeatureSchema`
 
@@ -127,7 +127,7 @@ The `FeatureSchema` type acts as the typing contract that a document states, car
 1. [`ContextSchema`](#contextschema): For fields the engine reads and compares.
 2. [`FeatureShape`](#featureshape): One per feature, for variant values the engine never reads.
 
-The division between these two vocabularies is described in [Distribution](/feature/distribution).
+The division between these two vocabularies is described in [Distribution](/docs/feature/distribution).
 
 ## `FeatureShape`
 
@@ -188,7 +188,7 @@ While the core `Instant` type admits a `Date` (which is what an author uses in a
 
 <!-- reference @evanion/feature#SerializedRule -->
 
-Rules define the logic for feature assignment. When a rule is carried in a document, it is typed as `SerializedRule`, which keeps the control-plane `id` untouched but narrows the `when` property to an array of [`SerializedCondition`](#serializedcondition). These rules are written within [Rollouts](/feature/rollouts).
+Rules define the logic for feature assignment. When a rule is carried in a document, it is typed as `SerializedRule`, which keeps the control-plane `id` untouched but narrows the `when` property to an array of [`SerializedCondition`](#serializedcondition). These rules are written within [Rollouts](/docs/feature/rollouts).
 
 ## `SerializedVariantSpec`
 
@@ -300,7 +300,7 @@ The `VariantInfo` type is the constraint every schema parameter in this package 
 
 - [Getting started](../getting-started): the provider, the memoised context and
   the bound hooks, in the order you write them
-- [Core API reference](/feature/api): every type react-feature re-exports, and
+- [Core API reference](/docs/feature/api): every type react-feature re-exports, and
   the functions a server calls
-- [Decisions](/feature/decisions): what a decision carries and what each
+- [Decisions](/docs/feature/decisions): what a decision carries and what each
   `reason` means

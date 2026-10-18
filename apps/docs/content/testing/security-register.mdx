@@ -10,10 +10,10 @@ classes of attack, each held to a `describe` block of tests that
   difficulty={4}
   read={40}
   requires={[
-    ['How the Evanion libraries are tested', '/testing'],
-    ['The acl overview', '/acl'],
+    ['How the Evanion libraries are tested', '/docs/testing'],
+    ['The acl overview', '/docs/acl'],
   ]}
-  unlocks={[['What coverage measures', '/testing/coverage']]}
+  unlocks={[['What coverage measures', '/docs/testing/coverage']]}
 />
 
 ## How to read a case
@@ -26,7 +26,7 @@ else:
 npx nx test @evanion/acl -- src/security
 ```
 
-The [acl overview](/acl) defines the matrix, the subject, a rule and a
+The [acl overview](/docs/acl) defines the matrix, the subject, a rule and a
 decision, and this section defines what the cases use beyond those.
 
 The cases are set in Baize, the board game shop of the acl overview, with the
@@ -532,7 +532,7 @@ somebody chose, against a property somebody stated.
 
 ### The register describes one library at one layer
 
-The eight tier 3 entries are what [the acl security contract](/acl/security)
+The eight tier 3 entries are what [the acl security contract](/docs/acl/security)
 spells out. SEC-205 pins that one call returns the same decision wherever it
 runs. In a browser that decision hides a control, and a request sent without the
 control still reaches the server, so only the server's decision guards the
@@ -542,6 +542,6 @@ write's transaction, and take the clock from the server.
 
 ## How much of the library the suite runs
 
-[What coverage measures](/testing/coverage) gives `@evanion/acl`'s statement
+[What coverage measures](/docs/testing/coverage) gives `@evanion/acl`'s statement
 and branch coverage beside every other library's, and names the acl files whose
 branches no test took.

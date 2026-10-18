@@ -63,7 +63,7 @@ To gain type safety, `createFeatureContext` takes a store and returns the same p
 The `@evanion/react-feature` package has no part in four places:
 
 - **Server code.** A loader, a route handler or a Server Component calls `features.isEnabled` or `features.resolve` from `@evanion/feature` directly, with the context in hand and no provider above it.
-- **Deciding.** Every rule, rollout share and variant weight is read by `@evanion/feature`. [The feature docs](/feature/) have what a decision is made of.
+- **Deciding.** Every rule, rollout share and variant weight is read by `@evanion/feature`. [The feature docs](/docs/feature/) have what a decision is made of.
 - **Serving the configuration.** The library's contract ends at a document your server hands it, so nothing here polls, subscribes or reads a database.
 - **Recording an exposure.** `resolve` decides every configured feature at once, so a record counted from it measures the wrong denominator. The component that renders the variant writes the record.
 

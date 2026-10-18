@@ -10,7 +10,7 @@ taking a prop.
   hands={20}
   requires={[
     ['Overview', '../'],
-    ['Getting started with feature', '/feature/getting-started'],
+    ['Getting started with feature', '/docs/feature/getting-started'],
   ]}
   unlocks={[['API reference', '../api']]}
 />
@@ -23,7 +23,7 @@ To start using `@evanion/react-feature`, ensure your environment meets these req
 - Node 20 or newer and an ESM project, since `@evanion/react-feature` has no
   CommonJS build.
 - A store built with `createFeatures` from `@evanion/feature`.
-  [Getting started with feature](/feature/getting-started) writes a first one.
+  [Getting started with feature](/docs/feature/getting-started) writes a first one.
 - A targeting key your application already resolves: the signed-in customer's
   id, as a string.
 
@@ -129,4 +129,4 @@ Decisions are plain objects and cross the boundary as serialised props. The
 store does not: it carries functions. So resolution runs on the server, and the
 browser renders from the set it was handed.
 
-You now have `@evanion/react-feature` publishing one store's decisions to a tree and typing the keys a component may name. For a full list of every prop, hook and type, see the [API reference](../api). To learn how a share of customers is written down in the first place, see [Rollouts](/feature/rollouts).
+You now have `@evanion/react-feature` publishing one store's decisions to a tree and typing the keys a component may name. For a full list of every prop, hook and type, see the [API reference](../api). To learn how a share of customers is written down in the first place, see [Rollouts](/docs/feature/rollouts).

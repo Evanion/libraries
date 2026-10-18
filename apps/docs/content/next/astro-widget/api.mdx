@@ -7,7 +7,7 @@ version. Each re-exported name links to the widget core's entry for it.
 <PageSheet
   difficulty={3}
   read={15}
-  unlocks={[['@evanion/widget API reference', '/widget/api']]}
+  unlocks={[['@evanion/widget API reference', '/docs/widget/api']]}
 />
 
 ## `Widgets.astro`
@@ -88,7 +88,7 @@ function defineWidgets<R extends WidgetRegistry>(registry: R): R;
 `defineWidgets` returns the registry it was handed, typed as the literal object
 passed in, so a code editor completes the type names. Annotating the same object
 as `WidgetRegistry` widens its keys to `string`.
-[The widget core's entry](/widget/api#definewidgets) carries the rest.
+[The widget core's entry](/docs/widget/api#definewidgets) carries the rest.
 
 ```ts file=libs/astro-widget/examples/src/registry.ts region=registry
 
@@ -116,7 +116,7 @@ a whole list. It is the only check an astro-widget item's props get. Below,
 
 [Check CMS items before Astro renders them](../validation) runs it
 before `astro build`, and
-[the widget core's entry](/widget/api#validateitems) carries the parameters.
+[the widget core's entry](/docs/widget/api#validateitems) carries the parameters.
 
 ## `AnyWidgetItem`
 
@@ -142,7 +142,7 @@ as data. The Baize listing page assigns the JSON its CMS saved to
 `@evanion/react-widget` offers `WidgetItem<C>`, a checked counterpart inferred
 from its components. astro-widget has none, for the reason under
 [`WidgetRegistry`](#widgetregistry).
-[The widget core's entry](/widget/api#anywidgetitem) carries the fields.
+[The widget core's entry](/docs/widget/api#anywidgetitem) carries the fields.
 
 ## `WidgetRegistry`
 
@@ -154,7 +154,7 @@ type WidgetRegistry<T = unknown> = Record<string, T>;
 astro-widget leaves `T` at `unknown`. An `.astro` module's default export is an
 `AstroComponentFactory`, and its props live in the file's frontmatter `Props`
 interface, out of the factory type's reach, so a narrower `T` would check
-nothing. [The widget core's entry](/widget/api#widgetregistry) carries the rest.
+nothing. [The widget core's entry](/docs/widget/api#widgetregistry) carries the rest.
 
 ## `WidgetMeta`
 
@@ -167,7 +167,7 @@ a column or a span. `Widgets.astro` hands it to `chrome.item` and never to the
 widget, and a chrome that reads it narrows it itself, as the layout page's
 [`Section.astro`](../layout#wrapping-widgets-with-chrome) does with
 `meta?: { background?: string }`.
-[The widget core's entry](/widget/api#widgetmeta) carries the rest.
+[The widget core's entry](/docs/widget/api#widgetmeta) carries the rest.
 
 ## `WidgetProblem`
 
@@ -185,7 +185,7 @@ the item's position in its own sibling list, and `-1` when `items` is not an
 array. `id` and `type` are the item's own, or `-` when that field is not a
 string. A problem carries no depth, so `id` tells apart two problems at
 `index: 0` on different levels only when the ids are unique across the tree.
-[The widget core's entry](/widget/api#widgetproblem) carries the rest.
+[The widget core's entry](/docs/widget/api#widgetproblem) carries the rest.
 
 ## `KnownWidgetTypes`
 
@@ -202,7 +202,7 @@ report the same problems. A script run under plain Node, which cannot import
 
 ```
 
-[The widget core's entry](/widget/api#knownwidgettypes) carries the rest.
+[The widget core's entry](/docs/widget/api#knownwidgettypes) carries the rest.
 
 ## `ERROR_MESSAGES`
 
@@ -218,7 +218,7 @@ page. `Widgets.astro` uses three of the five keys:
 
 Only `@evanion/react-widget` warns with `MALFORMED_ITEM` and
 `MALFORMED_CHILDREN`. The [Unknown types](#unknown-types) example prints
-`UNKNOWN_WIDGET`, and [the widget core's entry](/widget/api#error_messages)
+`UNKNOWN_WIDGET`, and [the widget core's entry](/docs/widget/api#error_messages)
 lists all five.
 
 ## `VALIDATION_MESSAGES`
@@ -226,7 +226,7 @@ lists all five.
 `VALIDATION_MESSAGES` holds every message `validateItems` reports, so a caller
 sorts a report without matching on prose. `MISSING_FIELD` is a function of the
 field name, and the other eight keys are strings.
-[The widget core's entry](/widget/api#validation_messages) carries the rest.
+[The widget core's entry](/docs/widget/api#validation_messages) carries the rest.
 
 | Key                | Message                     |
 | ------------------ | --------------------------- |
@@ -247,4 +247,4 @@ and blank fields for the editor:
 
 ```
 
-[What validateItems reports](/widget/problems) gives the list that produces each message.
+[What validateItems reports](/docs/widget/problems) gives the list that produces each message.
