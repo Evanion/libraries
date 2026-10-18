@@ -706,13 +706,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ReplayFrame } from './ReplayFrame';
 
 function motion(reduced: boolean) {
-  window.matchMedia = vi
-    .fn()
-    .mockReturnValue({
-      matches: reduced,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    });
+  window.matchMedia = vi.fn().mockReturnValue({
+    matches: reduced,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  });
 }
 afterEach(() => vi.useRealTimers());
 
@@ -1479,13 +1477,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import NoFlickerDemo from './NoFlickerDemo';
 
 function motion(reduced: boolean) {
-  window.matchMedia = vi
-    .fn()
-    .mockReturnValue({
-      matches: reduced,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    });
+  window.matchMedia = vi.fn().mockReturnValue({
+    matches: reduced,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  });
 }
 afterEach(() => vi.useRealTimers());
 
