@@ -42,29 +42,29 @@ function fixture(files) {
 describe('the sitemap', () => {
   const out = fixture({
     'index.html': page(),
-    CNAME: 'docs.evanion.com\n',
-    'urn/index.html': page(),
-    'urn/api/index.html': page(),
-    'urn/v1/index.html': page('noindex, follow'),
-    'next/urn/index.html': page('noindex, follow'),
-    'urn/components/index.html': page('noindex'),
+    CNAME: 'libs.evanion.com\n',
+    'docs/urn/index.html': page(),
+    'docs/urn/api/index.html': page(),
+    'docs/urn/v1/index.html': page('noindex, follow'),
+    'docs/next/urn/index.html': page('noindex, follow'),
+    'docs/urn/components/index.html': page('noindex'),
     '404/index.html': page('noindex'),
     '_next/static/index.html': page(),
-    'urn/api.md': '# API',
+    'docs/urn/api.md': '# API',
   });
 
   it('lists the released pages and the landing page', () => {
-    expect(indexedPaths(out)).toEqual(['/', '/urn/', '/urn/api/']);
+    expect(indexedPaths(out)).toEqual(['/', '/docs/urn/', '/docs/urn/api/']);
   });
 
   it('names the pages on the custom domain, and robots.txt names it', () => {
     writeSitemap(out);
 
     expect(readFileSync(join(out, 'sitemap.xml'), 'utf8')).toContain(
-      '<loc>https://docs.evanion.com/urn/api/</loc>',
+      '<loc>https://libs.evanion.com/docs/urn/api/</loc>',
     );
     expect(readFileSync(join(out, 'robots.txt'), 'utf8')).toContain(
-      'Sitemap: https://docs.evanion.com/sitemap.xml',
+      'Sitemap: https://libs.evanion.com/sitemap.xml',
     );
   });
 });

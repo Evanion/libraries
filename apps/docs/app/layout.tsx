@@ -30,7 +30,7 @@ export const metadata = {
     template: '%s | Evanion Libraries',
   },
   description: 'Documentation for the Evanion open source libraries.',
-  metadataBase: new URL('https://docs.evanion.com'),
+  metadataBase: new URL('https://libs.evanion.com'),
 };
 
 /**
