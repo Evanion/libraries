@@ -22,7 +22,7 @@
     "@evanion/feature": "*",
     "@evanion/react-feature": "*",
     "@evanion/react-widget": "*",
-    "next": "16.3.8",
+    "next": "16.4.1",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   }
