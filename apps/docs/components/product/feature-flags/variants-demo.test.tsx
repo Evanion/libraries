@@ -9,7 +9,9 @@ describe('VariantsDemo', () => {
     render(<VariantsDemo />);
     fireEvent.change(screen.getByRole('slider'), { target: { value: '70' } });
     expect(screen.getByTestId('moved')).toHaveTextContent(
-      new RegExp(`\\d+ of ${CROWD_SIZE} visitors now see a different button`),
+      new RegExp(
+        `\\d+ of ${CROWD_SIZE} see the blue button · \\d+ changed with your last move`,
+      ),
     );
   });
   it('marks every bookseller when they are pinned', () => {
@@ -30,7 +32,31 @@ describe('VariantsDemo count', () => {
     expect(pinOnly).not.toBe(accumulated);
     fireEvent.click(screen.getByRole('checkbox', { name: /booksellers/i }));
     expect(screen.getByTestId('moved')).toHaveTextContent(
-      `${pinOnly} of ${CROWD_SIZE} visitors now see a different button`,
+      `${pinOnly} changed with your last move`,
+    );
+  });
+
+  it('leads with how many see blue, equal to the filled dots, at every state', () => {
+    const { container } = render(<VariantsDemo />);
+    const check = (text: string) => {
+      const lit = container.querySelectorAll(
+        '.visitor-crowd__dot[data-lit]',
+      ).length;
+      expect(screen.getByTestId('moved')).toHaveTextContent(
+        `${lit} of ${CROWD_SIZE} see the blue button · ${text}`,
+      );
+    };
+    expect(
+      container.querySelectorAll('.visitor-crowd__dot[data-lit]').length,
+    ).toBeGreaterThan(0);
+    check('Move the split to see who changes');
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '55' } });
+    check(
+      `${moved(assign(50, false), assign(55, false)).length} changed with your last move`,
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: /booksellers/i }));
+    check(
+      `${moved(assign(55, false), assign(55, true)).length} changed with your last move`,
     );
   });
 
