@@ -1,13 +1,18 @@
 import { createFeatures } from '@evanion/feature';
+import { crowdIds } from '../primitives/crowd';
 
-/** The 24 visitors; three are booksellers. */
-export const visitors = Array.from({ length: 24 }, (_, i) => {
-  const id = `cust-${String(i + 1).padStart(4, '0')}`;
-  return {
-    id,
-    bookseller: ['cust-0004', 'cust-0012', 'cust-0020'].includes(id),
-  };
-});
+/** Every eighth visitor from `cust-0004` is a bookseller. */
+const BOOKSELLER_EVERY = 8;
+const FIRST_BOOKSELLER_INDEX = 3;
+
+/** The crowd, with the booksellers marked. */
+export const visitors = crowdIds.map((id, index) => ({
+  id,
+  bookseller: index % BOOKSELLER_EVERY === FIRST_BOOKSELLER_INDEX,
+}));
+
+/** How many of the crowd are booksellers. */
+export const booksellerCount = visitors.filter((v) => v.bookseller).length;
 
 /**
  * The document: a two-way split of the checkout button. With `pinned`, booksellers
