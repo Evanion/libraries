@@ -3,6 +3,8 @@ import { dirname, join } from 'node:path';
 
 import { mdSiblings } from '@evanion/doc-examples/md-siblings';
 
+import { DOCS } from './docs-path.mjs';
+
 /**
  * Writes the site's `.md` siblings into the static export.
  *
@@ -27,9 +29,9 @@ const out = join(app, 'out');
 const siblings = mdSiblings(join(app, 'content'), join(app, '../..'));
 
 for (const [route, markdown] of siblings) {
-  const path = join(out, route);
+  const path = join(out, DOCS, route);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, markdown);
 }
 
-console.log(`wrote ${siblings.size} .md siblings to apps/docs/out`);
+console.log(`wrote ${siblings.size} .md siblings to apps/docs/out${DOCS}`);
