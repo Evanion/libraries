@@ -2,24 +2,7 @@
 
 **Consistent, local authorization across your entire stack.**
 
-Stop making a network round-trip every time you need to hide a button or protect an API endpoint. `@evanion/acl` lets you define your authorization logic once as a serializable matrix and evaluate it **locally**—on your Node backend, in your Next.js server components, or directly in the browser.
-
-## The Problem: The "Authorization Bottleneck"
-
-In most apps, authorization is a choice between two bad options:
-
-1. **Centralized (Slow)**: Every check is an API call to an auth service. Your UI feels sluggish, and your backend is hammered with "Can the user do X?" requests.
-2. **Duplicated (Fragile)**: You write the logic in the backend and then _re-implement_ a version of it in the frontend. The moment a rule changes, your UI diverges from your API, leading to "forbidden" errors for buttons the user thought they could click.
-
-## The Solution: A Serializable Matrix
-
-`@evanion/acl` introduces the **Access Control Matrix**. Instead of a function, your policy is a data structure.
-
-You author the policy on the server, serialize it to JSON, and ship it to the client. The client rebuilds the evaluator and makes the exact same decisions as the server, without a network call.
-
-### Core Concept: The Matrix in Action
-
-The following example uses Baize, a board game shop, where booksellers can delete questions. To ensure consistency, the server builds the policy and sends `access.matrix` as JSON, which the browser then uses to rebuild an evaluator via `hydratePolicy`. This rebuilt evaluator provides the same answers as the server. This block runs in the package's test suite; each `// ->` comment indicates the expression's value.
+Most apps suffer from an "Authorization Bottleneck": you either make a slow network round-trip for every UI button and API endpoint, or you risk fragile bugs by duplicating the same logic in both the frontend and backend. `@evanion/acl` solves this by letting you define your authorization logic once as a serializable matrix and evaluate it locally—on your Node backend, in your Next.js server components, or directly in the browser.
 
 <!-- #region first-copy -->
 
@@ -49,13 +32,15 @@ inBrowser.can(customer, 'question', 'delete', question).allowed; // -> false
 
 <!-- #endregion first-copy -->
 
-## Key Features
+## Capability Map
 
-- ⚡ **Local Decisions**: A decision is a synchronous local function call, with no `await` and no network request.
-- 🔄 **One Matrix**: The frontend answers from the same matrix as the backend, shipped as JSON. A copy answers from the version it holds until it fetches a new one.
-- 🔒 **Fail-Closed**: Nothing is granted by default. An action an adopted document does not carry is refused, and a malformed document throws at construction.
-- 🎯 **Field-Level Control**: Don't just decide if a user can `update`; decide exactly _which fields_ they can change using `canFields`.
-- 📦 **Lightweight**: The package has no runtime or peer dependencies and ships its own types. It is ESM only and needs Node 20 or newer, and it runs in the browser.
+The `@evanion/acl` package provides the following capabilities:
+
+- **Local Decisions**: Decisions are synchronous function calls with no `await` and no network requests.
+- **Single Source of Truth**: The frontend and backend answer from the same matrix shipped as JSON.
+- **Fail-Closed Security**: Nothing is granted by default; malformed documents throw at construction and uncarried actions are refused.
+- **Field-Level Control**: Use `canFields` to decide exactly which fields a user can change.
+- **Environment Agnostic**: Runs in the browser and Node 20+; it is ESM only with no runtime or peer dependencies.
 
 ## Installation
 
