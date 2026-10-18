@@ -8,6 +8,7 @@ import {
   authoredPages,
   CONTENT,
   DOCS,
+  docsHref,
   servedSections,
   urlOf,
 } from './docs-content';
@@ -32,6 +33,9 @@ import {
 const OUT = join(DOCS, 'out');
 const built = existsSync(join(OUT, 'index.html'));
 const required = process.env.DOCS_EXPORT === 'required';
+
+/** The URL path of the page at `route` under the docs prefix, with its trailing slash. */
+const at = (route: string) => `${docsHref(route)}/`;
 
 /** Every exported page, as its URL path and its HTML. */
 function exported(): { path: string; html: string }[] {
@@ -164,7 +168,7 @@ function pageSources(): { path: string; commit: string; source: string }[] {
         const source = inTree(commit, dir, page);
         if (source)
           pages.push({
-            path: `/${page === '' ? base : `${base}/${page}`}/`,
+            path: at(page === '' ? base : `${base}/${page}`),
             commit,
             source,
           });
@@ -250,7 +254,7 @@ describe.runIf(required)('the static export', () => {
     const lines = Object.entries(servedSections()).flatMap(([slug, section]) =>
       section.lines.map((line) => ({
         slug,
-        base: `/${slug}/${line.segment}/`,
+        base: at(`${slug}/${line.segment}`),
       })),
     );
 
@@ -270,8 +274,8 @@ describe.runIf(required)('the static export', () => {
             .map((match) => match[1] as string)
             .filter(
               (href) =>
-                href.startsWith(`/${slug}/`) &&
-                href !== `/${slug}/` &&
+                href.startsWith(at(slug)) &&
+                href !== at(slug) &&
                 // The theme links a folder without its trailing slash.
                 !`${href}/`.startsWith(base),
             ),
@@ -286,11 +290,11 @@ describe.runIf(required)('the static export', () => {
   it('keeps /next/ and the release lines out of the index and the bare paths in', () => {
     const lines = new Set(
       Object.entries(servedSections()).flatMap(([slug, section]) =>
-        section.lines.map((line) => `/${slug}/${line.segment}/`),
+        section.lines.map((line) => at(`${slug}/${line.segment}`)),
       ),
     );
     const secondary = (path: string) =>
-      path.startsWith('/next/') ||
+      path.startsWith(at('next')) ||
       [...lines].some((line) => path.startsWith(line));
 
     const wrong = exported()
@@ -327,9 +331,9 @@ describe.runIf(required)('the static export', () => {
   it('serves at each bare path and line the release content/versions.json names', () => {
     const wrong = Object.entries(servedSections()).flatMap(([slug, section]) =>
       [
-        { path: `/${slug}/`, version: section.current.version },
+        { path: at(slug), version: section.current.version },
         ...section.lines.map((line) => ({
-          path: `/${slug}/${line.segment}/`,
+          path: at(`${slug}/${line.segment}`),
           version: line.version,
         })),
       ]
@@ -375,18 +379,21 @@ describe.runIf(required)('the static export', () => {
           const source = [`${route}.mdx`, `${route}/index.mdx`]
             .map((file) => join(CONTENT, file))
             .find((file) => existsSync(file));
-          if (!source) return [`/${route}/: no page under content/`];
+          if (!source) return [`${at(route)}: no page under content/`];
 
           const fences = (readFileSync(source, 'utf-8').match(anchored) ?? [])
             .length;
-          const html = readFileSync(join(OUT, route, 'index.html'), 'utf-8');
+          const html = readFileSync(
+            join(OUT, at(route), 'index.html'),
+            'utf-8',
+          );
           const rendered = (html.match(compiled) ?? []).length;
           const hovers = html.includes('twoslash-popup-container');
 
           return rendered === fences && (fences === 0 || hovers)
             ? []
             : [
-                `/${route}/: ${fences} anchored fences, ${rendered} rendered as Twoslash${hovers ? '' : ', no hover'}`,
+                `${at(route)}: ${fences} anchored fences, ${rendered} rendered as Twoslash${hovers ? '' : ', no hover'}`,
               ];
         }),
       ),
@@ -399,9 +406,9 @@ describe.runIf(required)('the static export', () => {
   it('writes pages for every version of every section', () => {
     const empty = Object.entries(servedSections()).flatMap(([slug, section]) =>
       [
-        `/${slug}/`,
-        `/next/${slug}/`,
-        ...section.lines.map((line) => `/${slug}/${line.segment}/`),
+        at(slug),
+        at(`next/${slug}`),
+        ...section.lines.map((line) => at(`${slug}/${line.segment}`)),
       ]
         .filter((path) => !existsSync(join(OUT, path, 'index.html')))
         .map((path) => `${path}: no index.html`),

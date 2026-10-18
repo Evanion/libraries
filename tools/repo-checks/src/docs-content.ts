@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { workspaceRoot } from '@nx/devkit';
 
@@ -24,6 +25,15 @@ import { workspaceRoot } from '@nx/devkit';
 export const DOCS = join(workspaceRoot, 'apps', 'docs');
 export const CONTENT = join(DOCS, 'content');
 export const NEXT = join(CONTENT, 'next');
+
+/**
+ * `docsHref` from the module every docs path is built through. It is plain
+ * ESM with no declarations, so it is loaded by URL as the other checks load
+ * the app's tools.
+ */
+export const { docsHref } = (await import(
+  pathToFileURL(join(DOCS, 'tools', 'docs-path.mjs')).href
+)) as { docsHref: (path: string) => string };
 
 /** Every page a person wrote, as absolute paths, sorted. */
 export function authoredPages(): string[] {
@@ -70,7 +80,7 @@ export function urlOf(page: string): string {
     .replace(/\.mdx?$/, '')
     .replace(/(^|\/)index$/, '');
 
-  return path === '' ? '/docs/' : `/docs/${path}/`;
+  return path === '' ? docsHref('') : `${docsHref(path)}/`;
 }
 
 /** Every directory holding a written file, `_meta` modules included. */
@@ -138,19 +148,22 @@ export function servedSections(): Record<string, ServedSection> {
  * version directory's pages at the path the generator wrote them.
  */
 export function servedPaths(): Set<string> {
+  const trimmed = (path: string) => docsHref(path).replace(/^\/|\/$/g, '');
   const paths = new Set(
     authoredPages().map((page) => urlOf(page).replace(/^\/|\/$/g, '')),
   );
 
   for (const [slug, section] of Object.entries(servedSections())) {
     for (const page of section.current.pages)
-      paths.add(page === '' ? `docs/${slug}` : `docs/${slug}/${page}`);
+      paths.add(trimmed(page === '' ? slug : `${slug}/${page}`));
     for (const line of section.lines)
       for (const page of line.pages)
         paths.add(
-          page === ''
-            ? `docs/${slug}/${line.segment}`
-            : `docs/${slug}/${line.segment}/${page}`,
+          trimmed(
+            page === ''
+              ? `${slug}/${line.segment}`
+              : `${slug}/${line.segment}/${page}`,
+          ),
         );
   }
 
