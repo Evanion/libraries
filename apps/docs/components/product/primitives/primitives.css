@@ -1,0 +1,118 @@
+/*
+ * The document shown as code: a step below the interface's text and in the
+ * quiet colour, because the source is what answers for the product beside it.
+ */
+.code-view {
+  margin: 0;
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  font-variant-ligatures: none;
+  line-height: 1.7;
+  color: var(--baize-moss);
+}
+
+/*
+ * A statement is one block however many visual lines it takes, so the lit band
+ * covers a call and its condition together. The source breaks its own long
+ * calls; the wrap is the backstop for a narrow screen.
+ */
+.code-view__line {
+  display: block;
+  padding-inline: var(--baize-space-2);
+  border-left: 2px solid transparent;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  transition: background var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+/* The line a control wrote, or the rule that answered for a control. */
+.code-view__line[data-lit] {
+  color: var(--baize-chalk);
+  background: color-mix(in oklab, var(--baize-hue) 14%, transparent);
+  border-left-color: var(--baize-hue);
+}
+
+/* A deny takes the ground's own quiet line: colouring it like a grant would say the opposite. */
+.code-view__line[data-lit][data-tone='deny'] {
+  background: color-mix(in oklab, var(--baize-lichen) 14%, transparent);
+  border-left-color: var(--baize-lichen);
+}
+
+.visitor-crowd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--baize-space-2);
+}
+
+.visitor-crowd[data-dimmed] {
+  opacity: 0.45;
+}
+
+.visitor-crowd__legend,
+.visitor-crowd__count {
+  margin: 0;
+  font-size: var(--baize-text-sm);
+}
+
+.visitor-crowd__legend {
+  color: var(--baize-lichen);
+}
+
+.visitor-crowd__count {
+  color: var(--baize-chalk);
+}
+
+.visitor-crowd__grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--baize-space-2);
+  max-width: 28rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A dot is a visitor. Filled is a visitor for whom the feature is on. */
+.visitor-crowd__dot {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  border: 1px solid var(--baize-moss);
+  border-radius: 50%;
+  background: transparent;
+  cursor: help;
+  transition:
+    background var(--baize-motion-duration) var(--baize-motion-easing),
+    border-color var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+.visitor-crowd__dot[data-lit] {
+  border-color: var(--baize-hue);
+  background: var(--baize-hue);
+}
+
+.visitor-crowd__dot[data-tone='b'] {
+  background: color-mix(in oklab, var(--baize-hue) 45%, transparent);
+}
+
+.visitor-crowd__dot[data-mark='pinned'] {
+  outline: 2px dashed var(--baize-hue);
+  outline-offset: 2px;
+}
+
+.visitor-crowd__dot[data-mark='moved'] {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--baize-hue) 35%, transparent);
+}
+
+@media (max-width: 480px) {
+  .visitor-crowd__grid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .visitor-crowd__dot,
+  .code-view__line {
+    transition: none;
+  }
+}

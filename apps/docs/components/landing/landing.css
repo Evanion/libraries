@@ -1117,52 +1117,6 @@ textarea.landing-access__field {
   }
 }
 
-/*
- * The policy, as it is written. A step below the interface's text and in the
- * quiet colour, because the source is what answers for the product beside it and
- * not the other way round.
- */
-.landing-access__source {
-  margin: 0;
-  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
-  font-size: var(--baize-text-xs);
-  font-variant-ligatures: none;
-  line-height: 1.7;
-  color: var(--baize-moss);
-}
-
-/*
- * A statement is one block however many visual lines it takes, so the lit band
- * covers a call and its condition together. `pre-wrap` rather than `pre`,
- * because a code block a reader has to drag sideways is one they do not read;
- * the source breaks its own long calls, and the wrap is the backstop for a
- * narrow screen.
- */
-.landing-access__line {
-  display: block;
-  padding-inline: var(--baize-space-2);
-  border-left: 2px solid transparent;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  transition: background var(--baize-motion-duration) var(--baize-motion-easing);
-}
-
-/*
- * The rule that answered for a control on the interface. Allows take the hue;
- * the deny takes the ground's own quiet line, because it is the rule that took
- * something away and colouring it like a grant would say the opposite.
- */
-.landing-access__line[data-lit] {
-  color: var(--baize-chalk);
-  background: color-mix(in oklab, var(--baize-hue) 14%, transparent);
-  border-left-color: var(--baize-hue);
-}
-
-.landing-access__line[data-lit][data-side='deny'] {
-  background: color-mix(in oklab, var(--baize-lichen) 14%, transparent);
-  border-left-color: var(--baize-lichen);
-}
-
 /* A role inside the policy is a control: press it to grant or withdraw it. */
 .landing-access__role {
   margin: 0;
@@ -1240,28 +1194,11 @@ textarea.landing-access__field {
 }
 
 .landing-feature__source {
-  margin: 0;
   overflow-x: auto;
-  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
-  font-size: var(--baize-text-xs);
-  font-variant-ligatures: none;
-  line-height: 1.7;
-  color: var(--baize-moss);
 }
 
-.landing-feature__line {
-  display: block;
-  padding-inline: var(--baize-space-2);
-  border-left: 2px solid transparent;
+.landing-feature__source .code-view__line {
   white-space: pre;
-  transition: background var(--baize-motion-duration) var(--baize-motion-easing);
-}
-
-/* The line a control wrote, lit the way AccessDemo lights the deciding rule. */
-.landing-feature__line[data-lit] {
-  color: var(--baize-chalk);
-  background: color-mix(in oklab, var(--baize-hue) 14%, transparent);
-  border-left-color: var(--baize-hue);
 }
 
 .landing-feature__value {
@@ -1417,7 +1354,6 @@ textarea.landing-access__field {
   color: var(--baize-chalk);
 }
 
-.landing-feature__lane[data-dimmed] .landing-feature__crowd,
 .landing-feature__lane[data-dimmed] .landing-feature__control {
   opacity: 0.4;
 }
@@ -1445,35 +1381,6 @@ textarea.landing-access__field {
   margin: 0;
   color: var(--baize-lichen);
   font-size: var(--baize-text-sm);
-}
-
-.landing-feature__crowd {
-  display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: var(--baize-space-2);
-  max-width: 28rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* A dot is a visitor. Filled is a visitor who sees the new checkout. */
-.landing-feature__dot {
-  position: relative;
-  display: block;
-  aspect-ratio: 1;
-  border: 1px solid var(--baize-moss);
-  border-radius: 50%;
-  background: transparent;
-  cursor: help;
-  transition:
-    background var(--baize-motion-duration) var(--baize-motion-easing),
-    border-color var(--baize-motion-duration) var(--baize-motion-easing);
-}
-
-.landing-feature__dot[data-lit] {
-  border-color: var(--baize-hue);
-  background: var(--baize-hue);
 }
 
 .landing-feature__readout {
@@ -1608,11 +1515,8 @@ textarea.landing-access__field {
 @media (prefers-reduced-motion: reduce) {
   .landing-tile__link,
   .landing-seg__face,
-  .landing-feature__dot,
-  .landing-feature__line,
   .landing-items__handle,
-  .landing-chip,
-  .landing-access__line {
+  .landing-chip {
     transition: none;
   }
 
