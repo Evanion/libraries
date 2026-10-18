@@ -6,7 +6,8 @@ const page: ProductPage = {
   group: 'feature',
   packageName: '@evanion/feature',
   draft: false,
-  frontpageLink: 'See what it does',
+  docsLink: 'Read the docs',
+  anchors: { '@evanion/react-feature': 'react' },
   metadata: {
     title: 'Feature flags in your own code',
     description:
@@ -97,6 +98,7 @@ const page: ProductPage = {
     },
   ],
   codeSample: {
+    id: 'react',
     title: 'Simple setup for React',
     lede: 'Wrap your app once. Any component can then ask if a feature is on.',
     install: 'npm install @evanion/feature @evanion/react-feature',

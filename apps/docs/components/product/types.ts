@@ -31,14 +31,21 @@ export interface ProductPage {
   packageName: string;
   /** True until the page's copy has been written; a draft page is neither routed nor linked. */
   draft: boolean;
-  /** The label of the link to this page on the frontpage's family section. */
-  frontpageLink: string;
+  /** The label of the frontpage link to the lead package's docs, shown beside the product page links. */
+  docsLink: string;
+  /**
+   * Where an adapter package lands on this page: package name to the id of the
+   * section that covers it. The lead package needs no entry, it links the top.
+   */
+  anchors?: Record<string, string>;
   metadata: { title: string; description: string };
   hero: { promise: string; line: string; demo: DemoId; actions: Link[] };
   /** What the library is and is not, shown right under the hero. */
   facts: Fact[];
   scenes: SceneDefinition[];
   codeSample: {
+    /** The section's `id`, the target of an anchor. */
+    id: string;
     title: string;
     lede: string;
     /** The install command this snippet needs, shown above it. */

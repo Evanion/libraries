@@ -6,6 +6,7 @@ import {
   products,
   published,
 } from './registry';
+import { sectionIds } from './registry';
 import { ORIGIN, productJsonLd, productMetadata } from './metadata';
 
 describe('the product registry', () => {
@@ -18,6 +19,14 @@ describe('the product registry', () => {
     expect(productForGroup('feature')?.slug).toBe('feature-flags');
     expect(productForGroup('identifiers')).toBeUndefined();
     expect(() => productBySlug('nope')).toThrow(/nope/);
+  });
+});
+
+describe('anchors', () => {
+  it('only name sections the page renders', () => {
+    for (const page of products)
+      for (const anchor of Object.values(page.anchors ?? {}))
+        expect(sectionIds(page)).toContain(anchor);
   });
 });
 
