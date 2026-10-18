@@ -2,25 +2,9 @@
 
 **Transparent request tracing across your NestJS microservices.**
 
-Stop hunting through fragmented logs across multiple services to find a single request's path. `@evanion/nestjs-correlation-id` attaches a correlation ID to every incoming request and sends it on every call made through an `HttpService` registered with `withCorrelation()`, so every service the request reaches can write the same ID into its log lines.
+Debugging distributed systems is like solving a puzzle with pieces from three different boxes when a single user action triggers a chain of services and you are forced to hunt through fragmented logs by guessing timestamps. `@evanion/nestjs-correlation-id` solves this by attaching a correlation ID to every incoming request and forwarding it through your service chain.
 
-## The Problem: The "Log Fragment" Nightmare
-
-In a microservices architecture, a single user action might trigger a chain of five different service calls. When an error occurs in the third service, you're forced to:
-
-1. Search for a timestamp in Service A.
-2. Guess which request in Service B matches that timestamp.
-3. Hope that Service C's logs haven't rotated yet.
-
-Without a single, shared ID that travels with the request, debugging distributed systems is like trying to solve a puzzle with pieces from three different boxes.
-
-## The Solution: Transparent Correlation Context
-
-`@evanion/nestjs-correlation-id` uses `AsyncLocalStorage` to open a request-scoped context. Once the middleware is applied, the correlation ID is available anywhere in the request chain—guards, interceptors, controllers, and services—without ever having to pass it as a function argument.
-
-### Core Concept: Trace a Request Effortlessly
-
-To demonstrate how IDs are tracked, `CorrelationService.run` opens the context that the middleware normally opens for a request. A service called inside this block reads the ID with `getCorrelationId()`, while a call outside any context reads `undefined`. This block runs in the package's test suite; the `// ->` comments show the resulting log lines.
+To see how IDs are tracked without being passed as function arguments, the following example uses `CorrelationService.run` to simulate the request context that the middleware normally opens.
 
 <!-- #region log-the-id -->
 
@@ -56,15 +40,18 @@ lines; // -> ['Placing order-2026-0042 for request storefront-4f1c9a', 'Placing 
 
 <!-- #endregion log-the-id -->
 
-## Key Features
+## Capabilities
 
-- 🔄 **Forwarding**: an `HttpService` registered with `withCorrelation()` sends the current ID on every outgoing call through an Axios interceptor.
-- 🧵 **Context-Aware**: Powered by `AsyncLocalStorage`, so IDs remain isolated between concurrent requests and survive `await` boundaries.
-- 🛡️ **Compatibility**: the middleware runs on NestJS's default Express platform, which is the platform the package's tests start.
-- ⚙️ **Fully Configurable**: Customize your header name (`X-Correlation-Id`), ID generator, and validation logic.
-- 📦 **Footprint**: `tslib` is the only runtime dependency. `@nestjs/common` 12 is a peer dependency, and `@nestjs/axios` 12 is an optional one for forwarding. The package is ESM only and needs Node 20 or newer.
+`@evanion/nestjs-correlation-id` uses `AsyncLocalStorage` to ensure IDs remain isolated between concurrent requests and survive `await` boundaries.
 
-## Installation
+- **Forwarding**: An `HttpService` registered with `withCorrelation()` sends the current ID on every outgoing call through an Axios interceptor.
+- **Context-Aware**: The correlation ID is available anywhere in the request chain—guards, interceptors, controllers, and services.
+- **Fully Configurable**: Customize your header name (`X-Correlation-Id`), ID generator, and validation logic.
+- **Compatibility**: The middleware runs on NestJS's default Express platform.
+
+## Requirements and Installation
+
+The package is ESM only and requires Node 20 or newer. It uses `tslib` as its only runtime dependency, with `@nestjs/common` 12 as a peer dependency and `@nestjs/axios` 12 as an optional dependency for forwarding.
 
 ```bash
 npm install @evanion/nestjs-correlation-id
