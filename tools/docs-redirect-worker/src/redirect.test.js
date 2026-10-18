@@ -20,13 +20,13 @@ describe('target', () => {
     expect(at('/urn/?q=1')).toBe('https://libs.evanion.com/docs/urn/?q=1');
     expect(at('/?q=1')).toBe('https://libs.evanion.com/?q=1');
   });
-  it('sends the root to the frontpage and the explorer to its new place', () => {
+  it('sends the root to the frontpage and the explorer to its root page', () => {
     expect(at('/')).toBe('https://libs.evanion.com/');
     expect(at('/matrix-explorer/')).toBe(
-      'https://libs.evanion.com/docs/acl/matrix-explorer/',
+      'https://libs.evanion.com/matrix-explorer/',
     );
     expect(at('/matrix-explorer')).toBe(
-      'https://libs.evanion.com/docs/acl/matrix-explorer',
+      'https://libs.evanion.com/matrix-explorer',
     );
   });
   it('sends assets and site files to the same path at the root', () => {
