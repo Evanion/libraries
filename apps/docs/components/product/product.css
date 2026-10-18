@@ -135,3 +135,42 @@
     margin-top: 3rem;
   }
 }
+
+.product__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--baize-space-4);
+  margin-block: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.product__fact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--baize-space-2);
+  min-width: 0;
+  padding: var(--baize-space-4);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-card);
+}
+
+.product__fact > p {
+  margin: 0;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+.product__fact-title {
+  margin: 0;
+  font-family: var(--baize-font-title);
+  font-size: var(--baize-text-md);
+  line-height: 1.25;
+}
+
+.product__fact a {
+  color: var(--baize-hue);
+  font-size: var(--baize-text-sm);
+  font-weight: 600;
+  text-underline-offset: 4px;
+}
