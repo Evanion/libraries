@@ -16,6 +16,7 @@
  * than reading a path segment of its own.
  */
 
+import { docsHref } from '../tools/docs-path.mjs';
 import { VERSION_SEGMENT } from '../tools/versions.mjs';
 import { packages, type DocumentedPackage } from './navigation';
 
@@ -112,18 +113,23 @@ export function versionOptions(
   return [
     option(
       versions.current.version,
-      `/${slug}/`,
+      docsHref(`${slug}/`),
       versions.current.pages,
       !section.next && section.segment === null,
     ),
     ...versions.lines.map((line) =>
       option(
         line.version ?? (line.segment as string),
-        `/${slug}/${line.segment}/`,
+        docsHref(`${slug}/${line.segment}/`),
         line.pages,
         section.segment === line.segment,
       ),
     ),
-    option('main', `/next/${slug}/`, versions.next.pages, section.next),
+    option(
+      'main',
+      docsHref(`next/${slug}/`),
+      versions.next.pages,
+      section.next,
+    ),
   ];
 }

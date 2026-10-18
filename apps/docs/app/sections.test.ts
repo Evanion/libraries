@@ -80,9 +80,19 @@ describe('the versions of a page', () => {
     const section = packageFor(['urn', 'api']);
 
     expect(section && versionOptions(section, urn)).toEqual([
-      { label: '2.0.0', href: '/urn/api/', active: true, missing: false },
-      { label: '1.1.1', href: '/urn/v1/api/', active: false, missing: false },
-      { label: 'main', href: '/next/urn/api/', active: false, missing: false },
+      { label: '2.0.0', href: '/docs/urn/api/', active: true, missing: false },
+      {
+        label: '1.1.1',
+        href: '/docs/urn/v1/api/',
+        active: false,
+        missing: false,
+      },
+      {
+        label: 'main',
+        href: '/docs/next/urn/api/',
+        active: false,
+        missing: false,
+      },
     ]);
   });
 
@@ -90,11 +100,11 @@ describe('the versions of a page', () => {
     const section = packageFor(['next', 'urn', 'components']);
 
     expect(section && versionOptions(section, urn)).toEqual([
-      { label: '2.0.0', href: '/urn/', active: false, missing: true },
-      { label: '1.1.1', href: '/urn/v1/', active: false, missing: true },
+      { label: '2.0.0', href: '/docs/urn/', active: false, missing: true },
+      { label: '1.1.1', href: '/docs/urn/v1/', active: false, missing: true },
       {
         label: 'main',
-        href: '/next/urn/components/',
+        href: '/docs/next/urn/components/',
         active: true,
         missing: false,
       },

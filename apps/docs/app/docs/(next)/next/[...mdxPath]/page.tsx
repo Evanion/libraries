@@ -1,7 +1,7 @@
 import ContentPage, {
   contentMetadata,
   contentPaths,
-} from '../../../content-page';
+} from '../../../../content-page';
 
 /**
  * Every page under `/next/`: each package section as `main` has it.

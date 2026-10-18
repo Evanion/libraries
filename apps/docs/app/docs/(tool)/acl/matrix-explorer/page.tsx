@@ -1,4 +1,4 @@
-import ExplorerScreen from '../../../components/explorer/ExplorerScreen';
+import ExplorerScreen from '../../../../../components/explorer/ExplorerScreen';
 
 export const metadata = {
   title: 'Matrix explorer',
@@ -7,7 +7,7 @@ export const metadata = {
 };
 
 /**
- * The matrix explorer, at `/matrix-explorer/`.
+ * The matrix explorer, at `/docs/acl/matrix-explorer/`.
  *
  * In `(tool)`, a route group with no layout of its own, so the only thing above
  * it is `app/layout.tsx`: the element, the fonts, the ground and the theme. The
@@ -15,9 +15,9 @@ export const metadata = {
  * viewport instead of sitting in a column with a sidebar beside it and a table
  * of contents opposite.
  *
- * At the root rather than under `/acl/`, because a section's URL space is the
+ * A route of its own inside `/docs/acl/`, because a section's URL space is the
  * content tree and a tool is not a page of it. The documentation for the tool
- * is `/acl/explorer/`, which is a page of that tree and links here.
+ * is `/docs/acl/explorer/`, which is a page of that tree and links here.
  *
  * Statically generated, like every other route: `next.config.ts` sets
  * `output: 'export'`, there is no server behind the site, and the evaluator is

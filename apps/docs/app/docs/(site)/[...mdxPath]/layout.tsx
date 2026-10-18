@@ -1,6 +1,6 @@
 import { PropsWithChildren } from 'react';
-import Chrome from '../../chrome';
-import { sitePageMap } from '../../page-maps';
+import Chrome from '../../../chrome';
+import { sitePageMap } from '../../../page-maps';
 
 /**
  * The docs chrome over the released package sections, their release lines

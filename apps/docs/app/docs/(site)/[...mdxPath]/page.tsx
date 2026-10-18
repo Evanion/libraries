@@ -1,4 +1,7 @@
-import ContentPage, { contentMetadata, contentPaths } from '../../content-page';
+import ContentPage, {
+  contentMetadata,
+  contentPaths,
+} from '../../../content-page';
 
 /**
  * Every content page outside `/next/`: the released package sections, their

@@ -1,5 +1,6 @@
 import type { PageMapItem } from 'nextra';
 import { getPageMap } from 'nextra/page-map';
+import { DOCS } from '../tools/docs-path.mjs';
 import { packageFor } from './sections';
 
 /**
@@ -18,7 +19,7 @@ import { packageFor } from './sections';
 export async function sitePageMap(
   mdxPath: readonly string[],
 ): Promise<PageMapItem[]> {
-  const tree = (await getPageMap()).filter(
+  const tree = (await getPageMap(DOCS)).filter(
     (item) => !('name' in item && item.name === 'next'),
   );
   const section = packageFor(mdxPath);

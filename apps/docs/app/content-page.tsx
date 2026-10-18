@@ -1,6 +1,7 @@
 import { generateStaticParamsFor, importPage } from 'nextra/pages';
 import { categoricalClass } from '@evanion/baize-ui/tokens';
 import { useMDXComponents as getMDXComponents } from '../mdx-components';
+import { docsHref } from '../tools/docs-path.mjs';
 import ReleaseNotice from '../components/ReleaseNotice';
 import VersionSwitcher from '../components/VersionSwitcher';
 import { releaseState } from './release-state';
@@ -93,7 +94,7 @@ function releaseNotice(section: Section | null) {
     <ReleaseNotice
       {...state}
       next={section.next}
-      releaseHref={documented ? `/${section.entry.slug}/` : undefined}
+      releaseHref={documented ? docsHref(`${section.entry.slug}/`) : undefined}
     />
   ) : null;
 }

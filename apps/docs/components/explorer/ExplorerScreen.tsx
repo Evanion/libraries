@@ -3,6 +3,7 @@
 import { Chip } from '@evanion/baize-ui';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
+import { docsHref } from '../../tools/docs-path.mjs';
 import {
   useCallback,
   useEffect,
@@ -269,7 +270,9 @@ export default function ExplorerScreen() {
         <p className="explorer__noscript">
           This tool evaluates a document in your browser, so it needs
           JavaScript.{' '}
-          <Link href="/acl/explorer/">Explore a document you have</Link>{' '}
+          <Link href={docsHref('acl/explorer/')}>
+            Explore a document you have
+          </Link>{' '}
           explains what it does as text.
         </p>
       </noscript>
@@ -312,7 +315,7 @@ export default function ExplorerScreen() {
             Runs in your browser. Nothing is uploaded.
           </span>
           <ThemeButton />
-          <Link className="explorer__back" href="/acl/explorer/">
+          <Link className="explorer__back" href={docsHref('acl/explorer/')}>
             Documentation
           </Link>
         </div>
@@ -451,8 +454,8 @@ export default function ExplorerScreen() {
                 {adoption.configFault
                   ? 'Change the value those three name, and the document is adopted.'
                   : 'That refusal is not an AclConfigError, which no document should produce. Report it.'}{' '}
-                <Link href="/acl/errors/">What can throw?</Link> carries every
-                class with the input that raises it.
+                <Link href={docsHref('acl/errors/')}>What can throw?</Link>{' '}
+                carries every class with the input that raises it.
               </p>
             </div>
           ) : null}

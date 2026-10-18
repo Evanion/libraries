@@ -6,6 +6,7 @@ import {
   type DocumentedPackage,
   type PackageGroup,
 } from '../../app/navigation';
+import { docsHref } from '../../tools/docs-path.mjs';
 import AccessDemo from './AccessDemo';
 import DataDemo from './DataDemo';
 import FeatureDemo from './FeatureDemo';
@@ -18,7 +19,7 @@ import UrnSpecimen from './UrnSpecimen';
 
 /** Where a package's name and buttons send a reader. */
 function href(entry: DocumentedPackage): string {
-  return entry.documented ? `/${entry.slug}` : readmeUrl(entry);
+  return entry.documented ? docsHref(entry.slug) : readmeUrl(entry);
 }
 
 /** The group `id` names, or a build failure naming the typo. */
