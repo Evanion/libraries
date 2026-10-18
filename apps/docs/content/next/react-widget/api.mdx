@@ -322,8 +322,8 @@ bound form that `createWidgets` returns takes no names. Both take an optional
 `required` map from a widget type to the props that must be present and
 non-blank, where blank is `undefined`, `null` or a whitespace-only string.
 Neither checks a prop's type against a component; `WidgetItem` does that at
-compile time. [`@evanion/widget`'s entry](/widget/api#validateitems) carries the
-signature, and [What it reports](/widget/problems) every message.
+compile time. [`@evanion/widget`'s entry](/docs/widget/api#validateitems) carries the
+signature, and [What it reports](/docs/widget/problems) every message.
 
 ## `defineWidgets`
 
@@ -339,7 +339,7 @@ known types of the standalone `validateItems`, so the `raffle` type fails the
 compile and the runtime check alike. Annotating that map as `WidgetRegistry`
 widens its keys to `string`, and `defineWidgets` keeps them literal. A map
 declared with no annotation keeps them literal too, so the call is optional in
-this package. [`@evanion/widget`'s entry](/widget/api#definewidgets) carries the
+this package. [`@evanion/widget`'s entry](/docs/widget/api#definewidgets) carries the
 signature.
 
 ## `ERROR_MESSAGES`
@@ -354,13 +354,13 @@ array, and `Widgets` renders the widget without them. `UNKNOWN` is the string
 The rest report an item `Widgets` skipped. A message about one item names its
 `id`, and `Widgets` logs each distinct message once per process, so a second bad
 item still gets its own warning. [`@evanion/widget`'s
-entry](/widget/api#error_messages) lists every key.
+entry](/docs/widget/api#error_messages) lists every key.
 
 ## `VALIDATION_MESSAGES`
 
 `VALIDATION_MESSAGES` is the text `validateItems` reports, re-exported from
 `@evanion/widget`, so you can group or translate problems without matching on
-prose. [`@evanion/widget`'s entry](/widget/api#validation_messages) lists every
+prose. [`@evanion/widget`'s entry](/docs/widget/api#validation_messages) lists every
 key.
 
 ## `AnyWidgetItem`
@@ -368,35 +368,35 @@ key.
 `AnyWidgetItem` is the loose item, from `@evanion/widget`, for data built before
 a component map exists: a CMS payload, a fixture, a network response. It checks
 nothing against a component; `WidgetItem` widens to it.
-[The widget core's Overview](/widget#how-a-widget-item-array-describes-a-page)
+[The widget core's Overview](/docs/widget#how-a-widget-item-array-describes-a-page)
 teaches the item's fields, and
-[`@evanion/widget`'s entry](/widget/api#anywidgetitem) carries the interface.
+[`@evanion/widget`'s entry](/docs/widget/api#anywidgetitem) carries the interface.
 
 ## `WidgetRegistry`
 
 `WidgetRegistry<T>` is `Record<string, T>`, from `@evanion/widget`. This package
 instantiates it as `WidgetRegistry<AnyWidgetComponent>`, its component map type.
-[`@evanion/widget`'s entry](/widget/api#widgetregistry) carries the rest.
+[`@evanion/widget`'s entry](/docs/widget/api#widgetregistry) carries the rest.
 
 ## `WidgetMeta`
 
 `WidgetMeta` is `Record<string, unknown>`, from `@evanion/widget`: the `meta`
 type when `createWidgets` gets a `chrome.item` that declares none, and the
 default for `M` on this page. [`@evanion/widget`'s
-entry](/widget/api#widgetmeta) carries the rest.
+entry](/docs/widget/api#widgetmeta) carries the rest.
 
 ## `WidgetProblem`
 
 `WidgetProblem` is one line of the list `validateItems` returns, from
 `@evanion/widget`: an `index`, the item's `id` and `type`, and a `message`.
-[`@evanion/widget`'s entry](/widget/api#widgetproblem) says what each field
+[`@evanion/widget`'s entry](/docs/widget/api#widgetproblem) says what each field
 holds.
 
 ## `KnownWidgetTypes`
 
 `KnownWidgetTypes` is `WidgetRegistry | readonly string[]`, from
 `@evanion/widget`: the known types `validateItems` takes, as a component map or
-a plain list of names. [`@evanion/widget`'s entry](/widget/api#knownwidgettypes)
+a plain list of names. [`@evanion/widget`'s entry](/docs/widget/api#knownwidgettypes)
 carries the rest.
 
 ## Migrating react-widget from 0.2.x

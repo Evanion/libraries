@@ -67,7 +67,7 @@ function useCan(
 
 - `object` is optional for the create case, where there is no instance yet. A
   rule that reads the row and is asked without one answers
-  [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable).
+  [`unevaluable`](/docs/acl/refusals#when-the-answer-is-unevaluable).
 - `useCan` memoises on `access`, `subject`, `key`, `action`, `object` and `now`,
   so a component handed a rebuilt row evaluates again and no stale answer
   reaches it.
@@ -121,14 +121,14 @@ said. Read `action.allowed` before you read a field, or a shopper who may not
 edit the listing at all reaches an input the map called `'allowed'`. Compare a
 field against `'allowed'`; comparing against `'denied'` treats the unevaluable
 fields as writable, which is
-[the mistake this API most makes easy](/acl/pitfalls#never-hand-filter-the-field-map).
+[the mistake this API most makes easy](/docs/acl/pitfalls#never-hand-filter-the-field-map).
 
 ```tsx twoslash file=libs/react-acl/examples/fields.tsx region=fields
 
 ```
 
 The map enforces nothing in the browser. The server applies the same map to the
-posted form with [`pickAllowedFields`](/acl/writing).
+posted form with [`pickAllowedFields`](/docs/acl/writing).
 
 ## `useCapabilities`
 
@@ -142,7 +142,7 @@ function useCapabilities(): Record<string, Decision>;
 `useCapabilities` passes no object, so a rule that reads one cannot be decided
 here. A menu or a navigation bar asks which actions the shopper may reach at
 all, and a question about one particular row goes to `useCan`.
-[Listing everything a user may do](/acl/listing-permissions) sets out the
+[Listing everything a user may do](/docs/acl/listing-permissions) sets out the
 no-object contract.
 
 ```tsx twoslash file=libs/react-acl/examples/menu.tsx region=menu
@@ -162,7 +162,7 @@ function createPolicyContext<
 >(access: Access<Sub, R, Keys>): PolicyContext<Sub, R, Keys>;
 ```
 
-[`policy`](/acl/authoring) names a subject type once and binds a row type per
+[`policy`](/docs/acl/authoring) names a subject type once and binds a row type per
 object kind, and `build()` returns an `Access` carrying both. The hooks that
 come back check their key against the kinds the policy declared, and their row
 against the type bound to the kind, both read off the argument.
@@ -211,12 +211,12 @@ interface PolicyContext<Sub, R, Keys extends string = string> {
 }
 ```
 
-| Type detail                                                                            | What it means                                                                                                                                       |
-| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Partial<R[K]>` on every row parameter                                                 | a list row carrying two of five fields is the [`unevaluable`](/acl/refusals#when-the-answer-is-unevaluable) case, so the compiler lets it through   |
-| a row type declared `extends Record<string, unknown>`                                  | accepts every key and gives the check nothing to hold, so declare the row's fields and nothing more                                                 |
-| the keys `useCapabilities` answers by                                                  | `` `${object}.${action}` ``, `listing.edit`, where `R` holds the object kinds                                                                       |
-| a policy whose blocks [declare their actions](/acl/authoring#the-vocabulary-of-a-kind) | narrows those keys to the ones it declares, so `listing.edti` is a compile error; a policy leaving one block's actions open stays keyed by `string` |
+| Type detail                                                                                 | What it means                                                                                                                                          |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Partial<R[K]>` on every row parameter                                                      | a list row carrying two of five fields is the [`unevaluable`](/docs/acl/refusals#when-the-answer-is-unevaluable) case, so the compiler lets it through |
+| a row type declared `extends Record<string, unknown>`                                       | accepts every key and gives the check nothing to hold, so declare the row's fields and nothing more                                                    |
+| the keys `useCapabilities` answers by                                                       | `` `${object}.${action}` ``, `listing.edit`, where `R` holds the object kinds                                                                          |
+| a policy whose blocks [declare their actions](/docs/acl/authoring#the-vocabulary-of-a-kind) | narrows those keys to the ones it declares, so `listing.edti` is a compile error; a policy leaving one block's actions open stays keyed by `string`    |
 
 ## `BoundPolicyProviderProps`
 
@@ -329,7 +329,7 @@ The server sends one to the browser, and `hydratePolicy` turns it into the
 
 - [Which side decides](../boundary): what react-acl's answers are worth, and
   what has to happen on the other side of the render
-- [Core API reference](/acl/api): every type react-acl re-exports, and the
+- [Core API reference](/docs/acl/api): every type react-acl re-exports, and the
   functions a server calls
-- [The Decision object every check returns](/acl/decision-object): the
+- [The Decision object every check returns](/docs/acl/decision-object): the
   `Decision` shape, its reasons, and its explanation fields

@@ -9,7 +9,7 @@ imports every module and asserts nothing still scores high.
 <PageSheet
   difficulty={2}
   read={5}
-  requires={[['How the Evanion libraries are tested', '/testing']]}
+  requires={[['How the Evanion libraries are tested', '/docs/testing']]}
 />
 
 ## Four coverage metrics per library
@@ -54,9 +54,9 @@ branches, then each such file, and the command that reproduces the figure.
 <CoverageShortfall />
 
 A branch percentage says a path ran, and a case on the security register says
-what the path decided. [SEC-004](/testing/security-register#sec-004), a deny
+what the path decided. [SEC-004](/docs/testing/security-register#sec-004), a deny
 rule reading a field the row lacks, and
-[SEC-018](/testing/security-register#sec-018), a clock that does not parse, each
+[SEC-018](/docs/testing/security-register#sec-018), a clock that does not parse, each
 tie one `@evanion/acl` branch to the refusal it produces.
 
 ## What is not built from these numbers
@@ -74,7 +74,7 @@ This site leaves four uses of the `@evanion/*` coverage figures out:
 - No coverage threshold fails a build. Once a build fails under a minimum, the
   next test someone writes executes a line to clear it and asserts nothing. The
   build gates the register: `tools/repo-checks/src/security-register.test.ts`
-  fails when a [register](/testing/security-register) entry and its test come
+  fails when a [register](/docs/testing/security-register) entry and its test come
   apart.
 - No package page carries a percentage. A reader on `/luhn`, the page of the
   check-digit library `@evanion/luhn`, who sees 100% has learned that every

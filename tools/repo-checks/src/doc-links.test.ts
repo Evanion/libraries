@@ -213,15 +213,18 @@ describe('internal links', () => {
   });
 
   it('stay inside their own section by being relative', () => {
+    const routes = appRoutes();
     const absolute = links.filter((link) => {
       if (!link.href.startsWith('/')) return false;
+      // A tool the app routes itself is served once, not once per version.
+      if (routes.has(`/${link.path}`)) return false;
 
       const page = join(workspaceRoot, link.page);
       if (!relative(join(DOCS, 'content', 'next'), page).match(/^[^.]/))
         return false;
 
       const own = sectionOf(page);
-      const [first, second] = link.path.split('/');
+      const [first, second] = link.path.replace(/^docs\//, '').split('/');
 
       return first === own || (first === 'next' && second === own);
     });
