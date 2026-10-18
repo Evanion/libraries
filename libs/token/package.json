@@ -1,6 +1,6 @@
 {
   "name": "@evanion/token",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Short codes a user can easily communicate without confusion, with validation built in.",
   "keywords": [
     "token",
@@ -55,7 +55,7 @@
     "provenance": true
   },
   "dependencies": {
-    "@evanion/luhn": "3.0.1"
+    "@evanion/luhn": "3.0.2"
   },
   "devDependencies": {
     "@evanion/doc-examples": "*"

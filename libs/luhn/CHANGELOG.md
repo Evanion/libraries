@@ -1,3 +1,7 @@
+## 3.0.2 (2026-10-18)
+
+This was a version bump only for @evanion/luhn to align it with other projects, there were no code changes.
+
 ## 3.0.1 (2026-09-29)
 
 ### 🚀 Features

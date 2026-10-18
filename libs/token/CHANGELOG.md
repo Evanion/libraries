@@ -1,3 +1,9 @@
+## 0.1.2 (2026-10-18)
+
+### 🧱 Updated Dependencies
+
+- Updated @evanion/luhn to 3.0.2
+
 ## 0.1.1 (2026-09-29)
 
 ### 🚀 Features

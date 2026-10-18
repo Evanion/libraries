@@ -1,3 +1,9 @@
+## 0.3.3 (2026-10-18)
+
+### 🧱 Updated Dependencies
+
+- Updated @evanion/widget to 0.1.2
+
 ## 0.3.2 (2026-10-14)
 
 ### 🩹 Fixes
