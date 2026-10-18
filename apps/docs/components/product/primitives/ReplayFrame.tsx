@@ -9,11 +9,13 @@ export function ReplayFrame({
   frames,
   interval,
   replayLabel,
+  caption,
 }: {
   title: string;
   frames: ReactNode[];
   interval: number;
   replayLabel: string;
+  caption?: ReactNode;
 }) {
   const still = usePrefersReducedMotion();
   const [played, setIndex] = useState(0);
@@ -30,6 +32,7 @@ export function ReplayFrame({
     <figure className="replay-frame">
       <figcaption className="replay-frame__bar">{title}</figcaption>
       <div className="replay-frame__view">{frames[index]}</div>
+      {caption && <p className="replay-frame__caption">{caption}</p>}
       {!still && frames.length > 1 && (
         <button
           type="button"
