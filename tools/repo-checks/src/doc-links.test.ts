@@ -129,6 +129,17 @@ function appRoutes(): Set<string> {
   return found;
 }
 
+/**
+ * The product pages' routes. `app/(product)/[product]` is dynamic, so
+ * `appRoutes` skips it; `product-slugs.mjs` lists the segments it serves.
+ */
+async function productRoutes(): Promise<Set<string>> {
+  const { productSlugs } = (await import(
+    pathToFileURL(join(DOCS, 'components', 'product', 'product-slugs.mjs')).href
+  )) as { productSlugs: string[] };
+  return new Set(productSlugs.map((slug) => `/${slug}`));
+}
+
 interface Link {
   page: string;
   /** What the page wrote. */
@@ -183,8 +194,13 @@ describe('internal links', () => {
     expect(links.some((link) => link.href.startsWith('../'))).toBe(true);
   });
 
+  it('counts every product page as a route', async () => {
+    const routes = await productRoutes();
+    expect(routes.has('/feature-flags')).toBe(true);
+  });
+
   it('resolve to a page, a route the app defines, or a path the site redirects', async () => {
-    const routes = appRoutes();
+    const routes = new Set([...appRoutes(), ...(await productRoutes())]);
     const served = servedPaths();
     const sections = servedSections();
     const { movedPaths, unreleasedPaths } = await loadRedirects();

@@ -1,11 +1,18 @@
 import { createFeatures } from '@evanion/feature';
 import type { TreeNode } from '../primitives/DecisionTree';
 
-export const LABELS: Record<string, string> = {
+type Key = 'new-checkout' | 'express-pickup' | 'demo-night-booking';
+
+export const LABELS: Record<Key, string> = {
   'new-checkout': 'New checkout',
   'express-pickup': 'Express pickup',
   'demo-night-booking': 'Demo-night booking',
 };
+
+/** The plain-words name of a feature key. */
+export function labelOf(key: string | number): string {
+  return (LABELS as Record<string, string>)[String(key)] ?? String(key);
+}
 
 /** The document: express pickup needs the new checkout, demo-night booking needs express pickup. */
 export function cascadeStore(checkoutOn: boolean) {
@@ -29,14 +36,14 @@ function reasonOf(decision: {
 }): string {
   if (decision.enabled) return 'on';
   if (decision.reason === 'dependency-off' && decision.blockedBy !== undefined)
-    return `off because ${LABELS[String(decision.blockedBy)]} is off`;
+    return `off because ${labelOf(decision.blockedBy)} is off`;
   return 'switched off';
 }
 
 /** The three features as a tree, each with its state and reason. */
 export function tree(checkoutOn: boolean): TreeNode {
   const d = cascadeStore(checkoutOn).resolve();
-  const node = (key: string, children?: TreeNode[]): TreeNode => ({
+  const node = (key: Key, children?: TreeNode[]): TreeNode => ({
     key,
     label: LABELS[key],
     on: d[key].enabled,

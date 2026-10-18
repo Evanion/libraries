@@ -38,7 +38,7 @@ describe('VisitorCrowd', () => {
         onFocusMember={onFocusMember}
       />,
     );
-    fireEvent.focus(screen.getAllByRole('img')[1]);
+    fireEvent.focus(screen.getAllByRole('img')[1]!);
     expect(onFocusMember).toHaveBeenCalledWith('cust-0001');
     expect(container.querySelector('.visitor-crowd')).toHaveAttribute(
       'data-dimmed',
