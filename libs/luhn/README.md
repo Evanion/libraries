@@ -2,23 +2,9 @@
 
 **Prevent mistyped identifiers from hitting your database.**
 
-Stop performing expensive database lookups for IDs that are mathematically impossible. Whether it's an order number, a gift card, or a tracking ID, `@evanion/luhn` lets you add a check character to your identifiers, allowing you to reject typos locally.
+When users type IDs into forms, a simple typo often triggers a "ghost lookup": your database spends CPU and I/O searching for a record that cannot possibly exist. This wastes resources and provides poor feedback to the user. `@evanion/luhn` solves this by adding a check character to your identifiers, allowing you to reject mathematically impossible IDs locally.
 
-## The Problem: The "Ghost Lookup" Bottleneck
-
-When a user types an ID into a form, the standard approach is to send that ID to the server and query the database. But what happens when the user makes a simple typo?
-
-1. **Wasted Resources**: Your database spends CPU and I/O searching for a record that cannot possibly exist.
-2. **Poor Feedback**: The user gets a generic "Not Found" error, which doesn't tell them _why_ the ID is invalid—only that it isn't in the system.
-3. **Infrastructure Stress**: At scale, millions of mistyped IDs can create a significant "ghost load" on your primary data store.
-
-## The Solution: Check-Character Validation
-
-By adding a single check character to the end of your identifier, you turn the ID into a self-validating string. Using a generalized Luhn algorithm, `@evanion/luhn` verifies the integrity of an identifier in memory, without a network call or a database query.
-
-### Core Concept: The Local Gate
-
-Because `generate` returns the check character without appending it, `orderCode` decides where it goes. To show validation in action, `validate` refuses the code whose last character was misread as a `1`. Each `// ->` comment gives the value of the expression on its line, and the block runs in the package's test suite.
+To see how this works, consider an order number. By generating a checksum and appending it to the ID, you create a self-validating string that `@evanion/luhn` can verify in memory without a network call.
 
 <!-- #region round-trip -->
 
@@ -40,13 +26,15 @@ Luhn.validate('order-2026-0042-1').isValid; // -> false
 
 <!-- #endregion round-trip -->
 
-## Key Features
+## Capabilities of @evanion/luhn
 
-- 🌍 **Alphabet Agnostic**: Works over any alphabet with an even number of characters—numbers, letters, or custom symbols.
-- 🛡️ **Typo-Resistant**: Detects all single-character substitutions and almost all adjacent swaps.
-- ⚡ **Zero DB Overhead**: Reject mistyped input at the edge or in the middleware, before it ever reaches your data layer.
-- ⚙️ **Customizable Moduli**: Support for standard Mod-10 (Credit Cards) or custom Mod-N alphabets.
-- 📦 **Zero Dependencies**: The package has no runtime or peer dependencies and ships its own types. It is ESM only and needs Node 20 or newer.
+The package provides a generalized Luhn algorithm to secure your identifiers:
+
+- **Zero DB Overhead**: Reject mistyped input at the edge or in the middleware, before it ever reaches your data layer.
+- **Typo-Resistant**: Detects all single-character substitutions and almost all adjacent swaps.
+- **Alphabet Agnostic**: Works over any alphabet with an even number of characters—numbers, letters, or custom symbols.
+- **Customizable Moduli**: Support for standard Mod-10 (Credit Cards) or custom Mod-N alphabets.
+- **Zero Dependencies**: The package has no runtime or peer dependencies and ships its own types. It is ESM only and needs Node 20 or newer.
 
 ## Installation
 
