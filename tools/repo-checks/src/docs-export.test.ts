@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { workspaceRoot } from '@nx/devkit';
 import { describe, expect, it } from 'vitest';
@@ -284,6 +285,23 @@ describe.runIf(required)('the static export', () => {
     });
 
     expect(wrong).toEqual([]);
+  });
+
+  /** A product page is a route the content walk does not know: the sitemap has to list it. */
+  it('lists every registered product page in the sitemap, indexed', async () => {
+    const { productSlugs } = (await import(
+      pathToFileURL(join(DOCS, 'components', 'product', 'product-slugs.mjs'))
+        .href
+    )) as { productSlugs: string[] };
+    const sitemap = readFileSync(join(OUT, 'sitemap.xml'), 'utf-8');
+    const indexed = exported()
+      .filter(({ html }) => !noindex(html))
+      .map(({ path }) => path);
+
+    for (const slug of productSlugs) {
+      expect(indexed, slug).toContain(`/${slug}/`);
+      expect(sitemap, slug).toContain(`/${slug}/</loc>`);
+    }
   });
 
   /** § 10 and § 11.9: one indexed copy of each page, the release's. */
