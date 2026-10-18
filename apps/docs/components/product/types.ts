@@ -30,6 +30,8 @@ export interface ProductPage {
   codeSample: {
     title: string;
     lede: string;
+    /** The install command this snippet needs, shown above it. */
+    install: string;
     file: string;
     region: string;
     link: Link;
