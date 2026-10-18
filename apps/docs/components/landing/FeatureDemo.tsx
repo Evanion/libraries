@@ -21,6 +21,25 @@ interface Moved {
   count: number;
 }
 
+/** A tiny gallery as a visitor sees it, drawn in CSS: one big picture, or a grid. */
+function Thumb({ kind, label }: { kind: 'old' | 'new'; label: string }) {
+  return (
+    <figure className="landing-feature__view">
+      <span
+        className="landing-feature__thumb"
+        data-kind={kind}
+        aria-hidden="true"
+      >
+        <i />
+        <i />
+        <i />
+        <i />
+      </span>
+      <figcaption>{label}</figcaption>
+    </figure>
+  );
+}
+
 /**
  * A feature-flag document, and the two moments it is decided.
  *
@@ -130,6 +149,15 @@ export default function FeatureDemo() {
           </div>
           <div className="landing-feature__mock">
             <p className="landing-feature__mock-title">{page.label}</p>
+            <p className="landing-feature__mock-note">
+              {page.category === 'strategy'
+                ? `${page.label} is a strategy game, so the rollout can reach its visitors.`
+                : `${page.label} is a family game. The rollout only targets strategy games.`}
+            </p>
+            <div className="landing-feature__views">
+              <Thumb kind="old" label="Old gallery" />
+              {build.waits ? <Thumb kind="new" label="New gallery" /> : null}
+            </div>
             <p className="landing-feature__mock-gallery">
               {build.waits ? 'New gallery for some visitors' : 'Old gallery'}
             </p>
@@ -156,28 +184,44 @@ export default function FeatureDemo() {
           />
         ) : null}
         <p className="landing-feature__label">Decided when a visitor arrives</p>
-        <label className="landing-feature__control" htmlFor={rangeId}>
-          <span>New gallery for</span>
-          <input
-            id={rangeId}
-            type="range"
-            min={0}
-            max={100}
-            step={5}
-            value={state.percent}
-            onChange={(event) =>
-              move('percent', { ...state, percent: Number(event.target.value) })
-            }
-          />
-          <output htmlFor={rangeId}>{state.percent}% of visitors</output>
-        </label>
-        <p className="landing-feature__gloss">
-          Visitors are told apart by their id.
-        </p>
+        <div className="landing-feature__row">
+          <label className="landing-feature__control" htmlFor={rangeId}>
+            <span>
+              {build.settledOff ? 'No effect on this page' : 'New gallery for'}
+            </span>
+            <input
+              id={rangeId}
+              type="range"
+              min={0}
+              max={100}
+              step={5}
+              value={state.percent}
+              disabled={build.settledOff}
+              onChange={(event) =>
+                move('percent', {
+                  ...state,
+                  percent: Number(event.target.value),
+                })
+              }
+            />
+            <output htmlFor={rangeId}>
+              {build.settledOff ? '' : `${state.percent}% of visitors`}
+            </output>
+          </label>
+          <p className="landing-feature__count">
+            {build.settledOff
+              ? 'Decided before deploy: nobody on this page.'
+              : `${seen} of ${visitorIds.length} visitors see the new gallery.`}
+          </p>
+        </div>
         <p className="landing-feature__legend">
           {build.settledOff
-            ? 'Decided before deploy: nobody on this page.'
+            ? null
             : 'Each dot is a visitor, told apart by their id. Filled means they see the new gallery. The same visitor always gets the same answer.'}
+        </p>
+        <p className="landing-feature__lesson">
+          Raising the share only adds visitors; nobody who has the new gallery
+          loses it.
         </p>
         <ul className="landing-feature__crowd">
           {visitors.map((visitor) => {
@@ -203,9 +247,7 @@ export default function FeatureDemo() {
         <p className="landing-feature__readout">
           {focused
             ? describeVisitor(focused)
-            : build.settledOff
-              ? 'Nobody on this page gets the new gallery.'
-              : `${seen} of ${visitorIds.length} visitors see the new gallery.`}
+            : 'Hover or focus a dot to see that visitor.'}
         </p>
         <output className="baize-visually-hidden" aria-live="polite">
           {`${seen} of ${visitorIds.length} visitors see the new gallery.`}
