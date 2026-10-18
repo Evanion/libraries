@@ -19,3 +19,21 @@ export function productBySlug(slug: string): ProductPage {
 export function productForGroup(group: string): ProductPage | undefined {
   return published(products).find((p) => p.group === group);
 }
+
+/** The ids of the sections a page renders, which an anchor may name. */
+export function sectionIds(page: ProductPage): string[] {
+  return [...page.scenes.map((s) => s.id), page.codeSample.id];
+}
+
+/**
+ * Where a package's product page sends a reader, when its group has a
+ * published one: the lead to the page, an adapter to the section that covers
+ * it. Undefined when the package is not on a product page.
+ */
+export function productHref(group: string, name: string): string | undefined {
+  const page = productForGroup(group);
+  if (!page) return undefined;
+  if (name === page.packageName) return `/${page.slug}/`;
+  const anchor = page.anchors?.[name];
+  return anchor ? `/${page.slug}/#${anchor}` : undefined;
+}

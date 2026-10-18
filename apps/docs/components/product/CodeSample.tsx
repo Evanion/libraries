@@ -9,7 +9,7 @@ export function CodeSample({
   code: string;
 }) {
   return (
-    <section className="product__section">
+    <section id={sample.id} className="product__section">
       <h2>{sample.title}</h2>
       <p>{sample.lede}</p>
       <pre className="code-view">

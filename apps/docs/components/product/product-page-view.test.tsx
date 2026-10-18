@@ -17,6 +17,8 @@ describe('ProductPageView', () => {
     expect(screen.getByText('const x = 1;')).toBeInTheDocument();
     for (const fact of page.facts)
       expect(screen.getByText(fact.title)).toBeInTheDocument();
+    const sample = screen.getByRole('heading', { name: page.codeSample.title });
+    expect(sample.closest('section')).toHaveAttribute('id', page.codeSample.id);
     expect(screen.getByText(page.install.command)).toBeInTheDocument();
     expect(screen.getByText(page.codeSample.install)).toBeInTheDocument();
   });

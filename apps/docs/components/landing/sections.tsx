@@ -1,8 +1,9 @@
 import { Card, Chip, SectionHeader, Text, Title } from '@evanion/baize-ui';
 import { categoricalClass } from '@evanion/baize-ui/tokens';
-import { productForGroup } from '../product/registry';
+import { productForGroup, productHref } from '../product/registry';
 import {
   groups,
+  packages,
   readmeUrl,
   type DocumentedPackage,
   type PackageGroup,
@@ -18,9 +19,23 @@ import { luhnBody, tokenSpecimen, urnSpecimen } from './specimens';
 import TokenSpecimen from './TokenSpecimen';
 import UrnSpecimen from './UrnSpecimen';
 
-/** Where a package's name and buttons send a reader. */
+/**
+ * Where a package's name and buttons send a reader: its product page when the
+ * group has one, else its docs, else its README. Every landing link to a
+ * package goes through here.
+ */
 function href(entry: DocumentedPackage): string {
-  return entry.documented ? docsHref(entry.slug) : readmeUrl(entry);
+  return (
+    productHref(entry.group, entry.name) ??
+    (entry.documented ? docsHref(entry.slug) : readmeUrl(entry))
+  );
+}
+
+/** The package a published name refers to, or a build failure naming the typo. */
+function leadOf(name: string): DocumentedPackage {
+  const entry = packages.find((candidate) => candidate.name === name);
+  if (!entry) throw new Error(`No package in navigation.ts is named ${name}`);
+  return entry;
 }
 
 /** The group `id` names, or a build failure naming the typo. */
@@ -251,8 +266,11 @@ export function Pair({ group: id }: { group: string }) {
           </Title>
           <Text measured>{group.line}</Text>
           {product && (
-            <a className="landing-route__product" href={`/${product.slug}/`}>
-              {product.frontpageLink} →
+            <a
+              className="landing-route__product"
+              href={docsHref(leadOf(product.packageName).slug)}
+            >
+              {product.docsLink} →
             </a>
           )}
         </div>
