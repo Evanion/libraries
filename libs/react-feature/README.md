@@ -2,30 +2,7 @@
 
 **Feature decisions for your React component tree, resolved once and read anywhere.**
 
-To switch a single banner in a complex UI, you often have to prop-drill a flags object through ten layers of components. `@evanion/react-feature` solves this by publishing the decisions `@evanion/feature` has already resolved. Any component in the tree can ask "is this on, and which variant am I in?" without needing to know where the store or the evaluation context lives.
-
-## The Problem: The "Flags Prop-Drill"
-
-When a server resolves flags for a request, the component that actually needs a specific flag is often buried deep in the hierarchy. This creates two primary frictions:
-
-1. **Prop-Drilling**: Components that do not use any flags are forced to carry the flags object simply because a distant child requires it.
-2. **Two Answers Per Request**: If a component resolves a flag for itself, it reads its own clock. This means two components in a single render could land on opposite sides of a time window, causing the page to contradict itself.
-
-## The Solution: One Resolution, Published
-
-`@evanion/feature` resolves every configured feature in one call, and `features.snapshot` states that result as a `DecisionSet` containing the instant of resolution, one decision per key, and the config version wherever the store was built from a document that carries one.
-
-`FeatureProvider` publishes that set to the React tree, allowing `useFeature`, `useFeatureEnabled`, `useVariant`, and `useFeatures` to read it. Because the decisions are already made, no hook evaluates anything during the render.
-
-### Core Concept: The Server Resolves, The Tree Reads
-
-To avoid duplicating complex logic in the UI, `@evanion/react-feature` separates the act of deciding which feature to show from the act of reading that decision.
-
-Consider a game shop that splits shoppers between two different shelf-sorting methods. Instead of the UI calculating the split, the server resolves it for a specific shopper via `features.snapshot`, and `FeatureProvider` publishes that set. The `Shelf` component then simply reads its assigned variant. If Sam buckets into `popular` and Mika into `newest`, neither component has to perform the resolution logic themselves.
-
-To ensure consistency, the provider takes the shopper's targeting context alongside the set. It publishes the shipped decisions either way, and it re-resolves them against that context to check them; consequently, a provider handed no `targetingKey` reports every weighted assignment as one it cannot reproduce. The context the server resolved with is the context the provider needs.
-
-The following block runs in the package's test suite, where each `// ->` comment denotes the expression's value.
+To switch a single banner in a complex UI, you often have to prop-drill a flags object through ten layers of components. `@evanion/react-feature` solves this by publishing the decisions `@evanion/feature` has already resolved, allowing any component to ask "is this on, and which variant am I in?" without needing to know where the store or evaluation context lives.
 
 <!-- #region server-render -->
 
@@ -118,16 +95,16 @@ shelfFor('mika'); // -> '<p>Newest first</p>'
 
 <!-- #endregion server-render -->
 
-## Key Features
+## Capabilities
 
 `@evanion/react-feature` provides the following capabilities:
 
-- 🧩 **Zero Prop-Drilling**: Components name the key they care about and read the decision from the provider above them.
-- 🕓 **One Instant Per Render**: A set a render resolved states the instant it was created. The provider reads that instant as the default for anything it resolves itself, ensuring no two components in one tree straddle a time window.
-- ⚡ **Local Reads**: Hooks read decisions already held by the provider, so variant switches never wait on network requests.
-- 🛠️ **Type-Safety**: `createFeatureContext(features)` returns a provider and hooks bound to one store's schema. Misspelled keys trigger compile errors, and variants are constrained to the union declared by the store.
-- 🧬 **Divergence Reports**: When handed a shipped set, a provider compares the config version against the store. It names decisions it cannot reproduce via `onDivergence`. Where the set and the store each carry a config version and the two differ, `onVersionMismatch` decides whether the tree renders the shipped set or a local re-resolution. A store built from a bare definitions array carries no version, so a provider over one reports `unversioned` and keeps the shipped set whatever `onVersionMismatch` asks for. Build both sides from a document that carries a version to make the choice available.
-- 📦 **Lightweight Footprint**: The package is ESM only and requires Node 20 or newer. Its only peer dependency is React 18 or 19, with `@evanion/feature` pinned as a dependency.
+- **Zero Prop-Drilling**: Components name the key they care about and read the decision from the provider above them.
+- **One Instant Per Render**: A set a render resolved states the instant it was created. The provider reads that instant as the default for anything it resolves itself, ensuring no two components in one tree straddle a time window.
+- **Local Reads**: Hooks read decisions already held by the provider, so variant switches never wait on network requests.
+- **Type-Safety**: `createFeatureContext(features)` returns a provider and hooks bound to one store's schema. Misspelled keys trigger compile errors, and variants are constrained to the union declared by the store.
+- **Divergence Reports**: When handed a shipped set, a provider compares the config version against the store. It names decisions it cannot reproduce via `onDivergence`. Where the set and the store each carry a config version and the two differ, `onVersionMismatch` decides whether the tree renders the shipped set or a local re-resolution. A store built from a bare definitions array carries no version, so a provider over one reports `unversioned` and keeps the shipped set whatever `onVersionMismatch` asks for. Build both sides from a document that carries a version to make the choice available.
+- **Lightweight Footprint**: The package is ESM only and requires Node 20 or newer. Its only peer dependency is React 18 or 19, with `@evanion/feature` pinned as a dependency.
 
 ## Installation
 
