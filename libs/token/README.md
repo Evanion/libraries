@@ -1,23 +1,8 @@
 # @evanion/token
 
-**Human-friendly tokens with built-in error detection.**
+**Generate human-friendly tokens with built-in error detection.**
 
-Stop wasting database resources on mistyped codes. Whether it's a gift card, a pickup code, or a password reset token, a single typo should be caught before your application ever hits the database.
-
-## The Problem: The "Database-Driven" Validation Trap
-
-Most developers generate random strings and validate them by querying the database. This creates two major problems:
-
-1. **Expensive Failures**: A mistyped code still triggers a database lookup. At scale, thousands of typos per hour become a significant and unnecessary load on your infrastructure.
-2. **Poor User Experience**: A user who types `a4kp-9mx8` instead of `a4kp-9mxa` only finds out they failed when the database returns "Not Found," which is indistinguishable from a code that actually doesn't exist.
-
-## The Solution: Check-Character Tokens
-
-`@evanion/token` generates tokens with an integrated check character (based on the Luhn algorithm). This allows you to validate a code's structural integrity locally. If a user mistypes a single character, the token is rejected without a single database query.
-
-### Core Concept: The Local Gate
-
-To generate a token, use `createToken()` to build an instance with the default alphabet and shape. The `validate` method then checks if a code's check character matches, returning the reason for any failure: a wrong check character, a character outside the alphabet, or the wrong length. The following block runs in the package's test suite with `createToken` imported from `@evanion/token`, where each `// ->` comment indicates the expression's value.
+When users mistype a gift card or password reset code, your application shouldn't have to query a database just to discover the code is invalid. `@evanion/token` solves this by integrating a check character into every token, allowing you to catch typos locally before they ever hit your infrastructure.
 
 <!-- #region validate -->
 
@@ -32,15 +17,18 @@ token.validate('b0zg-7kq'); // -> { valid: false, reason: 'wrong-length' }
 
 <!-- #endregion validate -->
 
-## Key Features
+## Capabilities of @evanion/token
 
-- 🛡️ **Local Validation**: Catch single-character substitutions and almost all adjacent swaps before they hit your backend.
-- 🗣️ **Human-Optimized**: Uses a "confusable-free" alphabet that removes characters like `i`, `l`, `o`, and `w` to prevent reading and dictation errors.
-- 📏 **Customizable Shapes**: Control length, chunk size (e.g., `XXXX-XXXX`), and separators to match your brand's needs.
-- 🔐 **CSPRNG Powered**: Uses `crypto.getRandomValues` for cryptographically secure token generation.
-- 📦 **Environment**: ESM only, requires Node 20 or newer, and ships its own types; depends solely on `@evanion/luhn` to compute the check character.
+The `@evanion/token` package provides several tools to ensure tokens are secure and easy for humans to use:
 
-## Installation
+- **Local Validation**: Catch single-character substitutions and almost all adjacent swaps without a backend query.
+- **Human-Optimized Alphabet**: Prevents reading and dictation errors by using a "confusable-free" alphabet that removes characters like `i`, `l`, `o`, and `w`.
+- **Customizable Shapes**: Match your brand's needs by controlling length, separators, and chunk size (e.g., `XXXX-XXXX`).
+- **Secure Generation**: Uses `crypto.getRandomValues` (CSPRNG) to ensure tokens are cryptographically secure.
+
+## Environment and Installation
+
+`@evanion/token` is an ESM-only package that requires Node 20 or newer. It ships its own types and depends solely on `@evanion/luhn` to compute the check character.
 
 ```bash
 npm install @evanion/token
