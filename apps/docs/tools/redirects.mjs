@@ -31,6 +31,8 @@
  * straight at the current one, so no reader walks two refreshes.
  */
 
+import { DOCS } from './docs-path.mjs';
+
 /** Old site path to current site path, both without leading or trailing slash. */
 export const movedPages = new Map([
   ['acl/simple', 'acl/subject-rules'],
@@ -56,13 +58,11 @@ export const movedPages = new Map([
  * the two. The anchor is for a reader whose browser blocks the refresh, and the
  * `noindex` keeps the stub itself out of a search result.
  *
- * `to` is site-absolute with a trailing slash, matching what `trailingSlash`
+ * `href` is site-absolute with a trailing slash, matching what `trailingSlash`
  * emits for every other page, so the redirect does not send a reader through a
  * second hop.
  */
-export function redirectDocument(to) {
-  const href = `/${to}/`;
-
+export function redirectDocument(href) {
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -79,8 +79,13 @@ export function redirectDocument(to) {
 `;
 }
 
+/** A path inside the docs tree, without leading or trailing slash. */
+const under = (path) => `${DOCS.slice(1)}/${path}`;
+
 /**
- * The moved pages, in every tree a section is served in.
+ * The moved pages, in every tree a section is served in. Keys and values are
+ * paths under `docs/`: the stub is written where the page was inside the docs
+ * tree, and `legacyPaths` carries the same entries from the old root.
  *
  * A package section is served at its bare path and again under `/next/`, and
  * a link to a moved path can be written in either: a page under `/next/` links
@@ -105,17 +110,17 @@ export function movedPaths(sections) {
     const section = sections[slug];
 
     if (!section) {
-      paths.set(from, to);
+      paths.set(under(from), under(to));
       continue;
     }
 
-    paths.set(`next/${from}`, `next/${to}`);
+    paths.set(under(`next/${from}`), under(`next/${to}`));
 
     const released = new Set(section.current.pages);
     const page = (path) => path.slice(slug.length + 1);
 
     if (released.has(page(from))) continue;
-    paths.set(from, released.has(page(to)) ? to : `next/${to}`);
+    paths.set(under(from), under(released.has(page(to)) ? to : `next/${to}`));
   }
 
   return paths;
@@ -142,9 +147,41 @@ export function unreleasedPaths(sections) {
 
     for (const page of section.next.pages) {
       if (page !== '' && !released.has(page))
-        paths.set(`${slug}/${page}`, `next/${slug}/${page}`);
+        paths.set(under(`${slug}/${page}`), under(`next/${slug}/${page}`));
     }
   }
+
+  return paths;
+}
+
+/**
+ * The paths the site served before the documentation moved under `/docs`, each
+ * with the page that answers it now.
+ *
+ * The old host served every docs page at the root: `/acl/errors/`,
+ * `/next/urn/`, `/testing/`. The new host serves them under `/docs`, and a
+ * bookmark or an index entry still names the root path. So every served
+ * `docs/<p>` gets a stub at `<p>`. A moved page's old root path goes to its
+ * current page (`movedPaths` decides which tree has it), and the explorer's old
+ * root path goes to its place under `acl`.
+ *
+ * A key is never empty: the root is the frontpage. A product page at the root
+ * (`/feature-flags/`) is not a docs path and never appears here.
+ *
+ * @param {Iterable<string>} served every `docs/...` path the export serves
+ * @param {Record<string, { current: { pages: readonly string[] } }>} sections
+ *   what `content/versions.json` records, by slug
+ */
+export function legacyPaths(served, sections = {}) {
+  const prefix = `${DOCS.slice(1)}/`;
+  const moved = movedPaths(sections);
+  const paths = new Map();
+
+  for (const [from, to] of movedPages)
+    paths.set(from, moved.get(under(from)) ?? under(to));
+  for (const path of served)
+    if (path.startsWith(prefix)) paths.set(path.slice(prefix.length), path);
+  paths.set('matrix-explorer', under('acl/matrix-explorer'));
 
   return paths;
 }
@@ -154,17 +191,20 @@ export function unreleasedPaths(sections) {
  *
  * @param {Record<string, { current: { pages: string[] }, next: { pages: string[] } }>} sections
  *   what `content/versions.json` records, by slug
+ * @param {Iterable<string>} served every `docs/...` path the export serves
  */
-export function redirectFiles(sections = {}) {
+export function redirectFiles(sections = {}, served = []) {
   const moved = movedPaths(sections);
   const unreleased = [...unreleasedPaths(sections)].filter(
     ([from]) => !moved.has(from),
   );
+  const legacy = legacyPaths(served, sections);
 
-  return new Map(
-    [...moved, ...unreleased].map(([from, to]) => [
+  return new Map([
+    ...[...moved, ...unreleased, ...legacy].map(([from, to]) => [
       `${from}/index.html`,
-      redirectDocument(to),
+      redirectDocument(`/${to}/`),
     ]),
-  );
+    [`${DOCS.slice(1)}/index.html`, redirectDocument('/')],
+  ]);
 }

@@ -72,8 +72,13 @@ interface Redirects {
   unreleasedPaths: (
     sections: ReturnType<typeof servedSections>,
   ) => Map<string, string>;
+  legacyPaths: (
+    served: Iterable<string>,
+    sections?: ReturnType<typeof servedSections>,
+  ) => Map<string, string>;
   redirectFiles: (
     sections: ReturnType<typeof servedSections>,
+    served?: Iterable<string>,
   ) => Map<string, string>;
 }
 
@@ -143,10 +148,12 @@ describe('moved pages', () => {
         acl: { current: { pages } },
       } as unknown as ReturnType<typeof servedSections>);
 
-    expect(served([page(from)]).has(from)).toBe(false);
-    expect(served([page(from)]).get(`next/${from}`)).toBe(`next/${to}`);
-    expect(served([page(to)]).get(from)).toBe(to);
-    expect(served([]).get(from)).toBe(`next/${to}`);
+    expect(served([page(from)]).has(`docs/${from}`)).toBe(false);
+    expect(served([page(from)]).get(`docs/next/${from}`)).toBe(
+      `docs/next/${to}`,
+    );
+    expect(served([page(to)]).get(`docs/${from}`)).toBe(`docs/${to}`);
+    expect(served([]).get(`docs/${from}`)).toBe(`docs/next/${to}`);
   });
 
   it('resolve in one hop', async () => {
@@ -160,6 +167,52 @@ describe('moved pages', () => {
       chained.sort(),
       'Each of these sends a reader through two refreshes. Point the first ' +
         'entry at the current path.',
+    ).toEqual([]);
+  });
+});
+
+describe('old root paths', () => {
+  it('send every old root path to the same page under /docs', async () => {
+    const { legacyPaths } = await loadRedirects();
+    const legacy = legacyPaths([
+      'docs/acl',
+      'docs/acl/errors',
+      'docs/next/urn/api',
+    ]);
+
+    expect(legacy.get('acl')).toBe('docs/acl');
+    expect(legacy.get('acl/errors')).toBe('docs/acl/errors');
+    expect(legacy.get('next/urn/api')).toBe('docs/next/urn/api');
+    expect(legacy.get('acl/simple')).toBe('docs/acl/subject-rules');
+    expect(legacy.get('matrix-explorer')).toBe('docs/acl/matrix-explorer');
+  });
+
+  it('answer /docs/ with the frontpage', async () => {
+    const { redirectFiles } = await loadRedirects();
+
+    expect(
+      redirectFiles({} as ReturnType<typeof servedSections>, []).get(
+        'docs/index.html',
+      ),
+    ).toContain('url=/"');
+  });
+
+  it('point at pages the export serves, and never at an empty key', async () => {
+    const { legacyPaths } = await loadRedirects();
+    const sections = servedSections();
+    const served = servedPaths();
+    const legacy = legacyPaths(served, sections);
+
+    expect(legacy.has('')).toBe(false);
+    expect(
+      [...legacy]
+        .filter(
+          ([from, to]) =>
+            from.startsWith('docs') ||
+            !(served.has(to) || to === 'docs/acl/matrix-explorer'),
+        )
+        .map(([from, to]) => `${from} -> ${to}`)
+        .sort(),
     ).toEqual([]);
   });
 });
@@ -199,6 +252,7 @@ describe('pages still linking a moved path', () => {
               target.startsWith('/') ? target : posix.join(urlOf(page), target)
             )
               .replace(/^\/|\/$/g, '')
+              .replace(/^docs\//, '')
               .replace(/^next\//, '');
           })
           .filter((path) => movedPages.has(path))
@@ -223,7 +277,7 @@ describe('the redirect the build writes', () => {
     const moved = movedPaths(sections);
 
     expect(
-      [...moved.keys()].filter((from) => from.startsWith('next/')).length,
+      [...moved.keys()].filter((from) => from.startsWith('docs/next/')).length,
       'no moved page is in a section served under /next/',
     ).toBeGreaterThan(0);
 
