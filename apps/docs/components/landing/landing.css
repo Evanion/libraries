@@ -1182,6 +1182,171 @@ textarea.landing-access__field {
   text-decoration: line-through;
 }
 
+/*
+ * Feature flags: a document, and the two moments it is decided.
+ *
+ * Stacked, because the argument runs downward: the document above, what a build
+ * can settle from it under that, and what each request settles under both. The
+ * document sits on the page's own material in mono, like the policy beside the
+ * Authorization demo, so source and answers never read as one kind of thing.
+ * The hue marks what the reader changed and what came out lit.
+ */
+.landing-feature {
+  display: grid;
+}
+
+.landing-feature__document,
+.landing-feature__lane {
+  display: grid;
+  align-content: start;
+  gap: var(--baize-space-3);
+  min-width: 0;
+  padding: var(--baize-space-4);
+}
+
+.landing-feature__document {
+  background: var(--baize-felt);
+}
+
+.landing-feature__document + .landing-feature__lane,
+.landing-feature__lane + .landing-feature__lane {
+  border-top: 1px solid
+    color-mix(in oklab, var(--baize-hue) 35%, var(--baize-rule));
+}
+
+.landing-feature__label {
+  margin: 0;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  letter-spacing: var(--baize-tracking-loose);
+  text-transform: uppercase;
+}
+
+.landing-feature__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--baize-space-3) var(--baize-space-6);
+}
+
+.landing-feature__control {
+  display: flex;
+  align-items: center;
+  gap: var(--baize-space-2);
+  color: var(--baize-chalk);
+  font-size: var(--baize-text-sm);
+}
+
+.landing-feature__control input {
+  accent-color: var(--baize-hue);
+}
+
+.landing-feature__control output {
+  min-width: 4ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.landing-feature__source {
+  margin: 0;
+  overflow-x: auto;
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+  font-variant-ligatures: none;
+  line-height: 1.7;
+  color: var(--baize-moss);
+}
+
+.landing-feature__line {
+  display: block;
+  white-space: pre;
+}
+
+.landing-feature__value {
+  color: var(--baize-hue);
+  border-bottom: 1px dotted currentcolor;
+}
+
+.landing-feature__flags {
+  display: grid;
+  gap: var(--baize-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.landing-feature__flag {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--baize-space-1) var(--baize-space-4);
+  padding-left: var(--baize-space-3);
+  border-left: 2px solid var(--baize-rule);
+  font-size: var(--baize-text-sm);
+}
+
+.landing-feature__flag[data-status='on'] {
+  border-left-color: var(--baize-hue);
+}
+
+.landing-feature__flag[data-status='deferred'] {
+  border-left-style: dashed;
+  border-left-color: var(--baize-hue);
+}
+
+.landing-feature__key {
+  min-width: 9.5rem;
+  color: var(--baize-chalk);
+  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+  font-size: var(--baize-text-xs);
+}
+
+.landing-feature__status {
+  color: var(--baize-lichen);
+}
+
+.landing-feature__crowd {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--baize-space-2);
+  max-width: 28rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A dot is a visitor. Lit is the new checkout; the inner mark is express pickup. */
+.landing-feature__dot {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  border: 1px solid var(--baize-moss);
+  border-radius: 50%;
+  background: transparent;
+  cursor: help;
+  transition:
+    background var(--baize-motion-duration) var(--baize-motion-easing),
+    border-color var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+.landing-feature__dot[data-lit] {
+  border-color: var(--baize-hue);
+  background: var(--baize-hue);
+}
+
+.landing-feature__dot[data-pickup]::after {
+  content: '';
+  position: absolute;
+  inset: 32%;
+  border-radius: 50%;
+  background: var(--baize-ink);
+}
+
+.landing-feature__readout {
+  min-height: 2.6em;
+  margin: 0;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
 /* Where the rest of the project lives: a heading and the links in one row. */
 .landing-elsewhere {
   display: flex;
@@ -1307,6 +1472,7 @@ textarea.landing-access__field {
 @media (prefers-reduced-motion: reduce) {
   .landing-tile__link,
   .landing-seg__face,
+  .landing-feature__dot,
   .landing-items__handle,
   .landing-chip,
   .landing-access__line {
