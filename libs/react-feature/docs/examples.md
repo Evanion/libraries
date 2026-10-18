@@ -36,6 +36,37 @@ html; // -> '<p>Checkout with express pickup</p>'
 
 <!-- #endregion react-provider -->
 
+<!-- #region react-landing -->
+
+```tsx @import.meta.vitest
+/** @jsxRuntime classic */
+import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+// ---cut---
+import { createFeatures } from '@evanion/feature';
+import { FeatureProvider, useFeatureEnabled } from '@evanion/react-feature';
+
+const features = createFeatures([{ key: 'new-checkout', enabled: true }]);
+
+function Checkout() {
+  const isNew = useFeatureEnabled('new-checkout');
+  return isNew ? <p>New checkout</p> : <p>Old checkout</p>;
+}
+
+function App() {
+  return (
+    <FeatureProvider features={features}>
+      <Checkout />
+    </FeatureProvider>
+  );
+}
+// ---cut-after---
+const html = renderToStaticMarkup(<App />);
+html; // -> '<p>New checkout</p>'
+```
+
+<!-- #endregion react-landing -->
+
 <!-- #region react-memo -->
 
 ```tsx @import.meta.vitest
