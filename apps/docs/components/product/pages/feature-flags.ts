@@ -5,15 +5,15 @@ const page: ProductPage = {
   slug: 'feature-flags',
   group: 'feature',
   packageName: '@evanion/feature',
-  draft: true,
+  draft: false,
   metadata: {
     title: 'Feature flags from a document you own',
     description:
-      'Define feature flags in a plain document and decide them in your API, your build and the browser with one library.',
+      'Define your features in a plain document. Decide them in your API, your build, and the browser with one library.',
   },
   hero: {
     promise: 'Feature flags from a document you own.',
-    line: 'One library decides them in your API, your build and the browser.',
+    line: 'One library decides them in your API, your build, and the browser.',
     demo: 'rollout',
     actions: [
       { label: 'Get started', href: docsHref('feature/getting-started/') },
@@ -27,61 +27,62 @@ const page: ProductPage = {
   scenes: [
     {
       id: 'schedule',
-      title: 'Launch on a schedule',
-      lede: 'Set the moment a feature turns on. Nobody has to deploy at 9am.',
+      title: 'Launch while you sleep',
+      lede: 'Pick the moment a feature turns on. After 09:00, it becomes available for everyone without a new deploy.',
       demo: 'schedule',
       caption:
-        'The answer depends only on the time you ask about, so server and browser agree.',
+        'Server and browser always agree because the answer depends only on the time.',
       howItWorks: {
-        label: 'How conditions work',
+        label: 'See how timing works',
         href: docsHref('feature/configuration/'),
       },
     },
     {
       id: 'cascade',
-      title: 'One switch, everything that depends on it',
-      lede: 'Turn a feature off and the features built on it go with it. You see the list before you confirm.',
+      title: 'Stop the domino effect',
+      lede: 'Turn off a core feature and everything built on top of it follows. You get a full list of what will disappear before you commit.',
       demo: 'cascade',
-      caption: 'Each feature says why it is off.',
+      caption: 'Every disabled feature explains exactly why it is off.',
       howItWorks: {
-        label: 'How decisions work',
+        label: 'See how dependencies work',
         href: docsHref('feature/decisions/'),
       },
     },
     {
       id: 'variants',
-      title: 'A/B tests that stay put',
-      lede: 'Change the split and only the visitors at the edge move. Pin a group to one variant.',
+      title: "Tests that don't jump",
+      lede: 'Adjust your visitor split without shuffling everyone. Pin specific groups to a version to keep things consistent.',
       demo: 'variants',
-      caption: 'The same visitor always gets the same variant.',
+      caption:
+        'A visitor always sees the same version unless you move the boundary.',
       howItWorks: {
-        label: 'How variants work',
+        label: 'See how splitting works',
         href: docsHref('feature/variants/'),
       },
     },
     {
       id: 'no-flicker',
       title: 'No flicker on load',
-      lede: 'The page arrives with the right features already decided.',
+      lede: 'Stop the awkward flash of old content. Your page arrives with the right features already decided.',
       demo: 'no-flicker',
       caption:
-        'The browser adopts what the server decided, so the first paint is already right.',
+        "The browser adopts the server's decision so the first paint is already the new checkout.",
       howItWorks: {
-        label: 'How hydration works',
+        label: 'See how loading works',
         href: docsHref('feature/hydration/'),
       },
     },
   ],
   codeSample: {
-    title: 'Use it in React',
-    lede: 'Wrap your app once and ask any component whether a feature is on.',
+    title: 'Simple setup for React',
+    lede: 'Wrap your app once. Any component can then ask if a feature is on.',
     file: 'libs/react-feature/docs/examples.md',
     region: 'react-provider',
-    link: { label: 'React docs', href: docsHref('react-feature/') },
+    link: { label: 'Read the guide', href: docsHref('react-feature/') },
   },
-  install: { title: 'Install', command: 'npm install @evanion/feature' },
+  install: { title: 'Installation', command: 'npm install @evanion/feature' },
   next: {
-    title: 'Next steps',
+    title: 'Ready to build?',
     links: [
       { label: 'Getting started', href: docsHref('feature/getting-started/') },
       { label: 'API reference', href: docsHref('feature/api/') },

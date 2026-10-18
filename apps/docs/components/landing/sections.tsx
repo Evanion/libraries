@@ -1,5 +1,6 @@
 import { Card, Chip, SectionHeader, Text, Title } from '@evanion/baize-ui';
 import { categoricalClass } from '@evanion/baize-ui/tokens';
+import { productForGroup } from '../product/registry';
 import {
   groups,
   readmeUrl,
@@ -240,6 +241,7 @@ function demonstration(family: Family) {
 export function Pair({ group: id }: { group: string }) {
   const group = groupById(id);
   const families = familiesOf(group);
+  const product = productForGroup(id);
   return (
     <>
       <div className="landing-pair">
@@ -248,6 +250,11 @@ export function Pair({ group: id }: { group: string }) {
             {group.title}
           </Title>
           <Text measured>{group.line}</Text>
+          {product && (
+            <a className="landing-route__product" href={`/${product.slug}/`}>
+              See what it does →
+            </a>
+          )}
         </div>
         <ul className="landing-teasers" aria-label={group.title}>
           {families.map((family) => (
