@@ -1,23 +1,8 @@
 # @evanion/react-widget
 
-**Type-safe, dynamic React widget regions from structured data.**
+**Map structured JSON data to React components with compile-time prop safety.**
 
-Stop fighting with `any` types and runtime crashes when rendering CMS-driven layouts. `@evanion/react-widget` allows you to map structured JSON data to React components with compile-time prop safety, ensuring that your dynamic dashboards, sidebars, and landing pages are robust and maintainable.
-
-## The Problem: The "Untyped Layout" Fragility
-
-When your UI is driven by a CMS or a database, you typically map a `type` string (like `"listing"`) to a component. This creates several risks:
-
-1. **Runtime Surprises**: A CMS editor changes a field name or misses a required prop, and your component crashes the entire page because it expected a string but got `undefined`.
-2. **Implicit Contracts**: The "contract" between the data and the component exists only in the editor's head, making it impossible for developers to know exactly what props a widget needs without digging through the code.
-
-## The Solution: Type-Safe Widget Regions
-
-`@evanion/react-widget` creates a strict link between your component map and your data. By using a shared registry, TypeScript accepts an item of type `"listing"` only if it carries the exact props the `ListingCard` component expects.
-
-### Core Concept: The Typed Region
-
-To define your widgets, use `createWidgets` to map components to types. It returns a `Widgets` region and a `defineItems` helper that validates item props against the component named by their `type`.
+When UI layouts are driven by a CMS or database, mapping a `type` string to a component often leads to runtime crashes when data is missing or fields are renamed. `@evanion/react-widget` solves this by creating a strict link between your component map and your data, ensuring your dynamic dashboards and landing pages are robust.
 
 <!-- #region region-markup -->
 
@@ -48,13 +33,13 @@ const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><d
 
 <!-- #endregion region-markup -->
 
-## Key Features
+## Capabilities of @evanion/react-widget
 
-- 🎯 **Compile-Time Safety**: Mismatched props or unknown widget types are caught by TypeScript during development, not by users in production.
-- ⚡ **Server Component Ready**: Designed for the modern React era. It's importable from a React Server Component (RSC) without needing a `'use client'` boundary.
-- 🧩 **Recursive Nesting**: Naturally supports nested widgets (e.g., a "Shelf" widget containing multiple "Listing" widgets) with full type-safety for children.
-- 🎨 **Placement vs. Content**: Separates layout metadata (`meta`) from component props, so your widgets don't need to know where they are positioned on the page.
-- 📦 **Dependency-Light**: React 18 or 19 is the only peer dependency. `@evanion/widget` is pinned as a dependency and re-exported, so this one install is enough. The package is ESM only and needs Node 20 or newer.
+- **Compile-Time Safety**: TypeScript catches mismatched props or unknown widget types during development.
+- **Server Component Ready**: Importable from a React Server Component (RSC) without requiring a `'use client'` boundary.
+- **Recursive Nesting**: Supports nested widgets (such as a "Shelf" containing "Listing" widgets) with full type-safety for children.
+- **Placement vs. Content**: Separates layout metadata (`meta`) from component props.
+- **Dependency-Light**: Requires only React 18 or 19 as a peer dependency. The package is ESM only and requires Node 20 or newer.
 
 ## Installation
 
