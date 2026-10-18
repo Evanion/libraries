@@ -79,7 +79,7 @@ const page: ProductPage = {
     lede: 'Wrap your app once. Any component can then ask if a feature is on.',
     install: 'npm install @evanion/feature @evanion/react-feature',
     file: 'libs/react-feature/docs/examples.md',
-    region: 'react-provider',
+    region: 'react-landing',
     link: { label: 'Read the guide', href: docsHref('react-feature/') },
   },
   install: { title: 'Installation', command: 'npm install @evanion/feature' },
