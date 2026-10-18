@@ -208,3 +208,15 @@
   color: var(--baize-lichen);
   font-size: var(--baize-text-xs);
 }
+
+.no-flicker-demo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--baize-space-4);
+}
+
+@media (max-width: 600px) {
+  .no-flicker-demo {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
