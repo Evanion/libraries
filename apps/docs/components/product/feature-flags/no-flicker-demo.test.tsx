@@ -30,5 +30,8 @@ describe('NoFlickerDemo', () => {
     render(<NoFlickerDemo />);
     expect(screen.queryByRole('button', { name: /replay/i })).toBeNull();
     expect(screen.getByText(/swapped after load/i)).toBeInTheDocument();
+    const [client] = screen.getAllByRole('figure');
+    expect(client).toHaveTextContent(/old checkout/i);
+    expect(client).toHaveTextContent(/new checkout/i);
   });
 });
