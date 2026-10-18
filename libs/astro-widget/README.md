@@ -1,8 +1,8 @@
 # @evanion/astro-widget
 
-**Render CMS-driven widget regions on the server with zero client-side JavaScript.**
+**Move your UI layout into the data layer and render it with Astro, with props checked by validateItems before an Astro build.**
 
-Traditional dynamic layouts force the browser to download bundles and execute logic just to map data to components. This "runtime tax" increases bundle sizes and slows down Time to Interactive. `@evanion/astro-widget` eliminates this cost by shifting layout logic to Astro's render process—during `astro build` for static pages or on each request for on-demand pages—shipping only HTML to the browser.
+By describing your UI as data rather than hard-coding conditional logic, you eliminate the fragile `if` statements typically used to manage complex layouts. `@evanion/astro-widget` brings this approach to the Astro ecosystem, shifting the layout logic to the server—during `astro build` for static pages or on each request for on-demand pages—to ship only HTML and zero client-side JavaScript to the browser.
 
 To see how the library ensures your layout data is correct before it reaches the page, consider this example of validating a widget region:
 
