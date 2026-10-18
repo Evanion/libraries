@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { CodeView } from '../primitives/CodeView';
 import { VisitorCrowd, type CrowdMember } from '../primitives/VisitorCrowd';
 import { Scrubber } from '../primitives/Scrubber';
-import { assign, moved, visitors } from './variants';
+import { assign, moved, VARIANT_KEY, visitors } from './variants';
 
 /** A two-way split over the demo crowd: move the split and see who switches, pin a group to one side. */
 export default function VariantsDemo() {
@@ -37,7 +37,7 @@ export default function VariantsDemo() {
       <CodeView
         label="The document"
         lines={[
-          { key: 'open', content: "{ key: 'checkout-cta', enabled: true," },
+          { key: 'open', content: `{ key: '${VARIANT_KEY}', enabled: true,` },
           {
             key: 'weights',
             lit: touched,
