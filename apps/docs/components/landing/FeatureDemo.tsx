@@ -118,7 +118,7 @@ export default function FeatureDemo() {
         ) : null}
         <p className="landing-feature__label">Decided before deploy</p>
         <p className="landing-feature__lane-note">
-          Decided once per page while the site builds.
+          Set once for every visitor when the site builds.
         </p>
         <div className="landing-feature__lane-body">
           <div
@@ -180,7 +180,7 @@ export default function FeatureDemo() {
         ) : null}
         <p className="landing-feature__label">Decided when a visitor arrives</p>
         <p className="landing-feature__lane-note">
-          Decided for each visitor when they arrive.
+          Set for each visitor when they arrive.
         </p>
         <div className="landing-feature__row">
           <label className="landing-feature__control" htmlFor={rangeId}>

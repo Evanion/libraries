@@ -28,14 +28,14 @@ const page: ProductPage = {
   facts: [
     {
       title: 'Flags are a file in your repo',
-      text: 'You review changes to them the way you review code.',
+      text: 'You review changes to your flags the way you review code.',
     },
     {
       title: 'Your own code decides',
-      text: 'Your API, your build and the browser answer by themselves, with no network call per check.',
+      text: 'Your API, your build, and the browser answer by themselves. There is no network call per check.',
     },
     {
-      title: 'Change a flag without a deploy',
+      title: 'Update flags without a deploy',
       text: 'Serve the file and reload it in the running app.',
       link: {
         label: 'How reloading works',
