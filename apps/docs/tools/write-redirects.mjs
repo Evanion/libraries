@@ -1,4 +1,10 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { argv } from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -25,13 +31,32 @@ import { redirectFiles } from './redirects.mjs';
  */
 
 /**
+ * Every `docs/...` path the export holds a page at, read from `out` itself:
+ * the legacy stubs for the old root paths are made from what is served.
+ */
+function servedDocs(out) {
+  const found = [];
+  const walk = (dir, path) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory())
+        walk(join(dir, entry.name), `${path}/${entry.name}`);
+      else if (entry.name === 'index.html' && path.startsWith('/docs/'))
+        found.push(path.slice(1));
+    }
+  };
+  if (existsSync(join(out, 'docs'))) walk(join(out, 'docs'), '/docs');
+  return found;
+}
+
+/**
  * Writes every stub under `out`, and returns what it wrote, keyed by path.
  *
- * `sections` is what `content/versions.json` records, which names the sections
+ * `out/docs` holds the export's pages when this runs, and it is what the old
+ * root paths are made from. `sections` is what `content/versions.json` records, which names the sections
  * served in both trees and the pages a release left out.
  */
 export function writeRedirects(out, sections = {}) {
-  const files = redirectFiles(sections);
+  const files = redirectFiles(sections, servedDocs(out));
 
   for (const [path, document] of files) {
     const target = join(out, path);
