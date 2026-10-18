@@ -5,7 +5,7 @@ import { buildFeatures, crowd, openingState, pages } from './rollout';
 
 /** The labels of the dots that are filled: visitors who see the new gallery. */
 function lit(container: HTMLElement): string[] {
-  return [...container.querySelectorAll('.landing-feature__dot')].flatMap(
+  return [...container.querySelectorAll('.visitor-crowd__dot')].flatMap(
     (dot) =>
       dot.hasAttribute('data-lit') ? [dot.getAttribute('aria-label')!] : [],
   );
@@ -40,7 +40,7 @@ describe('the feature-flag demonstration component', () => {
       pages[0],
     ).filter((visitor) => visitor.gallery.enabled).length;
 
-    expect(container.querySelectorAll('.landing-feature__dot')).toHaveLength(
+    expect(container.querySelectorAll('.visitor-crowd__dot')).toHaveLength(
       24,
     );
     expect(lit(container)).toHaveLength(expected);
@@ -83,7 +83,7 @@ describe('the feature-flag demonstration component', () => {
   it('lights the line of code the last control wrote', () => {
     const { container } = render(<FeatureDemo />);
     const litLines = () =>
-      [...container.querySelectorAll('.landing-feature__line[data-lit]')].map(
+      [...container.querySelectorAll('.code-view__line[data-lit]')].map(
         (line) => line.textContent ?? '',
       );
 

@@ -14,6 +14,7 @@ import {
   type Grants,
   type Role,
 } from './access';
+import { CodeView } from '../product/primitives/CodeView';
 import { RoleSwitch } from './RoleSwitch';
 
 /** The listing the interface is built around. Copy, not lorem. */
@@ -201,44 +202,37 @@ export default function AccessDemo() {
 
       <div className="landing-access__policy">
         <p className="landing-demo__label">access</p>
-        <pre className="landing-access__source">
-          <code>
-            {source.map((line, index) => (
-              <span
-                key={index}
-                className="landing-access__line"
-                data-lit={isLit(line, decisions) ? '' : undefined}
-                data-side={line.rule?.side}
-              >
-                {line.segments.map((segment, at) =>
-                  'text' in segment ? (
-                    <span key={at}>{segment.text}</span>
-                  ) : (
-                    <span key={at} className="landing-access__grant">
-                      [
-                      {roles.map((option, position) => (
-                        <span key={option}>
-                          {position > 0 ? ', ' : null}
-                          <button
-                            type="button"
-                            className="landing-access__role"
-                            aria-pressed={grants[segment.grant].includes(
-                              option,
-                            )}
-                            onClick={() => toggleGrant(segment.grant, option)}
-                          >
-                            &apos;{option}&apos;
-                          </button>
-                        </span>
-                      ))}
-                      ]
+        <CodeView
+          label="Access policy"
+          lines={source.map((line, index) => ({
+            key: String(index),
+            lit: isLit(line, decisions),
+            tone: line.rule?.side === 'deny' ? 'deny' : undefined,
+            content: line.segments.map((segment, at) =>
+              'text' in segment ? (
+                <span key={at}>{segment.text}</span>
+              ) : (
+                <span key={at} className="landing-access__grant">
+                  [
+                  {roles.map((option, position) => (
+                    <span key={option}>
+                      {position > 0 ? ', ' : null}
+                      <button
+                        type="button"
+                        className="landing-access__role"
+                        aria-pressed={grants[segment.grant].includes(option)}
+                        onClick={() => toggleGrant(segment.grant, option)}
+                      >
+                        &apos;{option}&apos;
+                      </button>
                     </span>
-                  ),
-                )}
-              </span>
-            ))}
-          </code>
-        </pre>
+                  ))}
+                  ]
+                </span>
+              ),
+            ),
+          }))}
+        />
       </div>
     </div>
   );

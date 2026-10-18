@@ -1,6 +1,8 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
+import { CodeView } from '../product/primitives/CodeView';
+import { VisitorCrowd } from '../product/primitives/VisitorCrowd';
 import {
   buildFeatures,
   buildLane,
@@ -83,33 +85,23 @@ export default function FeatureDemo() {
     <div className="landing-feature">
       <div className="landing-feature__document">
         <p className="landing-feature__label">The document</p>
-        <pre className="landing-feature__source">
-          <code>
-            {source.map((line, index) => (
-              <span
-                key={index}
-                className="landing-feature__line"
-                data-lit={
-                  line.writtenBy && line.writtenBy === moved?.control
-                    ? ''
-                    : undefined
-                }
-              >
-                {line.segments.map((segment, at) =>
-                  'text' in segment ? (
-                    <span key={at}>{segment.text}</span>
-                  ) : (
-                    <span key={at} className="landing-feature__value">
-                      {segment.value === 'category'
-                        ? page.category
-                        : state.percent}
-                    </span>
-                  ),
-                )}
-              </span>
-            ))}
-          </code>
-        </pre>
+        <CodeView
+          className="landing-feature__source"
+          label="The document"
+          lines={source.map((line, index) => ({
+            key: String(index),
+            lit: Boolean(line.writtenBy && line.writtenBy === moved?.control),
+            content: line.segments.map((segment, at) =>
+              'text' in segment ? (
+                <span key={at}>{segment.text}</span>
+              ) : (
+                <span key={at} className="landing-feature__value">
+                  {segment.value === 'category' ? page.category : state.percent}
+                </span>
+              ),
+            ),
+          }))}
+        />
       </div>
 
       <section
@@ -214,36 +206,25 @@ export default function FeatureDemo() {
               : `${seen} of ${visitorIds.length} visitors see the new gallery.`}
           </p>
         </div>
-        <p className="landing-feature__legend">
-          {build.settledOff
-            ? null
-            : 'Each dot is a visitor, told apart by their id. Filled means they see the new gallery. The same visitor always gets the same answer.'}
-        </p>
         <p className="landing-feature__lesson">
           Raising the share only adds visitors; nobody who has the new gallery
           loses it.
         </p>
-        <ul className="landing-feature__crowd">
-          {visitors.map((visitor) => {
-            const label = describeVisitor(visitor);
-            return (
-              <li key={visitor.id}>
-                <span
-                  className="landing-feature__dot"
-                  role="img"
-                  tabIndex={0}
-                  aria-label={label}
-                  title={label}
-                  data-lit={visitor.gallery.enabled ? '' : undefined}
-                  onPointerEnter={() => setActive(visitor.id)}
-                  onPointerLeave={() => setActive(null)}
-                  onFocus={() => setActive(visitor.id)}
-                  onBlur={() => setActive(null)}
-                />
-              </li>
-            );
-          })}
-        </ul>
+        <VisitorCrowd
+          members={visitors.map((visitor) => ({
+            id: visitor.id,
+            lit: visitor.gallery.enabled,
+            label: describeVisitor(visitor),
+          }))}
+          legend={
+            build.settledOff
+              ? ''
+              : 'Each dot is a visitor, told apart by their id. Filled means they see the new gallery. The same visitor always gets the same answer.'
+          }
+          count=""
+          dimmed={build.settledOff}
+          onFocusMember={setActive}
+        />
         <p className="landing-feature__readout">
           {focused
             ? describeVisitor(focused)
