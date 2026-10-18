@@ -84,10 +84,10 @@ export default function FeatureDemo() {
   return (
     <div className="landing-feature">
       <div className="landing-feature__document">
-        <p className="landing-feature__label">The document</p>
+        <p className="landing-feature__label">Your flags</p>
         <CodeView
           className="landing-feature__source"
-          label="The document"
+          label="Your flags"
           lines={source.map((line, index) => ({
             key: String(index),
             lit: Boolean(line.writtenBy && line.writtenBy === moved?.control),
@@ -117,6 +117,9 @@ export default function FeatureDemo() {
           />
         ) : null}
         <p className="landing-feature__label">Decided before deploy</p>
+        <p className="landing-feature__lane-note">
+          Decided once per page while the site builds.
+        </p>
         <div className="landing-feature__lane-body">
           <div
             className="landing-feature__picker"
@@ -176,6 +179,9 @@ export default function FeatureDemo() {
           />
         ) : null}
         <p className="landing-feature__label">Decided when a visitor arrives</p>
+        <p className="landing-feature__lane-note">
+          Decided for each visitor when they arrive.
+        </p>
         <div className="landing-feature__row">
           <label className="landing-feature__control" htmlFor={rangeId}>
             <span>
