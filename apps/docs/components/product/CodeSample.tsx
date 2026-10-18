@@ -13,6 +13,9 @@ export function CodeSample({
       <h2>{sample.title}</h2>
       <p>{sample.lede}</p>
       <pre className="code-view">
+        <code>{sample.install}</code>
+      </pre>
+      <pre className="code-view">
         <code>{code}</code>
       </pre>
       <a href={sample.link.href}>{sample.link.label} →</a>

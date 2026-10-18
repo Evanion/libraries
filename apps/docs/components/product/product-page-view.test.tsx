@@ -16,5 +16,6 @@ describe('ProductPageView', () => {
       ).toBeInTheDocument();
     expect(screen.getByText('const x = 1;')).toBeInTheDocument();
     expect(screen.getByText(page.install.command)).toBeInTheDocument();
+    expect(screen.getByText(page.codeSample.install)).toBeInTheDocument();
   });
 });
