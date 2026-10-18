@@ -8,13 +8,13 @@ const page: ProductPage = {
   draft: false,
   frontpageLink: 'See what it does',
   metadata: {
-    title: 'Feature flags from a document you own',
+    title: 'Feature flags in your own code',
     description:
-      'Define your features in a plain document. Decide them in your API, your build, and the browser with one library.',
+      'Define your features in a file in your repo. Decide them in your API, your build, and the browser with one library.',
   },
   hero: {
-    promise: 'Feature flags from a document you own.',
-    line: 'One library decides them in your API, your build, and the browser.',
+    promise: 'Feature flags that live in your repo.',
+    line: 'Your own code decides if a feature is on—in your API, your build, and the browser—with no network call per check.',
     demo: 'rollout',
     actions: [
       { label: 'Get started', href: docsHref('feature/getting-started/') },
@@ -55,7 +55,7 @@ const page: ProductPage = {
       lede: 'Adjust your visitor split without shuffling everyone. Pin specific groups to a version to keep things consistent.',
       demo: 'variants',
       caption:
-        'A visitor always sees the same version unless you move the boundary.',
+        'A visitor always sees the same version unless you move the split.',
       howItWorks: {
         label: 'See how splitting works',
         href: docsHref('feature/variants/'),
@@ -67,7 +67,7 @@ const page: ProductPage = {
       lede: 'Stop the awkward flash of old content. Your page arrives with the right features already decided.',
       demo: 'no-flicker',
       caption:
-        "The browser adopts the server's decision so the first paint is already the new checkout.",
+        'The server sends the decision with the page, so the new checkout is there the moment the page opens.',
       howItWorks: {
         label: 'See how loading works',
         href: docsHref('feature/hydration/'),
