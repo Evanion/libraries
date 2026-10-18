@@ -56,6 +56,7 @@
 
 .landing-hero__text {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--baize-space-5);
 }
 
@@ -1431,6 +1432,14 @@ textarea.landing-access__field {
 
   .landing-hero__text .baize-title {
     max-width: none;
+  }
+}
+
+/* "infrastructure" at the desktop size is wider than a phone's text column. */
+@media (max-width: 30rem) {
+  .landing-hero__text .baize-title {
+    font-size: min(var(--baize-text-2xl), 11.5vw);
+    overflow-wrap: break-word;
   }
 }
 
