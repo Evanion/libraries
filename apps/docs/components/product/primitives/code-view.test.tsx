@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { CodeView } from './CodeView';
 
@@ -19,9 +19,9 @@ describe('CodeView', () => {
     expect(lines[0]).not.toHaveAttribute('data-lit');
     expect(lines[1]).toHaveAttribute('data-lit');
     expect(lines[2]).toHaveAttribute('data-tone', 'deny');
-    expect(container.querySelector('pre')).toHaveAttribute(
-      'aria-label',
-      'The document',
-    );
+    expect(container.querySelector('pre')).not.toHaveAttribute('aria-label');
+    expect(
+      screen.getByRole('region', { name: 'The document' }),
+    ).toContainElement(container.querySelector('pre') as HTMLElement);
   });
 });

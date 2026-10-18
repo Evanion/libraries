@@ -4,12 +4,16 @@ import {
   productMetadata,
 } from '../../../components/product/metadata';
 import { regionCode } from '../../../components/product/region';
-import { productBySlug, products } from '../../../components/product/registry';
+import {
+  productBySlug,
+  products,
+  published,
+} from '../../../components/product/registry';
 
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return products.map((p) => ({ product: p.slug }));
+  return published(products).map((p) => ({ product: p.slug }));
 }
 
 interface Props {

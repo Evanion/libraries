@@ -20,23 +20,22 @@ export function CodeView({
   className?: string;
 }) {
   return (
-    <pre
-      className={['code-view', className].filter(Boolean).join(' ')}
-      aria-label={label}
-    >
-      <code>
-        {lines.map((line) => (
-          <span
-            key={line.key}
-            className="code-view__line"
-            data-lit={line.lit ? '' : undefined}
-            data-tone={line.tone}
-          >
-            {line.content}
-            {'\n'}
-          </span>
-        ))}
-      </code>
-    </pre>
+    <figure className="code-view-figure" role="region" aria-label={label}>
+      <pre className={['code-view', className].filter(Boolean).join(' ')}>
+        <code>
+          {lines.map((line) => (
+            <span
+              key={line.key}
+              className="code-view__line"
+              data-lit={line.lit ? '' : undefined}
+              data-tone={line.tone}
+            >
+              {line.content}
+              {'\n'}
+            </span>
+          ))}
+        </code>
+      </pre>
+    </figure>
   );
 }

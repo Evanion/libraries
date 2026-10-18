@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { productSlugs } from './product-slugs.mjs';
-import { productBySlug, productForGroup, products } from './registry';
+import {
+  productBySlug,
+  productForGroup,
+  products,
+  published,
+} from './registry';
 import { ORIGIN, productJsonLd, productMetadata } from './metadata';
 
 describe('the product registry', () => {
@@ -16,16 +21,27 @@ describe('the product registry', () => {
   });
 });
 
+describe('draft pages', () => {
+  it('ships every registered page and hides a draft one', () => {
+    expect(products.every((p) => !p.draft)).toBe(true);
+    expect(published(products)).toEqual(products);
+    const draft = { ...productBySlug('feature-flags'), draft: true };
+    expect(published([draft])).toEqual([]);
+  });
+});
+
 describe('product metadata', () => {
   const page = productBySlug('feature-flags');
 
   it('names the page, its canonical URL and its Open Graph card', () => {
     const meta = productMetadata(page);
-    expect(meta.title).toBe(page.metadata.title);
+    expect(meta.title).toEqual({
+      absolute: `${page.metadata.title} | ${page.packageName}`,
+    });
     expect(meta.description).toBe(page.metadata.description);
     expect(meta.alternates?.canonical).toBe(`${ORIGIN}/feature-flags/`);
     expect(meta.openGraph).toMatchObject({
-      title: page.metadata.title,
+      title: `${page.metadata.title} | ${page.packageName}`,
       url: `${ORIGIN}/feature-flags/`,
     });
   });

@@ -1376,8 +1376,7 @@ textarea.landing-access__field {
 }
 
 .landing-feature__fact,
-.landing-feature__lesson,
-.landing-feature__legend {
+.landing-feature__lesson {
   margin: 0;
   color: var(--baize-lichen);
   font-size: var(--baize-text-sm);
