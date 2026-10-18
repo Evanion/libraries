@@ -56,17 +56,20 @@ export default function VariantsDemo() {
         <input
           type="checkbox"
           checked={pinned}
-          onChange={(e) => setPinned(e.currentTarget.checked)}
+          onChange={(e) => {
+            setPrevious(variants);
+            setPinned(e.currentTarget.checked);
+          }}
         />{' '}
         Always show blue to booksellers
       </label>
-      <p data-testid="moved">
+      <p data-testid="moved" aria-live="polite">
         {previous
           ? `${switched.size} of ${visitors.length} visitors switched`
           : 'Move the split to see who switches'}
       </p>
       <VisitorCrowd
-        legend="Each dot is a visitor. Filled ones see the blue button."
+        legend="Each dot is a visitor. Filled ones see the blue button, hollow ones the original. A dashed outline is a bookseller pinned to blue. A ring is a visitor who switched just now."
         count=""
         members={visitors.map((v) => ({
           id: v.id,
@@ -78,7 +81,7 @@ export default function VariantsDemo() {
               : switched.has(v.id)
                 ? 'moved'
                 : undefined,
-          label: `${v.id}${v.bookseller ? ' (bookseller)' : ''}: ${variants[v.id]}`,
+          label: `${v.id}${v.bookseller ? ' (bookseller)' : ''}: ${variants[v.id]}${pinned && v.bookseller ? ', pinned' : ''}${switched.has(v.id) ? ', switched just now' : ''}`,
         }))}
       />
     </div>
