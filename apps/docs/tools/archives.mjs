@@ -19,6 +19,7 @@ import { createTwoslasher } from 'twoslash';
 import ts from 'typescript';
 
 import { cutPage } from './cut.mjs';
+import { docsHref } from './docs-path.mjs';
 import { releaseLines } from './versions.mjs';
 
 /**
@@ -660,7 +661,7 @@ function materialise(git, sha, release, names, docsRoot, generator) {
  */
 function cut(
   git,
-  { contentDir, docsRoot, generator, compiler },
+  { contentDir, docsRoot, generator, compiler, roots },
   section,
   line,
   target,
@@ -698,7 +699,9 @@ function cut(
     }
 
     const route = file.replace(/\.mdx$/, '').replace(/(^|\/)index$/, '');
-    const live = `/next/${section.slug}/${nextPages.has(route) && route !== '' ? `${route}/` : ''}`;
+    const live = docsHref(
+      `next/${section.slug}/${nextPages.has(route) && route !== '' ? `${route}/` : ''}`,
+    );
 
     write(
       join(target, file),
@@ -710,6 +713,7 @@ function cut(
         compiler,
         private: packageAt?.manifest.private === true,
         live,
+        roots,
         notice,
         provenance: {
           package: section.name,
@@ -756,6 +760,7 @@ function generatorHash() {
   for (const file of [
     'archives.mjs',
     'cut.mjs',
+    'docs-path.mjs',
     'versions.mjs',
     '../components/archive/surface.mjs',
     '../../../tools/doc-examples/src/mdx-reference-loader.mjs',
@@ -809,8 +814,15 @@ export function writeArchives({ docsRoot, workspaceRoot, packages }) {
     vfsRoot: docsRoot,
     compilerOptions: defaultTwoslashOptions().compilerOptions,
   });
+  const roots = new Set([
+    ...packages.map((entry) => entry.slug),
+    ...sections.map((section) => section.slug),
+    'next',
+    'testing',
+  ]);
   const generating = {
     contentDir,
+    roots,
     docsRoot,
     generator,
     compiler: {
@@ -880,7 +892,7 @@ export function writeArchives({ docsRoot, workspaceRoot, packages }) {
             published: patchOf(line),
             sha: line.sha.slice(0, 7),
             current: line.current,
-            href: `/${section.slug}/`,
+            href: docsHref(`${section.slug}/`),
           },
         );
       }

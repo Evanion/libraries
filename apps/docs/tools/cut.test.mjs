@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   anchorFences,
+  docsLinks,
   freezeCatalogues,
   relativeLinks,
   resolveComponents,
@@ -244,5 +245,40 @@ describe('a link on a cut page', () => {
     const fence = "```ts\nfetch('/widget/api');\n```";
 
     expect(relativeLinks(fence, 'widget', 'index')).toBe(fence);
+  });
+});
+
+describe('docsLinks', () => {
+  const roots = new Set(['acl', 'urn', 'next']);
+
+  it('prefixes a root link into the docs tree once', () => {
+    expect(docsLinks('See [errors](/acl/errors/#reasons).', roots)).toBe(
+      'See [errors](/docs/acl/errors/#reasons).',
+    );
+    expect(docsLinks('<a href="/urn/api/">api</a>', roots)).toBe(
+      '<a href="/docs/urn/api/">api</a>',
+    );
+  });
+
+  it('sends the root matrix explorer to its place under acl', () => {
+    expect(
+      docsLinks('[tool](/matrix-explorer) [t](/matrix-explorer/)', roots),
+    ).toBe('[tool](/docs/acl/matrix-explorer) [t](/docs/acl/matrix-explorer/)');
+  });
+
+  it('prefixes a root link inside a quoted string of a JSX prop', () => {
+    expect(
+      docsLinks("unlocks={[['x', '/urn/api']]} and href=\"/acl/\"", roots),
+    ).toBe("unlocks={[['x', '/docs/urn/api']]} and href=\"/docs/acl/\"");
+  });
+
+  it('leaves a /docs link, a product link, relative links and code alone', () => {
+    const page = [
+      '[a](/docs/acl/) [b](/feature-flags/) [c](../api) `[d](/acl/)`',
+      '```md',
+      '[e](/acl/)',
+      '```',
+    ].join('\n');
+    expect(docsLinks(page, roots)).toBe(page);
   });
 });
