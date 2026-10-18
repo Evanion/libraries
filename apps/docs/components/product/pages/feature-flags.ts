@@ -25,6 +25,28 @@ const page: ProductPage = {
       },
     ],
   },
+  facts: [
+    {
+      title: 'Flags are a file in your repo',
+      text: 'You review changes to them the way you review code.',
+    },
+    {
+      title: 'Your own code decides',
+      text: 'Your API, your build and the browser answer by themselves, with no network call per check.',
+    },
+    {
+      title: 'Change a flag without a deploy',
+      text: 'Serve the file and reload it in the running app.',
+      link: {
+        label: 'How reloading works',
+        href: docsHref('feature/distribution/'),
+      },
+    },
+    {
+      title: 'No dashboard included',
+      text: 'It is a library. You decide how the file gets edited.',
+    },
+  ],
   scenes: [
     {
       id: 'schedule',

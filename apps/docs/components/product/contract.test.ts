@@ -23,6 +23,13 @@ describe.each(products.map((p) => [p.slug, p] as const))(
       expect(productMetadata(page).title).toBeTruthy();
       expect(productJsonLd(page).name).toBe(page.packageName);
     });
+    it('states what it is and is not in facts', () => {
+      expect(page.facts.length).toBeGreaterThan(0);
+      for (const fact of page.facts) {
+        expect(fact.title).toBeTruthy();
+        expect(fact.text).toBeTruthy();
+      }
+    });
     it('has scenes, each naming a known demo', () => {
       expect(page.scenes.length).toBeGreaterThan(0);
       for (const id of [page.hero.demo, ...page.scenes.map((s) => s.demo)])
@@ -34,6 +41,7 @@ describe.each(products.map((p) => [p.slug, p] as const))(
         ...page.scenes.map((s) => s.howItWorks),
         page.codeSample.link,
         ...page.next.links,
+        ...page.facts.flatMap((f) => (f.link ? [f.link] : [])),
       ]
         .map((l) => l.href)
         .filter((h) => h.startsWith('/docs/'));

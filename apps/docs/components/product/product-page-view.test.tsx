@@ -15,6 +15,8 @@ describe('ProductPageView', () => {
         screen.getByRole('heading', { level: 2, name: scene.title }),
       ).toBeInTheDocument();
     expect(screen.getByText('const x = 1;')).toBeInTheDocument();
+    for (const fact of page.facts)
+      expect(screen.getByText(fact.title)).toBeInTheDocument();
     expect(screen.getByText(page.install.command)).toBeInTheDocument();
     expect(screen.getByText(page.codeSample.install)).toBeInTheDocument();
   });

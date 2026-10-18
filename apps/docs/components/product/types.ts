@@ -6,6 +6,13 @@ export interface Link {
   href: string;
 }
 
+/** One plain statement of what the library is or is not, optionally with a link into the docs. */
+export interface Fact {
+  title: string;
+  text: string;
+  link?: Link;
+}
+
 export interface SceneDefinition {
   id: string;
   title: string;
@@ -28,6 +35,8 @@ export interface ProductPage {
   frontpageLink: string;
   metadata: { title: string; description: string };
   hero: { promise: string; line: string; demo: DemoId; actions: Link[] };
+  /** What the library is and is not, shown right under the hero. */
+  facts: Fact[];
   scenes: SceneDefinition[];
   codeSample: {
     title: string;

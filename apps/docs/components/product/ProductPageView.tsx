@@ -1,5 +1,6 @@
 import { categoricalClass } from '@evanion/baize-ui/tokens';
 import { packages } from '../../app/navigation';
+import { FactStrip } from './FactStrip';
 import { CodeSample } from './CodeSample';
 import { demos } from './demos';
 import { InstallBlock } from './InstallBlock';
@@ -25,6 +26,7 @@ export function ProductPageView({
       className={`product docs-identity ${lead ? categoricalClass(lead.hue) : ''}`}
     >
       <ProductHero hero={page.hero} demo={<Hero />} />
+      <FactStrip facts={page.facts} />
       {page.scenes.map((scene) => {
         const Demo = demos[scene.demo];
         return <Scene key={scene.id} scene={scene} demo={<Demo />} />;
