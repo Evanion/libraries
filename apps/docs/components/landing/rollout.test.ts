@@ -1,24 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildContext,
   buildFeatures,
   buildLane,
   crowd,
   describeVisitor,
-  flagKeys,
   openingState,
+  pageContext,
+  pages,
+  requestContext,
   tally,
   visitorIds,
-  type RolloutState,
 } from './rollout';
 
-/** The percents the slider offers, and both switch positions. */
+const [brass, azul] = pages;
+
+/** The percents the slider offers. */
 const percents = Array.from({ length: 21 }, (_, step) => step * 5);
 
-/** The ids of the visitors the new checkout is on for. */
-function litAt(state: RolloutState): string[] {
-  return crowd(buildFeatures(state))
-    .filter((visitor) => visitor.checkout.enabled)
+/** The ids of the visitors who see the new gallery. */
+function litAt(percent: number, page = brass): string[] {
+  return crowd(buildFeatures(percent), page)
+    .filter((visitor) => visitor.gallery.enabled)
     .map((visitor) => visitor.id);
 }
 
@@ -30,111 +32,82 @@ function litAt(state: RolloutState): string[] {
  * page would render to what the package says.
  */
 describe('the feature-flag demonstration', () => {
-  it('only ever adds visitors as the rollout widens', () => {
+  it('answers the Azul page before deploy', () => {
+    const entry = buildFeatures(25).plan(pageContext(azul))['new-gallery'];
+
+    expect(entry.resolved).toBe(false);
+    expect(buildLane(buildFeatures(25), azul)).toEqual({
+      waits: false,
+      settledOff: true,
+    });
+  });
+
+  it('makes the Brass page wait for its visitors', () => {
+    const entry = buildFeatures(25).plan(pageContext(brass))['new-gallery'];
+
+    expect(entry.resolved).toBe('deferred');
+    expect(entry.needs).toContain('targetingKey');
+    expect(buildLane(buildFeatures(25), brass)).toEqual({
+      waits: true,
+      settledOff: false,
+    });
+  });
+
+  it('never lets the percent change the plan', () => {
+    for (const page of pages) {
+      const first = buildFeatures(0).plan(pageContext(page));
+      for (const percent of percents) {
+        expect(buildFeatures(percent).plan(pageContext(page))).toEqual(first);
+      }
+    }
+  });
+
+  it('only ever adds visitors on Brass as the rollout widens', () => {
     let previous = new Set<string>();
     for (const percent of percents) {
-      const now = new Set(litAt({ checkoutOn: true, percent }));
+      const now = new Set(litAt(percent));
       for (const id of previous) expect(now.has(id)).toBe(true);
       previous = now;
     }
   });
 
-  it('lights nobody at 0% and everybody at 100%', () => {
-    expect(litAt({ checkoutOn: true, percent: 0 })).toEqual([]);
-    expect(litAt({ checkoutOn: true, percent: 100 })).toEqual([...visitorIds]);
+  it('lights nobody on Brass at 0% and everybody at 100%', () => {
+    expect(litAt(0)).toEqual([]);
+    expect(litAt(100)).toEqual([...visitorIds]);
   });
 
-  it('opens with some visitors lit and some not', () => {
-    const lit = litAt(openingState).length;
+  it('never lights anybody on Azul', () => {
+    for (const percent of percents) {
+      expect(litAt(percent, azul)).toEqual([]);
+    }
+  });
+
+  it('opens on Brass at 25% with some visitors lit and some not', () => {
+    expect(openingState).toEqual({ page: 'brass', percent: 25 });
+    const lit = litAt(openingState.percent).length;
     expect(lit).toBeGreaterThan(0);
     expect(lit).toBeLessThan(visitorIds.length);
+    expect(litAt(25)).toEqual(litAt(25));
   });
 
-  it('settles both dependent flags off at build when the switch is off', () => {
-    const store = buildFeatures({ checkoutOn: false, percent: 60 });
-    const lane = buildLane(store);
+  it('answers each visitor exactly as a direct resolve does', () => {
+    const direct = buildFeatures(40);
 
-    expect(lane.find((flag) => flag.key === 'new-checkout')?.status).toBe(
-      'off',
-    );
-    expect(lane.find((flag) => flag.key === 'express-pickup')?.status).toBe(
-      'off',
-    );
-  });
-
-  it('blocks express pickup for every visitor when the switch is off', () => {
-    const visitors = crowd(buildFeatures({ checkoutOn: false, percent: 100 }));
-
-    for (const visitor of visitors) {
-      expect(visitor.checkout.enabled).toBe(false);
-      expect(visitor.pickup.reason).toBe('dependency-off');
-      expect(visitor.pickup.blockedBy).toBe('new-checkout');
-    }
-  });
-
-  it('defers both flags to the request when the switch is on', () => {
-    const lane = buildLane(buildFeatures(openingState));
-
-    for (const key of ['new-checkout', 'express-pickup'] as const) {
-      const flag = lane.find((entry) => entry.key === key);
-      expect(flag?.status).toBe('deferred');
-      expect(flag?.needs).toContain('targetingKey');
-    }
-  });
-
-  it('bakes gift cards in at build in every state', () => {
-    for (const checkoutOn of [true, false]) {
-      for (const percent of [0, 25, 100]) {
-        const lane = buildLane(buildFeatures({ checkoutOn, percent }));
-        expect(lane.find((flag) => flag.key === 'gift-cards')?.status).toBe(
-          'on',
+    for (const page of pages) {
+      for (const visitor of crowd(buildFeatures(40), page)) {
+        expect(visitor.gallery).toEqual(
+          direct.resolve(requestContext(page, visitor.id))['new-gallery'],
         );
       }
     }
   });
 
-  it('lists every flag of the document in the build lane', () => {
-    expect(
-      buildLane(buildFeatures(openingState)).map((flag) => flag.key),
-    ).toEqual([...flagKeys]);
-  });
+  it('describes a visitor in plain words', () => {
+    const none = crowd(buildFeatures(0), brass);
 
-  it('answers each visitor exactly as a direct resolve does', () => {
-    const state = { checkoutOn: true, percent: 40 };
-    const store = buildFeatures(state);
-    const direct = buildFeatures(state);
-
-    for (const visitor of crowd(store)) {
-      const decisions = direct.resolve({ targetingKey: visitor.id });
-      expect(visitor.checkout).toEqual(decisions['new-checkout']);
-      expect(visitor.pickup).toEqual(decisions['express-pickup']);
-    }
-  });
-
-  it('answers the build lane exactly as a direct plan does', () => {
-    const store = buildFeatures(openingState);
-    const plan = store.plan(buildContext);
-
-    expect(buildLane(store).map((flag) => flag.needs)).toEqual(
-      flagKeys.map((key) => plan[key].needs),
+    expect(describeVisitor(none[0]!)).toBe(
+      'Visitor cust-0001 sees the old gallery',
     );
-  });
-
-  it('gives a visitor outside the rollout a reason that names the bucket', () => {
-    const visitors = crowd(buildFeatures({ checkoutOn: true, percent: 5 }));
-    const out = visitors.find((visitor) => !visitor.checkout.enabled)!;
-
-    expect(out.checkout.reason).toBe('no-rule-matched');
-    expect(describeVisitor(out)).toContain('no-rule-matched');
-    expect(describeVisitor(out)).toContain('blocked by new-checkout');
-  });
-
-  it('counts what the dots show', () => {
-    const visitors = crowd(buildFeatures({ checkoutOn: true, percent: 100 }));
-
-    expect(tally(visitors)).toEqual({
-      checkout: visitorIds.length,
-      pickup: visitorIds.length,
-    });
+    expect(tally(crowd(buildFeatures(100), brass))).toBe(visitorIds.length);
   });
 });

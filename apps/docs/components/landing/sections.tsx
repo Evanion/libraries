@@ -202,23 +202,18 @@ function demonstration(family: Family) {
         </>
       );
     // What the package decides is a document, and the claim is that the same
-    // document is read at two moments. A build that settles what it knows and a
-    // crowd that fills in as the rollout widens say that where a sentence
-    // cannot.
+    // document is read at two moments. A page the build already answers
+    // and a crowd that fills in as the rollout widens say that where a
+    // sentence cannot.
     case 'feature':
       return (
         <>
           <FeatureDemo />
           <figcaption className="landing-proof__caption">
-            To manage these flags, you define a single configuration document.
-            At build time, the game page settles the gift-cards flag and bakes
-            it into the output because it requires no visitor data. The
-            new-checkout and express-pickup flags are deferred to the request
-            since they require a targetingKey. Once deployed, the same document
-            evaluates the visitor on each request. Increasing the rollout
-            percentage enables the feature for more visitors without revoking
-            access for those already lit. Disabling new-checkout settles both it
-            and the dependent express-pickup flag to off.
+            The Azul page is decided before deployment; no visitor sees the new
+            gallery. The Brass page decides for each visitor upon arrival.
+            Raising the share increases the visitor count without removing the
+            gallery from existing users.
           </figcaption>
         </>
       );
