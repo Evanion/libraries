@@ -228,7 +228,7 @@ export default function FeatureDemo() {
         <p className="landing-feature__readout">
           {focused
             ? describeVisitor(focused)
-            : 'Hover or focus a dot to see that visitor.'}
+            : 'Tap or hover a dot to see that visitor.'}
         </p>
         <output className="baize-visually-hidden" aria-live="polite">
           {`${seen} of ${visitorIds.length} visitors see the new gallery.`}

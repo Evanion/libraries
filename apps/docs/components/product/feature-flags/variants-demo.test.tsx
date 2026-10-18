@@ -38,3 +38,14 @@ describe('VariantsDemo count', () => {
     expect(container.querySelector('[aria-label*="pinned"]')).not.toBeNull();
   });
 });
+
+describe('VariantsDemo readout', () => {
+  it('reads the focused dot in the line under the crowd', () => {
+    render(<VariantsDemo />);
+    expect(screen.getByTestId('readout')).toHaveTextContent(
+      /tap or hover a dot/i,
+    );
+    fireEvent.focus(screen.getAllByRole('img')[3]!);
+    expect(screen.getByTestId('readout')).toHaveTextContent(/cust-0004/);
+  });
+});
