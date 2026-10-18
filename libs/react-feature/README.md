@@ -1,6 +1,6 @@
 # @evanion/react-feature
 
-**Define your feature flags in a plain document you own and evaluate them across your Node.js API, build scripts, and the browser using a single library.**
+**Feature flags that live in your repo. Your own code decides if a feature is on—in your API, your build, and the browser—with no network call per check.**
 
 `@evanion/react-feature` is the React adapter for this ecosystem. It allows you to publish the decisions `@evanion/feature` has already resolved to your component tree, enabling any component to ask "is this on, and which variant am I in?" without prop-drilling a flags object through multiple layers of UI.
 
