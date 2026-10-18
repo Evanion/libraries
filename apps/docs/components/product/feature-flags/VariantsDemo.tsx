@@ -20,6 +20,8 @@ export default function VariantsDemo() {
     [previous, variants],
   );
 
+  const blueCount = visitors.filter((v) => variants[v.id] === 'blue').length;
+
   const members: CrowdMember[] = visitors.map((v) => ({
     id: v.id,
     lit: variants[v.id] === 'blue',
@@ -62,9 +64,11 @@ export default function VariantsDemo() {
             Always show blue to booksellers
           </label>
           <p data-testid="moved" aria-live="polite">
-            {previous
-              ? `${switched.size} of ${visitors.length} visitors now see a different button`
-              : 'Move the split to see who switches'}
+            {`${blueCount} of ${visitors.length} see the blue button · ${
+              previous
+                ? `${switched.size} changed with your last move`
+                : 'Move the split to see who changes'
+            }`}
           </p>
           <VisitorCrowd
             legend="Each dot is a visitor. Filled ones see the blue button, hollow ones the original. A dashed outline is a bookseller pinned to blue. A ring is a visitor who switched just now."

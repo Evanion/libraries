@@ -78,7 +78,7 @@ const page: ProductPage = {
       lede: 'Adjust your visitor split without shuffling everyone. Pin specific groups to a version to keep things consistent.',
       demo: 'variants',
       caption:
-        'A visitor always sees the same version unless you move the split.',
+        'A visitor always sees the same version unless you move the split. The line under the slider counts who sees blue and who changed.',
       howItWorks: {
         label: 'See how splitting works',
         href: docsHref('feature/variants/'),
