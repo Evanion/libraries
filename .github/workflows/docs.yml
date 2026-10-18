@@ -1,6 +1,7 @@
 name: Docs
 
-# The docs site is a static export deployed to GitHub Pages at docs.evanion.com.
+# The docs site is a static export deployed to GitHub Pages at libs.evanion.com,
+# with the documentation under /docs.
 on:
   push:
     branches: [main]
@@ -81,11 +82,11 @@ jobs:
       - name: Check deploy artefacts
         working-directory: apps/docs/out
         run: |
-          for f in .nojekyll CNAME index.html _pagefind/pagefind.js urn/getting-started.md next/urn/getting-started.md testing/index.html sitemap.xml robots.txt; do
+          for f in .nojekyll CNAME index.html _pagefind/pagefind.js docs/urn/getting-started.md docs/next/urn/getting-started.md docs/testing/index.html urn/index.html sitemap.xml robots.txt; do
             [ -e "$f" ] || { echo "missing from export: $f" >&2; exit 1; }
           done
           [ -n "$(ls -A _pagefind/filter 2>/dev/null)" ] || { echo "Pagefind indexed no search filters" >&2; exit 1; }
-          [ "$(cat CNAME)" = "docs.evanion.com" ] || { echo "unexpected CNAME: $(cat CNAME)" >&2; exit 1; }
+          [ "$(cat CNAME)" = "libs.evanion.com" ] || { echo "unexpected CNAME: $(cat CNAME)" >&2; exit 1; }
           echo "export looks deployable ($(find . -type f | wc -l | tr -d ' ') files)"
 
       # Every package is served at its newest release, under /next/, and at the
