@@ -8,7 +8,7 @@ describe('VariantsDemo', () => {
     render(<VariantsDemo />);
     fireEvent.change(screen.getByRole('slider'), { target: { value: '70' } });
     expect(screen.getByTestId('moved')).toHaveTextContent(
-      /\d+ of 24 visitors switched/,
+      /\d+ of 24 visitors now see a different button/,
     );
   });
   it('marks the three booksellers when they are pinned', () => {
@@ -27,7 +27,7 @@ describe('VariantsDemo count', () => {
     expect(pinOnly).not.toBe(accumulated);
     fireEvent.click(screen.getByRole('checkbox', { name: /booksellers/i }));
     expect(screen.getByTestId('moved')).toHaveTextContent(
-      `${pinOnly} of 24 visitors switched`,
+      `${pinOnly} of 24 visitors now see a different button`,
     );
   });
 

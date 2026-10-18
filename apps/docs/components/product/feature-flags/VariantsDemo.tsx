@@ -79,7 +79,7 @@ export default function VariantsDemo() {
       </label>
       <p data-testid="moved" aria-live="polite">
         {previous
-          ? `${switched.size} of ${visitors.length} visitors switched`
+          ? `${switched.size} of ${visitors.length} visitors now see a different button`
           : 'Move the split to see who switches'}
       </p>
       <VisitorCrowd
