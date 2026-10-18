@@ -1,8 +1,8 @@
 # @evanion/react-feature
 
-**Feature decisions for your React component tree, resolved once and read anywhere.**
+**Define your feature flags in a plain document you own and evaluate them across your Node.js API, build scripts, and the browser using a single library.**
 
-To switch a single banner in a complex UI, you often have to prop-drill a flags object through ten layers of components. `@evanion/react-feature` solves this by publishing the decisions `@evanion/feature` has already resolved, allowing any component to ask "is this on, and which variant am I in?" without needing to know where the store or evaluation context lives.
+`@evanion/react-feature` is the React adapter for this ecosystem. It allows you to publish the decisions `@evanion/feature` has already resolved to your component tree, enabling any component to ask "is this on, and which variant am I in?" without prop-drilling a flags object through multiple layers of UI.
 
 <!-- #region server-render -->
 
