@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { CodeView } from '../primitives/CodeView';
-import { VisitorCrowd } from '../primitives/VisitorCrowd';
+import { VisitorCrowd, type CrowdMember } from '../primitives/VisitorCrowd';
 import { Scrubber } from '../primitives/Scrubber';
 import { assign, moved, visitors } from './variants';
 
@@ -11,12 +11,26 @@ export default function VariantsDemo() {
   const [previous, setPrevious] = useState<Record<string, string> | null>(null);
   const [pinned, setPinned] = useState(false);
   const [touched, setTouched] = useState(false);
+  const [active, setActive] = useState<string | null>(null);
 
   const variants = useMemo(() => assign(weight, pinned), [weight, pinned]);
   const switched = useMemo(
     () => new Set(previous ? moved(previous, variants) : []),
     [previous, variants],
   );
+
+  const members: CrowdMember[] = visitors.map((v) => ({
+    id: v.id,
+    lit: variants[v.id] === 'blue',
+    tone: variants[v.id] === 'blue' ? 'b' : 'a',
+    mark:
+      pinned && v.bookseller
+        ? 'pinned'
+        : switched.has(v.id)
+          ? 'moved'
+          : undefined,
+    label: `${v.id}${v.bookseller ? ' (bookseller)' : ''}: ${variants[v.id]}${pinned && v.bookseller ? ', pinned' : ''}${switched.has(v.id) ? ', switched just now' : ''}`,
+  }));
 
   return (
     <div className="variants-demo">
@@ -71,19 +85,14 @@ export default function VariantsDemo() {
       <VisitorCrowd
         legend="Each dot is a visitor. Filled ones see the blue button, hollow ones the original. A dashed outline is a bookseller pinned to blue. A ring is a visitor who switched just now."
         count=""
-        members={visitors.map((v) => ({
-          id: v.id,
-          lit: variants[v.id] === 'blue',
-          tone: variants[v.id] === 'blue' ? 'b' : 'a',
-          mark:
-            pinned && v.bookseller
-              ? 'pinned'
-              : switched.has(v.id)
-                ? 'moved'
-                : undefined,
-          label: `${v.id}${v.bookseller ? ' (bookseller)' : ''}: ${variants[v.id]}${pinned && v.bookseller ? ', pinned' : ''}${switched.has(v.id) ? ', switched just now' : ''}`,
-        }))}
+        onFocusMember={setActive}
+        members={members}
       />
+      <p className="variants-demo__readout" data-testid="readout">
+        {active
+          ? members.find((m) => m.id === active)?.label
+          : 'Tap or hover a dot to see that visitor.'}
+      </p>
     </div>
   );
 }

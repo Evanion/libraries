@@ -40,9 +40,7 @@ describe('the feature-flag demonstration component', () => {
       pages[0],
     ).filter((visitor) => visitor.gallery.enabled).length;
 
-    expect(container.querySelectorAll('.visitor-crowd__dot')).toHaveLength(
-      24,
-    );
+    expect(container.querySelectorAll('.visitor-crowd__dot')).toHaveLength(24);
     expect(lit(container)).toHaveLength(expected);
     expect(mock(container)).toBe('New gallery for some visitors');
   });
@@ -167,5 +165,12 @@ describe('the feature-flag demonstration component', () => {
     expect(container.querySelectorAll('.landing-feature__thumb')).toHaveLength(
       1,
     );
+  });
+});
+
+describe('FeatureDemo readout hint', () => {
+  it('tells a touch reader to tap', () => {
+    const { container } = render(<FeatureDemo />);
+    expect(container).toHaveTextContent(/Tap or hover a dot/);
   });
 });
