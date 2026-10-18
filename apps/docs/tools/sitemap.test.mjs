@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
+import { productSlugs } from '../components/product/product-slugs.mjs';
 import { indexedPaths, writeSitemap } from './sitemap.mjs';
 
 /**
@@ -65,6 +66,21 @@ describe('the sitemap', () => {
     );
     expect(readFileSync(join(out, 'robots.txt'), 'utf8')).toContain(
       'Sitemap: https://libs.evanion.com/sitemap.xml',
+    );
+  });
+});
+
+describe('the sitemap and the product pages', () => {
+  it('lists every registered product page that is exported without noindex', () => {
+    const out = fixture({
+      'index.html': page(),
+      ...Object.fromEntries(
+        productSlugs.map((slug) => [`${slug}/index.html`, page()]),
+      ),
+    });
+
+    expect(indexedPaths(out)).toEqual(
+      ['/', ...productSlugs.map((slug) => `/${slug}/`)].sort(),
     );
   });
 });
