@@ -77,8 +77,8 @@ export const groups: readonly PackageGroup[] = [
   },
   {
     id: 'feature',
-    title: 'Feature flags from one document',
-    line: 'Define your flags in a plain document you own. One library evaluates these definitions across your entire stack, with a consistent Node.js API, build-time integration, and browser support. During a static build, the library settles every flag it already knows, leaving only the dynamic decisions for the request.',
+    title: 'Feature flags in your repo',
+    line: 'Define flags as a file in your repository. One library evaluates these definitions across your API, your build, and the browser without a network call per check.',
   },
   {
     id: 'identifiers',

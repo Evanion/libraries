@@ -1,6 +1,8 @@
 # @evanion/feature
 
-**Define your feature flags in a plain document you own and evaluate them across your Node.js API, build scripts, and the browser using a single library.**
+**Feature flags that live in your repository.**
+
+Your own code decides if a feature is on, whether in your API, your build, or the browser, with no network call per check. Because flags are stored as a file in your repo, they are reviewed and versioned like any other piece of code.
 
 Imagine a game shop where a static build renders a page for every game. Flags that are on for everyone are written directly into the HTML during this build. However, a new checkout is rolled out to only 25% of customers; since the build cannot know who will visit, it leaves that decision for the request and records what information the request must provide to resolve it. In the API, these flags are then decided on a per-request basis.
 
