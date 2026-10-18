@@ -1375,6 +1375,7 @@ textarea.landing-access__field {
   font-size: var(--baize-text-sm);
 }
 
+.landing-feature__lane-note,
 .landing-feature__fact,
 .landing-feature__lesson {
   margin: 0;

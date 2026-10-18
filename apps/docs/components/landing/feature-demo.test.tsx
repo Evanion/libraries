@@ -174,3 +174,16 @@ describe('FeatureDemo readout hint', () => {
     expect(container).toHaveTextContent(/Tap or hover a dot/);
   });
 });
+
+describe('FeatureDemo labels', () => {
+  it('names the document as the reader’s flags and explains each lane in a line', () => {
+    const { container } = render(<FeatureDemo />);
+    expect(container).toHaveTextContent('Your flags');
+    expect(container).not.toHaveTextContent('The document');
+    expect(
+      container.querySelectorAll('.landing-feature__lane-note'),
+    ).toHaveLength(2);
+    expect(container).toHaveTextContent(/once per page while the site builds/i);
+    expect(container).toHaveTextContent(/for each visitor when they arrive/i);
+  });
+});
