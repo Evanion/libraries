@@ -14,6 +14,9 @@ export const visitors = crowdIds.map((id, index) => ({
 /** How many of the crowd are booksellers. */
 export const booksellerCount = visitors.filter((v) => v.bookseller).length;
 
+/** The flag the demo splits. */
+export const VARIANT_KEY = 'cta-color';
+
 /**
  * The document: a two-way split of the checkout button. With `pinned`, booksellers
  * always get blue. Rules are OR-ed, so the pin sits beside a rule every visitor
@@ -22,7 +25,7 @@ export const booksellerCount = visitors.filter((v) => v.bookseller).length;
 export function variantStore(blueWeight: number, pinned: boolean) {
   return createFeatures([
     {
-      key: 'checkout-cta',
+      key: VARIANT_KEY,
       enabled: true,
       variants: [
         { name: 'control', weight: 100 - blueWeight, order: 0 },
@@ -56,7 +59,7 @@ export function assign(
       store.resolve({
         targetingKey: v.id,
         role: v.bookseller ? 'bookseller' : 'customer',
-      })['checkout-cta'].variant as 'control' | 'blue',
+      })[VARIANT_KEY].variant as 'control' | 'blue',
     ]),
   );
 }
