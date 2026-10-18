@@ -1,4 +1,11 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, posix, relative, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -187,6 +194,27 @@ describe('old root paths', () => {
     expect(legacy.has('matrix-explorer')).toBe(false);
   });
 
+  it('stub the old root path of a moved or unreleased page, straight at its final page', async () => {
+    const { redirectFiles } = await loadRedirects();
+    const sections = {
+      acl: {
+        current: { pages: ['', 'subject-rules'] },
+        next: { pages: ['', 'subject-rules', 'attacks'] },
+      },
+    } as unknown as ReturnType<typeof servedSections>;
+    const files = redirectFiles(sections, []);
+
+    expect(files.get('next/acl/simple/index.html')).toContain(
+      'url=/docs/next/acl/subject-rules/"',
+    );
+    expect(files.get('acl/simple/index.html')).toContain(
+      'url=/docs/acl/subject-rules/"',
+    );
+    expect(files.get('acl/attacks/index.html')).toContain(
+      'url=/docs/next/acl/attacks/"',
+    );
+  });
+
   it('answer /docs/ with the frontpage', async () => {
     const { redirectFiles } = await loadRedirects();
 
@@ -210,6 +238,28 @@ describe('old root paths', () => {
         .map(([from, to]) => `${from} -> ${to}`)
         .sort(),
     ).toEqual([]);
+  });
+});
+
+describe('the served docs read from an export', () => {
+  it('counts a page and not a redirect stub', async () => {
+    const { servedDocs } = (await import(
+      pathToFileURL(join(DOCS, 'tools', 'write-redirects.mjs')).href
+    )) as { servedDocs: (out: string) => string[] };
+    const out = mkdtempSync(join(scratch, 'export-'));
+
+    mkdirSync(join(out, 'docs', 'acl', 'real'), { recursive: true });
+    mkdirSync(join(out, 'docs', 'acl', 'moved'), { recursive: true });
+    writeFileSync(
+      join(out, 'docs', 'acl', 'real', 'index.html'),
+      '<html></html>',
+    );
+    writeFileSync(
+      join(out, 'docs', 'acl', 'moved', 'index.html'),
+      '<meta http-equiv="refresh" content="0; url=/docs/acl/real/" />',
+    );
+
+    expect(servedDocs(out)).toEqual(['docs/acl/real']);
   });
 });
 

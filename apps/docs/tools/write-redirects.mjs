@@ -32,15 +32,22 @@ import { redirectFiles } from './redirects.mjs';
 
 /**
  * Every `docs/...` path the export holds a page at, read from `out` itself:
- * the legacy stubs for the old root paths are made from what is served.
+ * the legacy stubs for the old root paths are made from what is served. A
+ * redirect stub from an earlier run is not a page and is skipped.
  */
-function servedDocs(out) {
+export function servedDocs(out) {
   const found = [];
   const walk = (dir, path) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (entry.isDirectory())
         walk(join(dir, entry.name), `${path}/${entry.name}`);
-      else if (entry.name === 'index.html' && path.startsWith('/docs/'))
+      else if (
+        entry.name === 'index.html' &&
+        path.startsWith('/docs/') &&
+        !readFileSync(join(dir, entry.name), 'utf8').includes(
+          'http-equiv="refresh"',
+        )
+      )
         found.push(path.slice(1));
     }
   };
