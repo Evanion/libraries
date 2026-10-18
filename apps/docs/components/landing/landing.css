@@ -1222,12 +1222,6 @@ textarea.landing-access__field {
   text-transform: uppercase;
 }
 
-.landing-feature__controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--baize-space-3) var(--baize-space-6);
-}
-
 .landing-feature__control {
   display: flex;
   align-items: center;
@@ -1257,7 +1251,17 @@ textarea.landing-access__field {
 
 .landing-feature__line {
   display: block;
+  padding-inline: var(--baize-space-2);
+  border-left: 2px solid transparent;
   white-space: pre;
+  transition: background var(--baize-motion-duration) var(--baize-motion-easing);
+}
+
+/* The line a control wrote, lit the way AccessDemo lights the deciding rule. */
+.landing-feature__line[data-lit] {
+  color: var(--baize-chalk);
+  background: color-mix(in oklab, var(--baize-hue) 14%, transparent);
+  border-left-color: var(--baize-hue);
 }
 
 .landing-feature__value {
@@ -1265,42 +1269,105 @@ textarea.landing-access__field {
   border-bottom: 1px dotted currentcolor;
 }
 
-.landing-feature__flags {
-  display: grid;
-  gap: var(--baize-space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* The lane a control moved flashes once; the line above stays lit. */
+.landing-feature__lane {
+  position: relative;
 }
 
-.landing-feature__flag {
+.landing-feature__pulse {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--baize-hue) 16%, transparent);
+  animation: landing-feature-pulse 600ms var(--baize-motion-easing) forwards;
+}
+
+@keyframes landing-feature-pulse {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+.landing-feature__lane-body {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--baize-space-1) var(--baize-space-4);
-  padding-left: var(--baize-space-3);
-  border-left: 2px solid var(--baize-rule);
+  align-items: center;
+  gap: var(--baize-space-3) var(--baize-space-5);
+}
+
+.landing-feature__picker {
+  display: flex;
+  padding: 2px;
+  border: 1px solid var(--baize-rule);
+  border-radius: 999px;
+  background: var(--baize-ink);
+}
+
+.landing-feature__option {
+  display: block;
+}
+
+.landing-feature__face {
+  display: block;
+  padding: 3px var(--baize-space-3);
+  border-radius: 999px;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-xs);
+  cursor: pointer;
+}
+
+.landing-feature__option:hover .landing-feature__face {
+  color: var(--baize-chalk);
+}
+
+.landing-feature__picker input:checked + .landing-feature__face {
+  background: var(--baize-hue);
+  color: var(--baize-ink);
+  font-weight: 600;
+}
+
+/* The input is off-screen, so its focus ring is drawn on the face beside it. */
+.landing .landing-feature__picker input:focus-visible + .landing-feature__face {
+  outline: 2px solid var(--baize-chalk);
+  outline-offset: 2px;
+}
+
+/* A tiny checkout: the payment options this store was built with. */
+.landing-feature__mock {
+  min-width: 11rem;
+  padding: var(--baize-space-2) var(--baize-space-3);
+  border: 1px solid var(--baize-rule);
+  border-radius: var(--baize-radius-card);
+  background: var(--baize-ink);
   font-size: var(--baize-text-sm);
 }
 
-.landing-feature__flag[data-status='on'] {
-  border-left-color: var(--baize-hue);
-}
-
-.landing-feature__flag[data-status='deferred'] {
-  border-left-style: dashed;
-  border-left-color: var(--baize-hue);
-}
-
-.landing-feature__key {
-  min-width: 9.5rem;
-  color: var(--baize-chalk);
-  font-family: var(--x-font-mono, ui-monospace, Menlo, monospace);
+.landing-feature__mock-title {
+  margin: 0 0 var(--baize-space-1);
+  color: var(--baize-lichen);
   font-size: var(--baize-text-xs);
 }
 
-.landing-feature__status {
+.landing-feature__mock-gallery {
+  margin: 0;
+  color: var(--baize-chalk);
+}
+
+.landing-feature__lane[data-dimmed] .landing-feature__crowd,
+.landing-feature__lane[data-dimmed] .landing-feature__control {
+  opacity: 0.4;
+}
+
+.landing-feature__fact,
+.landing-feature__gloss,
+.landing-feature__legend {
+  margin: 0;
   color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
 }
 
 .landing-feature__crowd {
@@ -1313,7 +1380,7 @@ textarea.landing-access__field {
   list-style: none;
 }
 
-/* A dot is a visitor. Lit is the new checkout; the inner mark is express pickup. */
+/* A dot is a visitor. Filled is a visitor who sees the new checkout. */
 .landing-feature__dot {
   position: relative;
   display: block;
@@ -1330,14 +1397,6 @@ textarea.landing-access__field {
 .landing-feature__dot[data-lit] {
   border-color: var(--baize-hue);
   background: var(--baize-hue);
-}
-
-.landing-feature__dot[data-pickup]::after {
-  content: '';
-  position: absolute;
-  inset: 32%;
-  border-radius: 50%;
-  background: var(--baize-ink);
 }
 
 .landing-feature__readout {
@@ -1473,6 +1532,7 @@ textarea.landing-access__field {
   .landing-tile__link,
   .landing-seg__face,
   .landing-feature__dot,
+  .landing-feature__line,
   .landing-items__handle,
   .landing-chip,
   .landing-access__line {
@@ -1481,6 +1541,10 @@ textarea.landing-access__field {
 
   .landing-access__control {
     animation: none;
+  }
+
+  .landing-feature__pulse {
+    display: none;
   }
 }
 

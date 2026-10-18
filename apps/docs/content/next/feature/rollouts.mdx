@@ -73,11 +73,11 @@ When configuring your rollout, be aware of how the bucketing logic handles speci
 
 ## Watching a Rollout Widen
 
-The control below holds the document of three flags the game shop uses: `gift-cards`, `new-checkout` with a rollout on `targetingKey`, and `express-pickup`, which depends on `new-checkout`. Move the slider and the visitors the rollout reaches fill in without anyone dropping out. Turn the `new-checkout` switch off and the build settles both dependent flags itself, because a parent that is off settles its dependants off.
+The control below holds one flag, `new-gallery`, rolling out to a share of visitors on strategy-game pages only. A build renders many pages and knows each page's category, so it answers the Azul page (a family game) before deploy: no visitor of that page can get the new gallery. The Brass page waits, because only a request carries a visitor. Move the slider and the visitors the rollout reaches fill in without anyone dropping out.
 
 <FeatureDemo />
 
-The build lane is `plan()` called with a context that names the game and no visitor. The request lane is `resolve()` called once per visitor with that visitor's id as the `targetingKey`.
+The first lane is `plan()` called with the page's game and category and no visitor. The second is `resolve()` called once per visitor with the same context and that visitor's id as the `targetingKey`.
 
 ## Why MurmurHash3?
 
