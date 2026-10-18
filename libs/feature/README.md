@@ -1,8 +1,8 @@
 # @evanion/feature
 
-**Define your feature flags in a plain document you own and evaluate them across your Node.js API, build scripts, and the browser using a single library.**
+**Feature flags that live in your repo.**
 
-With `@evanion/feature`, you treat your flags as a shared source of truth for your entire stack. A static build can resolve global flags during compilation, while a Node.js API or browser client resolves user-specific flags at request time—all using the same evaluation logic.
+Your own code decides if a feature is on across your API, build scripts, and the browser. By treating flags as a file in your repository, `@evanion/feature` provides a shared source of truth for your entire stack with no network call per check.
 
 <!-- #region cascade -->
 
