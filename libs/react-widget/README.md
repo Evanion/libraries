@@ -1,8 +1,8 @@
 # @evanion/react-widget
 
-**Map structured JSON data to React components with compile-time prop safety.**
+**Move your UI layout into the data layer to eliminate conditional rendering logic, with props checked at compile time.**
 
-When UI layouts are driven by a CMS or database, mapping a `type` string to a component often leads to runtime crashes when data is missing or fields are renamed. `@evanion/react-widget` solves this by creating a strict link between your component map and your data, ensuring your dynamic dashboards and landing pages are robust.
+By describing your UI as data rather than hard-coding conditional logic, you eliminate the fragile mapping of type strings to components that often leads to runtime crashes when data is missing. `@evanion/react-widget` brings this approach to the React ecosystem, ensuring your dynamic dashboards and landing pages are robust by checking component props at compile time.
 
 <!-- #region region-markup -->
 
