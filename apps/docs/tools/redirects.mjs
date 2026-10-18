@@ -162,8 +162,8 @@ export function unreleasedPaths(sections) {
  * `/next/urn/`, `/testing/`. The new host serves them under `/docs`, and a
  * bookmark or an index entry still names the root path. So every served
  * `docs/<p>` gets a stub at `<p>`. A moved page's old root path goes to its
- * current page (`movedPaths` decides which tree has it), and the explorer's old
- * root path goes to its place under `acl`.
+ * current page (`movedPaths` decides which tree has it). The matrix explorer
+ * stays at its root path and needs no stub.
  *
  * A key is never empty: the root is the frontpage. A product page at the root
  * (`/feature-flags/`) is not a docs path and never appears here.
@@ -181,7 +181,6 @@ export function legacyPaths(served, sections = {}) {
     paths.set(from, moved.get(under(from)) ?? under(to));
   for (const path of served)
     if (path.startsWith(prefix)) paths.set(path.slice(prefix.length), path);
-  paths.set('matrix-explorer', under('acl/matrix-explorer'));
 
   return paths;
 }

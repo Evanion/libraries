@@ -14,7 +14,7 @@
 
 - New origin: `https://libs.evanion.com`. Docs prefix: `/docs`. Unreleased docs stay at `/docs/next/`.
 - Frontpage stays at `/`. `/_next/`, `/_pagefind/`, `/sitemap.xml`, `/robots.txt`, `/code-classes.css` stay at the root.
-- Matrix explorer moves to `/docs/acl/matrix-explorer/`.
+- The matrix explorer stays at `/matrix-explorer/`: a standalone tool page in the `(tool)` group, not a docs page.
 - No module other than `apps/docs/tools/docs-path.mjs` spells `/docs` as a literal path prefix.
 - Specs and plans under `docs/specs/` and `docs/superpowers/` are history: their `docs.evanion.com` links stay.
 - npm `homepage` fields are out of scope.
@@ -157,7 +157,7 @@ git commit -m "feat(docs): name the path the documentation is served under"
 - Modify: `apps/docs/next.config.ts` (the `nextra({...})` options)
 - Move: `apps/docs/app/(site)/[...mdxPath]/` → `apps/docs/app/docs/(site)/[...mdxPath]/`
 - Move: `apps/docs/app/(next)/` → `apps/docs/app/docs/(next)/` (so the page is `app/docs/(next)/next/[...mdxPath]/page.tsx`)
-- Move: `apps/docs/app/(tool)/matrix-explorer/page.tsx` → `apps/docs/app/docs/(tool)/acl/matrix-explorer/page.tsx`
+- Keep: `apps/docs/app/(tool)/matrix-explorer/page.tsx` at the root (only its doc comment's link to `/docs/acl/explorer/` changes)
 - Modify: `apps/docs/app/page-maps.ts`, the `(next)` layout, `apps/docs/app/sections.ts`, `apps/docs/app/sidebar.ts`, `apps/docs/app/content-page.tsx`, `apps/docs/components/landing/sections.tsx`, `apps/docs/components/ScopedSearch.tsx`, `apps/docs/components/explorer/ExplorerScreen.tsx`, `apps/docs/content/_meta.ts` (only if it spells a docs path)
 - Test: the existing `app/*.test.ts` and `components/**/*.test.tsx`; add `apps/docs/app/sections.test.ts` cases if the file exists, otherwise assert in the existing test that covers `versionOptions` (find it with `grep -rln "versionOptions\|option('main'" apps/docs/app apps/docs/components`)
 
@@ -202,13 +202,11 @@ const withNextra = nextra({
 
 ```bash
 cd apps/docs/app
-mkdir -p 'docs/(tool)/acl'
 git mv '(site)' 'docs/(site)'
 git mv '(next)' 'docs/(next)'
-git mv '(tool)/matrix-explorer' 'docs/(tool)/acl/matrix-explorer'
 ```
 
-Then in each moved `page.tsx`/`layout.tsx`, change `'../../content-page'` to `'../../../content-page'` (and the analogous `chrome`, `page-maps`, `components` imports) until `npx nx run docs:typecheck --skip-nx-cache` is clean. In the moved explorer page, update its doc comment's URL to `/docs/acl/matrix-explorer/`.
+Then in each moved `page.tsx`/`layout.tsx`, change `'../../content-page'` to `'../../../content-page'` (and the analogous `chrome`, `page-maps`, `components` imports) until `npx nx run docs:typecheck --skip-nx-cache` is clean.
 
 - [ ] **Step 5: Page maps.** In the `(next)` layout: `getPageMap(docsHref('next'))` instead of `getPageMap('/next')`. In `app/page-maps.ts`, `sitePageMap` reads `(await getPageMap(DOCS))` and filters out the `next` folder as before. Print one route from each to confirm the prefix during development:
 
@@ -233,7 +231,7 @@ Expected routes like `/docs/acl`. Remove the log.
 Run: `npx nx run-many -t test lint typecheck -p docs --parallel=2 --skip-nx-cache`
 Expected: PASS.
 Run: `npx nx run docs:build --skip-nx-cache`
-Expected: exit 0; `ls apps/docs/out/docs/urn/index.html apps/docs/out/docs/next/urn/index.html apps/docs/out/docs/acl/matrix-explorer/index.html apps/docs/out/index.html` all exist; `ls apps/docs/out/urn/index.html` does not exist yet (Task 5 adds a redirect there).
+Expected: exit 0; `ls apps/docs/out/docs/urn/index.html apps/docs/out/docs/next/urn/index.html apps/docs/out/matrix-explorer/index.html apps/docs/out/index.html` all exist; `ls apps/docs/out/urn/index.html` does not exist yet (Task 5 adds a redirect there).
 
 - [ ] **Step 8: Commit**
 
@@ -271,7 +269,7 @@ export function urlOf(page: string): string {
 }
 ```
 
-and in `servedPaths()` build every entry under `docs/` (`docs/${slug}`, `docs/${slug}/${page}`, `docs/${slug}/${line.segment}/...`). In `doc-links.test.ts` `appRoutes()` already walks route groups and real directories, so `app/docs/...` yields `/docs/acl/matrix-explorer` without change; leave it.
+and in `servedPaths()` build every entry under `docs/` (`docs/${slug}`, `docs/${slug}/${page}`, `docs/${slug}/${line.segment}/...`). In `doc-links.test.ts` `appRoutes()` already walks route groups and real directories, so `/matrix-explorer` stays a route; leave it.
 
 - [ ] **Step 2: Run the link check and see the root links fail**
 
@@ -286,12 +284,7 @@ import { execFileSync } from 'node:child_process';
 import { prefixDocsLink } from './docs-path.mjs';
 import { packages } from '../app/navigation.ts';
 
-const roots = new Set([
-  ...packages.map((p) => p.slug),
-  'next',
-  'testing',
-  'matrix-explorer',
-]);
+const roots = new Set([...packages.map((p) => p.slug), 'next', 'testing']);
 const FENCE = /^\s*(`{3,}|~{3,})/;
 
 const files = execFileSync(
@@ -341,7 +334,7 @@ for (const file of files) {
 console.log(`rewrote root links in ${changed} files`);
 ```
 
-Run from `apps/docs` with `node --experimental-strip-types tools/prefix-content-links.mjs` (navigation.ts is TypeScript). If that import fails on this Node, replace the `packages` import with the slug list from `ls content/next`. `matrix-explorer` maps to `/docs/matrix-explorer/`, which is wrong: after the run, `grep -rn "/docs/matrix-explorer" content` and change each to `/docs/acl/matrix-explorer/` by hand.
+Run from `apps/docs` with `node --experimental-strip-types tools/prefix-content-links.mjs` (navigation.ts is TypeScript). If that import fails on this Node, replace the `packages` import with the slug list from `ls content/next`.
 
 - [ ] **Step 4: Run the link check and see it pass**
 
@@ -502,7 +495,7 @@ git commit -m "feat(docs): cut older pages with their links under /docs"
 - Produces:
   - `redirectDocument(to: string)` where `to` is a full site path (`'/docs/acl/'`, `'/'`).
   - `movedPaths(sections)` and `unreleasedPaths(sections)` return keys and values under `docs/` (e.g. `docs/acl/simple` → `docs/acl/subject-rules`).
-  - `legacyPaths(served: Iterable<string>)` returns, for every served `docs/<p>`, the key `<p>` → `docs/<p>`, plus every `movedPaths` key without `docs/` → its `docs/` target, plus `matrix-explorer` → `docs/acl/matrix-explorer`.
+  - `legacyPaths(served: Iterable<string>)` returns, for every served `docs/<p>`, the key `<p>` → `docs/<p>`, plus every `movedPaths` key without `docs/` → its `docs/` target.
   - `redirectFiles(sections, served)` writes `<from>/index.html` for all of these and `docs/index.html` → `/`.
 
 - [ ] **Step 1: Write the failing tests** in `tools/repo-checks/src/doc-redirects.test.ts` (import the module the way the file already does):
@@ -519,7 +512,7 @@ it('sends every old root path to the same page under /docs', async () => {
   expect(legacy.get('acl/errors')).toBe('docs/acl/errors');
   expect(legacy.get('next/urn/api')).toBe('docs/next/urn/api');
   expect(legacy.get('acl/simple')).toBe('docs/acl/subject-rules');
-  expect(legacy.get('matrix-explorer')).toBe('docs/acl/matrix-explorer');
+  expect(legacy.has('matrix-explorer')).toBe(false);
 });
 
 it('answers /docs/ with the frontpage', async () => {
@@ -603,7 +596,6 @@ export function legacyPaths(served) {
       paths.set(path.slice(DOCS.length), path);
   }
   for (const [from, to] of movedPages) paths.set(from, under(to));
-  paths.set('matrix-explorer', under('acl/matrix-explorer'));
   return paths;
 }
 
@@ -664,8 +656,8 @@ In `doc-links.test.ts`, add `...legacyPaths(servedPaths()).keys()` to the `redir
 
 Run: `npx nx test repo-checks --skip-nx-cache -- doc-redirects doc-links`
 Expected: PASS.
-Run: `npx nx run docs:build --skip-nx-cache` then `grep -o 'url=[^"]*' apps/docs/out/urn/index.html apps/docs/out/docs/index.html apps/docs/out/matrix-explorer/index.html`
-Expected: `url=/docs/urn/`, `url=/`, `url=/docs/acl/matrix-explorer/`.
+Run: `npx nx run docs:build --skip-nx-cache` then `grep -o 'url=[^"]*' apps/docs/out/urn/index.html apps/docs/out/docs/index.html`
+Expected: `url=/docs/urn/`, `url=/`; `apps/docs/out/matrix-explorer/index.html` is the explorer page, not a redirect.
 
 - [ ] **Step 6: Commit**
 
@@ -772,7 +764,7 @@ describe('target', () => {
   it('sends the root to the frontpage and the explorer to its new place', () => {
     expect(at('/')).toBe('https://libs.evanion.com/');
     expect(at('/matrix-explorer/')).toBe(
-      'https://libs.evanion.com/docs/acl/matrix-explorer/',
+      'https://libs.evanion.com/matrix-explorer/',
     );
   });
   it('sends assets and site files to the same path at the root', () => {
@@ -803,17 +795,12 @@ Expected: FAIL, cannot load `./redirect.js`.
  */
 const ORIGIN = 'https://libs.evanion.com';
 const ROOT_FILES =
-  /^\/(?:_next|_pagefind)\/|^\/(?:sitemap\.xml|robots\.txt|code-classes\.css|favicon[^/]*)$/;
+  /^\/(?:_next|_pagefind)\/|^\/(?:sitemap\.xml|robots\.txt|code-classes\.css|favicon[^/]*)$|^\/matrix-explorer\/?$/;
 
 export function target(url) {
   const { pathname, search } = url;
   if (pathname === '/') return `${ORIGIN}/${search}`;
   if (ROOT_FILES.test(pathname)) return `${ORIGIN}${pathname}${search}`;
-  if (
-    pathname === '/matrix-explorer' ||
-    pathname.startsWith('/matrix-explorer/')
-  )
-    return `${ORIGIN}/docs/acl${pathname}${search}`;
   return `${ORIGIN}/docs${pathname}${search}`;
 }
 ```
@@ -876,7 +863,7 @@ Then push the branch and open the PR. Do not merge before Task 8 step 1 is done.
 for p in / /acl/ /acl /next/urn/api/ /urn/getting-started.md /matrix-explorer/ /sitemap.xml; do
   printf '%-28s ' "$p"; curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' "https://docs.evanion.com$p"
 done
-for p in / /docs/ /docs/acl/ /docs/next/urn/ /docs/acl/matrix-explorer/ /urn/ /sitemap.xml /robots.txt; do
+for p in / /docs/ /docs/acl/ /docs/next/urn/ /matrix-explorer/ /urn/ /sitemap.xml /robots.txt; do
   printf '%-28s ' "$p"; curl -s -o /dev/null -w '%{http_code}\n' "https://libs.evanion.com$p"
 done
 ```

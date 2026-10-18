@@ -703,19 +703,14 @@ export function readProbe(read, pkg, name) {
  * A page cut from a commit spells its links to other sections from the site
  * root. The site serves the documentation under `/docs`, so each of those links
  * is prefixed; a link the page already spells under `/docs` is left as it is.
- * The matrix explorer, which older pages link at the root, is a route of the
- * `acl` section now. Code fences and inline code are code, not links.
+ * The matrix explorer is a tool page at the root, not in the docs tree, so its
+ * link is left as it is. Code fences and inline code are code, not links.
  *
  * @param {string} source
  * @param {ReadonlySet<string>} roots the first path segments of the docs tree
  */
 export function docsLinks(source, roots) {
   let fence = null;
-  const prefixed = (href) =>
-    prefixDocsLink(
-      href.replace(/^\/matrix-explorer(?=[/?#]|$)/, '/acl/matrix-explorer'),
-      new Set([...roots, 'matrix-explorer']),
-    );
 
   return source
     .split('\n')
@@ -736,11 +731,12 @@ export function docsLinks(source, roots) {
             : part
                 .replace(
                   /\]\((\/[^)\s]*)\)/g,
-                  (_, href) => `](${prefixed(href)})`,
+                  (_, href) => `](${prefixDocsLink(href, roots)})`,
                 )
                 .replace(
                   /(['"])(\/[a-z0-9-]+[^'"\s]*)\1/g,
-                  (_, quote, href) => `${quote}${prefixed(href)}${quote}`,
+                  (_, quote, href) =>
+                    `${quote}${prefixDocsLink(href, roots)}${quote}`,
                 ),
         )
         .join('');

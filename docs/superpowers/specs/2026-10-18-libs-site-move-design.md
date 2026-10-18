@@ -26,22 +26,22 @@ an app boundary and split the deploy into two builds.
 
 ## URL map
 
-| Now (`docs.evanion.com`)                                | After (`libs.evanion.com`)   |
-| ------------------------------------------------------- | ---------------------------- |
-| `/`                                                     | `/` (frontpage, unchanged)   |
-| `/<slug>/...` (released section)                        | `/docs/<slug>/...`           |
-| `/<slug>/v<line>/...` (superseded line)                 | `/docs/<slug>/v<line>/...`   |
-| `/next/<slug>/...`                                      | `/docs/next/<slug>/...`      |
-| `/testing/...`                                          | `/docs/testing/...`          |
-| `/matrix-explorer/`                                     | `/docs/acl/matrix-explorer/` |
-| `/<path>.md` siblings                                   | `/docs/<path>.md`            |
-| `/_pagefind/`, `/_next/`, `/sitemap.xml`, `/robots.txt` | unchanged, at the root       |
+| Now (`docs.evanion.com`)                                | After (`libs.evanion.com`)                         |
+| ------------------------------------------------------- | -------------------------------------------------- |
+| `/`                                                     | `/` (frontpage, unchanged)                         |
+| `/<slug>/...` (released section)                        | `/docs/<slug>/...`                                 |
+| `/<slug>/v<line>/...` (superseded line)                 | `/docs/<slug>/v<line>/...`                         |
+| `/next/<slug>/...`                                      | `/docs/next/<slug>/...`                            |
+| `/testing/...`                                          | `/docs/testing/...`                                |
+| `/matrix-explorer/`                                     | `/matrix-explorer/` (tool page, stays at the root) |
+| `/<path>.md` siblings                                   | `/docs/<path>.md`                                  |
+| `/_pagefind/`, `/_next/`, `/sitemap.xml`, `/robots.txt` | unchanged, at the root                             |
 
 ## Changes in the app
 
 1. Routes: `app/(site)/[...mdxPath]` and `app/(next)/next/[...mdxPath]` move
-   under `app/docs/`; `(tool)/matrix-explorer` moves to the docs tree at
-   `/docs/acl/matrix-explorer/`. `(home)` stays at the root. Every route stays
+   under `app/docs/`; `(tool)/matrix-explorer` stays at the root, a
+   standalone tool and not a docs page. `(home)` stays at the root. Every route stays
    statically generated.
 2. Links built in code: `content-page.tsx` (`releaseHref`), `navigation.ts`,
    `page-maps.ts`, `sidebar.ts`, `versions.ts`, `release-state.ts` and the 6
@@ -58,7 +58,7 @@ an app boundary and split the deploy into two builds.
    prefixed twice.
 5. Redirects on the new host: `tools/redirects.mjs` keeps its per-page map and
    gains a prefix rule. Every old docs path (`/<slug>/...`, `/next/...`,
-   `/testing/...`, `/matrix-explorer/`) gets a redirect file at its old path on
+   `/testing/...`) gets a redirect file at its old path on
    `libs.evanion.com`, pointing at `/docs/...`. The existing per-page entries are
    re-pointed straight at their `/docs` targets so no reader walks two
    refreshes. A product path (`/feature-flags/` etc.) never collides with a

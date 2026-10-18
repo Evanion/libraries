@@ -260,10 +260,9 @@ describe('docsLinks', () => {
     );
   });
 
-  it('sends the root matrix explorer to its place under acl', () => {
-    expect(
-      docsLinks('[tool](/matrix-explorer) [t](/matrix-explorer/)', roots),
-    ).toBe('[tool](/docs/acl/matrix-explorer) [t](/docs/acl/matrix-explorer/)');
+  it('leaves the root matrix explorer link alone', () => {
+    const page = '[tool](/matrix-explorer) [t](/matrix-explorer/)';
+    expect(docsLinks(page, roots)).toBe(page);
   });
 
   it('prefixes a root link inside a quoted string of a JSX prop', () => {

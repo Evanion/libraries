@@ -184,7 +184,7 @@ describe('old root paths', () => {
     expect(legacy.get('acl/errors')).toBe('docs/acl/errors');
     expect(legacy.get('next/urn/api')).toBe('docs/next/urn/api');
     expect(legacy.get('acl/simple')).toBe('docs/acl/subject-rules');
-    expect(legacy.get('matrix-explorer')).toBe('docs/acl/matrix-explorer');
+    expect(legacy.has('matrix-explorer')).toBe(false);
   });
 
   it('answer /docs/ with the frontpage', async () => {
@@ -206,11 +206,7 @@ describe('old root paths', () => {
     expect(legacy.has('')).toBe(false);
     expect(
       [...legacy]
-        .filter(
-          ([from, to]) =>
-            from.startsWith('docs') ||
-            !(served.has(to) || to === 'docs/acl/matrix-explorer'),
-        )
+        .filter(([from, to]) => from.startsWith('docs') || !served.has(to))
         .map(([from, to]) => `${from} -> ${to}`)
         .sort(),
     ).toEqual([]);
