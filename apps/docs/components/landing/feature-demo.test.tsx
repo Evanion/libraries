@@ -114,4 +114,58 @@ describe('the feature-flag demonstration component', () => {
       container.querySelector('.landing-feature__readout')?.textContent,
     ).toMatch(/^Visitor cust-0002/);
   });
+
+  it('disables the slider on Azul and enables it again on Brass', () => {
+    render(<FeatureDemo />);
+    expect(screen.getByRole('slider')).toBeEnabled();
+
+    pick(/Azul/);
+    const slider = screen.getByRole('slider', {
+      name: /No effect on this page/,
+    });
+    expect(slider).toBeDisabled();
+
+    pick(/Brass/);
+    expect(screen.getByRole('slider')).toBeEnabled();
+    expect(
+      screen.getByRole('slider', { name: /New gallery for/ }),
+    ).toBeEnabled();
+  });
+
+  it('shows the live count beside the slider, and the lane label on Azul', () => {
+    const { container } = render(<FeatureDemo />);
+    const row = () => container.querySelector('.landing-feature__row')!;
+    const expected = crowd(
+      buildFeatures(openingState.percent),
+      pages[0],
+    ).filter((visitor) => visitor.gallery.enabled).length;
+
+    expect(row().contains(screen.getByRole('slider'))).toBe(true);
+    expect(row().textContent).toContain(
+      `${expected} of 24 visitors see the new gallery.`,
+    );
+    slide(100);
+    expect(row().textContent).toContain(
+      '24 of 24 visitors see the new gallery.',
+    );
+
+    pick(/Azul/);
+    expect(row().textContent).toContain(
+      'Decided before deploy: nobody on this page.',
+    );
+    expect(row().textContent).not.toContain('of 24');
+  });
+
+  it('says why Azul is not rolled out and shows the galleries', () => {
+    const { container } = render(<FeatureDemo />);
+
+    expect(container.querySelectorAll('.landing-feature__thumb')).toHaveLength(
+      2,
+    );
+    pick(/Azul/);
+    expect(screen.getByText(/family game/)).toBeInTheDocument();
+    expect(container.querySelectorAll('.landing-feature__thumb')).toHaveLength(
+      1,
+    );
+  });
 });

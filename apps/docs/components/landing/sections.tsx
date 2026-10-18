@@ -210,10 +210,11 @@ function demonstration(family: Family) {
         <>
           <FeatureDemo />
           <figcaption className="landing-proof__caption">
-            The Azul page is decided before deployment; no visitor sees the new
-            gallery. The Brass page decides for each visitor upon arrival.
-            Raising the share increases the visitor count without removing the
-            gallery from existing users.
+            Some decisions are made before deploy; for the Azul family game, it
+            is decided that no one sees the new gallery. Others are decided when
+            a visitor arrives; for the Brass strategy game, each visitor is
+            evaluated upon arrival. Raising the share for Brass simply increases
+            the number of visitors who see the feature.
           </figcaption>
         </>
       );
