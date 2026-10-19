@@ -205,4 +205,41 @@ describe('the acl security register', () => {
       'identifiers the register page publishes that SECURITY.md does not carry',
     ).toEqual([]);
   });
+
+  /**
+   * The page opens by saying how many classes it maps, in words. The number
+   * is written by hand, so it is read back and held to the register's rows.
+   */
+  it('writes the register page count as the number of entries', () => {
+    const text = readFileSync(PAGE, 'utf8');
+    const written = text.match(/mapping of ([a-z]+(?:-[a-z]+)?) classes/)?.[1];
+    expect(
+      written,
+      'the page states no "mapping of N classes" count',
+    ).toBeDefined();
+
+    const ones = [
+      'one',
+      'two',
+      'three',
+      'four',
+      'five',
+      'six',
+      'seven',
+      'eight',
+      'nine',
+    ];
+    const tens: Record<string, number> = {
+      twenty: 20,
+      thirty: 30,
+      forty: 40,
+      fifty: 50,
+    };
+    const [tensWord, onesWord] = (written as string).split('-');
+    const value =
+      (tens[tensWord as string] ?? 0) +
+      (onesWord ? ones.indexOf(onesWord) + 1 : 0);
+
+    expect(value, `"${written}" read as a number`).toBe(entries.length);
+  });
 });
