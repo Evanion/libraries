@@ -1,3 +1,4 @@
+import { InlineCode } from './InlineCode';
 import type { ProductPage } from './types';
 
 /** What the library does not do, as a quiet list of short statements. */
@@ -15,7 +16,9 @@ export function Limits({
         {limits.items.map((item) => (
           <li key={item.title} className="product__limit">
             <p className="product__limit-title">{item.title}</p>
-            <p>{item.text}</p>
+            <p>
+              <InlineCode text={item.text} />
+            </p>
             {item.link && <a href={item.link.href}>{item.link.label} →</a>}
           </li>
         ))}

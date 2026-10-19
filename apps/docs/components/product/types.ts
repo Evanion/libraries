@@ -7,7 +7,9 @@ export type DemoId =
   | 'access'
   | 'acl-explain'
   | 'acl-diff'
-  | 'access-api';
+  | 'access-api'
+  | 'data'
+  | 'widget-validate';
 
 export interface Link {
   label: string;

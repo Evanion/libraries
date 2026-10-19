@@ -3,6 +3,7 @@ import { productSlugs } from './product-slugs.mjs';
 import {
   productBySlug,
   productForGroup,
+  productHref,
   products,
   published,
 } from './registry';
@@ -18,6 +19,8 @@ describe('the product registry', () => {
     expect(productBySlug('feature-flags').packageName).toBe('@evanion/feature');
     expect(productForGroup('feature')?.slug).toBe('feature-flags');
     expect(productForGroup('identifiers')).toBeUndefined();
+    expect(productBySlug('rendering').packageName).toBe('@evanion/widget');
+    expect(productForGroup('rendering')?.slug).toBe('rendering');
     expect(() => productBySlug('nope')).toThrow(/nope/);
   });
 });
@@ -27,6 +30,18 @@ describe('anchors', () => {
     for (const page of products)
       for (const anchor of Object.values(page.anchors ?? {}))
         expect(sectionIds(page)).toContain(anchor);
+  });
+});
+
+describe('the rendering page links', () => {
+  it('sends the core to the page and each renderer to its section', () => {
+    expect(productHref('rendering', '@evanion/widget')).toBe('/rendering/');
+    expect(productHref('rendering', '@evanion/react-widget')).toBe(
+      '/rendering/#react',
+    );
+    expect(productHref('rendering', '@evanion/astro-widget')).toBe(
+      '/rendering/#astro',
+    );
   });
 });
 

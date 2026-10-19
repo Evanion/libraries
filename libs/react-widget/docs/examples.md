@@ -35,6 +35,51 @@ const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><d
 
 <!-- #endregion region-markup -->
 
+<!-- #region react-landing -->
+
+```tsx @import.meta.vitest
+const Listing = (props: { title: string; price: number }) => (
+  <h3>
+    {props.title}, {props.price} kr
+  </h3>
+);
+
+const Shelf = (props: { heading: string; children?: React.ReactNode }) => (
+  <section>
+    <h2>{props.heading}</h2>
+    {props.children}
+  </section>
+);
+
+const { Widgets, defineItems } = createWidgets({
+  components: { listing: Listing, shelf: Shelf },
+});
+
+// Props are checked for every item, nested children included.
+const page = defineItems([
+  {
+    id: 'tonight',
+    type: 'shelf',
+    props: { heading: 'On the table tonight' },
+    children: [
+      {
+        id: 'brass',
+        type: 'listing',
+        props: { title: 'Brass: Birmingham', price: 649 },
+      },
+    ],
+  },
+]);
+
+// A mistyped type is an error in your editor, before anything runs.
+// @ts-expect-error 'listng' is not one of the widget types
+defineItems([{ id: 'hive', type: 'listng', props: { title: 'Hive' } }]);
+// ---cut-after---
+const html = renderToStaticMarkup(<Widgets items={page} />); // -> '<section><div data-widget-id="tonight" data-widget-type="shelf"><section><h2>On the table tonight</h2><div data-widget-id="brass" data-widget-type="listing"><h3>Brass: Birmingham, 649 kr</h3></div></section></div></section>'
+```
+
+<!-- #endregion react-landing -->
+
 ## Typing Items Held in a Variable
 
 <!-- #region typed-items -->

@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import AccessDemo from '../landing/AccessDemo';
+import DataDemo from '../landing/DataDemo';
 import FeatureDemo from '../landing/FeatureDemo';
 import AccessApiDemo from './authorization/AccessApiDemo';
 import DiffDemo from './authorization/DiffDemo';
@@ -8,6 +9,7 @@ import CascadeDemo from './feature-flags/CascadeDemo';
 import NoFlickerDemo from './feature-flags/NoFlickerDemo';
 import ScheduleDemo from './feature-flags/ScheduleDemo';
 import VariantsDemo from './feature-flags/VariantsDemo';
+import ValidateDemo from './widget/ValidateDemo';
 import type { DemoId } from './types';
 
 /** Every demo a product page can name, by id. */
@@ -21,4 +23,6 @@ export const demos: Record<DemoId, ComponentType> = {
   'access-api': AccessApiDemo,
   'acl-explain': ExplainDemo,
   'acl-diff': DiffDemo,
+  data: DataDemo,
+  'widget-validate': ValidateDemo,
 };
