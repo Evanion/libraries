@@ -1,3 +1,4 @@
+import { InlineCode } from './InlineCode';
 import type { ProductPage } from './types';
 
 /** A short snippet read from a tested region, with a link to its docs. */
@@ -11,7 +12,9 @@ export function CodeSample({
   return (
     <section id={sample.id} className="product__section">
       <h2>{sample.title}</h2>
-      <p>{sample.lede}</p>
+      <p>
+        <InlineCode text={sample.lede} />
+      </p>
       <pre className="code-view">
         <code>{sample.install}</code>
       </pre>
