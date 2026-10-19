@@ -3,8 +3,8 @@ import { packages } from '../../app/navigation';
 import { FactStrip } from './FactStrip';
 import { CodeSample } from './CodeSample';
 import { demos } from './demos';
-import { InstallBlock } from './InstallBlock';
-import { NextSteps } from './NextSteps';
+import { Closing } from './Closing';
+import { Faq } from './Faq';
 import { ProductHero } from './ProductHero';
 import { Scene } from './Scene';
 import type { ProductPage } from './types';
@@ -28,12 +28,18 @@ export function ProductPageView({
       <ProductHero hero={page.hero} demo={<Hero />} />
       <FactStrip facts={page.facts} />
       {page.scenes.map((scene) => {
-        const Demo = demos[scene.demo];
-        return <Scene key={scene.id} scene={scene} demo={<Demo />} />;
+        const Demo = scene.demo ? demos[scene.demo.id] : undefined;
+        return (
+          <Scene
+            key={scene.id}
+            scene={scene}
+            demo={Demo ? <Demo /> : undefined}
+          />
+        );
       })}
       <CodeSample sample={page.codeSample} code={code} />
-      <InstallBlock install={page.install} />
-      <NextSteps next={page.next} />
+      <Faq faq={page.faq} />
+      <Closing closing={page.closing} />
     </main>
   );
 }

@@ -35,6 +35,10 @@ To generate this set, `Features.snapshot` takes the context and returns the set.
 
 Depending on the environment, the `@evanion/feature` package uses different entry points to handle adoption. `adoptDecisions` is what a non-React process calls. `FeatureProvider` is what a React tree calls, and it does the same work on the same rules. The provider, the hooks and the rest of the React surface are in the [`@evanion/react-feature` API reference](/docs/react-feature/api). Everything else on this page applies to both.
 
+The control below shows why this matters on first paint. In the first lane the browser decides after the page loads, so the old checkout shows and then swaps to the new one. In the second lane the server decides and the browser adopts that decision, so the new checkout is there when the page opens.
+
+<NoFlickerDemo />
+
 ## How a Client Compares Versions
 
 When adopting decisions, the client must determine if its local configuration matches the server's. The `@evanion/feature` package handles this via `adoptDecisions`, which compares `shipped.version` with `features.version` using `!==` without ordering them. This allows a digest or any composite string to work as a version, as they carry no inherent order. A publisher with no version scheme sets `version` to the digest from `configDigest`, which strips `version` and `digest` before it canonicalises, ensuring the comparison reads two digests.

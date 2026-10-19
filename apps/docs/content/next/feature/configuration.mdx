@@ -116,6 +116,10 @@ To read the same on every host, a date-time string must include an offset (e.g.,
 
 A window's `value` can also be epoch milliseconds or a `Date`. `createFeatures` refuses `NaN` and a number outside the range a `Date` holds, and it takes a `Date` as the instant it holds, so `new Date('2026-01-01T00:00:00')` carries the zone of the host that built it.
 
+The control below moves a clock across a launch time. The checkout rule is `after` 09:00 UTC, and `after` is strict, so the checkout is still off at 09:00:00 itself and on from the next instant. The answer depends only on the instant you ask about, so a server and a browser that ask about the same instant always agree, and nobody deploys or flips a switch at launch.
+
+<ScheduleDemo />
+
 ## Type-Safe Keys and Variants
 
 You can maintain type safety for your `@evanion/feature` configuration depending on how your data is stored. If you define your configuration as an array literal, TypeScript infers the keys and variant names automatically.

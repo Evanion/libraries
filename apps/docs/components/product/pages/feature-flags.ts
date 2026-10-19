@@ -9,13 +9,15 @@ const page: ProductPage = {
   docsLink: 'Read the docs',
   anchors: { '@evanion/react-feature': 'react' },
   metadata: {
-    title: 'Feature flags in your own code',
+    title: 'Feature flags your build can decide',
     description:
-      'Define your features in a file in your repo. Decide them in your API, your build, and the browser with one library.',
+      'Decouple release from deployment. A feature flag library that decides what it can at build time, with your flags in a file in your own repo.',
   },
   hero: {
-    promise: 'Feature flags that live in your repo.',
-    line: 'Your own code decides if a feature is on—in your API, your build, and the browser—with no network call per check.',
+    promise: 'Feature flags your build can decide',
+    line: 'The build decides every flag it can before deploy, and only flags that depend on the visitor wait. Decouple release from deployment.',
+    sub: 'Your flags live in your repo as a file, changed in the same pull request as your code.',
+    install: 'npm install @evanion/feature',
     demo: 'rollout',
     actions: [
       { label: 'Get started', href: docsHref('feature/getting-started/') },
@@ -28,16 +30,16 @@ const page: ProductPage = {
   },
   facts: [
     {
-      title: 'Flags are a file in your repo',
-      text: 'You review changes to your flags the way you review code.',
+      title: 'A file in your own repo',
+      text: "Your flags are a file in your app's own repo. You change them in the same pull request as the code that uses them and review them like code.",
     },
     {
-      title: 'Your own code decides',
-      text: 'Your API, your build, and the browser answer by themselves. There is no network call per check.',
+      title: 'No network call per check',
+      text: 'Your API, your build and the browser answer flags by themselves.',
     },
     {
       title: 'Update flags without a deploy',
-      text: 'Serve the file and reload it in the running app.',
+      text: 'Serve the file as a plain asset and reload it in the running app.',
       link: {
         label: 'How reloading works',
         href: docsHref('feature/distribution/'),
@@ -45,28 +47,23 @@ const page: ProductPage = {
     },
     {
       title: 'No dashboard included',
-      text: 'It is a library. You decide how the file gets edited.',
+      text: 'This is a library. You decide how your team edits the flag file.',
     },
   ],
   scenes: [
     {
-      id: 'schedule',
-      title: 'Launch while you sleep',
-      lede: 'Pick the moment a feature turns on. After 09:00, it becomes available for everyone without a new deploy.',
-      demo: 'schedule',
-      caption:
-        'Server and browser always agree because the answer depends only on the time.',
-      howItWorks: {
-        label: 'See how timing works',
-        href: docsHref('feature/configuration/'),
-      },
-    },
-    {
       id: 'cascade',
       title: 'Stop the domino effect',
-      lede: 'Turn off a core feature and everything built on top of it follows. You get a full list of what will disappear before you commit.',
-      demo: 'cascade',
-      caption: 'Every disabled feature explains exactly why it is off.',
+      lede: 'Your customers never see a feature whose foundation is gone.',
+      why: 'New features often rely on older ones. Turning off a foundation feature can leave dependent features in a broken state.',
+      how: 'You can make features depend on one another. Before you commit, the toggle lists exactly what will go off. After the change, each feature says why it is off.',
+      differs:
+        'Other tools may document dependencies, but none of the tools we compared shows a preview of what will go off before you commit.',
+      demo: {
+        id: 'cascade',
+        caption:
+          'A preview shows that disabling the checkout foundation also disables express pickup.',
+      },
       howItWorks: {
         label: 'See how dependencies work',
         href: docsHref('feature/decisions/'),
@@ -75,42 +72,80 @@ const page: ProductPage = {
     {
       id: 'variants',
       title: "Tests that don't jump",
-      lede: 'Adjust your visitor split without shuffling everyone. Pin specific groups to a version to keep things consistent.',
-      demo: 'variants',
-      caption:
-        'A visitor always sees the same version unless you move the split. The line under the slider counts who sees blue and who changed.',
+      lede: 'Run clean A/B tests where visitors stay in their assigned group.',
+      why: 'Shuffling people between versions mid-test ruins your data and confuses your users.',
+      how: 'Visitors who keep their ID keep their variant when you move a two-way split. Only those between the old and new boundary change. You can also pin a specific group to one variant.',
+      differs:
+        'Every flag tool needs a stable visitor ID. Some also store which variant each visitor got to keep splits stable. This library does not need that: no assignment stored.',
+      demo: {
+        id: 'variants',
+        caption:
+          'A visitor always sees the same version unless you move the split. The line under the slider counts who sees blue and who changed.',
+      },
       howItWorks: {
         label: 'See how splitting works',
         href: docsHref('feature/variants/'),
       },
     },
     {
+      id: 'schedule',
+      title: 'Launch while you sleep',
+      lede: 'Set your release date and forget it.',
+      why: 'You want to coordinate a big launch without being awake to flip a switch or trigger a deployment.',
+      how: 'A rule turns a feature on after the time you choose. Because the decision depends only on the clock, the server and browser always stay in sync.',
+      howItWorks: {
+        label: 'See how it works',
+        href: docsHref('feature/configuration/#time-windows'),
+      },
+    },
+    {
       id: 'no-flicker',
       title: 'No flicker on load',
-      lede: 'Stop the awkward flash of old content. Your page arrives with the right features already decided.',
-      demo: 'no-flicker',
-      caption:
-        'The server sends the decision with the page, so the new checkout is there the moment the page opens.',
+      lede: 'Eliminate the jarring visual jump on page load.',
+      why: 'Pages that decide flags only in the browser often show a default version for a split second before swapping to the correct one.',
+      how: "The server decides the flags and sends those decisions inside the page. The browser uses them before the first paint and can check the server's decisions against its own copy to report differences.",
       howItWorks: {
-        label: 'See how loading works',
+        label: 'See how it works',
         href: docsHref('feature/hydration/'),
       },
     },
   ],
   codeSample: {
     id: 'react',
-    title: 'Simple setup for React',
-    lede: 'Wrap your app once. Any component can then ask if a feature is on.',
+    title: 'Built for React',
+    lede: 'Wrap your app once and any component can ask if a feature is on.',
     install: 'npm install @evanion/feature @evanion/react-feature',
     file: 'libs/react-feature/docs/examples.md',
     region: 'react-landing',
     link: { label: 'Read the guide', href: docsHref('react-feature/') },
   },
-  install: { title: 'Installation', command: 'npm install @evanion/feature' },
-  next: {
-    title: 'Ready to build?',
-    links: [
-      { label: 'Getting started', href: docsHref('feature/getting-started/') },
+  faq: [
+    {
+      q: 'What is @evanion/feature?',
+      a: 'It is an open source TypeScript library (MIT). You define your rules, rollouts, variants, and dependencies in a file and call it from your API, build, or browser.',
+    },
+    {
+      q: 'Does it need a server of its own?',
+      a: 'No. There is no service to call. The file ships with your app, or you can serve it as a plain file to reload it in a running app.',
+    },
+    {
+      q: 'How do anonymous visitors get a stable variant?',
+      a: 'Bring your own visitor ID. The library never sets a cookie and never stores which variant anyone got. Signed-in visitors use the account ID. Anonymous visitors use an ID the site already sets, such as a session, cart or analytics ID. If the site has none, you can set a first-party ID cookie yourself, under your own consent rules. Without any ID, the visitor gets the default variant. To keep a variant across sign-in, use `variantBy` or `stickyVariants`.',
+    },
+    {
+      q: 'Does it work with static sites?',
+      a: 'Yes. A build decides every flag it has enough information for and writes the answer into the page. Flags that depend on the visitor are decided when the visitor arrives.',
+    },
+    {
+      q: 'Is there React support?',
+      a: 'Yes, via @evanion/react-feature. It provides a provider and hooks to access flags anywhere. Server decisions reach the browser so there is no flicker.',
+    },
+  ],
+  closing: {
+    title: 'Feature flags your build can decide',
+    text: 'The build decides what it can before deploy, and only flags that depend on the visitor wait. Decouple release from deployment. Install the library and follow the getting started guide to begin.',
+    actions: [
+      { label: 'Get started', href: docsHref('feature/getting-started/') },
       { label: 'API reference', href: docsHref('feature/api/') },
       {
         label: 'GitHub',
