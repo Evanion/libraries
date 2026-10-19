@@ -31,7 +31,7 @@ describe('ProductPageView', () => {
       expect(screen.getByText(scene.how)).toBeInTheDocument();
     }
     const withDemo = page.scenes.filter((s) => s.demo);
-    expect(screen.getAllByText(/^How it.s different$/)).toHaveLength(
+    expect(screen.getAllByText('What you get')).toHaveLength(
       page.scenes.filter((s) => s.differs).length,
     );
     for (const scene of withDemo)
