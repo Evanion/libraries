@@ -37,4 +37,50 @@ describe('ProductPageView', () => {
     for (const scene of withDemo)
       expect(screen.getByText(scene.demo!.caption)).toBeInTheDocument();
   });
+
+  it('renders the limits block after the scenes and before the code sample, and omits it when absent', () => {
+    const base = productBySlug('feature-flags');
+    const page = {
+      ...base,
+      limits: {
+        title: 'What it does not do',
+        items: [
+          { title: 'No hosted service', text: 'It runs in your process.' },
+          {
+            title: 'No dashboard',
+            text: 'Flags live in code.',
+            link: { label: 'See the config', href: '/docs/feature/' },
+          },
+        ],
+      },
+    };
+    render(<ProductPageView page={page} code="const x = 1;" />);
+    const heading = screen.getByRole('heading', {
+      level: 2,
+      name: 'What it does not do',
+    });
+    for (const item of page.limits.items)
+      expect(screen.getByText(item.title)).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /See the config/ }),
+    ).toHaveAttribute('href', '/docs/feature/');
+    const lastScene = screen.getByRole('heading', {
+      level: 2,
+      name: base.scenes[base.scenes.length - 1]!.title,
+    });
+    const sample = screen.getByRole('heading', { name: base.codeSample.title });
+    expect(
+      lastScene.compareDocumentPosition(heading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      heading.compareDocumentPosition(sample) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('renders no limits section when the page has none', () => {
+    render(<ProductPageView page={productBySlug('feature-flags')} code="x" />);
+    expect(screen.queryByText('What it does not do')).toBeNull();
+  });
 });

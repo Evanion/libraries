@@ -5,6 +5,7 @@ import { CodeSample } from './CodeSample';
 import { demos } from './demos';
 import { Closing } from './Closing';
 import { Faq } from './Faq';
+import { Limits } from './Limits';
 import { ProductHero } from './ProductHero';
 import { Scene } from './Scene';
 import type { ProductPage } from './types';
@@ -37,6 +38,7 @@ export function ProductPageView({
           />
         );
       })}
+      {page.limits && <Limits limits={page.limits} />}
       <CodeSample sample={page.codeSample} code={code} />
       <Faq faq={page.faq} />
       <Closing closing={page.closing} />

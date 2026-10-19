@@ -232,3 +232,46 @@
   font-size: var(--baize-text-md);
   overflow-wrap: anywhere;
 }
+
+.product__limits-heading {
+  margin: 0 0 var(--baize-space-4);
+  font-family: var(--baize-font-title);
+  font-size: var(--baize-text-md);
+  color: var(--baize-lichen);
+}
+
+.product__limits-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  gap: var(--baize-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.product__limit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--baize-space-2);
+  min-width: 0;
+  padding: var(--baize-space-3) 0 0;
+  border-top: 1px solid var(--baize-rule);
+}
+
+.product__limit > p {
+  margin: 0;
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+.product__limit > .product__limit-title {
+  color: var(--baize-chalk);
+  font-weight: 600;
+}
+
+.product__limit a {
+  color: var(--baize-hue);
+  font-size: var(--baize-text-sm);
+  font-weight: 600;
+  text-underline-offset: 4px;
+}

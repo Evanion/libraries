@@ -72,6 +72,8 @@ export interface ProductPage {
   /** What the library is and is not, shown right under the hero. */
   facts: Fact[];
   scenes: SceneDefinition[];
+  /** What the library does not do, shown after the scenes. Set only when the page has at least two items. */
+  limits?: { title: string; items: Fact[] };
   codeSample: {
     /** The section's `id`, the target of an anchor. */
     id: string;
