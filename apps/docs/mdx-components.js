@@ -35,6 +35,8 @@ import Listing from './components/listing/Listing';
 import TwoslashPanel from './components/TwoslashPanel';
 import WidgetPlayground from './components/WidgetPlayground';
 import PlaygroundExamples from './components/PlaygroundExamples';
+import NoFlickerDemo from './components/product/feature-flags/NoFlickerDemo';
+import ScheduleDemo from './components/product/feature-flags/ScheduleDemo';
 import PageSheet from './components/PageSheet';
 import WorkshopNotice from './components/WorkshopNotice';
 import './components/landing/landing.css';
@@ -157,6 +159,8 @@ export function useMDXComponents(components) {
     ComposeSpecimen,
     DataDemo,
     FeatureDemo,
+    NoFlickerDemo,
+    ScheduleDemo,
     LuhnSpecimen,
     PolicySpecimen,
     TokenSpecimen,

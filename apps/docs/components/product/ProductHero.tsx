@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import type { ProductPage } from './types';
 
-/** The promise, one supporting line, the actions and the hero demo. */
+/** The promise, its supporting lines, the actions, the install command and the hero demo. */
 export function ProductHero({
   hero,
   demo,
@@ -13,6 +13,7 @@ export function ProductHero({
     <header className="product__hero">
       <h1>{hero.promise}</h1>
       <p>{hero.line}</p>
+      {hero.sub && <p>{hero.sub}</p>}
       <p className="product__actions">
         {hero.actions.map((action, i) => (
           <a
@@ -25,6 +26,9 @@ export function ProductHero({
           </a>
         ))}
       </p>
+      <pre className="code-view product__install">
+        <code>{hero.install}</code>
+      </pre>
       <figure className="landing-proof">{demo}</figure>
     </header>
   );

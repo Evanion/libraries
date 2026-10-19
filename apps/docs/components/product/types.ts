@@ -13,13 +13,33 @@ export interface Fact {
   link?: Link;
 }
 
+/**
+ * One section of a product page. It leads with the benefit: `why` is the
+ * problem, `how` is what the library does about it. A scene with a `demo`
+ * shows it as proof under the prose; a scene without one links to the docs
+ * page that holds the demo.
+ */
 export interface SceneDefinition {
   id: string;
   title: string;
   lede: string;
-  demo: DemoId;
-  caption: string;
+  why: string;
+  how: string;
+  /** How this differs from the flag tools compared; set only where the research supports it. */
+  differs?: string;
+  demo?: { id: DemoId; caption: string };
   howItWorks: Link;
+}
+
+export interface FaqEntry {
+  q: string;
+  a: string;
+}
+
+export interface Closing {
+  title: string;
+  text: string;
+  actions: Link[];
 }
 
 export interface ProductPage {
@@ -39,7 +59,16 @@ export interface ProductPage {
    */
   anchors?: Record<string, string>;
   metadata: { title: string; description: string };
-  hero: { promise: string; line: string; demo: DemoId; actions: Link[] };
+  hero: {
+    promise: string;
+    line: string;
+    /** A second supporting line under `line`. */
+    sub?: string;
+    /** The command shown beside the actions. */
+    install: string;
+    demo: DemoId;
+    actions: Link[];
+  };
   /** What the library is and is not, shown right under the hero. */
   facts: Fact[];
   scenes: SceneDefinition[];
@@ -54,6 +83,6 @@ export interface ProductPage {
     region: string;
     link: Link;
   };
-  install: { title: string; command: string };
-  next: { title: string; links: Link[] };
+  faq: FaqEntry[];
+  closing: Closing;
 }
