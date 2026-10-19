@@ -25,7 +25,7 @@ export interface SceneDefinition {
   lede: string;
   why: string;
   how: string;
-  /** How this differs from the flag tools compared; set only where the research supports it. */
+  /** What the reader gets, shown in a callout; set only where there is something to call out. */
   differs?: string;
   demo?: { id: DemoId; caption: string };
   howItWorks: Link;

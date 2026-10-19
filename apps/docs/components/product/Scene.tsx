@@ -4,7 +4,7 @@ import type { SceneDefinition } from './types';
 
 /**
  * One section: a title, a lede, the problem and what the library does about
- * it, an optional "How it's different" callout, then the demo with its caption
+ * it, an optional "What you get" callout, then the demo with its caption
  * when the scene has one, and a link into the docs.
  */
 export function Scene({
@@ -26,7 +26,7 @@ export function Scene({
       </p>
       {scene.differs && (
         <aside className="product__differs">
-          <p className="product__differs-title">How it&rsquo;s different</p>
+          <p className="product__differs-title">What you get</p>
           <p>
             <InlineCode text={scene.differs} />
           </p>

@@ -58,7 +58,7 @@ const page: ProductPage = {
       why: 'New features often rely on older ones. Turning off a foundation feature can leave dependent features in a broken state.',
       how: 'You can make features depend on one another. Before you commit, the toggle lists exactly what will go off. After the change, each feature says why it is off.',
       differs:
-        'Other tools may document dependencies, but none of the tools we compared shows a preview of what will go off before you commit.',
+        'See exactly which dependent features will switch off before you commit. Each feature says why it is off.',
       demo: {
         id: 'cascade',
         caption:
@@ -76,7 +76,7 @@ const page: ProductPage = {
       why: 'Shuffling people between versions mid-test ruins your data and confuses your users.',
       how: 'Visitors who keep their ID keep their variant when you move a two-way split. Only those between the old and new boundary change. You can also pin a specific group to one variant.',
       differs:
-        'Every flag tool needs a stable visitor ID. Some also store which variant each visitor got to keep splits stable. This library does not need that: no assignment stored.',
+        'A stable visitor ID is all a split needs. No record of which variant anyone got is kept, so there is no assignment database to keep in sync.',
       demo: {
         id: 'variants',
         caption:
@@ -130,7 +130,7 @@ const page: ProductPage = {
     },
     {
       q: 'How do anonymous visitors get a stable variant?',
-      a: 'Bring your own visitor ID. The library never sets a cookie and never stores which variant anyone got. Signed-in visitors use the account ID. Anonymous visitors use an ID the site already sets, such as a session, cart or analytics ID. If the site has none, you can set a first-party ID cookie yourself, under your own consent rules. Without any ID, the visitor gets the default variant. To keep a variant across sign-in, use `variantBy` or `stickyVariants`.',
+      a: 'Bring your own visitor ID. The library never sets a cookie and never stores which variant anyone got. Signed-in visitors use the account ID. Anonymous visitors use an ID the site already sets, such as a session, cart or analytics ID. If the site has none, you can set a first-party ID cookie yourself, under your own consent rules. Without any ID, the visitor gets the default variant, and percentage rollouts leave them out. To keep a variant across sign-in, use `variantBy` or `stickyVariants`.',
     },
     {
       q: 'Does it work with static sites?',

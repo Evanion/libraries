@@ -59,6 +59,11 @@ describe.each(products.map((p) => [p.slug, p] as const))(
       expect(page.closing.text).toBeTruthy();
       expect(page.closing.actions.length).toBeGreaterThan(0);
     });
+    it('states what it offers and never what other providers lack', () => {
+      const text = JSON.stringify(page).toLowerCase();
+      for (const phrase of ['compared', 'other tools', 'some flag tools'])
+        expect(text).not.toContain(phrase);
+    });
     it('says no assignment stored, never that nothing is stored', () => {
       const text = JSON.stringify(page).toLowerCase();
       expect(text).not.toMatch(/nothing (is )?stored/);
