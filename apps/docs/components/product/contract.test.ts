@@ -75,10 +75,26 @@ describe.each(products.map((p) => [p.slug, p] as const))(
         page.codeSample.link,
         ...page.closing.actions,
         ...page.facts.flatMap((f) => (f.link ? [f.link] : [])),
+        ...(page.limits?.items ?? []).flatMap((i) => (i.link ? [i.link] : [])),
       ]
         .map((l) => l.href)
         .filter((h) => h.startsWith('/docs/'));
       expect(links.filter((h) => !resolves(h))).toEqual([]);
+    });
+    it('gives limits, when present, at least two items and only docs links that exist', () => {
+      if (!page.limits) return;
+      expect(page.limits.title.trim()).toBeTruthy();
+      expect(page.limits.items.length).toBeGreaterThanOrEqual(2);
+      for (const item of page.limits.items) {
+        expect(item.title.trim()).toBeTruthy();
+        expect(item.text.trim()).toBeTruthy();
+      }
+      const hrefs = page.limits.items.flatMap((i) =>
+        i.link ? [i.link.href] : [],
+      );
+      expect(
+        hrefs.filter((h) => h.startsWith('/docs/') && !resolves(h)),
+      ).toEqual([]);
     });
     it('shows a code sample from a tested region', () => {
       expect(regionCode(page.codeSample.file, page.codeSample.region)).toMatch(
