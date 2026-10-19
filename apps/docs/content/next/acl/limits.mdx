@@ -81,10 +81,8 @@ that has already resolved the hop passes the result as a flat field, and
 `object.teamId` on a loaded row is an ordinary condition that decides
 correctly. An answer that depends on walking a hierarchy the caller does not
 hold belongs to a Zanzibar implementation, where a relationship tuple is the
-primitive and the engine walks the graph:
-[SpiceDB](https://authzed.com/docs/spicedb/getting-started/discovering-spicedb)
-and [OpenFGA](https://openfga.dev/docs/getting-started/setup-openfga/docker).
-Each runs as a service over a database, and each check is a network call.
+primitive and the engine walks the graph. Such a system runs as a service over
+a database, and each check is a network call.
 
 ## No `@evanion/acl` call lists the subjects who can take an action
 
@@ -159,7 +157,7 @@ refusals.
 | a per-consumer freshness override that extends the owner's budget | `expiryOf` takes `min` of the two, because a consumer choosing its own bound optimises for itself |
 
 Two of the nine get asked for most: relationship traversal and the reverse index
-over subjects. SpiceDB and OpenFGA answer both, and a half-built version here
+over subjects. Relationship-based systems answer both, and a half-built version here
 would answer neither. A consumer may still set a shorter freshness budget than
 the owner's. An interface that opens a pull request against the matrix is not
 refused here either, because review still gates the merge.
