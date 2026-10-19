@@ -1,5 +1,12 @@
 export type DemoId =
-  'rollout' | 'schedule' | 'cascade' | 'variants' | 'no-flicker';
+  | 'rollout'
+  | 'schedule'
+  | 'cascade'
+  | 'variants'
+  | 'no-flicker'
+  | 'access'
+  | 'acl-explain'
+  | 'acl-diff';
 
 export interface Link {
   label: string;
@@ -29,6 +36,8 @@ export interface SceneDefinition {
   differs?: string;
   demo?: { id: DemoId; caption: string };
   howItWorks: Link;
+  /** A second link into the docs, shown beside `howItWorks`. */
+  more?: Link;
 }
 
 export interface FaqEntry {

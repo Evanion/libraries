@@ -1,8 +1,9 @@
+import authorization from './pages/authorization';
 import featureFlags from './pages/feature-flags';
 import type { ProductPage } from './types';
 
 /** Every product page, in the order their slugs are listed in `product-slugs.mjs`. */
-export const products: readonly ProductPage[] = [featureFlags];
+export const products: readonly ProductPage[] = [featureFlags, authorization];
 
 /** The pages that are ready to ship: a draft page is left out of the routes and the links. */
 export function published(list: readonly ProductPage[]): ProductPage[] {
