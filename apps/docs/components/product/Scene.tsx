@@ -41,6 +41,7 @@ export function Scene({
         </figure>
       )}
       <a href={scene.howItWorks.href}>{scene.howItWorks.label} →</a>
+      {scene.more && <a href={scene.more.href}>{scene.more.label} →</a>}
     </section>
   );
 }

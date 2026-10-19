@@ -6,4 +6,4 @@
  * walks route directories sees no segment there. `registry.test.ts` holds
  * this list to the registry's definitions.
  */
-export const productSlugs = ['feature-flags'];
+export const productSlugs = ['feature-flags', 'authorization'];

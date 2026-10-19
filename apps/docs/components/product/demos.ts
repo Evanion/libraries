@@ -1,5 +1,8 @@
 import type { ComponentType } from 'react';
+import AccessDemo from '../landing/AccessDemo';
 import FeatureDemo from '../landing/FeatureDemo';
+import DiffDemo from './authorization/DiffDemo';
+import ExplainDemo from './authorization/ExplainDemo';
 import CascadeDemo from './feature-flags/CascadeDemo';
 import NoFlickerDemo from './feature-flags/NoFlickerDemo';
 import ScheduleDemo from './feature-flags/ScheduleDemo';
@@ -13,4 +16,7 @@ export const demos: Record<DemoId, ComponentType> = {
   cascade: CascadeDemo,
   variants: VariantsDemo,
   'no-flicker': NoFlickerDemo,
+  access: AccessDemo,
+  'acl-explain': ExplainDemo,
+  'acl-diff': DiffDemo,
 };

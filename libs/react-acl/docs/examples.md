@@ -6,6 +6,43 @@ The documentation site renders these blocks by region, and each one runs as a te
 
 ### Core Concept: Declarative UI Gating
 
+<!-- #region react-landing -->
+
+```tsx @import.meta.vitest
+/** @jsxRuntime classic */
+import * as React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+// ---cut---
+import { policy } from '@evanion/acl';
+import { PolicyProvider, useCan } from '@evanion/react-acl';
+
+type Shopper = { id: string; roles: string[] };
+type Listing = { sellerId: string };
+
+const access = policy<Shopper, { listing: Listing }, { listing: 'edit' }>()
+  .for('listing', (p) => p.allow('edit', p.eq('object.sellerId', 'subject.id')))
+  .build();
+
+function EditButton({ listing }: { listing: Listing }) {
+  const decision = useCan('listing', 'edit', listing);
+  return decision.allowed ? <button type="button">Edit listing</button> : null;
+}
+
+function App({ shopper }: { shopper: Shopper }) {
+  return (
+    <PolicyProvider access={access} subject={shopper}>
+      <EditButton listing={{ sellerId: 'mika' }} />
+    </PolicyProvider>
+  );
+}
+// ---cut-after---
+const mika = { id: 'mika', roles: ['bookseller'] };
+const html = renderToStaticMarkup(<App shopper={mika} />);
+html; // -> '<button type="button">Edit listing</button>'
+```
+
+<!-- #endregion react-landing -->
+
 <!-- #region server-render -->
 
 ```tsx @import.meta.vitest
