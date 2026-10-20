@@ -27,6 +27,11 @@ export async function generateMetadata({ params }: Props) {
 export default async function Page({ params }: Props) {
   const page = productBySlug((await params).product);
   const code = regionCode(page.codeSample.file, page.codeSample.region);
+  const samples = Object.fromEntries(
+    page.scenes.flatMap((s) =>
+      s.sample ? [[s.id, regionCode(s.sample.file, s.sample.region)]] : [],
+    ),
+  );
   return (
     <>
       <script
@@ -35,7 +40,7 @@ export default async function Page({ params }: Props) {
           __html: JSON.stringify(productJsonLd(page)),
         }}
       />
-      <ProductPageView page={page} code={code} />
+      <ProductPageView page={page} code={code} samples={samples} />
     </>
   );
 }

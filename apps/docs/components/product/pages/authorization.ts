@@ -10,17 +10,17 @@ const page: ProductPage = {
   anchors: { '@evanion/react-acl': 'react' },
   metadata: {
     title:
-      'One policy for server and browser, with answers that explain themselves',
+      'One policy for server and browser with answers that explain themselves',
     description:
-      'Define one authorization policy as a JSON document and run the same checks on your server and in the browser.',
+      'Define your authorization rules once in TypeScript and run the same synchronous checks on your server and in the browser.',
   },
   hero: {
     promise:
-      'One policy decided on the server and in the browser. Every answer explains itself.',
-    line: 'Write your authorization rules once in TypeScript. The library builds them into a JSON matrix that your server and browser both use to decide access.',
+      'One policy for server and browser. Answers that explain themselves.',
+    line: 'Write your authorization rules in TypeScript. The library builds them into a JSON document, called the matrix, that your server and browser both read.',
     sub: 'Every check is a synchronous function call with no network request.',
     install: 'npm install @evanion/acl',
-    demo: 'access',
+    demo: 'access-api',
     actions: [
       { label: 'Get started', href: docsHref('acl/getting-started/') },
       { label: 'npm', href: 'https://www.npmjs.com/package/@evanion/acl' },
@@ -32,9 +32,9 @@ const page: ProductPage = {
   },
   facts: [
     {
-      title: 'One JSON document',
-      text: 'The server and browser read the same matrix. Rules cannot drift between your frontend and backend.',
-      link: { label: 'The matrix', href: docsHref('acl/matrix/') },
+      title: 'Unified JSON policy',
+      text: 'The server and browser read the same rules.',
+      link: { label: 'About the document', href: docsHref('acl/matrix/') },
     },
     {
       title: 'Synchronous and local',
@@ -58,14 +58,13 @@ const page: ProductPage = {
       id: 'explain',
       title: 'Answers that explain themselves',
       lede: 'Turn a refusal into clear user feedback.',
-      why: 'A simple yes or no does not tell the user why they are blocked. Developers often have to manually map errors to messages.',
+      why: 'A simple yes or no does not tell the user why they are blocked.',
       how: 'The library returns a Decision object with a `reason` and the `rule` that decided. If data is missing, the status is `unevaluable` and the decision lists exactly which fields to fetch.',
-      differs:
-        'You get the exact reason for every refusal and a list of missing fields to resolve third-state answers.',
+      differs: 'A UI that translates a rule ID into a human-readable reason.',
       demo: {
         id: 'acl-explain',
         caption:
-          'See which rule decides the access and which fields the library needs to give a final answer.',
+          'See which rule decides the access and which fields the library needs for a final answer.',
       },
       howItWorks: {
         label: 'How decisions work',
@@ -74,12 +73,12 @@ const page: ProductPage = {
     },
     {
       id: 'diff',
-      title: 'See who gains or loses access before you ship',
-      lede: 'Review authorization changes in your pull request.',
+      title: 'Review access changes before you ship',
+      lede: 'Identify who gains or loses access in your pull request.',
       why: 'A one-line rule edit can widen or narrow access for a whole group, and a line-by-line diff of the JSON does not show who is affected.',
-      how: 'The `diffMatrix` function compares two policy documents. It reports who gained access, who lost it, and which checks now require new fields to be loaded.',
+      how: 'The `diffMatrix` function compares two policy documents. It reports granted and withdrawn permissions and which checks now read different fields of the row.',
       differs:
-        'You get a clear report of granted and withdrawn permissions before you deploy a change.',
+        'A report that names which roles gained or lost access, ready to read in review.',
       demo: {
         id: 'acl-diff',
         caption:
@@ -94,10 +93,34 @@ const page: ProductPage = {
       id: 'contract',
       title: 'A security contract you can read',
       lede: 'Know exactly what the library prevents and what your app must handle.',
-      why: 'Security is often a black box. Developers need to know where the library ends and their responsibility begins.',
+      why: 'Developers need to know where the library ends and their responsibility begins.',
       how: "The library maps 37 attack classes to CWE and OWASP entries. Some are prevented by the engine, some use provided primitives, and some are listed as your application's job.",
       differs:
-        "You get an attack register with a test for each of the 37 classes, and a plain list of what stays your application's job.",
+        "A clear list of security tasks that remain the application's job.",
+      entries: [
+        {
+          id: 'SEC-004',
+          attack:
+            'Unevaluable deny: a deny rule reading a path the projection lacks',
+          cwe: 'CWE-863, A01:2021',
+          handled:
+            'A deny side that cannot be read outranks a matching allow; the decision is `unevaluable` and names the paths to fetch',
+        },
+        {
+          id: 'SEC-005',
+          attack: 'Prototype pollution reaching a decision',
+          cwe: 'CWE-1321',
+          handled:
+            'Every path read and every rule lookup is own-property guarded; every decision map is written with `defineProperty`',
+        },
+        {
+          id: 'SEC-010',
+          attack: 'Incorrect default permissions',
+          cwe: 'CWE-276, A01:2021',
+          handled:
+            'Nothing is allowed without an allow rule that matched: no rules, an empty rule list and an unknown action all refuse',
+        },
+      ],
       howItWorks: {
         label: 'Read the security contract',
         href: docsHref('acl/security/'),
@@ -114,30 +137,21 @@ const page: ProductPage = {
       why: 'Users may have access to a row but should not be able to change every column.',
       how: 'Use `canFields` to determine allowed fields for a subject. Use `pickAllowedFields` to strip unauthorized fields from a submitted write.',
       differs:
-        'You get the ability to narrow write requests to only the fields the user is permitted to change.',
+        'A write handler that saves only the fields the user may change.',
+      sample: {
+        file: 'libs/acl/docs/examples.md',
+        region: 'fields-landing',
+      },
       howItWorks: {
         label: 'Managing field access',
         href: docsHref('acl/fields/'),
       },
     },
     {
-      id: 'ci-tests',
-      title: 'Contract tests in CI',
-      lede: 'Catch a changed contract in your pipeline.',
-      why: "Another service's rules can change under you, and your tests keep passing against your old copy.",
-      how: '`contractDrift` from `@evanion/acl/testing` replays your own questions against the contract you pinned and the one CI fetched, and reports what moved between them.',
-      differs:
-        'You get a CI failure that names which of your answers moved when a contract you consume changes.',
-      howItWorks: {
-        label: 'Testing your policy',
-        href: docsHref('acl/testing/'),
-      },
-    },
-    {
       id: 'explorer',
       title: 'Try it with your own policy',
       lede: 'Paste your policy and see what it decides.',
-      why: 'Writing and deploying a policy to see a result is a slow feedback loop.',
+      why: 'You can verify your logic without writing and deploying a full update.',
       how: 'The matrix explorer lets you paste your JSON policy and test decisions for any subject. The document is read in your browser and never uploaded.',
       howItWorks: {
         label: 'Open the matrix explorer',
@@ -149,8 +163,8 @@ const page: ProductPage = {
     title: 'Limits',
     items: [
       {
-        title: 'Public matrix',
-        text: 'The matrix is shipped to the browser in full. Do not put secrets in your rules.',
+        title: 'Public rules',
+        text: 'The JSON document is shipped to the browser in full. Do not put secrets in your rules.',
         link: {
           label: 'Everything it does not do',
           href: docsHref('acl/limits/'),
@@ -186,10 +200,10 @@ const page: ProductPage = {
   faq: [
     {
       q: 'What is this library?',
-      a: 'It is a TypeScript authorization library that compiles a policy into a JSON matrix. This matrix allows the same synchronous checks to run on both your server and in the browser.',
+      a: 'It is a TypeScript authorization library that builds a policy into a JSON document. This allows the same synchronous checks to run on both your server and in the browser.',
     },
     {
-      q: 'Does it need a server or service of its own?',
+      q: 'Does it need a service of its own?',
       a: 'No. It is a library with zero dependencies. You install it via npm and run it within your own application process.',
     },
     {
@@ -204,10 +218,14 @@ const page: ProductPage = {
       q: 'Does it work with React?',
       a: 'Yes. The `@evanion/react-acl` package provides a `PolicyProvider` and a `useCan` hook to check permissions inside your components.',
     },
+    {
+      q: 'How do I notice changes when another service publishes new rules?',
+      a: 'Use `contractDrift` from `@evanion/acl/testing`. It replays your own questions against the contract you pinned and the one CI fetched, then reports what moved between them.',
+    },
   ],
   closing: {
-    title: 'One policy. Every answer explains itself.',
-    text: 'Decide access using one policy on both the server and in the browser, with results that explain exactly why they were reached.',
+    title: 'Unified authorization logic',
+    text: 'Run the same rules across every layer of your app. Every decision provides the reason and the rule used to reach it.',
     actions: [
       { label: 'Get started', href: docsHref('acl/getting-started/') },
       { label: 'API reference', href: docsHref('acl/api/') },

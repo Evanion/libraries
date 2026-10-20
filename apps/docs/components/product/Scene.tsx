@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { EntryTable } from './EntryTable';
 import { InlineCode } from './InlineCode';
 import type { SceneDefinition } from './types';
 
@@ -10,9 +11,12 @@ import type { SceneDefinition } from './types';
 export function Scene({
   scene,
   demo,
+  code,
 }: {
   scene: SceneDefinition;
   demo?: ReactNode;
+  /** The scene's `sample` region, read at build time. */
+  code?: string;
 }) {
   return (
     <section id={scene.id} className="product__section">
@@ -24,6 +28,12 @@ export function Scene({
       <p>
         <InlineCode text={scene.how} />
       </p>
+      {scene.entries && <EntryTable entries={scene.entries} />}
+      {code && (
+        <pre className="code-view">
+          <code>{code}</code>
+        </pre>
+      )}
       {scene.differs && (
         <aside className="product__differs">
           <p className="product__differs-title">What you get</p>

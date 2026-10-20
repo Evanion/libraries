@@ -6,15 +6,18 @@ export function Segmented<T extends string>({
   value,
   options,
   onChange,
+  stack = false,
 }: {
   label: string;
   value: T;
   options: readonly { id: T; label: string }[];
   onChange: (value: T) => void;
+  /** Lays the options in a column, for labels too long to share a row. */
+  stack?: boolean;
 }) {
   const group = useId();
   return (
-    <div className="authz-field">
+    <div className="authz-field" data-stack={stack ? '' : undefined}>
       <span className="authz-field__label">{label}</span>
       <div className="landing-seg" role="radiogroup" aria-label={label}>
         {options.map((option) => (

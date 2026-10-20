@@ -62,6 +62,21 @@ describe('the explain scene', () => {
     expect(answer.headline).toBe('Cannot tell yet');
     expect(answer.fetch).toEqual(['object.status', 'object.sellerId']);
     expect(answer.detail).toContain('object.status');
+    expect(answer.detail).toContain('published-is-locked needs the row');
+    expect(answer.ruleNeedsRow).toBe(true);
+  });
+
+  it('opens the verdict sentence with a capital letter', () => {
+    for (const person of ['customer', 'seller', 'owner'] as const) {
+      const answer = explain({
+        person,
+        action: 'edit',
+        status: 'draft',
+        rowLoaded: true,
+      });
+      expect(answer.sentence).toMatch(/^[A-Z]/);
+      expect(answer.sentence).toContain('edit this listing');
+    }
   });
 
   it('decides an action that reads no row without loading one', () => {

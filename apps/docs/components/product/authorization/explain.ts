@@ -70,7 +70,17 @@ export interface Explained {
   detail: string;
   /** The paths to fetch before asking again; empty when nothing is missing. */
   fetch: readonly string[];
+  /** Who wants to do what, as the sentence the verdict opens on. */
+  sentence: string;
+  /** True when the rule named could not be read without the row. */
+  ruleNeedsRow: boolean;
 }
+
+const WHO: Record<PersonId, string> = {
+  customer: 'A customer',
+  seller: 'The bookseller who listed it',
+  owner: 'The owner',
+};
 
 /** Asks the policy and words what it answered. */
 export function explain(question: Question): Explained {
@@ -84,13 +94,16 @@ export function explain(question: Question): Explained {
     row as Listing,
   );
   const fetch = decision.missing ?? [];
+  const sentence = `${WHO[question.person]} wants to ${question.action} this listing.`;
 
   if (decision.reason === 'unevaluable') {
     return {
       decision,
       headline: 'Cannot tell yet',
-      detail: `The listing in hand does not carry what the rules read. Fetch ${fetch.join(' and ')}, then ask again.`,
+      detail: `${decision.rule ? `The rule ${decision.rule} needs the row. ` : ''}The listing in hand does not carry what the rules read. Fetch ${fetch.join(' and ')}, then ask again.`,
       fetch,
+      sentence,
+      ruleNeedsRow: decision.rule !== undefined,
     };
   }
   if (decision.allowed) {
@@ -99,6 +112,8 @@ export function explain(question: Question): Explained {
       headline: 'Allowed',
       detail: `The rule ${decision.rule} says yes.`,
       fetch,
+      sentence,
+      ruleNeedsRow: false,
     };
   }
   if (decision.reason === 'denied') {
@@ -107,6 +122,8 @@ export function explain(question: Question): Explained {
       headline: 'Refused',
       detail: `The rule ${decision.rule} says no, and a no beats any yes.`,
       fetch,
+      sentence,
+      ruleNeedsRow: false,
     };
   }
   return {
@@ -114,5 +131,7 @@ export function explain(question: Question): Explained {
     headline: 'Refused',
     detail: 'No rule says yes for this person, so the answer is no.',
     fetch,
+    sentence,
+    ruleNeedsRow: false,
   };
 }

@@ -82,7 +82,8 @@ export function buildAccess(grants: Grants) {
         .allow('review', p.always)
         .allow('edit', p.in('subject.role', grants.edit))
         .allow('publish', p.in('subject.role', grants.publish))
-        .deny('edit', p.eq('object.status', 'published')),
+        .deny('edit', p.eq('object.status', 'published'))
+        .id('published-is-locked'),
     )
     .build();
 }
@@ -149,9 +150,8 @@ export const source: readonly SourceLine[] = [
       },
     ],
   },
-  { segments: [{ text: '    p' }] },
   {
-    segments: [{ text: "      .allow('review', p.always)" }],
+    segments: [{ text: "    p.allow('review', p.always)" }],
     rule: { action: 'review', side: 'allow' },
   },
   {
@@ -172,7 +172,9 @@ export const source: readonly SourceLine[] = [
   },
   {
     segments: [
-      { text: "      .deny('edit', p.eq('object.status', 'published'))," },
+      {
+        text: "      .deny('edit', p.eq('object.status', 'published'))\n      .id('published-is-locked'),",
+      },
     ],
     rule: { action: 'edit', side: 'deny' },
   },
