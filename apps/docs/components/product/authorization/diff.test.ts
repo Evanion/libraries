@@ -13,6 +13,18 @@ describe('the diff scene', () => {
     );
   });
 
+  it('leads each finding with who, in plain words, and keeps the raw key and cause apart', () => {
+    const [granted] = review('sellers-reprice').lines;
+    expect(granted?.who).toBe('Booksellers');
+    expect(granted?.text.startsWith('Booksellers can now reprice')).toBe(true);
+    expect(granted?.key).toBe('listing.reprice');
+    expect(granted?.cause).toBe('allow-branch-added');
+    const [lost] = review('lock-published').lines;
+    expect(lost?.who).toBe('Nobody');
+    const dropped = review('drop-publish').lines[0];
+    expect(dropped?.who).toBe('Owners');
+  });
+
   it('reports who lost access when a deny rule is added', () => {
     const report = review('lock-published');
     expect(report.lines.map((l) => l.kind)).toContain('withdrawn');

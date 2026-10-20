@@ -104,7 +104,12 @@ export const changes: readonly {
 /** One finding, worded for a reviewer. */
 export interface ReportLine {
   kind: DiffFinding['kind'];
+  /** Who the finding is about, in plain words; the sentence in `text` opens with it. */
+  who: string;
   text: string;
+  /** The permission the library named, shown as the secondary detail. */
+  key: string;
+  cause?: string;
 }
 
 export interface Report {
@@ -148,43 +153,70 @@ function rows(conditions: readonly Condition[]): string {
   return parts.length > 0 ? `listings ${parts.join(' and ')}` : 'any listing';
 }
 
-function lostText(
+/** Who a withdrawn finding is about: the roles it names, or nobody when a deny covers everyone. */
+function lostWho(finding: Extract<DiffFinding, { kind: 'withdrawn' }>): string {
+  const subject = finding.groups.subject;
+  if (finding.cause === 'permission-removed') return who(subject);
+  return subject.length === 0 ? 'Nobody' : who(subject);
+}
+
+function lostRest(
   finding: Extract<DiffFinding, { kind: 'withdrawn' }>,
 ): string {
   const verb = verbOf(finding.key);
-  const subject = finding.groups.subject;
   if (finding.cause === 'permission-removed')
-    return `${who(subject)} can no longer ${verb}. The action is gone from the policy.`;
+    return `can no longer ${verb}. The action is gone from the policy.`;
   const where = rows(finding.groups.object);
-  return subject.length === 0
-    ? `Nobody can ${verb} ${where} any more.`
-    : `${who(subject)} can no longer ${verb} ${where}.`;
+  return finding.groups.subject.length === 0
+    ? `can ${verb} ${where} any more.`
+    : `can no longer ${verb} ${where}.`;
+}
+
+function line(
+  kind: DiffFinding['kind'],
+  subject: string,
+  rest: string,
+  finding: DiffFinding,
+): ReportLine {
+  return {
+    kind,
+    who: subject,
+    text: `${subject} ${rest}`,
+    key: finding.key,
+    ...('cause' in finding ? { cause: finding.cause } : {}),
+  };
 }
 
 function lineOf(finding: DiffFinding): ReportLine[] {
   switch (finding.kind) {
     case 'granted':
       return [
-        {
-          kind: 'granted',
-          text: `${who(finding.groups.subject)} can now ${verbOf(finding.key)} ${rows(finding.groups.object)}.`,
-        },
+        line(
+          'granted',
+          who(finding.groups.subject),
+          `can now ${verbOf(finding.key)} ${rows(finding.groups.object)}.`,
+          finding,
+        ),
       ];
     case 'withdrawn':
-      return [{ kind: 'withdrawn', text: lostText(finding) }];
+      return [line('withdrawn', lostWho(finding), lostRest(finding), finding)];
     case 'undetermined':
       return [
-        {
-          kind: 'undetermined',
-          text: `A rule on ${verbOf(finding.key)} was edited. This one needs a human to read both versions.`,
-        },
+        line(
+          'undetermined',
+          'A reviewer',
+          `needs to read both versions of the ${verbOf(finding.key)} rule. It was edited, and the library will not call it a gain or a loss.`,
+          finding,
+        ),
       ];
     case 'reads-object':
       return [
-        {
-          kind: 'reads-object',
-          text: `A check on ${verbOf(finding.key)} now needs ${finding.paths.after.join(' and ')} loaded. Asked before the row is fetched, it answers cannot tell.`,
-        },
+        line(
+          'reads-object',
+          `Checks for ${verbOf(finding.key)}`,
+          `now read ${finding.paths.after.join(' and ')} of the row. Asked before the row is fetched, they answer cannot tell.`,
+          finding,
+        ),
       ];
   }
 }

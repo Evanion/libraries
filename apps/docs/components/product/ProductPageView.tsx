@@ -16,9 +16,12 @@ import './product.css';
 export function ProductPageView({
   page,
   code,
+  samples = {},
 }: {
   page: ProductPage;
   code: string;
+  /** Each scene's `sample` region by scene id, read at build time. */
+  samples?: Record<string, string>;
 }) {
   const lead = packages.find((p) => p.name === page.packageName);
   const Hero = demos[page.hero.demo];
@@ -35,6 +38,7 @@ export function ProductPageView({
             key={scene.id}
             scene={scene}
             demo={Demo ? <Demo /> : undefined}
+            code={samples[scene.id]}
           />
         );
       })}

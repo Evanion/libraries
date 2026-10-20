@@ -1280,6 +1280,41 @@ fd.fields['status']; // -> undefined
 
 ### Writing
 
+<!-- #region fields-landing -->
+
+```ts @import.meta.vitest
+import { pickAllowedFields, policy } from '@evanion/acl';
+// ---cut---
+type Question = { askedBy: string; body: string; status: string };
+
+const access = policy<{ id: string }, { question: Question }>()
+  .for('question', (p) =>
+    p
+      .allow('update', p.eq('object.askedBy', 'subject.id'))
+      .fields(['*', '!status']),
+  )
+  .build();
+
+const current = { askedBy: 'customer-41', body: 'In stock?', status: 'open' };
+const proposed = { body: 'Wingspan in stock?', status: 'locked' };
+
+const decision = access.canFields(
+  { id: 'customer-41' },
+  'question',
+  'update',
+  current,
+  'write',
+  proposed,
+);
+
+// The asker may change the body but not the status, so only the body is kept.
+const safe = pickAllowedFields(decision, proposed);
+// ---cut-after---
+safe; // -> { body: 'Wingspan in stock?' }
+```
+
+<!-- #endregion fields-landing -->
+
 <!-- #region write-path -->
 
 ```ts @import.meta.vitest

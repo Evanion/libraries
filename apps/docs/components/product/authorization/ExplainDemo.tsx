@@ -17,12 +17,6 @@ const PEOPLE = (Object.keys(people) as PersonId[]).map((id) => ({
   label: people[id].name,
 }));
 
-const WHO: Record<PersonId, string> = {
-  customer: 'a customer',
-  seller: 'the bookseller who listed it',
-  owner: 'the owner',
-};
-
 /** Pick a person and an action on a listing and read the policy's answer in plain words. */
 export default function ExplainDemo() {
   const [person, setPerson] = useState<PersonId>('seller');
@@ -53,7 +47,7 @@ export default function ExplainDemo() {
             key: 'rule',
             lit: true,
             tone: decision.allowed ? undefined : ('deny' as const),
-            content: `//   rule: '${decision.rule}',`,
+            content: `//   rule: '${decision.rule}',${answer.ruleNeedsRow ? ' // needs the row' : ''}`,
           },
         ]
       : []),
@@ -105,7 +99,7 @@ export default function ExplainDemo() {
           <div className="authz-answer" data-tone={tone} aria-live="polite">
             <p className="authz-answer__headline">{answer.headline}</p>
             <p>
-              {WHO[person]} wants to {action} this listing. {answer.detail}
+              {answer.sentence} {answer.detail}
             </p>
             {answer.fetch.length > 0 && (
               <button

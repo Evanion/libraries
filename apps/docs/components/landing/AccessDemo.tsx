@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@evanion/baize-ui';
-import { useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import {
   buildAccess,
   controls,
@@ -36,6 +36,13 @@ const OPENING_NOTES: Note[] = [
   },
 ];
 
+/** What the demonstration is showing: who is signed in, the listing's status and the policy's grants. */
+export interface AccessState {
+  role: Role;
+  status: 'draft' | 'published';
+  grants: Grants;
+}
+
 /**
  * An interface that rebuilds itself from a policy, and the policy that did it.
  *
@@ -59,7 +66,15 @@ const OPENING_NOTES: Note[] = [
  * once, so what changed is the thing that moves. Nothing else on the page
  * animates, and under `prefers-reduced-motion` this does not either.
  */
-export default function AccessDemo() {
+export default function AccessDemo({
+  onChange,
+  plainLabels = false,
+}: {
+  /** Called with the signed-in role, the listing status and the policy's grants whenever one changes. */
+  onChange?: (state: AccessState) => void;
+  /** Names the controls that toggle ("Cancel review", "Finish editing") instead of the short "Cancel" and "Done". */
+  plainLabels?: boolean;
+} = {}) {
   const [role, setRole] = useState<Role>('bookseller');
   const [grants, setGrants] = useState<Grants>(openingGrants);
   const [status, setStatus] = useState<'draft' | 'published'>('draft');
@@ -69,6 +84,10 @@ export default function AccessDemo() {
   const [draft, setDraft] = useState('');
   const [notes, setNotes] = useState<Note[]>(OPENING_NOTES);
   const bodyId = useId();
+
+  useEffect(() => {
+    onChange?.({ role, status, grants });
+  }, [onChange, role, status, grants]);
 
   const access = useMemo(() => buildAccess(grants), [grants]);
   const person = people[role];
@@ -184,9 +203,13 @@ export default function AccessDemo() {
                     onClick={() => press(control.action)}
                   >
                     {control.action === 'edit' && editing
-                      ? 'Done'
+                      ? plainLabels
+                        ? 'Finish editing'
+                        : 'Done'
                       : control.action === 'review' && composing
-                        ? 'Cancel'
+                        ? plainLabels
+                          ? 'Cancel review'
+                          : 'Cancel'
                         : control.label(listing)}
                   </Button>
                 </span>

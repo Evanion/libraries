@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { CodeView } from '../primitives/CodeView';
 import { DemoLayout } from '../primitives/DemoLayout';
+import { Segmented } from './Segmented';
 import { changes, review, type ChangeId } from './diff';
 import './authorization.css';
 
@@ -43,20 +44,13 @@ export default function DiffDemo() {
     <DemoLayout
       controls={
         <div className="authz-demo">
-          <fieldset className="authz-changes">
-            <legend>Change one rule</legend>
-            {changes.map((change) => (
-              <label key={change.id} className="authz-changes__option">
-                <input
-                  type="radio"
-                  name="authz-change"
-                  checked={id === change.id}
-                  onChange={() => setId(change.id)}
-                />{' '}
-                {change.label}
-              </label>
-            ))}
-          </fieldset>
+          <Segmented
+            label="Change one rule"
+            value={id}
+            stack
+            options={changes}
+            onChange={setId}
+          />
           <div
             className="authz-answer"
             data-tone={report.unchanged ? 'wait' : 'yes'}
@@ -75,8 +69,15 @@ export default function DiffDemo() {
                   <li key={line.text} data-kind={line.kind}>
                     <span className="authz-findings__kind">
                       {KIND[line.kind]}
-                    </span>{' '}
-                    {line.text}
+                    </span>
+                    <span>
+                      <strong>{line.who}</strong>
+                      {line.text.slice(line.who.length)}
+                    </span>
+                    <code className="authz-findings__raw">
+                      {line.key}
+                      {line.cause ? ` · ${line.cause}` : ''}
+                    </code>
                   </li>
                 ))}
               </ul>

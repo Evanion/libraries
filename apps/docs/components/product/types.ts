@@ -6,7 +6,8 @@ export type DemoId =
   | 'no-flicker'
   | 'access'
   | 'acl-explain'
-  | 'acl-diff';
+  | 'acl-diff'
+  | 'access-api';
 
 export interface Link {
   label: string;
@@ -38,6 +39,18 @@ export interface SceneDefinition {
   howItWorks: Link;
   /** A second link into the docs, shown beside `howItWorks`. */
   more?: Link;
+  /** A tested code region shown under the prose, read at build time. */
+  sample?: { file: string; region: string };
+  /** Rows of the security register, shown as a table. A test holds each to `libs/acl/SECURITY.md`. */
+  entries?: RegisterEntry[];
+}
+
+/** One row of a published register: what the library is held against and how it answers. */
+export interface RegisterEntry {
+  id: string;
+  attack: string;
+  cwe: string;
+  handled: string;
 }
 
 export interface FaqEntry {
