@@ -72,7 +72,7 @@ describe.each(products.map((p) => [p.slug, p] as const))(
       const links = [
         ...page.hero.actions,
         ...page.scenes.map((s) => s.howItWorks),
-        page.codeSample.link,
+        ...(page.codeSample ? [page.codeSample.link] : []),
         ...page.closing.actions,
         ...page.facts.flatMap((f) => (f.link ? [f.link] : [])),
         ...(page.limits?.items ?? []).flatMap((i) => (i.link ? [i.link] : [])),
@@ -96,10 +96,20 @@ describe.each(products.map((p) => [p.slug, p] as const))(
         hrefs.filter((h) => h.startsWith('/docs/') && !resolves(h)),
       ).toEqual([]);
     });
-    it('shows a code sample from a tested region', () => {
-      expect(regionCode(page.codeSample.file, page.codeSample.region)).toMatch(
-        /\S/,
-      );
+    it('shows each code sample from a tested region', () => {
+      const samples = [
+        ...(page.codeSample ? [page.codeSample] : []),
+        ...page.scenes.flatMap((s) => (s.sample ? [s.sample] : [])),
+      ];
+      expect(samples.length).toBeGreaterThan(0);
+      for (const sample of samples)
+        expect(regionCode(sample.file, sample.region)).toMatch(/\S/);
+    });
+    it('gives a hero with per-framework installs only npm install commands', () => {
+      for (const entry of page.hero.installs ?? []) {
+        expect(entry.label.trim()).toBeTruthy();
+        expect(entry.command).toMatch(/^npm install /);
+      }
     });
   },
 );

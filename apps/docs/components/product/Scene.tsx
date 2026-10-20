@@ -30,9 +30,16 @@ export function Scene({
       </p>
       {scene.entries && <EntryTable entries={scene.entries} />}
       {code && (
-        <pre className="code-view">
-          <code>{code}</code>
-        </pre>
+        <>
+          {scene.sample?.install && (
+            <pre className="code-view">
+              <code>{scene.sample.install}</code>
+            </pre>
+          )}
+          <pre className="code-view">
+            <code>{code}</code>
+          </pre>
+        </>
       )}
       {scene.differs && (
         <aside className="product__differs">
@@ -46,7 +53,7 @@ export function Scene({
         <figure className="landing-proof">
           {demo}
           <figcaption className="landing-proof__caption">
-            {scene.demo.caption}
+            <InlineCode text={scene.demo.caption} />
           </figcaption>
         </figure>
       )}

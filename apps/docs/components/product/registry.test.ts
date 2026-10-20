@@ -37,7 +37,7 @@ describe('the rendering page links', () => {
   it('sends the core to the page and each renderer to its section', () => {
     expect(productHref('rendering', '@evanion/widget')).toBe('/rendering/');
     expect(productHref('rendering', '@evanion/react-widget')).toBe(
-      '/rendering/#react',
+      '/rendering/#typos',
     );
     expect(productHref('rendering', '@evanion/astro-widget')).toBe(
       '/rendering/#astro',

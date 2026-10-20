@@ -8,29 +8,35 @@ const page: ProductPage = {
   draft: false,
   docsLink: 'Read the docs',
   anchors: {
-    '@evanion/react-widget': 'react',
+    '@evanion/react-widget': 'typos',
     '@evanion/astro-widget': 'astro',
   },
   metadata: {
     title: 'Pages as data, checked before they ship',
-    description:
-      'Validate your page data before it ships and render it in React or Astro using a single item model.',
+    description: 'Validate and render pages stored as data in React and Astro.',
   },
   hero: {
     promise:
-      'Pages stored as data, checked before they ship. Rendered in React or Astro.',
-    line: 'Your CMS saves a list of items. The library checks the data for errors. React or Astro draws the page.',
-    sub: 'One item list renders in both React and Astro.',
+      'Pages stored as data, checked before they ship, and rendered in React or Astro.',
+    line: 'You get a page that is checked for errors before it goes live and drawn by whichever runtime your site uses.',
+    definition:
+      'A block is one part of a page containing its type, props, and optional child blocks, and the CMS saves a list of these blocks.',
+    demoLabel:
+      'The React renderer draws this page from the list of blocks below; move a block up or down and the page is composed again.',
     install: 'npm install @evanion/react-widget',
+    installs: [
+      { label: 'React', command: 'npm install @evanion/react-widget' },
+      { label: 'Astro', command: 'npm install @evanion/astro-widget' },
+    ],
     demo: 'data',
     actions: [
       {
-        label: 'Get started',
+        label: 'Get started with React',
         href: docsHref('react-widget/getting-started/'),
       },
       {
-        label: 'npm',
-        href: 'https://www.npmjs.com/package/@evanion/react-widget',
+        label: 'Get started with Astro',
+        href: docsHref('astro-widget/getting-started/'),
       },
       {
         label: 'GitHub',
@@ -40,142 +46,123 @@ const page: ProductPage = {
   },
   facts: [
     {
-      title: 'Bring your own CMS',
-      text: 'The library takes the list of items your CMS saves. No editor is included.',
+      title: 'Your own CMS',
+      text: 'You bring your own CMS or database to provide the list of blocks.',
     },
     {
-      title: 'One item list, two runtimes',
-      text: 'The same item array renders through the React package and the Astro package.',
+      title: 'Multi-runtime rendering',
+      text: 'One block list renders in both React and Astro.',
     },
     {
-      title: 'Zero-dependency core',
-      text: 'The core library has zero runtime and zero peer dependencies.',
+      title: 'No dependencies',
+      text: 'The core library has no dependencies to install or update.',
       link: { label: 'The core', href: docsHref('widget/') },
     },
     {
-      title: 'Server Component ready',
-      text: "The React package imports from a React Server Component without a `'use client'` boundary.",
+      title: 'Server component ready',
+      text: 'The React package works in React Server Components.',
     },
   ],
   scenes: [
     {
       id: 'validate',
       title: 'Catch a broken page before it ships',
-      lede: 'Stop bad data from reaching your users.',
-      why: 'The CMS saves a page. An editor renames a block type or leaves a required field empty. The page goes live with a gap nobody sees because production renderers skip the bad block silently.',
-      how: 'You call `validateItems`. It reports unknown types, blank required fields, and duplicate IDs against the named item. The function never throws.',
+      lede: 'You prevent layout failures by checking your data before it reaches the browser.',
+      why: 'An editor renames a block type or leaves a required field empty and the CMS saves it. The renderer skips what it cannot draw and renders the rest, printing one warning in development and staying silent in production. This gap is easy to miss.',
+      how: 'You call `validateItems` in a build script or webhook to find unknown types, blank required fields, or duplicate ids, with each problem naming the block. The function never throws. In Astro, you run this in a script before the build so any problem fails the build.',
       differs:
-        'A problem list naming each item. This runs in a script, a webhook, or CI.',
+        'You get a full list of every problem in your block tree in one pass.',
       demo: {
         id: 'widget-validate',
         caption:
-          'In Astro, this check runs before the build. A problem makes the script exit and the build fails.',
+          'The problem list shows what `validateItems` finds, and the page below it shows what the React renderer draws if the check is skipped.',
       },
       howItWorks: {
-        label: 'Learn about the Astro build gate',
+        label: 'Learn how to fail the Astro build on validation errors',
         href: docsHref('astro-widget/validation/'),
       },
     },
     {
       id: 'typos',
-      title: 'Typos caught in your editor',
-      lede: 'Use the type system to guard your props.',
-      why: 'A mistyped type or a wrong prop type in code only shows when the page renders.',
-      how: "The React package checks every item's props against the component. This includes nested children. A mistyped type is a compile error.",
+      title: 'Stop typos at compile time',
+      lede: 'You catch coding errors while you write your components.',
+      why: 'A mistyped block type or a wrong prop in the code breaks the page.',
+      how: 'The React package checks every block and child block against the component props at compile time.',
       differs:
-        'The editor underlines the mistake while the developer types. Data arriving from the CMS cannot be checked by the compiler, so the check on the saved page covers that side.',
+        'The editor underlines the mistake while you type, and the check on the saved page covers the data the compiler cannot see.',
+      sample: {
+        install: 'npm install @evanion/react-widget',
+        file: 'libs/react-widget/docs/examples.md',
+        region: 'react-landing',
+      },
       howItWorks: {
-        label: 'Guide to nesting items in React',
+        label: 'Read about defining blocks and nesting in React',
         href: docsHref('react-widget/nesting/'),
       },
     },
     {
       id: 'astro',
       title: 'Zero JavaScript for layout in Astro',
-      lede: 'Ship only the HTML your users need.',
-      why: 'The layout is decided on the server when Astro builds or serves the page.',
-      how: 'The browser receives HTML. The layout ships zero client-side JavaScript.',
+      lede: 'The server decides the arrangement of the page.',
+      why: 'The browser receives plain HTML for the page structure.',
+      how: 'The Astro package renders the block list to HTML on the server, and your own interactive components still ship their own code.',
       howItWorks: {
-        label: 'Astro order and nesting',
+        label: 'See how to manage block order and nesting in Astro',
         href: docsHref('astro-widget/layout/'),
-      },
-    },
-    {
-      id: 'fail-soft',
-      title: 'One broken block never takes the page down',
-      lede: 'Keep the rest of your page visible.',
-      why: 'A single unknown widget type should not crash the entire render.',
-      how: 'The renderers skip items they cannot draw. They render the rest of the page. A missing prop renders the block with that prop undefined, so `required` is the guard. A warning prints once in development. It is silent in production, which is why validation is the check before shipping.',
-      howItWorks: {
-        label: 'How bad saves render',
-        href: docsHref('astro-widget/bad-items/'),
       },
     },
   ],
   limits: {
-    title: 'Scope and Constraints',
+    title: 'Scope and boundaries',
     items: [
       {
         title: 'No editor',
-        text: 'You bring your own CMS or database.',
-        link: { label: 'Widget overview', href: docsHref('widget/') },
+        text: 'The library provides no editor; you bring your own CMS or database.',
+        link: { label: 'Read the core overview', href: docsHref('widget/') },
       },
       {
         title: 'Astro prop checking',
-        text: 'Astro components expose no prop types. Use `validateItems` with `required` for your checks.',
+        text: 'Astro has no compile-time prop checking, so you use `validateItems` with `required` to guard your data.',
         link: {
-          label: 'Astro build gate guide',
+          label: 'Setup the Astro build gate',
           href: docsHref('astro-widget/validation/'),
         },
       },
       {
         title: 'Meta validation',
-        text: 'The library does not validate `meta` at runtime.',
+        text: 'The library does not validate `meta` properties at runtime.',
         link: {
-          label: 'What validation reports',
+          label: 'See what the validator reports',
           href: docsHref('widget/problems/'),
         },
       },
     ],
   },
-  codeSample: {
-    id: 'react',
-    title: 'Type-safe React components',
-    lede: 'See how `defineItems` flags mistyped types and props in your editor.',
-    install: 'npm install @evanion/react-widget',
-    file: 'libs/react-widget/docs/examples.md',
-    region: 'react-landing',
-    link: {
-      label: 'React getting started',
-      href: docsHref('react-widget/getting-started/'),
-    },
-  },
   faq: [
     {
       q: 'What is this library?',
-      a: 'It is a system to render pages stored as item lists. It includes a core validator and renderers for React and Astro.',
+      a: 'It is a system to validate and render pages stored as a list of blocks. The core handles validation, the React package provides a React renderer, and the Astro package provides an Astro renderer.',
     },
     {
       q: 'Does it include a CMS editor?',
-      a: 'No. You provide the item list from your own CMS or database.',
+      a: 'No, you use your own CMS or database to save the blocks.',
     },
     {
       q: 'Where does validation run in Astro?',
-      a: 'You run `validateItems` in a script before the build. Any problem makes the script exit non-zero and stops the build.',
+      a: 'You run the check in a script before the build process; the script exits non-zero on any problem and stops the build.',
     },
     {
-      q: 'Can I use the same data for React and Astro?',
-      a: 'Yes. One item array renders in both the React and Astro packages.',
+      q: 'Do the same blocks render in React and Astro?',
+      a: 'Yes, the same block array renders through either package.',
     },
     {
-      q: 'What happens if a block is bad at render time?',
-      a: 'The renderer skips the bad item and draws the rest of the page. It prints one warning in development and stays silent in production.',
+      q: 'What happens when a block is bad at render time?',
+      a: 'The renderer skips the bad block and renders the rest of the page. It prints one warning in development and stays silent in production, which is why the check runs before shipping.',
     },
   ],
   closing: {
-    title:
-      'Pages stored as data, checked before they ship. Rendered in React or Astro.',
-    text: 'Store your pages as data in a CMS. Use a validator to catch errors before shipping. Render your items in React or Astro.',
+    title: 'Start building',
+    text: 'Choose your framework to begin. Use the guides to set up your first renderer.',
     actions: [
       {
         label: 'Get started with React',

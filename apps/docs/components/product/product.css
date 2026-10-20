@@ -275,3 +275,72 @@
   font-weight: 600;
   text-underline-offset: 4px;
 }
+
+.product__hero > .product__definition {
+  margin-top: 1rem;
+  padding-left: var(--baize-space-4);
+  border-left: 3px solid var(--baize-hue);
+  color: var(--baize-chalk);
+}
+
+.product__installs {
+  display: grid;
+  gap: var(--baize-space-2);
+  margin: 0 0 var(--baize-space-4);
+  max-width: 44rem;
+}
+
+.product__installs-row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--baize-space-3);
+}
+
+.product__installs dt {
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+.product__installs dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.product__installs .product__install {
+  margin: 0;
+}
+
+.product__hero > .product__demo-label {
+  margin-top: var(--baize-space-4);
+  color: var(--baize-chalk);
+  font-size: var(--baize-text-sm);
+}
+
+/* A snippet folds on a phone: a scrolling block gives no sign that it scrolls. */
+@media (max-width: 40rem) {
+  .product pre.code-view code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .product__installs-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--baize-space-1);
+  }
+}
+
+/*
+ * The listing's move controls on a touch screen: a 44px target. Scoped to the
+ * product page, so the frontpage's listing keeps its one-line rows.
+ */
+@media (pointer: coarse) {
+  .product .landing-items__handle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .product .landing-items__line {
+    grid-template-columns: 6rem minmax(0, 1fr);
+  }
+}

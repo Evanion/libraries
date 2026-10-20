@@ -38,11 +38,16 @@ export interface SceneDefinition {
   /** What the reader gets, shown in a callout; set only where there is something to call out. */
   differs?: string;
   demo?: { id: DemoId; caption: string };
+  /** A tested code region shown under the prose, read at build time, beside the claim it backs. */
+  sample?: {
+    /** The install command the snippet needs, shown above it. */
+    install?: string;
+    file: string;
+    region: string;
+  };
   howItWorks: Link;
   /** A second link into the docs, shown beside `howItWorks`. */
   more?: Link;
-  /** A tested code region shown under the prose, read at build time. */
-  sample?: { file: string; region: string };
   /** Rows of the security register, shown as a table. A test holds each to `libs/acl/SECURITY.md`. */
   entries?: RegisterEntry[];
 }
@@ -90,6 +95,12 @@ export interface ProductPage {
     sub?: string;
     /** The command shown beside the actions. */
     install: string;
+    /** One labelled command per framework; shown in place of `install` when set. */
+    installs?: { label: string; command: string }[];
+    /** One plain sentence defining the page's central term, shown under the supporting line. */
+    definition?: string;
+    /** What the hero demo shows and which runtime draws it, shown above the demo. */
+    demoLabel?: string;
     demo: DemoId;
     actions: Link[];
   };
@@ -98,7 +109,8 @@ export interface ProductPage {
   scenes: SceneDefinition[];
   /** What the library does not do, shown after the scenes. Set only when the page has at least two items. */
   limits?: { title: string; items: Fact[] };
-  codeSample: {
+  /** A section of its own for a snippet; omit it when a scene carries the sample. */
+  codeSample?: {
     /** The section's `id`, the target of an anchor. */
     id: string;
     title: string;
