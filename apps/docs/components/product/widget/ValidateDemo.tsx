@@ -2,7 +2,15 @@
 import { useState } from 'react';
 import { CodeView } from '../primitives/CodeView';
 import { DemoLayout } from '../primitives/DemoLayout';
-import { FAULTS, listing, problemsFor, summary, type Fault } from './validate';
+import { Blocks } from './rendered';
+import {
+  FAULTS,
+  listing,
+  page,
+  problemsFor,
+  summary,
+  type Fault,
+} from './validate';
 
 /** A CMS payload the reader breaks three ways; the problem list is the real `validateItems`. */
 export default function ValidateDemo() {
@@ -45,6 +53,16 @@ export default function ValidateDemo() {
                 </li>
               ))}
             </ul>
+          </div>
+          <div
+            className="validate-demo__page"
+            role="region"
+            aria-label="The page without the check"
+          >
+            <p className="validate-demo__page-label">
+              If you skip the check, the React renderer draws this:
+            </p>
+            <Blocks items={page(faults)} />
           </div>
         </div>
       }

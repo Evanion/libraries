@@ -4,9 +4,9 @@ import type { AnyWidgetItem, WidgetProblem } from '@evanion/react-widget';
 export type Fault = 'rename' | 'blank' | 'duplicate';
 
 export const FAULTS: { id: Fault; label: string }[] = [
-  { id: 'rename', label: 'Rename the shelf type' },
+  { id: 'rename', label: 'Rename the shelf block type' },
   { id: 'blank', label: 'Blank a listing title' },
-  { id: 'duplicate', label: 'Reuse an id' },
+  { id: 'duplicate', label: 'Give two blocks the same id' },
 ];
 
 /** The types the shop's renderer has a component for. */
@@ -24,7 +24,7 @@ export function page(faults: readonly Fault[]): AnyWidgetItem[] {
       props: { title: 'Brass: Birmingham' },
     },
     {
-      id: faults.includes('duplicate') ? 'brass' : 'tonight',
+      id: 'tonight',
       type: faults.includes('rename') ? 'featured-shelf' : 'shelf',
       props: { heading: 'On the table tonight' },
       children: [
@@ -34,6 +34,11 @@ export function page(faults: readonly Fault[]): AnyWidgetItem[] {
           props: { title: faults.includes('blank') ? '' : 'Wingspan' },
         },
       ],
+    },
+    {
+      id: faults.includes('duplicate') ? 'brass' : 'hive',
+      type: 'listing',
+      props: { title: 'Hive' },
     },
   ];
 }
@@ -45,8 +50,8 @@ export function problemsFor(faults: readonly Fault[]): WidgetProblem[] {
 
 /** The line a reader sees under the problem list. */
 export function summary(problems: readonly WidgetProblem[]): string {
-  if (problems.length === 0) return 'No problems. The build can go ahead.';
-  return `${problems.length} ${problems.length === 1 ? 'problem' : 'problems'}. The build stops.`;
+  if (problems.length === 0) return 'No problems.';
+  return `${problems.length} ${problems.length === 1 ? 'problem' : 'problems'}.`;
 }
 
 export interface PayloadLine {
@@ -69,8 +74,8 @@ export function listing(faults: readonly Fault[]): PayloadLine[] {
     },
     {
       key: 'shelf',
-      text: `  { id: '${reused ? 'brass' : 'tonight'}', type: '${renamed ? 'featured-shelf' : 'shelf'}', props: { heading: 'On the table tonight' },`,
-      lit: renamed || reused,
+      text: `  { id: 'tonight', type: '${renamed ? 'featured-shelf' : 'shelf'}', props: { heading: 'On the table tonight' },`,
+      lit: renamed,
     },
     { key: 'children', text: '    children: [', lit: false },
     {
@@ -79,6 +84,11 @@ export function listing(faults: readonly Fault[]): PayloadLine[] {
       lit: blanked,
     },
     { key: 'children-close', text: '    ] },', lit: false },
+    {
+      key: 'hive',
+      text: `  { id: '${reused ? 'brass' : 'hive'}', type: 'listing', props: { title: 'Hive' } },`,
+      lit: reused,
+    },
     { key: 'close', text: ']', lit: false },
   ];
 }

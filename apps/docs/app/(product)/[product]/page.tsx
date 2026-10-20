@@ -26,7 +26,9 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function Page({ params }: Props) {
   const page = productBySlug((await params).product);
-  const code = regionCode(page.codeSample.file, page.codeSample.region);
+  const code = page.codeSample
+    ? regionCode(page.codeSample.file, page.codeSample.region)
+    : undefined;
   const samples = Object.fromEntries(
     page.scenes.flatMap((s) =>
       s.sample ? [[s.id, regionCode(s.sample.file, s.sample.region)]] : [],

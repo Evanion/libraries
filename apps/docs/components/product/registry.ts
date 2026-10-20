@@ -28,7 +28,10 @@ export function productForGroup(group: string): ProductPage | undefined {
 
 /** The ids of the sections a page renders, which an anchor may name. */
 export function sectionIds(page: ProductPage): string[] {
-  return [...page.scenes.map((s) => s.id), page.codeSample.id];
+  return [
+    ...page.scenes.map((s) => s.id),
+    ...(page.codeSample ? [page.codeSample.id] : []),
+  ];
 }
 
 /**

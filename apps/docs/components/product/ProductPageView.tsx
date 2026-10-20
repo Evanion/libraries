@@ -19,7 +19,8 @@ export function ProductPageView({
   samples = {},
 }: {
   page: ProductPage;
-  code: string;
+  /** The page's own code section, read at build time. */
+  code?: string;
   /** Each scene's `sample` region by scene id, read at build time. */
   samples?: Record<string, string>;
 }) {
@@ -43,7 +44,9 @@ export function ProductPageView({
         );
       })}
       {page.limits && <Limits limits={page.limits} />}
-      <CodeSample sample={page.codeSample} code={code} />
+      {page.codeSample && code !== undefined && (
+        <CodeSample sample={page.codeSample} code={code} />
+      )}
       <Faq faq={page.faq} />
       <Closing closing={page.closing} />
     </main>

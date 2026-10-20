@@ -493,3 +493,31 @@
   color: var(--baize-lichen);
   overflow-wrap: anywhere;
 }
+
+.validate-demo__page {
+  align-self: stretch;
+  padding: var(--baize-space-3) var(--baize-space-4);
+  border: 1px dashed var(--baize-rule);
+  border-radius: var(--baize-radius-card);
+  overflow-wrap: anywhere;
+}
+
+.validate-demo__page .validate-demo__page-label {
+  margin: 0 0 var(--baize-space-2);
+  color: var(--baize-lichen);
+  font-size: var(--baize-text-sm);
+}
+
+.validate-demo__page h3,
+.validate-demo__page h4 {
+  min-height: 1.2em;
+  margin: 0 0 var(--baize-space-1);
+  font-family: var(--baize-font-text);
+  font-size: var(--baize-text-sm);
+  font-weight: 600;
+}
+
+.validate-demo__page section {
+  padding-left: var(--baize-space-3);
+  border-left: 2px solid var(--baize-rule);
+}
