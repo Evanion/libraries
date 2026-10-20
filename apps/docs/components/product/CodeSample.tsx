@@ -6,7 +6,7 @@ export function CodeSample({
   sample,
   code,
 }: {
-  sample: ProductPage['codeSample'];
+  sample: NonNullable<ProductPage['codeSample']>;
   code: string;
 }) {
   return (
