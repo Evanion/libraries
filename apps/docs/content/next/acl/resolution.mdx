@@ -117,17 +117,11 @@ type argument to `policy` names `place` as the order's action:
 
 ```
 
-## Why acl declines last-declaration-wins
+## Why rule order never changes a decision
 
-CASL lets the last matching declaration decide. It scans an ability's rules from
-the last declared to the first and returns the first rule whose conditions
-match, whether `can` or `cannot`. CASL's guide names the hazard: "the order of
-rules matters: `cannot` declarations should follow after `can`, otherwise they
-will be overridden by `can`".
+Some engines treat rule order as part of the policy by letting the last matching declaration decide. In that approach, the engine scans rules from the last declared to the first and returns the first matching rule, whether it allows or forbids.
 
-A [matrix](../matrix) is the frozen JSON document one service publishes and
-[another service adopts](../adopting). Three things break there under
-order-dependence:
+A [matrix](../matrix) is the frozen JSON document one service publishes and [another service adopts](../adopting). Three things break there under order-dependence:
 
 - Identical rules in a different order decide differently, so a publishing
   service that reorders its own output changes what a consumer grants.
@@ -141,12 +135,12 @@ order-dependence:
 or `denyRules`. Rule order changes two fields: `rule` names the earliest rule
 that settled its side, and `missing` lists paths in the order the rules read them.
 
-## How acl's deny-overrides compares with four other engines
+## How deny-overrides compares with other rule-combining approaches
 
 `@evanion/acl` runs deny-overrides and exposes no setting for it. CASL, the
 eXtensible Access Control Markup Language (XACML) 3.0, AWS Identity and Access
-Management (IAM) and Casbin combine rules as follows, and three of them let a
-caller change the choice:
+Management (IAM) and Casbin combine rules in other ways, and three of them let a
+caller change the choice. The table is a reference for porting rules:
 
 | Engine    | How it combines                                        | Where that choice lives                       | What it answers                            |
 | --------- | ------------------------------------------------------ | --------------------------------------------- | ------------------------------------------ |
@@ -179,11 +173,12 @@ down:
 `unevaluable` is the third answer `@evanion/acl` gives: `allowed` is `false`,
 and `missing` names the object paths the engine could not read, so a caller can
 fetch them and ask again. Step 4 (the deny side is unevaluable) and step 7 (the
-allow side is unevaluable) produce it. CASL, IAM and Casbin each answer a
-boolean and have no such state.
+allow side is unevaluable) produce it. Where a boolean answer would hide
+the difference between "no" and "not enough data to say", acl returns this third
+answer and names the paths to fetch.
 
-XACML is the exception. Its decision values are Permit, Deny, NotApplicable and
-Indeterminate, and its extended `Indeterminate{D}`, `{P}` and `{DP}` variants
+XACML's Indeterminate is the closest standard concept. Its decision values are
+Permit, Deny, NotApplicable and Indeterminate, and its extended `Indeterminate{D}`, `{P}` and `{DP}` variants
 travel through the combining algorithms. § 7.3.5 says that where a required
 attribute is not found "the result is Indeterminate, and a MissingAttributeDetail
 element SHOULD be included in the Status".
