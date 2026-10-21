@@ -452,6 +452,12 @@
   cursor: default;
 }
 
+/* The touch controls, shown in place of the arrows on a coarse pointer. */
+.landing-items__grip,
+.landing-items__movebar {
+  display: none;
+}
+
 /*
  * Rendering from data: the title and line on the left, the family teasers on
  * the right. The heading and the text share a column, so the text sits
@@ -1530,6 +1536,73 @@ textarea.landing-access__field {
 
   .landing-items__handle {
     padding: 0 var(--baize-space-1);
+  }
+}
+
+/*
+ * On a touch screen each line gets one grip in a 44px column, the height of
+ * its row and 24px at least: the code keeps the width two arrow columns would
+ * take, and no two targets overlap. The grip drags, or a tap selects the item
+ * for the 44px buttons in the bar under the listing.
+ */
+@media (pointer: coarse) {
+  .landing-items__handle {
+    display: none;
+  }
+
+  .landing-items__line {
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .landing-items__grip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    min-height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--baize-radius-button);
+    background: none;
+    color: var(--baize-lichen);
+    fill: currentColor;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .landing-items__grip[aria-pressed='true'] {
+    color: var(--baize-hue);
+  }
+
+  .landing-items__movebar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--baize-space-2);
+    margin-top: var(--baize-space-2);
+  }
+
+  .landing-items__moving {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--baize-chalk);
+  }
+
+  .landing-items__step {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0 var(--baize-space-3);
+    border: 1px solid var(--baize-rule);
+    border-radius: var(--baize-radius-button);
+    background: none;
+    color: var(--baize-hue);
+    font: inherit;
+  }
+
+  .landing-items__step[aria-disabled] {
+    color: color-mix(in oklab, var(--baize-moss) 40%, transparent);
   }
 }
 

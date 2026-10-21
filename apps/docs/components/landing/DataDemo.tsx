@@ -1,8 +1,9 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { JsonHighlight } from '../JsonHighlight';
 import { Widgets } from './counter';
+import { Grip, MoveBar, pathKey, useReorder, type Step } from './reorder';
 import { moved, openingNodes, rows, within, type Node } from './tree';
 
 type Items = Parameters<typeof Widgets>[0]['items'];
@@ -47,7 +48,7 @@ function Handle({ label, glyph, spent, onMove, onAim }: HandleProps) {
  *
  * The page comes first and takes the full width, because the claim is that this
  * is a page and not a diagram of one. Under it are the items it was built from,
- * short enough to read without scrolling, with a pair of controls in the gutter
+ * short enough to read without scrolling, with move controls in the gutter
  * of every line that starts an item.
  *
  * Moving is the whole gesture and it is the right one: a layout is an order and
@@ -67,10 +68,23 @@ export default function DataDemo() {
   const [aimed, setAimed] = useState<number[] | null>(null);
   const labelId = useId();
 
-  function move(path: number[], delta: number, name: string) {
-    setNodes(moved(nodes, path, delta));
-    setNotice(`${name} moved ${delta < 0 ? 'up' : 'down'}.`);
+  const listed = rows(nodes);
+  const nameAt = (path: readonly number[]) =>
+    listed.find((row) => row.item && pathKey(row.item.path) === pathKey(path))
+      ?.item;
+
+  function move(path: number[], delta: Step): boolean {
+    const next = moved(nodes, path, delta);
+    if (next === nodes) return false;
+    setNodes(next);
+    setNotice(`${nameAt(path)?.name} moved ${delta < 0 ? 'up' : 'down'}.`);
+    return true;
   }
+
+  const source = useRef<HTMLPreElement>(null);
+  const reorder = useReorder(source, move);
+  const lit = reorder.active ?? aimed;
+  const chosen = reorder.selected && nameAt(reorder.selected);
 
   return (
     <div className="landing-counter">
@@ -92,29 +106,39 @@ export default function DataDemo() {
             Move one and the page is composed again
           </span>
         </p>
-        <pre className="landing-items__source" aria-labelledby={labelId}>
+        <pre
+          ref={source}
+          className="landing-items__source"
+          aria-labelledby={labelId}
+          {...reorder.sourceProps}
+        >
           <code>
-            {rows(nodes).map((row) => (
+            {listed.map((row) => (
               <span
                 key={row.key}
                 className="landing-items__line"
-                data-aimed={aimed && within(aimed, row.path) ? '' : undefined}
+                data-path={row.path ? pathKey(row.path) : undefined}
+                data-aimed={lit && within(lit, row.path) ? '' : undefined}
               >
                 <span className="landing-items__gutter">
                   {row.item ? (
                     <>
+                      <Grip
+                        label={`Move ${row.item.name}`}
+                        {...reorder.grip(row.item.path)}
+                      />
                       <Handle
                         label={`Move ${row.item.name} up`}
                         glyph="↑"
                         spent={row.item.first}
-                        onMove={() => move(row.item!.path, -1, row.item!.name)}
+                        onMove={() => move(row.item!.path, -1)}
                         onAim={(on) => setAimed(on ? row.item!.path : null)}
                       />
                       <Handle
                         label={`Move ${row.item.name} down`}
                         glyph="↓"
                         spent={row.item.last}
-                        onMove={() => move(row.item!.path, 1, row.item!.name)}
+                        onMove={() => move(row.item!.path, 1)}
                         onAim={(on) => setAimed(on ? row.item!.path : null)}
                       />
                     </>
@@ -127,6 +151,16 @@ export default function DataDemo() {
             ))}
           </code>
         </pre>
+        {chosen ? (
+          <MoveBar
+            name={chosen.name}
+            labels={[`Move ${chosen.name} up`, `Move ${chosen.name} down`]}
+            glyphs={['↑', '↓']}
+            spent={[chosen.first, chosen.last]}
+            onStep={reorder.step}
+            onDone={reorder.done}
+          />
+        ) : null}
       </div>
 
       <output className="baize-visually-hidden" aria-live="polite">
