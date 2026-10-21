@@ -329,18 +329,3 @@
     gap: var(--baize-space-1);
   }
 }
-
-/*
- * The listing's move controls on a touch screen: a 44px target. Scoped to the
- * product page, so the frontpage's listing keeps its one-line rows.
- */
-@media (pointer: coarse) {
-  .product .landing-items__handle {
-    min-width: 44px;
-    min-height: 44px;
-  }
-
-  .product .landing-items__line {
-    grid-template-columns: 6rem minmax(0, 1fr);
-  }
-}

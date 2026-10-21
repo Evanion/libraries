@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, type PropsWithChildren } from 'react';
+import { useRef, useState, type PropsWithChildren } from 'react';
 import { ComposeProvider } from '@evanion/compose';
+import { Grip, MoveBar, useReorder, type Step } from './reorder';
 
 /**
  * One layer of the shop's provider stack, as a labelled box.
@@ -83,18 +84,24 @@ function Handle({ label, glyph, spent, onMove }: HandleProps) {
 export default function ComposeSpecimen() {
   const [order, setOrder] = useState<readonly number[]>([0, 1, 2]);
 
-  function move(at: number, by: number) {
+  function move(at: number, by: number): boolean {
+    if (at + by < 0 || at + by >= order.length) return false;
     setOrder((current) => {
       const next = [...current];
       const [entry] = next.splice(at, 1);
       next.splice(at + by, 0, entry as number);
       return next;
     });
+    return true;
   }
 
+  const source = useRef<HTMLPreElement>(null);
+  const reorder = useReorder(source, ([at], step: Step) => move(at ?? 0, step));
   const stack = order
     .map((index) => LAYERS[index])
     .filter((entry) => entry !== undefined);
+  const chosen = reorder.selected?.[0];
+  const chosenName = chosen === undefined ? undefined : stack[chosen]?.name;
 
   return (
     <div className="landing-specimen landing-compose">
@@ -112,15 +119,22 @@ export default function ComposeSpecimen() {
           </span>
         </p>
 
-        <pre className="landing-items__source">
+        <pre
+          ref={source}
+          className="landing-items__source"
+          {...reorder.sourceProps}
+        >
           <code>
             <span className="landing-compose__line">{'providers={['}</span>
             {stack.map((entry, at) => (
               <span
                 key={entry.name}
                 className="landing-items__line landing-compose__line"
+                data-path={at}
+                data-aimed={reorder.active?.[0] === at ? '' : undefined}
               >
                 <span className="landing-items__gutter">
+                  <Grip label={`Move ${entry.name}`} {...reorder.grip([at])} />
                   <Handle
                     label={`Move ${entry.name} outward`}
                     glyph="▲"
@@ -146,6 +160,16 @@ export default function ComposeSpecimen() {
             <span className="landing-compose__line">{']}'}</span>
           </code>
         </pre>
+        {chosen !== undefined && chosenName ? (
+          <MoveBar
+            name={chosenName}
+            labels={[`Move ${chosenName} outward`, `Move ${chosenName} inward`]}
+            glyphs={['▲', '▼']}
+            spent={[chosen === 0, chosen === stack.length - 1]}
+            onStep={reorder.step}
+            onDone={reorder.done}
+          />
+        ) : null}
       </div>
     </div>
   );
