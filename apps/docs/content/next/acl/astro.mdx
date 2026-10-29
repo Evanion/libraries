@@ -74,7 +74,7 @@ The `policyAccess` evaluator caches the document and only refreshes it when the 
 
 ## Sanitizing Roles at the App Boundary
 
-The storefront acts as a bridge between the user and the `shop-api`. While the API trusts the subject it is given, the storefront is the last point where the application can verify which roles it is asserting on behalf of the user.
+The storefront acts as a bridge between the user and the `shop-api`. While the API [trusts the subject it is given](../service-callers), the storefront is the last point where the application can verify which roles it is asserting on behalf of the user.
 
 To prevent a user from manually editing their cookie to claim a `manager` role, the `parseSubject` function screens the subject, discarding any roles not included in `STOREFRONT_ROLES`. If an invalid role is claimed, the subject is downgraded to an anonymous shopper.
 

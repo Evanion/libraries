@@ -133,6 +133,7 @@ export default {
   refusals: 'Why was this refused?',
   adopting: 'How do I use rules another service published?',
   publishing: 'How do I give my rules to another service?',
+  'service-callers': 'Service callers and delegation',
   errors: 'What can throw?',
   'rule-changes': 'What did editing my rules change about access?',
   testing: 'How do I test a contract I consume?',
