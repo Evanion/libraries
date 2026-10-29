@@ -129,6 +129,7 @@ export default {
   asking: 'Can this user do this?',
   'listing-permissions': 'What may this user do at all?',
   writing: 'Which fields may they write?',
+  filtering: 'Filtering what a user sees',
   refusals: 'Why was this refused?',
   adopting: 'How do I use rules another service published?',
   publishing: 'How do I give my rules to another service?',

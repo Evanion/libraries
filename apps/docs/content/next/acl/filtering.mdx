@@ -1,0 +1,86 @@
+# Filtering what a user sees
+
+`@evanion/acl` filters the rows an endpoint returns with `canMany`, and strips each surviving row's denied fields with `canFields` and `pickAllowedFields`.
+
+<PageSheet
+  difficulty={5}
+  read={8}
+  hands={15}
+  requires={[
+    ['Can this user do this?', '../asking'],
+    ['Field Permissions', '../fields'],
+  ]}
+  unlocks={[['Caveats and pitfalls', '../pitfalls']]}
+/>
+
+## Filtering a list endpoint with @evanion/acl
+
+To protect a list endpoint like `GET /orders`, you must decide which rows a customer may read and which fields within those rows are visible. You perform this by using `canMany` to filter the rows and `canFields` combined with `pickAllowedFields` to strip the denied fields.
+
+To ensure consistency across these steps, you use `access.authorize(subject)` to bind the subject and a single instant to a handle. Because both the row filter and the field strip use that same instant, a rule relying on `p.before` or `p.after` cannot flip its decision between the two operations.
+
+```ts twoslash file=libs/acl/docs/examples.md region=filter-list
+
+```
+
+In this example, order `o2` belongs to another customer; its decision is `no-rule-matched`, so the filter drops it. Because `internalNote` is `denied` on the read axis, `pickAllowedFields` excludes it from `o1` and `o3`. The resulting response contains only the rows and fields allowed by the rules.
+
+The `pickAllowedFields` function throws `ActionNotAllowedError` if the action itself is refused. Since the row filter runs first, the strip only processes rows where `read` is already allowed. If `canMany` marks a row as `unevaluable`, it is treated as `allowed: false` and dropped. If your list query selected only some columns, [Can this user do this?](../asking#asking-acl-when-your-query-selected-half-the-row) explains the second fetch required by `missing`.
+
+For an example of a filter that incorrectly implements the field step by passing a projection, see [Caveats and pitfalls](../pitfalls).
+
+## Nested objects in @evanion/acl field rules
+
+To manage visibility of specific keys, `canFields` evaluates top-level keys derived from `Object.keys` of the row. This means `address` is treated as a single field, while `address.street` is not recognized as a field. Consequently, a list like `['*', '!address.street']` is accepted during construction but excludes nothing, as the row possesses no key literally named `address.street`.
+
+The first half of the example below demonstrates this behavior: since `address` is `allowed`, `pickAllowedFields` returns the entire nested object, including the street.
+
+```ts twoslash file=libs/acl/docs/examples.md region=nested-fields
+
+```
+
+Conditions share this limit; a path reads one field of a scope. As shown in [What can throw?](../errors), a path like `object.address.city` will cause the policy to be refused during build.
+
+To hide a specific part of a nested object, you must decide its visibility separately. Assign the nested shape its own object kind with its own field rules, then call `canFields` on the nested value after the parent has been picked. The row-level gate remains on the parent kind, allowing the nested kind to permit `read` unconditionally.
+
+Because `@evanion/acl` does not automatically walk into values, a response with three nested objects requires three additional `canFields` calls per row. To reduce this overhead, you can flatten sensitive nested data into its own top-level field on the row.
+
+## Paging a filtered list with @evanion/acl
+
+Because `@evanion/acl` decides on rows after they are fetched rather than producing a database filter, a query with `LIMIT 20` may return fewer than 20 rows if some are filtered out. This can leave the client with a short page and no indication that more readable rows exist further down the table.
+
+You can handle this using one of two strategies.
+
+### Over-fetch and refill
+
+To ensure a full page, fetch a batch, filter it with `canMany`, and continue fetching until the page is full or the table is exhausted. In this scenario, the cursor returned to the client is the position after the last row examined, rather than a page number.
+
+```ts twoslash file=libs/acl/docs/examples.md region=refill-page
+
+```
+
+When asked for two rows, `c1` retrieves one readable row from the first batch (`o1` and `o2`), none from the second, and the second readable row from the third. The returned `next` value is `5` (the position after `o5`), so the subsequent call resumes there to return `o6`.
+
+This approach increases the number of queries and can result in unbounded work for subjects who can read very few rows. To prevent this, cap the number of rounds or total rows examined and return the current results with the cursor.
+
+### Put the coarse part of the rule in the query
+
+To optimize performance, identify the coarse part of your read rules that the database can express—such as `owner` or `tenant`—and include it in the query. You then let `@evanion/acl` handle the fine-grained state-dependent decisions. This keeps the page mostly full because the database has already removed the majority of ineligible rows.
+
+```ts twoslash file=libs/acl/docs/examples.md region=coarse-query
+
+```
+
+Here, the query restricts `customer_id` to the subject, while `@evanion/acl` applies the deny rule on `status`, dropping `o3` from the page. If the remaining fine rules still leave the page too short, you can pair this method with the refill loop.
+
+The query acts as a performance filter; `@evanion/acl` still decides every row. A query that is too broad leaks nothing, while one that is too narrow may hide rows the rules would have allowed. Ensure the query's condition stays in step with the rule, for instance by testing both against the same fixtures.
+
+### When the decision does not depend on the row
+
+To avoid unnecessary filtering, use `access.readsObject(kind, action)` to determine if a permission actually reads the row. If it returns `false`, the decision is identical for every row. A single `can` call without an object decides the entire page, meaning the page is either fully returned or entirely refused without running a filter.
+
+```ts twoslash file=libs/acl/docs/examples.md region=page-without-row
+
+```
+
+Perform this check once and then page normally. For more on `readsObject`, see [Can this user do this?](../asking#skipping-the-fetch-an-acl-permission-does-not-need).

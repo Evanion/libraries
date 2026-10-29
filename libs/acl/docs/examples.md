@@ -1538,6 +1538,196 @@ pickAllowedFields(view, question); // -> { askedBy: 'customer-41', body: 'Is Win
 
 <!-- #endregion read-axis -->
 
+### Filtering a list
+
+<!-- #region filter-list -->
+
+```ts @import.meta.vitest
+import { pickAllowedFields, policy } from '@evanion/acl';
+
+type Shopper = { id: string; roles: string[] };
+type Order = {
+  id: string;
+  customerId: string;
+  total: number;
+  internalNote: string;
+};
+
+const access = policy<Shopper, { order: Order }>()
+  .for('order', (p) =>
+    p
+      .allow('read', p.eq('object.customerId', 'subject.id'))
+      .fields(['*', '!internalNote']),
+  )
+  .build();
+
+const rows: Order[] = [
+  { id: 'o1', customerId: 'c1', total: 40, internalNote: 'gift wrap' },
+  { id: 'o2', customerId: 'c2', total: 15, internalNote: 'late payer' },
+  { id: 'o3', customerId: 'c1', total: 22, internalNote: 'repeat buyer' },
+];
+
+// One handle holds the subject and one instant for the whole response.
+const forCustomer = access.authorize({ id: 'c1', roles: [] });
+const decisions = forCustomer.canMany('order', 'read', rows);
+
+const response = rows
+  .filter((_, i) => decisions[i]?.allowed)
+  .map((row) =>
+    pickAllowedFields(forCustomer.canFields('order', 'read', row, 'read'), row),
+  );
+
+response; // -> [{ id: 'o1', customerId: 'c1', total: 40 }, { id: 'o3', customerId: 'c1', total: 22 }]
+```
+
+<!-- #endregion filter-list -->
+
+### Nested objects
+
+<!-- #region nested-fields -->
+
+```ts @import.meta.vitest
+import { pickAllowedFields, policy } from '@evanion/acl';
+
+type Address = { city: string; street: string };
+type Order = { id: string; address: Address };
+
+const access = policy<{ id: string }, { order: Order; address: Address }>()
+  .for('order', (p) =>
+    p.allow('read', p.always).fields(['*', '!address.street']),
+  )
+  .for('address', (p) => p.allow('read', p.always).fields(['*', '!street']))
+  .build();
+
+const customer = { id: 'c1' };
+const order: Order = {
+  id: 'o1',
+  address: { city: 'Malmo', street: 'Storgatan 1' },
+};
+
+const top = access.canFields(customer, 'order', 'read', order, 'read');
+Object.keys(top.fields); // -> ['id', 'address']
+top.fields['address']; // -> 'allowed'
+pickAllowedFields(top, order).address?.street; // -> 'Storgatan 1'
+
+// The application decides the nested object with its own kind.
+const nested = pickAllowedFields(top, order).address ?? {
+  city: '',
+  street: '',
+};
+const address = access.canFields(customer, 'address', 'read', nested, 'read');
+pickAllowedFields(address, nested); // -> { city: 'Malmo' }
+```
+
+<!-- #endregion nested-fields -->
+
+### Paging a filtered list
+
+<!-- #region refill-page -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Order = { id: string; customerId: string };
+
+const access = policy<{ id: string }, { order: Order }>()
+  .for('order', (p) => p.allow('read', p.eq('object.customerId', 'subject.id')))
+  .build();
+
+const table: Order[] = [
+  { id: 'o1', customerId: 'c2' },
+  { id: 'o2', customerId: 'c1' },
+  { id: 'o3', customerId: 'c2' },
+  { id: 'o4', customerId: 'c2' },
+  { id: 'o5', customerId: 'c1' },
+  { id: 'o6', customerId: 'c1' },
+  { id: 'o7', customerId: 'c2' },
+];
+
+// Stands in for `SELECT ... ORDER BY id LIMIT :limit OFFSET :cursor`.
+const fetchRows = (cursor: number, limit: number): Order[] =>
+  table.slice(cursor, cursor + limit);
+
+function readablePage(subject: { id: string }, cursor: number, want: number) {
+  const forSubject = access.authorize(subject);
+  const page: Order[] = [];
+  let next = cursor;
+  while (page.length < want) {
+    const batch = fetchRows(next, want);
+    if (batch.length === 0) break;
+    const decisions = forSubject.canMany('order', 'read', batch);
+    for (const [i, row] of batch.entries()) {
+      if (page.length === want) break;
+      next += 1;
+      if (decisions[i]?.allowed) page.push(row);
+    }
+  }
+  return { page, next };
+}
+
+// Batches of two: o1 and o2 hold one readable row, o3 and o4 none, o5 and o6 one.
+const first = readablePage({ id: 'c1' }, 0, 2);
+first.page.map((row) => row.id); // -> ['o2', 'o5']
+first.next; // -> 5
+readablePage({ id: 'c1' }, first.next, 2).page.map((row) => row.id); // -> ['o6']
+```
+
+<!-- #endregion refill-page -->
+
+<!-- #region coarse-query -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Order = { id: string; customerId: string; status: string };
+
+const access = policy<{ id: string; roles: string[] }, { order: Order }>()
+  .for('order', (p) =>
+    p
+      .allow('read', p.eq('object.customerId', 'subject.id'))
+      .deny('read', p.eq('object.status', 'withdrawn')),
+  )
+  .build();
+
+const table: Order[] = [
+  { id: 'o1', customerId: 'c2', status: 'paid' },
+  { id: 'o2', customerId: 'c1', status: 'paid' },
+  { id: 'o3', customerId: 'c1', status: 'withdrawn' },
+  { id: 'o4', customerId: 'c1', status: 'paid' },
+];
+
+// Stands in for `WHERE customer_id = :customerId ORDER BY id LIMIT :limit`.
+const fetchOwn = (customerId: string, limit: number): Order[] =>
+  table.filter((row) => row.customerId === customerId).slice(0, limit);
+
+const subject = { id: 'c1', roles: [] };
+const rows = fetchOwn(subject.id, 2);
+const decisions = access.canMany(subject, 'order', 'read', rows);
+rows.filter((_, i) => decisions[i]?.allowed).map((row) => row.id); // -> ['o2']
+```
+
+<!-- #endregion coarse-query -->
+
+<!-- #region page-without-row -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Order = { id: string };
+
+const access = policy<{ id: string; roles: string[] }, { order: Order }>()
+  .for('order', (p) =>
+    p.allow('read', p.contains('subject.roles', 'bookseller')),
+  )
+  .build();
+
+access.readsObject('order', 'read'); // -> false
+access.can({ id: 'b1', roles: ['bookseller'] }, 'order', 'read').allowed; // -> true
+access.can({ id: 'c1', roles: [] }, 'order', 'read').allowed; // -> false
+```
+
+<!-- #endregion page-without-row -->
+
 ## Foreign matrix
 
 <!-- #region foreign-matrix -->
