@@ -1,0 +1,76 @@
+# Service callers and delegation
+
+`@evanion/acl` authorizes a service the same way it authorizes a user: you build a subject, and `can` decides on it. What changes is what the subject describes and where you get it from.
+
+<PageSheet
+  difficulty={6}
+  read={9}
+  hands={15}
+  requires={[
+    ['Rules about who the user is', '../subject-rules'],
+    ['Can this user do this?', '../asking'],
+  ]}
+  unlocks={[['The Security Contract', '../security']]}
+/>
+
+## Authorizing a service with @evanion/acl
+
+To authorize a non-human caller, you define a subject that describes the service's identity and permissions. For example, a reporting service in the Baize shop reads orders to build a nightly export; it has no user and no session. In this case, the subject is the service itself, using a `kind` to distinguish it from a user and `scopes` to define its granted permissions.
+
+```ts twoslash file=libs/acl/docs/examples.md region=service-caller
+
+```
+
+The rule reads two paths on the subject. `subject.kind` must be `service`, and `subject.scopes` must contain `orders:read`. `reporting` passes both. `newsletter` is a service with no scopes, so nothing grants it. `customer` is a user whose record carries the same scope string, and the `kind` condition keeps that from granting. Without the `kind` condition, any subject that happened to carry the string would pass.
+
+`scopes` is a field of the subject like `roles`. `@evanion/acl` compares it and nothing else. Which scopes a service holds is your decision, and it has to come from a record the receiving service keeps or a credential it verified.
+
+## Acting on behalf of a user with @evanion/acl
+
+When a service acts as a proxy for a user, you must authorize both the identity of the user (the subject) and the identity of the service making the call. Consider a support agent who refunds an order from the support console: the console calls the order service. Two parties are in the call: the agent, who has the right to refund, and the console, which is the only place that right may be exercised.
+
+To handle this, the subject remains the agent, but the console is added as an attribute—`via`—and the rule requires both.
+
+```ts twoslash file=libs/acl/docs/examples.md region=on-behalf-of
+
+```
+
+Only `viaConsole` is allowed. The same agent through the storefront is refused, and so is the same agent with no `via` at all, because a subject path that is absent fails its condition. A customer coming through the console is refused for lack of the role.
+
+The subject stays the user so that the rules, the audit trail and the `customerId` comparisons keep reading one identity. The service is a second fact about the call, and a rule can require it or ignore it.
+
+## Where the subject comes from
+
+Because `can(subject, ...)` authorizes the object it is handed and has no way to ask where it came from, it is vulnerable to forged subjects. This is [SEC-201](../attacks), a tier 3 entry in `libs/acl/SECURITY.md`: the engine authorizes a forged subject exactly as it would a real one.
+
+To maintain security, you must resolve the subject from a verified session or a verified token, server-side, before it reaches `can`. The security contract lists what not to derive it from: a header, a query parameter, an unverified token body, or a field the client posted.
+
+For a service endpoint, the receiving service builds the subject from credentials it verifies itself, such as a JWT it validates against the issuer's keys. `SECURITY.md` names sessions and tokens. A client certificate that your TLS layer verified is the same kind of input, and the register does not mention it.
+
+- `kind` and `id` come from the verified credential: the token's subject, or the certificate's identity.
+- `scopes` come from the receiving service's own table, or from a claim in a token it validated.
+- `via` comes from the verified actor of the call, such as the `act` claim of an exchanged token. It never comes from a field the calling service puts in the request body or a header.
+
+A caller-supplied user id is trusted through such a token and nowhere else. If the console sends `X-User-Id: b7` beside its own certificate, the receiving service has verified the console and has verified nothing about `b7`. Building `{ kind: 'user', id: 'b7' }` from that header gives the console whatever `b7` may do, and the console can name any user. The fix is a token that carries `b7`, issued for the console and validated by the receiving service.
+
+Build the subject as a plain object. [SEC-208](../attacks) asks for plain, resolved subjects and objects, not a lazy proxy over the token.
+
+### Every layer decides again
+
+The order service decides on every request, regardless of what the caller already checked. The security contract states it for every app in the chain: each one evaluates the request on its own and trusts no earlier layer, because a caller can reach the service directly. There is no transitive trust. A console that checked the agent's role before calling does not excuse the order service from asking, and a gateway that authenticated the request does not either.
+
+[SEC-202](../attacks) adds that nothing makes you call `can`. The register names a new route, a background job, an admin script and a direct query. A service endpoint that nobody wired to `authorize` is unguarded, whatever the callers are.
+
+## One endpoint, two kinds of caller
+
+You can use the same policy to handle different types of callers by mapping verified credentials to a common subject format. For example, the order service has one `GET /orders` called by both customers and the reporting service. The handler builds a subject per authentication strategy and asks the same `canMany`.
+
+```ts twoslash file=libs/acl/docs/examples.md region=one-endpoint
+
+```
+
+`Verified` is what your authentication step hands the handler. Each variant comes from a credential the service checked. `subjectOf` maps each to a `Caller`, and the policy has no idea which strategy produced it. The customer sees `o1`. The registered service sees both orders. A service the table does not know gets an empty `scopes` list, and sees nothing. The delegated token yields the user with `via` set from the verified actor.
+
+Adding a fourth strategy means adding a variant and a branch in `subjectOf`. The policy and the handler stay as they are.
+
+The [Express guide](../express) and the other platform guides show where this step sits in a request. The [Security Contract](../security#subject-authenticity-the-confused-deputy) states the boundary rule. [Attack classes and how each is handled](../attacks) lists the entries cited here.

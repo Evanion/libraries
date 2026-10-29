@@ -2454,6 +2454,190 @@ access.can(owner, 'listing', 'update').reason; // -> 'unevaluable'
 
 <!-- #endregion guard-before-row -->
 
+## Service callers
+
+<!-- #region service-caller -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Caller = {
+  kind: 'user' | 'service';
+  id: string;
+  roles?: string[];
+  scopes?: string[];
+  via?: string;
+};
+type Order = { id: string; customerId: string };
+
+const access = policy<Caller, { order: Order }>()
+  .for('order', (p) =>
+    p.allow(
+      'read',
+      p.and(
+        p.eq('subject.kind', 'service'),
+        p.contains('subject.scopes', 'orders:read'),
+      ),
+    ),
+  )
+  .build();
+
+const reporting: Caller = {
+  kind: 'service',
+  id: 'reporting',
+  scopes: ['orders:read'],
+};
+const newsletter: Caller = { kind: 'service', id: 'newsletter', scopes: [] };
+// A user record that happens to carry the same scope string.
+const customer: Caller = { kind: 'user', id: 'c1', scopes: ['orders:read'] };
+
+access.can(reporting, 'order', 'read').allowed; // -> true
+access.can(newsletter, 'order', 'read').reason; // -> 'no-rule-matched'
+access.can(customer, 'order', 'read').reason; // -> 'no-rule-matched'
+```
+
+<!-- #endregion service-caller -->
+
+<!-- #region on-behalf-of -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Caller = {
+  kind: 'user' | 'service';
+  id: string;
+  roles?: string[];
+  via?: string;
+};
+type Order = { id: string; customerId: string };
+
+// A refund is the bookseller's act, and only from the support console.
+const access = policy<Caller, { order: Order }, { order: 'refund' }>()
+  .for('order', (p) =>
+    p.allow(
+      'refund',
+      p.and(
+        p.contains('subject.roles', 'bookseller'),
+        p.eq('subject.via', 'support-console'),
+      ),
+    ),
+  )
+  .build();
+
+const viaConsole: Caller = {
+  kind: 'user',
+  id: 'b7',
+  roles: ['bookseller'],
+  via: 'support-console',
+};
+const viaStorefront: Caller = { ...viaConsole, via: 'storefront' };
+const direct: Caller = { kind: 'user', id: 'b7', roles: ['bookseller'] };
+const customerViaConsole: Caller = {
+  kind: 'user',
+  id: 'c1',
+  roles: [],
+  via: 'support-console',
+};
+
+access.can(viaConsole, 'order', 'refund').allowed; // -> true
+access.can(viaStorefront, 'order', 'refund').reason; // -> 'no-rule-matched'
+access.can(direct, 'order', 'refund').reason; // -> 'no-rule-matched'
+access.can(customerViaConsole, 'order', 'refund').reason; // -> 'no-rule-matched'
+```
+
+<!-- #endregion on-behalf-of -->
+
+<!-- #region one-endpoint -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Caller = {
+  kind: 'user' | 'service';
+  id: string;
+  roles?: string[];
+  scopes?: string[];
+  via?: string;
+};
+type Order = { id: string; customerId: string };
+
+const access = policy<Caller, { order: Order }>()
+  .for('order', (p) =>
+    p
+      .allow(
+        'read',
+        p.and(
+          p.eq('subject.kind', 'service'),
+          p.contains('subject.scopes', 'orders:read'),
+        ),
+      )
+      .allow(
+        'read',
+        p.and(
+          p.eq('subject.kind', 'user'),
+          p.eq('object.customerId', 'subject.id'),
+        ),
+      ),
+  )
+  .build();
+
+// What the verification step hands the handler. Each variant is built from a
+// credential this service checked itself, never from a field of the request.
+type Verified =
+  | { strategy: 'user-token'; sub: string; roles: string[] }
+  | { strategy: 'delegated-token'; sub: string; roles: string[]; actor: string }
+  | { strategy: 'mtls'; commonName: string };
+
+// This service's own record of what each calling service may do.
+const serviceScopes: Record<string, string[]> = {
+  reporting: ['orders:read'],
+};
+
+function subjectOf(verified: Verified): Caller {
+  switch (verified.strategy) {
+    case 'user-token':
+      return { kind: 'user', id: verified.sub, roles: verified.roles };
+    case 'delegated-token':
+      return {
+        kind: 'user',
+        id: verified.sub,
+        roles: verified.roles,
+        via: verified.actor,
+      };
+    case 'mtls':
+      return {
+        kind: 'service',
+        id: verified.commonName,
+        scopes: serviceScopes[verified.commonName] ?? [],
+      };
+  }
+}
+
+const rows: Order[] = [
+  { id: 'o1', customerId: 'c1' },
+  { id: 'o2', customerId: 'c2' },
+];
+
+function listOrders(verified: Verified): string[] {
+  const forCaller = access.authorize(subjectOf(verified));
+  const decisions = forCaller.canMany('order', 'read', rows);
+  return rows.filter((_, i) => decisions[i]?.allowed).map((row) => row.id);
+}
+
+listOrders({ strategy: 'user-token', sub: 'c1', roles: [] }); // -> ['o1']
+listOrders({ strategy: 'mtls', commonName: 'reporting' }); // -> ['o1', 'o2']
+listOrders({ strategy: 'mtls', commonName: 'unregistered' }); // -> []
+const delegated = subjectOf({
+  strategy: 'delegated-token',
+  sub: 'c1',
+  roles: [],
+  actor: 'storefront',
+});
+delegated.via; // -> 'storefront'
+```
+
+<!-- #endregion one-endpoint -->
+
 ### In an Express app
 
 <!-- #region express-app -->
