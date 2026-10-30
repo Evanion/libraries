@@ -1,40 +1,60 @@
 # @evanion/react-widget
 
-**Move your UI layout into the data layer to eliminate conditional rendering logic, with props checked at compile time.**
+**Decide what a view shows in your logic layer.**
 
-By describing your UI as data rather than hard-coding conditional logic, you eliminate the fragile mapping of type strings to components that often leads to runtime crashes when data is missing. `@evanion/react-widget` brings this approach to the React ecosystem, ensuring your dynamic dashboards and landing pages are robust by checking component props at compile time.
+Views with optional sections often fill with `{flag && <Section />}` branches. `@evanion/react-widget` moves those decisions into a plain function that returns a list of items. The view renders that list without branching, and the logic function remains ordinary TypeScript that you can unit test without rendering. These sections can be decided by a feature flag, a user's role, the record's state, tenant settings, or a CMS.
 
 <!-- #region region-markup -->
 
 ```tsx @import.meta.vitest
-const ListingCard = (props: { title: string; price: number }) => (
-  <h3>
-    {props.title}, {props.price} kr
-  </h3>
+const Summary = (props: { number: string }) => <h2>Order {props.number}</h2>;
+const Returns = (props: { daysLeft: number }) => (
+  <p>Return within {props.daysLeft} days</p>
 );
+const StaffNotes = (props: { note: string }) => <aside>{props.note}</aside>;
 
-// 1. Create a typed widget set from the component map
 const { Widgets, defineItems } = createWidgets({
-  components: { listing: ListingCard },
+  components: { summary: Summary, returns: Returns, notes: StaffNotes },
 });
 
-// 2. Define items with compile-time prop checking
-const shelf = defineItems([
-  {
-    id: 'brass',
-    type: 'listing',
-    props: { title: 'Brass: Birmingham', price: 649 },
-  },
-]);
+interface Order {
+  number: string;
+  daysLeft: number;
+  note: string;
+}
 
-// 3. Render the region
-const html = renderToStaticMarkup(<Widgets items={shelf} />); // -> '<section><div data-widget-id="brass" data-widget-type="listing"><h3>Brass: Birmingham, 649 kr</h3></div></section>'
+// The logic layer decides which sections the view shows, and in what order.
+function sectionsFor(
+  order: Order,
+  flags: { returns: boolean },
+  staff: boolean,
+) {
+  const shown: Record<string, boolean> = {
+    returns: flags.returns,
+    notes: staff,
+  };
+  return defineItems([
+    { id: 'summary', type: 'summary', props: { number: order.number } },
+    { id: 'returns', type: 'returns', props: { daysLeft: order.daysLeft } },
+    { id: 'notes', type: 'notes', props: { note: order.note } },
+  ]).filter((item) => shown[item.id] ?? true);
+}
+
+const order = { number: '1042', daysLeft: 14, note: 'Box was dented' };
+
+// Testable as data, without rendering.
+sectionsFor(order, { returns: false }, true).map((item) => item.id); // -> ['summary', 'notes']
+
+// The view renders whatever the logic decided.
+const customer = sectionsFor(order, { returns: true }, false);
+const html = renderToStaticMarkup(<Widgets items={customer} />); // -> '<section><div data-widget-id="summary" data-widget-type="summary"><h2>Order 1042</h2></div><div data-widget-id="returns" data-widget-type="returns"><p>Return within 14 days</p></div></section>'
 ```
 
 <!-- #endregion region-markup -->
 
 ## Capabilities of @evanion/react-widget
 
+- **Logic-Layer Composition**: Flags, roles and record state pick the sections in a function; the view only renders the result.
 - **Compile-Time Safety**: TypeScript catches mismatched props or unknown widget types during development.
 - **Server Component Ready**: Importable from a React Server Component (RSC) without requiring a `'use client'` boundary.
 - **Recursive Nesting**: Supports nested widgets (such as a "Shelf" containing "Listing" widgets) with full type-safety for children.
