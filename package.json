@@ -87,7 +87,7 @@
     "twoslash": "0.3.9",
     "typescript": "6.0.3",
     "typescript-eslint": "^8.70.1",
-    "vite": "8.3.2",
+    "vite": "8.3.5",
     "vite-plugin-doctest": "3.0.0",
     "vite-plugin-dts": "^5.1.1",
     "vitest": "5.0.3",
