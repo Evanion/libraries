@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/nx/schemas/nx-schema.json",
-  // Caps the local cache in .nx/cache. The worktrees share one cache and it
-  // filled the disk, so Nx evicts the oldest entries past the cap.
+  // Caps the local cache in .nx/cache, which every worktree shares. Nx evicts
+  // the oldest entries past the cap.
   "maxCacheSize": "10GB",
   "namedInputs": {
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
