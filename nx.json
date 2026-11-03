@@ -239,8 +239,15 @@
       // fillUnspecifiedConventionalCommitsProperties), so the entry states
       // `none`. A `refactor(x)!` still releases a major through its breaking
       // flag, which nx reads apart from the type.
+      //
+      // A package's README ships in its tarball and is the page npm shows, so a
+      // `docs` commit that touches a package's files changes what it publishes.
+      // nx defaults `docs` to `none`; this releases it as a patch. A `docs`
+      // commit that touches only apps/docs is not relevant to any package and
+      // releases nothing.
       "types": {
-        "refactor": { "semverBump": "none", "changelog": { "hidden": false } }
+        "refactor": { "semverBump": "none", "changelog": { "hidden": false } },
+        "docs": { "semverBump": "patch" }
       }
     },
     "changelog": {
