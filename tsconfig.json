@@ -65,6 +65,9 @@
     },
     {
       "path": "./libs/react-feature"
+    },
+    {
+      "path": "./libs/ui"
     }
   ],
   "compilerOptions": {

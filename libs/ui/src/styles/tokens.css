@@ -1,0 +1,97 @@
+/*
+ * The token names every rule in this package reads, with a neutral default
+ * theme. A product theme redefines these names on `:root` and nothing else.
+ *
+ * Plain values only. Nothing here references Open Props or any other preset,
+ * so a consumer needs no PostCSS plugin. The names stay clear of Open Props'
+ * own (`--font-sans`, `--font-mono`, `--size-*`, `--radius-1`…), so an app
+ * that also loads Open Props gets no collision.
+ *
+ * Every literal colour in the package lives in this file.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Type. No font files ship with the core; a theme names its families. */
+  --font-ui: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-code: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Ground. Neutral grey, chroma 0: chrome carries no hue. */
+  --color-canvas: light-dark(oklch(97.5% 0 0), oklch(17% 0 0));
+  --color-surface: light-dark(oklch(99.5% 0 0), oklch(21% 0 0));
+  --color-surface-muted: light-dark(oklch(95% 0 0), oklch(25% 0 0));
+  --color-border: light-dark(oklch(90% 0 0), oklch(30% 0 0));
+  --color-border-strong: light-dark(oklch(80% 0 0), oklch(40% 0 0));
+  --color-text: light-dark(oklch(22% 0 0), oklch(94% 0 0));
+  --color-text-muted: light-dark(oklch(48% 0 0), oklch(72% 0 0));
+  --color-text-faint: light-dark(oklch(60% 0 0), oklch(58% 0 0));
+
+  /* No house colour: a primary action inverts ink and ground. */
+  --color-primary: var(--color-text);
+  --color-primary-contrast: var(--color-surface);
+  --color-focus: var(--color-text);
+  --color-switch-thumb: oklch(100% 0 0);
+  --color-backdrop: oklch(0% 0 0 / 0.4);
+
+  /*
+   * Data tones, the only saturated pixels. An element carrying
+   * `data-tone="<name>"` reads `--tone` and `--tone-surface`; the rules in
+   * base.css map each tone name onto them. A theme adds a tone by
+   * defining `--tone-<name>` and `--tone-<name>-surface` and one rule:
+   *
+   *   [data-tone='production'] {
+   *     --tone: var(--tone-production);
+   *     --tone-surface: var(--tone-production-surface);
+   *   }
+   */
+  --tone-neutral: var(--color-text-muted);
+  --tone-neutral-surface: var(--color-surface-muted);
+  --tone-positive: light-dark(oklch(52% 0.13 150), oklch(76% 0.15 150));
+  --tone-positive-surface: light-dark(oklch(95% 0.04 150), oklch(28% 0.06 150));
+  --tone-negative: light-dark(oklch(52% 0.17 25), oklch(72% 0.16 25));
+  --tone-negative-surface: light-dark(oklch(95% 0.04 25), oklch(28% 0.07 25));
+  --tone-warning: light-dark(oklch(58% 0.15 65), oklch(80% 0.15 75));
+  --tone-warning-surface: light-dark(oklch(95% 0.05 80), oklch(30% 0.07 70));
+
+  /* Space. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2rem;
+  --space-6: 4rem;
+
+  /* Type scale and weights. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 2rem;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  /* Radii by role. */
+  --radius-chip: 3px;
+  --radius-control: 6px;
+  --radius-card: 12px;
+  --radius-pill: 9999px;
+
+  /* Elevation: a black shadow plus a faint glow. A theme tints the glow. */
+  --shadow-card:
+    0 1px 2px oklch(0% 0 0 / 0.12), 0 0 0 1px oklch(70% 0 0 / 0.04);
+  --shadow-popover:
+    0 8px 24px oklch(0% 0 0 / 0.24), 0 0 0 1px oklch(70% 0 0 / 0.06);
+
+  /* Tracking runs opposite to size. */
+  --tracking-display: -0.02em;
+  --tracking-label: 0.06em;
+
+  /* Motion is interaction-only. */
+  --ease-standard: cubic-bezier(0.25, 0, 0.3, 1);
+  --duration-quick: 120ms;
+
+  /* Layout. */
+  --shell-nav-width: 15rem;
+  --control-height: 2.25rem;
+}

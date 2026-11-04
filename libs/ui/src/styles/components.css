@@ -1,0 +1,392 @@
+/* Page header: title and actions, wrapping when the main column is narrow. */
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-3);
+
+  & p {
+    color: var(--color-text-muted);
+  }
+}
+
+/* Card: a surface that tightens its padding when it is narrow. */
+.card {
+  container: card / inline-size;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+}
+
+@container card (width < 28rem) {
+  .card > * {
+    --space-4: var(--space-3);
+  }
+}
+
+/* Buttons: a native <button>, or a link styled as one. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-block-size: var(--control-height);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--duration-quick) var(--ease-standard);
+
+  &:hover {
+    background: var(--color-surface-muted);
+  }
+
+  /* No house colour: primary inverts ink and ground. */
+  &[data-variant='primary'] {
+    background: var(--color-primary);
+    border-color: transparent;
+    color: var(--color-primary-contrast);
+
+    &:hover {
+      background: color-mix(
+        in oklch,
+        var(--color-primary) 85%,
+        var(--color-canvas)
+      );
+    }
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* Form fields: label, control, hint, error. Native validation drives the
+   invalid state through :user-invalid, so no script is needed to show it. */
+.field {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+
+  & label {
+    font-weight: var(--weight-medium);
+  }
+
+  & .hint {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+
+  & .error {
+    color: var(--tone-negative);
+    font-size: var(--text-xs);
+  }
+
+  &:has(:user-invalid) .hint {
+    color: var(--tone-negative);
+  }
+}
+
+.input {
+  min-block-size: var(--control-height);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+
+  &:user-invalid,
+  &[aria-invalid='true'] {
+    border-color: var(--tone-negative);
+  }
+
+  &:focus-visible {
+    outline-offset: 0;
+  }
+}
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+  max-inline-size: 32rem;
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+
+  & > .field {
+    flex: 1 1 12rem;
+  }
+}
+
+/* Switch: a submit button with role="switch", one form per toggle. */
+.switch {
+  --track: 2.25rem;
+  inline-size: var(--track);
+  block-size: 1.25rem;
+  padding: 0.125rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+  cursor: pointer;
+  display: inline-flex;
+  transition: background-color var(--duration-quick) var(--ease-standard);
+
+  &::before {
+    content: '';
+    inline-size: 1rem;
+    block-size: 1rem;
+    border-radius: 50%;
+    background: var(--color-switch-thumb);
+    box-shadow: var(--shadow-card);
+    transition: translate var(--duration-quick) var(--ease-standard);
+  }
+
+  &[aria-checked='true'] {
+    background: var(--tone-positive);
+
+    &::before {
+      translate: calc(var(--track) - 1.25rem) 0;
+    }
+  }
+}
+
+/* Badge: 3px, small, loose uppercase label. Hue only through a tone. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.0625rem var(--space-2);
+  border-radius: var(--radius-chip);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: var(--tone-surface);
+  color: var(--tone);
+}
+
+/* Data table: a native <table>. In a narrow main column the rows stack, and
+   a cell's `data-label` stands in for the hidden header. */
+.data-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+
+  & th {
+    text-align: start;
+    font-weight: var(--weight-medium);
+    color: var(--color-text-faint);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-label);
+  }
+
+  & th,
+  & td {
+    padding: var(--space-2) var(--space-3);
+    border-block-end: 1px solid var(--color-border);
+    vertical-align: middle;
+  }
+
+  & tbody tr:hover {
+    background: var(--color-surface-muted);
+  }
+
+  & [data-align='end'] {
+    text-align: end;
+  }
+}
+
+@container main (width < 36rem) {
+  .data-table thead {
+    display: none;
+  }
+
+  .data-table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding-block: var(--space-2);
+    border-block-end: 1px solid var(--color-border);
+  }
+
+  .data-table td {
+    border: 0;
+  }
+
+  .data-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--color-text-faint);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-label);
+  }
+}
+
+.mono {
+  font-family: var(--font-code);
+}
+
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The copy button. The client helper sets `data-copied` for a moment after a
+   copy; the idle label hides and the copied label shows. */
+[data-copy] {
+  &::after {
+    content: attr(data-copied-label);
+    display: none;
+  }
+
+  &[data-copied] {
+    & > .copy-label {
+      display: none;
+    }
+
+    &::after {
+      display: inline;
+    }
+  }
+}
+
+/* A value with a copy button: SDK keys, ids. */
+.copy-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+
+  & code {
+    flex: 1;
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-control);
+    background: var(--color-surface-muted);
+    /* Without the client helper, one click selects the whole value. */
+    user-select: all;
+  }
+}
+
+/* A block of code with an optional label and copy button. */
+.code-block {
+  display: grid;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+  min-inline-size: 0;
+
+  & .code-block-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+    border-block-end: 1px solid var(--color-border);
+    color: var(--color-text-faint);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+  }
+
+  & .code-block-label {
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  & .code-block-head .button {
+    margin-inline-start: auto;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  & pre {
+    margin: 0;
+    padding: var(--space-3);
+    overflow-x: auto;
+    font-size: var(--text-sm);
+    line-height: 1.6;
+  }
+}
+
+.empty-state {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-card);
+  color: var(--color-text-muted);
+}
+
+.alert {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--tone-surface);
+  color: var(--tone);
+  font-size: var(--text-sm);
+}
+
+/* `--tone` inherits, so an untoned badge or alert inside a toned shell would
+   take the shell's tone. These reset it to neutral. */
+.badge:not([data-tone]),
+.alert:not([data-tone]) {
+  --tone: var(--tone-neutral);
+  --tone-surface: var(--tone-neutral-surface);
+}
+
+/* Dialog: a native <dialog> opened and closed by invoker commands. */
+.dialog {
+  inline-size: min(32rem, calc(100vi - 2 * var(--space-3)));
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-popover);
+
+  &::backdrop {
+    background: var(--color-backdrop);
+  }
+
+  & .dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-block-end: 1px solid var(--color-border);
+  }
+
+  & .dialog-body {
+    display: grid;
+    gap: var(--space-3);
+    padding: var(--space-4);
+  }
+}

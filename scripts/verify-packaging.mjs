@@ -52,6 +52,7 @@ const LIBS = [
   ['libs/acl', '@evanion/acl'],
   ['libs/react-acl', '@evanion/react-acl'],
   ['libs/react-feature', '@evanion/react-feature'],
+  ['libs/ui', '@evanion/ui'],
   ['internal/baize-ui', '@evanion/baize-ui'],
 ];
 
@@ -191,6 +192,10 @@ import { FeatureProvider, useFeature, useFeatureEnabled, useFeatures } from '@ev
 import type { FeatureProviderProps, AnyDecisions } from '@evanion/react-feature';
 import { AvailabilityPill, BoxArtPlaceholder, Button, ButtonLink, Card, CardGrid, CardGridCell, Chip, Figure, MechanismTag, Panel, SectionHeader, Stat, StatLine, TagRow, Text, Title, ComplexityRamp } from '@evanion/baize-ui';
 import type { Availability, BoxArtPalette, ComplexityStop, Mechanism, StatProps, TitleSize } from '@evanion/baize-ui';
+// The published UI core and its DOM-only copy helper.
+import { Alert as UiAlert, Badge as UiBadge, Button as UiButton, ButtonLink as UiButtonLink, Card as UiCard, CodeBlock as UiCodeBlock, CopyButton as UiCopyButton, CopyValue as UiCopyValue, Dialog as UiDialog, dialogCommand, EmptyState as UiEmptyState, Field as UiField, PageHeader as UiPageHeader, Switch as UiSwitch } from '@evanion/ui';
+import type { AlertProps, BadgeProps, ButtonProps, ButtonLinkProps, ButtonVariant, CardProps, CodeBlockProps, CopyButtonProps, CopyValueProps, DialogCommand, DialogProps, EmptyStateProps, FieldProps, PageHeaderProps, SwitchProps, Tone } from '@evanion/ui';
+import { enableCopy, COPIED_FOR_MS } from '@evanion/ui/client';
 // The token entry, which may not touch React at all.
 import { availability, boxArt, classNames, complexity, complexityTier, customProperties, ground, hueClass, ladderClass, mechanism, modifier, paletteClass, radius, renderTokensCss, space, stateClass } from '@evanion/baize-ui/tokens';
 import { hydratePolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields, AclConfigError, UnknownPermissionError } from '@evanion/acl';
@@ -262,6 +267,27 @@ const cardRadius: string = radius.card;
 const gutter: string = space[4];
 const propertyName: string = customProperties[0]?.[0] ?? '';
 const tokensCss: string = renderTokensCss();
+// The UI core. Props types are named so a dropped export fails here, and a
+// theme's own tone name has to be assignable to Tone.
+const uiTone: Tone = 'production';
+const uiVariant: ButtonVariant = 'primary';
+const uiButton: ButtonProps = { variant: uiVariant, children: 'Save' };
+const uiLink: ButtonLinkProps = { href: '/', variant: 'secondary' };
+const uiField: FieldProps = { id: 'slug', label: 'Slug', hint: 'Lowercase', error: 'Taken' };
+const uiSwitch: SwitchProps = { checked: true, label: 'checkout-v2' };
+const uiBadge: BadgeProps = { tone: uiTone, children: 'Production' };
+const uiCard: CardProps = { title: 'Flags', children: null };
+const uiHeader: PageHeaderProps = { title: 'Flags' };
+const uiEmpty: EmptyStateProps = { children: 'None' };
+const uiAlert: AlertProps = { tone: 'warning', children: 'Careful' };
+const uiCopy: CopyValueProps = { value: 'v1', copyLabel: 'Copy', copiedLabel: 'Copied' };
+const uiCopyButton: CopyButtonProps = uiCopy;
+const uiCode: CodeBlockProps = { code: 'x', label: 'Shell' };
+const uiCommand: DialogCommand = 'show-modal';
+const uiDialog: DialogProps = { id: 'd', title: 'T', closeLabel: 'Close', children: null };
+const uiCommandFor: string = dialogCommand('d', uiCommand).commandfor;
+const uiEnable: (root?: Document | HTMLElement) => () => void = enableCopy;
+const uiCopiedFor: number = COPIED_FOR_MS;
 // The access matrix. Every entry point and every type on the public surface is
 // named, so a symbol that stopped being exported or whose type stopped being
 // reachable fails here.
@@ -352,7 +378,10 @@ const reactAccess: ReactAccess = access;
 const reactCan: (key: string, action: string, object?: Record<string, unknown>) => ReactDecision = useCan;
 const reactCanFields: typeof useCanFields = useCanFields;
 const reactFieldDecision: ReactFieldDecision = fieldDecision;
-void [typedBound, ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
+void [typedBound,
+      UiAlert, UiBadge, UiButton, UiButtonLink, UiCard, UiCodeBlock, UiCopyButton, UiCopyValue, UiDialog, UiEmptyState, UiField, UiPageHeader, UiSwitch,
+      uiButton, uiLink, uiField, uiSwitch, uiBadge, uiCard, uiHeader, uiEmpty, uiAlert, uiCopyButton, uiCode, uiDialog, uiCommandFor, uiEnable, uiCopiedFor,
+      ComposeProvider, provider, parsed, arr, err, items, widgetProblems, DefaultItem, DefaultWrapper,
       widgetRegistry, anyItems, coreProblems, notAList, reactRegistry, Region,
       CorrelationModule, CorrelationService, withCorrelation, correlation,
       registry, sections, problems, checksum, filtered, luhnErr,
@@ -420,6 +449,10 @@ import { ground, hueClass, ladderClass, paletteClass, renderTokensCss, stateClas
 import { hydratePolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields } from '@evanion/acl';
 import { assertNoContractDrift, assertRefused, contractDrift, fixtureClock } from '@evanion/acl/testing';
 import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Badge as UiBadge, Dialog as UiDialog, Field as UiField, Switch as UiSwitch, dialogCommand } from '@evanion/ui';
+import { enableCopy } from '@evanion/ui/client';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
@@ -431,6 +464,7 @@ const missing = Object.entries({
   hueClass, ladderClass, paletteClass, stateClass,
   hydratePolicy, parseMatrix, policy, applyDenyOverlay, pickAllowedFields,
   PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities,
+  UiBadge, UiDialog, UiField, UiSwitch, dialogCommand, enableCopy,
 }).filter(([, v]) => typeof v !== 'function').map(([k]) => k);
 // react-acl pins the core exactly and externalises it, so the binding resolves
 // @evanion/acl from the consumer's own install: this call is the first thing
@@ -539,6 +573,27 @@ if (hueClass('workerPlacement') !== 'baize-hue-worker-placement' ||
 }
 if (!renderTokensCss().includes(ground.felt.toLowerCase())) {
   console.error('@evanion/baize-ui/tokens cannot render its own custom-property block');
+  process.exit(1);
+}
+// @evanion/ui renders from its published build under react-dom/server, and its
+// stylesheet resolves from a consumer's install as one layered file.
+const uiMarkup = renderToStaticMarkup(
+  createElement('div', null,
+    createElement(UiSwitch, { checked: true, label: 'checkout-v2' }),
+    createElement(UiBadge, { tone: 'positive' }, 'On'),
+    createElement(UiField, { id: 'slug', label: 'Slug', hint: 'Lowercase' })),
+);
+if (!uiMarkup.includes('role="switch" aria-checked="true" aria-label="checkout-v2"') ||
+    !uiMarkup.includes('data-tone="positive"') ||
+    !uiMarkup.includes('aria-describedby="slug-hint"')) {
+  console.error('@evanion/ui does not render its components from the published build: ' + uiMarkup);
+  process.exit(1);
+}
+// Comments dropped: the stylesheet's own prose mentions @import.
+const uiStyles = readFileSync(new URL(import.meta.resolve('@evanion/ui/styles.css')), 'utf8').replace(/\\/\\*[\\s\\S]*?\\*\\//g, '');
+if (!uiStyles.trimStart().startsWith('@layer reset, tokens, base, layout, components;') ||
+    /@import/.test(uiStyles) || !uiStyles.includes('--tone-positive:')) {
+  console.error('@evanion/ui/styles.css is not one layered stylesheet carrying the tokens');
   process.exit(1);
 }
 if (missing.length) { console.error('not exported at runtime:', missing.join(', ')); process.exit(1); }
@@ -1033,6 +1088,86 @@ if (missing.length) { console.error('not exported at runtime:', missing.join(', 
     );
   }
   console.log('  ✓ baize-ui ships one stylesheet carrying the ground');
+
+  // @evanion/ui makes the same statelessness promise as baize-ui, and the
+  // packed entry is where a bundler could break it without the source showing
+  // it. libs/ui/src/react-imports.spec.ts holds the same list against the
+  // source and compares the two.
+  const uiDist = join(dir, 'node_modules', '@evanion', 'ui', 'dist');
+  const uiEntry = readFileSync(join(uiDist, 'index.js'), 'utf8');
+  const uiAllowed = {
+    react: ['createElement', 'Fragment'],
+    'react/jsx-runtime': ['jsx', 'jsxs', 'jsxDEV', 'Fragment'],
+  };
+  const uiOffenders = [];
+  for (const match of uiEntry.matchAll(
+    /import\s*(?:\{([^}]*)\}|(\*\s+as\s+\w+|\w+))\s*from\s*["']([^"']+)["']/g,
+  )) {
+    const module = match[3];
+    if (module.endsWith('.css')) uiOffenders.push(module);
+    if (!/^react(?:$|\/|-dom)/.test(module)) continue;
+    const allowed = uiAllowed[module];
+    if (!allowed) {
+      uiOffenders.push(`${module} (whole module)`);
+      continue;
+    }
+    for (const specifier of (match[1] ?? '')
+      .split(',')
+      .map((part) =>
+        part
+          .trim()
+          .split(/\s+as\s+/)[0]
+          .trim(),
+      )
+      .filter(Boolean)) {
+      if (!allowed.includes(specifier)) {
+        uiOffenders.push(`${specifier} from ${module}`);
+      }
+    }
+  }
+  if (uiOffenders.length) {
+    throw new Error(
+      '@evanion/ui dist/index.js imports outside its allowlist: ' +
+        uiOffenders.join(', ') +
+        '. The components are stateless and import no stylesheet.',
+    );
+  }
+  if (/^["']use client["'];?$/.test(uiEntry.split('\n')[0].trim())) {
+    throw new Error(
+      "@evanion/ui dist/index.js must NOT carry a 'use client' directive.",
+    );
+  }
+  console.log('  ✓ ui imports only createElement-level React APIs');
+
+  const uiClient = readFileSync(join(uiDist, 'client.js'), 'utf8');
+  if (/(?:from|import)\s*["']react(?:-dom)?(?:\/[^"']*)?["']/.test(uiClient)) {
+    throw new Error(
+      '@evanion/ui dist/client.js imports React. The copy helper is plain DOM.',
+    );
+  }
+  const uiStylesheets = emittedFiles(uiDist, /\.css$/).map((file) =>
+    file.slice(uiDist.length + 1),
+  );
+  if (uiStylesheets.join() !== 'styles.css') {
+    throw new Error(
+      '@evanion/ui ships stylesheets it does not export: ' +
+        uiStylesheets.join(', '),
+    );
+  }
+  const uiPkg = JSON.parse(
+    readFileSync(
+      join(dir, 'node_modules', '@evanion', 'ui', 'package.json'),
+      'utf8',
+    ),
+  );
+  for (const entry of ['.', './client', './styles.css']) {
+    if (!Object.keys(uiPkg.exports).includes(entry)) {
+      throw new Error(`@evanion/ui stopped exporting "${entry}"`);
+    }
+  }
+  console.log(
+    '  ✓ ui exports three entries, one stylesheet, a React-free client',
+  );
 
   // A helper tsc emits under `importHelpers` becomes an `import ... from
   // "tslib"` in the published JavaScript, which the consumer's package manager

@@ -1,0 +1,27 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./out-tsc/vitest",
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "types": [
+      "vitest/globals",
+      "vitest/importMeta",
+      "vite/client",
+      "node",
+      "vitest"
+    ],
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "ignoreDeprecations": "6.0",
+    "rootDir": "."
+  },
+  // The sources are compiled here rather than reached through a reference to
+  // tsconfig.lib.json, so the tests check against the real types and need
+  // nothing built first.
+  "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts"],
+  // `vite.config.ts` imports `@evanion/doc-examples`, which tsconfig.base.json
+  // path-maps to that project's source; the reference makes tsc read its
+  // declarations instead of compiling it here.
+  "references": [{ "path": "../../tools/doc-examples" }]
+}
