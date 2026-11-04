@@ -4,7 +4,8 @@
   box-sizing: border-box;
 }
 
-* {
+/* A modal <dialog> keeps the UA's margin: auto, which centres it. */
+*:not(dialog) {
   margin: 0;
 }
 
