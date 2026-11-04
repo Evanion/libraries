@@ -126,6 +126,17 @@ describe('the tokens', () => {
     expect(colours).toEqual([]);
   });
 
+  it('leave a dialog the margin that centres it as a modal', () => {
+    // The UA stylesheet centres a modal <dialog> with `margin: auto`; a reset
+    // that zeroes every margin pins it to the top-left corner.
+    const zeroed = [
+      ...rules(read('reset.css')).matchAll(/([^{}]+)\{\s*margin:\s*0;/g),
+    ].map(([, selector]) => (selector as string).trim());
+
+    expect(zeroed.length).toBeGreaterThan(0);
+    for (const selector of zeroed) expect(selector).toMatch(/:not\(dialog\)/);
+  });
+
   it('use no font file', () => {
     expect(all).not.toMatch(/@font-face|url\(/);
   });
