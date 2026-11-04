@@ -391,6 +391,20 @@ export const packages: readonly DocumentedPackage[] = [
     documented: true,
     workshop: false,
   },
+  {
+    name: '@evanion/ui',
+    root: 'libs/ui',
+    slug: 'ui',
+    title: 'UI',
+    group: 'standalone',
+    framework: 'React',
+    // Every hue on the scale is taken, and a hue may repeat only within a
+    // group. Its own section will pick one when the scale grows.
+    hue: 'orchid',
+    // Its section is a separate piece of work; the sidebar links the README.
+    documented: false,
+    workshop: false,
+  },
 ];
 
 /** The README that stands in for a package with no section on this site. */

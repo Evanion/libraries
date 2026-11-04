@@ -1,0 +1,18 @@
+/*
+ * @evanion/ui. The layer order is declared once, here, so a later layer wins
+ * without a specificity fight: reset < tokens < base < layout < components.
+ *
+ * A theme is unlayered CSS loaded after this file, or a rule in a layer the
+ * app declares after `components`. Unlayered rules beat every layer, so a
+ * theme that redefines a token on `:root` wins without `!important`.
+ *
+ * The build inlines each import below into an `@layer <name> { … }` block, so
+ * the published `dist/styles.css` is one file with no `@import`.
+ */
+@layer reset, tokens, base, layout, components;
+
+@import './reset.css' layer(reset);
+@import './tokens.css' layer(tokens);
+@import './base.css' layer(base);
+@import './layout.css' layer(layout);
+@import './components.css' layer(components);
