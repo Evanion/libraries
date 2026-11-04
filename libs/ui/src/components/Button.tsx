@@ -2,8 +2,11 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react';
 
 import { classNames } from './tone.js';
 
-/** `primary` inverts ink and ground; there is no brand colour. */
-export type ButtonVariant = 'primary' | 'secondary';
+/**
+ * `primary` inverts ink and ground; there is no brand colour. `danger` marks
+ * a destructive action in the negative tone.
+ */
+export type ButtonVariant = 'primary' | 'secondary' | 'danger';
 
 /** A native button's attributes, plus its variant. */
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {

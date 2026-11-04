@@ -6,6 +6,8 @@ export type {
   ButtonProps,
   ButtonVariant,
 } from './components/Button.js';
+export { Checkbox } from './components/Checkbox.js';
+export type { CheckboxProps } from './components/Checkbox.js';
 export { CodeBlock } from './components/CodeBlock.js';
 export type { CodeBlockProps } from './components/CodeBlock.js';
 export { CopyButton } from './components/CopyButton.js';
@@ -23,6 +25,8 @@ export type {
   EmptyStateProps,
   PageHeaderProps,
 } from './components/Layout.js';
+export { Select } from './components/Select.js';
+export type { SelectProps } from './components/Select.js';
 export { Switch } from './components/Switch.js';
 export type { SwitchProps } from './components/Switch.js';
 export type { Tone } from './components/tone.js';

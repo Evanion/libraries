@@ -1,5 +1,6 @@
 import type { InputHTMLAttributes } from 'react';
 
+import { describedBy, FieldFrame } from './FieldFrame.js';
 import { classNames } from './tone.js';
 
 /** A native input's attributes, plus the label, hint and error around it. */
@@ -25,29 +26,15 @@ export function Field({
   className,
   ...input
 }: FieldProps) {
-  const described =
-    classNames(hint && `${id}-hint`, error && `${id}-error`) || undefined;
-
   return (
-    <div className="field">
-      <label htmlFor={id}>{label}</label>
+    <FieldFrame id={id} label={label} hint={hint} error={error}>
       <input
         id={id}
         className={classNames('input', className)}
-        aria-describedby={described}
+        aria-describedby={describedBy(id, hint, error)}
         aria-invalid={error ? true : undefined}
         {...input}
       />
-      {hint ? (
-        <span className="hint" id={`${id}-hint`}>
-          {hint}
-        </span>
-      ) : null}
-      {error ? (
-        <span className="error" id={`${id}-error`}>
-          {error}
-        </span>
-      ) : null}
-    </div>
+    </FieldFrame>
   );
 }

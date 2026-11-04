@@ -67,10 +67,61 @@
     }
   }
 
+  &[data-variant='danger'] {
+    color: var(--tone-negative);
+    border-color: color-mix(
+      in oklch,
+      var(--tone-negative) 50%,
+      var(--color-border-strong)
+    );
+
+    &:hover {
+      background: var(--tone-negative-surface);
+    }
+  }
+
   &:disabled,
   &[aria-disabled='true'] {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+}
+
+/* A hint outside a field: under a section heading, beside a checkbox. */
+.hint {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
+/* A checkbox with its label and hint beside it. */
+.check {
+  display: flex;
+  gap: var(--space-2);
+  align-items: start;
+  font-size: var(--text-sm);
+
+  & > span {
+    display: grid;
+  }
+
+  & label {
+    font-weight: var(--weight-medium);
+  }
+
+  & input {
+    margin-block-start: 0.2em;
+    accent-color: var(--color-text);
+  }
+}
+
+/* A form's buttons. A destructive action sits apart, at the far end. */
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+
+  & > [data-variant='danger'] {
+    margin-inline-start: auto;
   }
 }
 
