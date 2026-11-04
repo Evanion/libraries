@@ -8,6 +8,7 @@ import {
   Button,
   ButtonLink,
   Card,
+  Checkbox,
   CodeBlock,
   CopyButton,
   CopyValue,
@@ -16,6 +17,7 @@ import {
   EmptyState,
   Field,
   PageHeader,
+  Select,
   Switch,
 } from './index.js';
 
@@ -39,6 +41,72 @@ describe('Button', () => {
     expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute(
       'data-variant',
       'primary',
+    );
+  });
+});
+
+describe('Button danger', () => {
+  it('marks a destructive action with the danger variant', () => {
+    render(<Button variant="danger">Delete flag</Button>);
+
+    expect(screen.getByRole('button', { name: 'Delete flag' })).toHaveAttribute(
+      'data-variant',
+      'danger',
+    );
+  });
+});
+
+describe('Checkbox', () => {
+  it('is a native checkbox named by its label and described by its hint', () => {
+    render(
+      <Checkbox
+        id="enabled"
+        name="enabled"
+        label="Enabled"
+        hint="Off means off for everyone."
+        defaultChecked
+      />,
+    );
+
+    const box = screen.getByRole('checkbox', { name: 'Enabled' });
+
+    expect(box).toBeChecked();
+    expect(box).toHaveAttribute('name', 'enabled');
+    expect(box).toHaveAccessibleDescription('Off means off for everyone.');
+  });
+
+  it('has no description without a hint', () => {
+    render(<Checkbox id="beta" name="beta" label="Beta" />);
+
+    expect(screen.getByRole('checkbox', { name: 'Beta' })).not.toHaveAttribute(
+      'aria-describedby',
+    );
+  });
+});
+
+describe('Select', () => {
+  it('is a native select named by its label, with its hint and error', () => {
+    render(
+      <Select
+        id="op"
+        name="op"
+        label="Operator"
+        hint="How the value is compared."
+        error="Pick an operator."
+        defaultValue="in"
+      >
+        <option value="eq">equals</option>
+        <option value="in">is one of</option>
+      </Select>,
+    );
+
+    const select = screen.getByRole('combobox', { name: 'Operator' });
+
+    expect(select).toHaveValue('in');
+    expect(select).toHaveClass('input');
+    expect(select).toHaveAttribute('aria-invalid', 'true');
+    expect(select).toHaveAccessibleDescription(
+      'How the value is compared. Pick an operator.',
     );
   });
 });
