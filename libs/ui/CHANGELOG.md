@@ -1,3 +1,13 @@
+## 0.1.2 (2026-11-04)
+
+### 🩹 Fixes
+
+- **ui:** darken the light warning tone to 4.5:1 on its surface ([9811c793](https://github.com/Evanion/libraries/commit/9811c793))
+
+### ❤️ Thank You
+
+- Mikael Pettersson @Evanion
+
 ## 0.1.1 (2026-11-04)
 
 ### 🚀 Features
