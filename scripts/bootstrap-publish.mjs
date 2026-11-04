@@ -134,6 +134,26 @@ function publishPlaceholder(name) {
   }
 }
 
+/**
+ * The placeholder and any stub npm made for it, such as `0.0.0-stage`.
+ *
+ * npm puts a new package's first publish through staged publishing: it writes
+ * a stub `0.0.0-stage` at once and promotes `0.0.0` about a minute later.
+ * Until then `0.0.0` does not resolve and cannot be deprecated, so this throws
+ * and the rerun the summary prints finishes the job.
+ */
+function placeholderVersions(name) {
+  const versions = [JSON.parse(npm(['view', name, 'versions', '--json']))]
+    .flat()
+    .filter((v) => v === PLACEHOLDER || v.startsWith(`${PLACEHOLDER}-`));
+  if (!versions.includes(PLACEHOLDER)) {
+    throw new Error(
+      `npm has not promoted ${PLACEHOLDER} from its staged publish yet`,
+    );
+  }
+  return versions;
+}
+
 /** Whether release.yml in this repository already publishes `name`. */
 function trusted(name) {
   const listed = npm(['trust', 'list', name, `--otp=${otp}`]);
@@ -190,13 +210,15 @@ for (const project of projects) {
       );
     }
 
-    npm([
-      'deprecate',
-      `${name}@${PLACEHOLDER}`,
-      'Bootstrap placeholder. Install a released version.',
-      `--otp=${otp}`,
-    ]);
-    console.log(`  deprecated ${PLACEHOLDER}`);
+    for (const version of placeholderVersions(name)) {
+      npm([
+        'deprecate',
+        `${name}@${version}`,
+        'Bootstrap placeholder. Install a released version.',
+        `--otp=${otp}`,
+      ]);
+      console.log(`  deprecated ${version}`);
+    }
   } catch (error) {
     const detail = String(error.stderr ?? '').trim() || error.message;
     const lines = detail
