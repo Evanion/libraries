@@ -1,3 +1,17 @@
+## 0.1.1 (2026-11-04)
+
+### 🚀 Features
+
+- **ui:** add select, checkbox, a danger button and form actions ([0308ada6](https://github.com/Evanion/libraries/commit/0308ada6))
+
+### 🩹 Fixes
+
+- **ui:** keep the margin that centres a modal dialog ([a4fb93eb](https://github.com/Evanion/libraries/commit/a4fb93eb))
+
+### ❤️ Thank You
+
+- Mikael Pettersson @Evanion
+
 ## 0.1.0 (2026-11-04)
 
 ### 🚀 Features
