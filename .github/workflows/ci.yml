@@ -79,6 +79,13 @@ jobs:
 
   main:
     runs-on: ubuntu-latest
+    # A job's `permissions` replaces the workflow's, so the two the workflow
+    # grants are repeated. `id-token` lets the cache action exchange the job's
+    # OIDC token for a write token.
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     steps:
       # A full clone, with no `filter`. nx release reads the files every commit
       # since a tag changed, here and in each worktree the pin file's dry runs
@@ -93,6 +100,15 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: 'npm'
+
+      # Points nx at the self-hosted remote cache. Default-branch runs and
+      # same-repo pull requests get a one-hour write token through the job's
+      # OIDC token; fork pull requests get no secrets and run without the
+      # remote cache.
+      - uses: Evanion/nx-cache-action@a20fdbcc4f479b3ff937fac31a56c17968ff5966 # v0.1.0
+        with:
+          server: ${{ vars.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
+          read-token: ${{ secrets.NX_CACHE_READ_TOKEN }}
 
       - run: npm ci
 
@@ -124,11 +140,6 @@ jobs:
       # build` does not typecheck either, unlike `next build`. `astro check` is
       # the only thing that typechecks the .astro files.
       - run: npx nx run-many -t lint test build typecheck check
-
-      # Reports the run's task results to Nx Cloud. `always()` because the run it
-      # reports on is the failing one.
-      - run: npx nx fix-ci
-        if: always()
 
   # The only check that reads a package as npm publishes it. Everything in `main`
   # resolves through `customConditions: ["@evanion/source"]`, which reaches a
