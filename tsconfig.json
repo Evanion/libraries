@@ -68,6 +68,9 @@
     },
     {
       "path": "./libs/ui"
+    },
+    {
+      "path": "./libs/nx-cache-reporter"
     }
   ],
   "compilerOptions": {

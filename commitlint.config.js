@@ -51,6 +51,7 @@ module.exports = {
         'luhn',
         'nestjs-correlation-id',
         'nx-astro',
+        'nx-cache-reporter',
         'react-widget',
         'repo-checks',
         'shop-api',
