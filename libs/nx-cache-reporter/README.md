@@ -77,7 +77,7 @@ Options in `nx.json` override the environment:
 
 The plugin sends nothing else. It leaves out terminal output, the command line, the target configuration name, the inputs behind each hash, and every file path, including the workspace root.
 
-Tasks Nx skipped or stopped are left out, and so are tasks without a hash or start and end times. The server takes at most 5000 tasks and 1 MiB per report, and drops a second report with the same run id, so a run cannot be split. When a run goes over either limit, the plugin sends the first tasks in the order Nx lists them, up to the limit.
+Tasks Nx skipped or stopped are left out, and so are tasks without a hash or start and end times. Tasks with a project or target name over 128 characters are left out. The server takes at most 5000 tasks and 1 MiB per report, and drops a second report with the same run id, so a run cannot be split. When a run goes over either limit, the plugin sends the first tasks in the order Nx lists them, up to the limit.
 
 ## Turning it off
 

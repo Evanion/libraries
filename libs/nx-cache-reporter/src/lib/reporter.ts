@@ -95,6 +95,9 @@ async function send(
   }
 
   const report = buildReport(context, env);
+  if (!report) {
+    throw new ReportError('the run has no valid start and end time');
+  }
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -103,6 +106,8 @@ async function send(
     },
     body: JSON.stringify(report),
     signal,
+    // A redirect would resend the token to wherever the server points.
+    redirect: 'error',
   });
 
   if (!response.ok) {
