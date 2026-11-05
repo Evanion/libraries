@@ -1,4 +1,5 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
+import type { SVGProps } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -16,6 +17,8 @@ import {
   dialogCommand,
   EmptyState,
   Field,
+  Icon,
+  IconButton,
   PageHeader,
   Select,
   Switch,
@@ -382,5 +385,98 @@ describe('Dialog', () => {
     expect(open).toHaveAttribute('command', 'show-modal');
     expect(close).toHaveAttribute('commandfor', 'invite');
     expect(close).toHaveAttribute('command', 'close');
+  });
+});
+
+function FakeGlyph({
+  size,
+  strokeWidth,
+  ...props
+}: SVGProps<SVGSVGElement> & { size?: number; strokeWidth?: number }) {
+  return (
+    <svg
+      data-testid="glyph"
+      width={size}
+      height={size}
+      strokeWidth={strokeWidth}
+      {...props}
+    />
+  );
+}
+
+describe('Icon', () => {
+  it('is hidden from assistive tech without a label', () => {
+    render(<Icon icon={FakeGlyph} />);
+
+    const glyph = screen.getByTestId('glyph');
+    expect(glyph).toHaveAttribute('aria-hidden', 'true');
+    expect(glyph).not.toHaveAttribute('role');
+    expect(glyph).toHaveClass('icon');
+  });
+
+  it('is an image named by its label', () => {
+    render(<Icon icon={FakeGlyph} label="Warning" className="extra" />);
+
+    const glyph = screen.getByRole('img', { name: 'Warning' });
+    expect(glyph).not.toHaveAttribute('aria-hidden');
+    expect(glyph).toHaveClass('icon', 'extra');
+  });
+
+  it.each([
+    ['sm', '14'],
+    ['md', '16'],
+    ['lg', '20'],
+  ] as const)('maps size %s to %spx', (size, px) => {
+    render(<Icon icon={FakeGlyph} size={size} />);
+
+    expect(screen.getByTestId('glyph')).toHaveAttribute('width', px);
+  });
+
+  it('defaults to md', () => {
+    render(<Icon icon={FakeGlyph} />);
+
+    expect(screen.getByTestId('glyph')).toHaveAttribute('width', '16');
+  });
+});
+
+describe('IconButton', () => {
+  it('is a button named by its label, with the label as tooltip', () => {
+    render(<IconButton icon={FakeGlyph} label="Delete" />);
+
+    const button = screen.getByRole('button', { name: 'Delete' });
+    expect(button).toHaveAttribute('title', 'Delete');
+    expect(button).toHaveAttribute('type', 'button');
+    expect(within(button).getByTestId('glyph')).toHaveAttribute(
+      'aria-hidden',
+      'true',
+    );
+  });
+
+  it('passes button props through', () => {
+    render(
+      <IconButton icon={FakeGlyph} label="Delete" variant="danger" disabled />,
+    );
+
+    const button = screen.getByRole('button', { name: 'Delete' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('data-variant', 'danger');
+  });
+});
+
+describe('Button and Badge icon', () => {
+  it('renders a Button icon before the text', () => {
+    render(<Button icon={FakeGlyph}>Save</Button>);
+
+    const button = screen.getByRole('button', { name: 'Save' });
+    expect(button.firstElementChild).toBe(screen.getByTestId('glyph'));
+    expect(button.lastChild).toHaveTextContent('Save');
+  });
+
+  it('renders a Badge icon before the text', () => {
+    render(<Badge icon={FakeGlyph}>Live</Badge>);
+
+    const badge = screen.getByText('Live');
+    expect(badge.firstElementChild).toBe(screen.getByTestId('glyph'));
+    expect(screen.getByTestId('glyph')).toHaveAttribute('width', '14');
   });
 });

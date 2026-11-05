@@ -18,6 +18,10 @@ export { Dialog, dialogCommand } from './components/Dialog.js';
 export type { DialogCommand, DialogProps } from './components/Dialog.js';
 export { Field } from './components/Field.js';
 export type { FieldProps } from './components/Field.js';
+export { Icon } from './components/Icon.js';
+export type { IconComponent, IconProps, IconSize } from './components/Icon.js';
+export { IconButton } from './components/IconButton.js';
+export type { IconButtonProps } from './components/IconButton.js';
 export { Alert, Card, EmptyState, PageHeader } from './components/Layout.js';
 export type {
   AlertProps,
