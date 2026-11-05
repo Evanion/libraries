@@ -384,6 +384,21 @@ function assertFieldConfig(key: string, field: string, config: unknown): void {
   }
 }
 
+/**
+ * Field rules match the top-level keys of the object. A name with a `.` in it
+ * (after a leading `!`) matches no key a row or write carries, so a deny would
+ * exclude nothing and a targets rule would constrain nothing. A `\` is
+ * refused too: it is reserved as the escape character of a path.
+ */
+function assertTopLevelName(key: string, where: string, name: string): void {
+  if (!/[.\\]/.test(name.replace(/^!/, ''))) return;
+  throw new InvalidPermissionError(
+    key,
+    where,
+    `names "${name}", but field rules name top-level keys of the object and a nested path or an escaped name is not supported`,
+  );
+}
+
 function assertFieldRules(key: string, rules: unknown): void {
   if (rules === undefined) return;
   if (!isNode(rules)) {
@@ -411,6 +426,7 @@ function assertFieldRules(key: string, rules: unknown): void {
           'is not a field name',
         );
       }
+      assertTopLevelName(key, `fields.fields[${index}]`, name);
       if (!name.startsWith('!')) continue;
       // A deny entry requires a '*' baseline; and a deny mixed into an
       // explicit allow-list (which already denies anything not listed) is
@@ -426,6 +442,7 @@ function assertFieldRules(key: string, rules: unknown): void {
   for (const [field, config] of Object.entries(rules)) {
     if (field === 'fields') continue;
     if (config === undefined) continue;
+    assertTopLevelName(key, `fields.${field}`, field);
     assertFieldConfig(key, field, config);
   }
 }

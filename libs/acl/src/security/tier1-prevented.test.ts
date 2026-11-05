@@ -14,6 +14,7 @@ import {
   ActionNotAllowedError,
   InvalidConditionError,
   InvalidMatrixError,
+  InvalidPermissionError,
   InvalidRuleError,
   KeyMismatchError,
   UnknownPermissionError,
@@ -1333,4 +1334,56 @@ describe('SEC-021 a frozen matrix grants nothing a caller wrote into it (CWE-915
     expect(set.has('pro')).toBe(true);
   });
   // #endregion sec-021
+});
+
+describe('SEC-022 a dotted field entry that matches nothing (CWE-863)', () => {
+  // #region sec-022
+  /**
+   * Field rules match the top-level keys of the object. `'!address.street'`
+   * names no key a row carries, so the deny excluded nothing and `address`
+   * went out whole, street included. Construction refuses a dotted entry, on
+   * both entry points, so no rule is written that cannot hold.
+   */
+  const dottedDeny = () =>
+    permission('order', 'read', {
+      fields: { fields: ['*', '!address.street'] },
+    });
+  const dottedTarget = () =>
+    permission('order', 'update', {
+      fields: { 'address.country': { targets: ['SE'] } },
+    });
+
+  it('refuses a dotted deny entry on the local and the foreign path', () => {
+    expect(() => local([dottedDeny()])).toThrow(InvalidPermissionError);
+    expect(() => foreign([dottedDeny()])).toThrow(InvalidPermissionError);
+  });
+
+  it('refuses a dotted allow entry', () => {
+    const allow = permission('order', 'read', {
+      fields: { fields: ['id', 'address.city'] },
+    });
+
+    expect(() => local([allow])).toThrow(InvalidPermissionError);
+    expect(() => foreign([allow])).toThrow(InvalidPermissionError);
+  });
+
+  it('refuses a dotted targets key, which no write carries', () => {
+    expect(() => local([dottedTarget()])).toThrow(InvalidPermissionError);
+    expect(() => foreign([dottedTarget()])).toThrow(InvalidPermissionError);
+  });
+
+  it('refuses a backslash, reserved as the path escape', () => {
+    const escapedAllow = permission('order', 'read', {
+      fields: { fields: ['id', '!a\\.b'] },
+    });
+    const escapedKey = permission('order', 'update', {
+      fields: { 'a\\.b': { targets: ['SE'] } },
+    });
+
+    for (const p of [escapedAllow, escapedKey]) {
+      expect(() => local([p])).toThrow(InvalidPermissionError);
+      expect(() => foreign([p])).toThrow(InvalidPermissionError);
+    }
+  });
+  // #endregion sec-022
 });

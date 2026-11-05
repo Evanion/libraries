@@ -2,7 +2,7 @@
 
 Authorization is not just about defining who can do what; it is about ensuring that those definitions cannot be bypassed. `@evanion/acl` is designed to neutralize a wide array of common security vulnerabilities by building defenses directly into the engine's core.
 
-This page provides a detailed mapping of thirty-seven classes of attack—referenced by their Common Weakness Enumeration (CWE) and OWASP entries—and how the library handles them.
+This page provides a detailed mapping of thirty-eight classes of attack—referenced by their Common Weakness Enumeration (CWE) and OWASP entries—and how the library handles them.
 
 <PageSheet
   difficulty={5}
@@ -57,6 +57,7 @@ These defenses are baked into the engine and verified in `tier1-prevented.test.t
 | SEC-019 | Write escaping the decision                      | CWE-915            | Property tests verify that every key in the generated write was explicitly marked as `allowed` by the decision.                                                                                                     |
 | SEC-020 | Malformed envelope document                      | CWE-20             | Documents missing `permissions`, having invalid versions, or being bare lists are all refused by the engine.                                                                                                        |
 | SEC-021 | Write into a frozen matrix via Date, Map, or Set | CWE-915, CWE-471   | The hydration walk seals every mutator of `Date`, `Map`, and `Set` with an own property that throws a `TypeError` before freezing the object, to prevent moving window boundaries through the public matrix getter. |
+| SEC-022 | Dotted field entry that matches nothing          | CWE-863            | A dotted or backslash field entry or `targets` key is refused at construction, because field rules match top-level keys of the object                                                                               |
 
 ## Tier 2: Consumer-Driven Mitigations
 
