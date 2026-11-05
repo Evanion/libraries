@@ -405,22 +405,6 @@ export const packages: readonly DocumentedPackage[] = [
     documented: false,
     workshop: false,
   },
-  {
-    name: '@evanion/nx-cache-reporter',
-    root: 'libs/nx-cache-reporter',
-    slug: 'nx-cache-reporter',
-    title: 'Nx Cache Reporter',
-    group: 'standalone',
-    // An Nx plugin that imports nothing from nx at runtime. The platform scale
-    // has no Nx chip, so it takes `universal` until one is added.
-    framework: 'universal',
-    // Every hue on the scale is taken. `mint` is the other server-side tool in
-    // this group.
-    hue: 'mint',
-    // The README is the whole of its documentation; the sidebar links it.
-    documented: false,
-    workshop: false,
-  },
 ];
 
 /** The README that stands in for a package with no section on this site. */

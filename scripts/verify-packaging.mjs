@@ -53,7 +53,6 @@ const LIBS = [
   ['libs/react-acl', '@evanion/react-acl'],
   ['libs/react-feature', '@evanion/react-feature'],
   ['libs/ui', '@evanion/ui'],
-  ['libs/nx-cache-reporter', '@evanion/nx-cache-reporter'],
   ['internal/baize-ui', '@evanion/baize-ui'],
 ];
 
@@ -207,11 +206,6 @@ import type { ContractDriftOptions, ContractDriftReport, DecisionCase, DecisionC
 // The React binding, which is the only acl entry that may touch React.
 import { PolicyProvider, useCan, useCanFields, useCanMany, useCapabilities } from '@evanion/react-acl';
 import type { PolicyProviderProps, Access as ReactAccess, Decision as ReactDecision, FieldDecision as ReactFieldDecision } from '@evanion/react-acl';
-// The Nx plugin. Its declarations import nx's types, which npm installs as the
-// peer, so the plugin object is checked against nx's own plugin type.
-import { buildReport, name as reporterName, postTasksExecution } from '@evanion/nx-cache-reporter';
-import type { ReportedStatus, ReportedTask, ReporterOptions, RunReport } from '@evanion/nx-cache-reporter';
-import type { NxPluginV2 } from 'nx/src/devkit-exports';
 
 const widgetRegistry: CoreRegistry = defineWidgets({ hero: 'not-a-real-component' });
 const anyItems: CoreWidgetItem[] = [{ id: 'a', type: 'hero', props: { heading: 'ok' } }];
@@ -384,12 +378,7 @@ const reactAccess: ReactAccess = access;
 const reactCan: (key: string, action: string, object?: Record<string, unknown>) => ReactDecision = useCan;
 const reactCanFields: typeof useCanFields = useCanFields;
 const reactFieldDecision: ReactFieldDecision = fieldDecision;
-const reporterPlugin: NxPluginV2<ReporterOptions> = { name: reporterName, postTasksExecution };
-const reporterOptions: ReporterOptions = { server: 'https://cache.example.com', enabled: true };
-const reporterReport: RunReport | undefined = buildReport({ id: 'run-1', workspaceRoot: '/w', nxJsonConfiguration: {}, taskResults: {}, argv: [], startTime: 0, endTime: 1 });
-const reporterTasks: ReportedTask[] = reporterReport?.tasks ?? [];
-const reporterStatus: ReportedStatus = 'remote-cache';
-void [reporterPlugin, reporterOptions, reporterTasks, reporterStatus,
+void [
       typedBound,
       UiAlert, UiBadge, UiButton, UiButtonLink, UiCard, UiCodeBlock, UiCopyButton, UiCopyValue, UiDialog, UiEmptyState, UiField, UiPageHeader, UiSwitch,
       uiButton, uiLink, uiField, uiSwitch, uiBadge, uiCard, uiHeader, uiEmpty, uiAlert, uiCopyButton, uiCode, uiDialog, uiCommandFor, uiEnable, uiCopiedFor,
@@ -465,7 +454,6 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Badge as UiBadge, Dialog as UiDialog, Field as UiField, Switch as UiSwitch, dialogCommand } from '@evanion/ui';
 import { enableCopy } from '@evanion/ui/client';
-import { createRequire } from 'node:module';
 const missing = Object.entries({
   URN, InvalidError, ValidationError, ComposeProvider, provider,
   createWidgets, DefaultItem, DefaultWrapper, validateItems,
@@ -552,18 +540,6 @@ if (kitDrift.removed[0] !== 'comment.update') {
   process.exit(1);
 }
 assertNoContractDrift({ pinned: aclMatrix, fetched: aclMatrix });
-// Nx 21 loads a plugin with require(), and the package is ESM only, so it has
-// to load through require(esm) as well as through import. Nx takes the hooks
-// from the module's named exports.
-const reporter = createRequire(import.meta.url)('@evanion/nx-cache-reporter');
-if (reporter.name !== '@evanion/nx-cache-reporter' || typeof reporter.postTasksExecution !== 'function') {
-  console.error('@evanion/nx-cache-reporter does not load through require() as an Nx plugin');
-  process.exit(1);
-}
-// With no cache server configured the hook sends nothing and resolves.
-delete process.env.NX_SELF_HOSTED_REMOTE_CACHE_SERVER;
-delete process.env.NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN;
-await reporter.postTasksExecution(undefined, { id: 'run-1', workspaceRoot: '/w', nxJsonConfiguration: {}, taskResults: {}, argv: [], startTime: 0, endTime: 1 });
 // token depends on luhn rather than bundling it, so a broken dependency range
 // only shows up once both are installed from their tarballs: this call is the
 // first thing that actually resolves the import.

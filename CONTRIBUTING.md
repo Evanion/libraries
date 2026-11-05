@@ -54,7 +54,6 @@ Package scopes:
 - **storefront**: Changes to the storefront demo app
 - **shop-api**: Changes to the shop-api demo app
 - **nx-astro**: Changes to the local Nx Astro plugin
-- **nx-cache-reporter**: Changes to the `@evanion/nx-cache-reporter` Nx plugin
 
 Repository scopes (these are not projects and never bump a package on their
 own):
