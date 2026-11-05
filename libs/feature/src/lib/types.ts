@@ -428,6 +428,13 @@ export type Plan<S extends Record<keyof S, VariantInfo | never> = Schema> = {
  * under the previous document and resolves off under the written one, in
  * dependency order. A caller who enables a feature gets an empty list.
  *
+ * `willDisable` reads one context, often none, and a dependant carrying rules
+ * or a rollout resolves off under an empty context before the write as well as
+ * after it. `mayDisable` names those: every transitive dependant the context
+ * left `'deferred'` in `plan` before the write and that the write settles off.
+ * A console confirming a turn-off reads both lists. A caller who enables a
+ * feature gets two empty lists.
+ *
  * The `ok: false` member answers a key the store does not hold, and the store
  * wrote nothing. A reload that landed inside the call takes a document that no
  * longer declares the key down this exit.
@@ -442,5 +449,14 @@ export type ToggleResult<F extends FeatureKey = string> =
        * applied -- transitive, in dependency order. Empty when enabling.
        */
       willDisable: readonly F[];
+      /**
+       * Dependants the toggle's context could not settle before this toggle and
+       * that are settled off after it -- transitive, in dependency order.
+       * `plan(context)` named each one `'deferred'`: its rules, its rollout or a
+       * feature between it and `key` need a field the context lacks, so some
+       * context had it on. Turning `key` off takes it off for every context.
+       * Disjoint from `willDisable`. Empty when enabling.
+       */
+      mayDisable: readonly F[];
     }
   | { ok: false; key: F; error: 'unknown-feature' };

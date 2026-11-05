@@ -452,7 +452,7 @@ const features = createFeatures([
   { key: 'demo-night-booking', enabled: true, dependsOn: ['express-pickup'] },
 ]);
 
-features.toggle('new-checkout', false); // -> { ok: true, key: 'new-checkout', enabled: false, willDisable: ['express-pickup', 'demo-night-booking'] }
+features.toggle('new-checkout', false); // -> { ok: true, key: 'new-checkout', enabled: false, willDisable: ['express-pickup', 'demo-night-booking'], mayDisable: [] }
 ```
 
 <!-- #endregion toggle -->
@@ -468,13 +468,33 @@ const features = createFeatures([
   { key: 'demo-night-booking', enabled: true, dependsOn: ['express-pickup'] },
 ]);
 // ---cut---
-features.toggle('express-pickup', false); // -> { ok: true, key: 'express-pickup', enabled: false, willDisable: ['demo-night-booking'] }
-features.toggle('express-pickup', true); // -> { ok: true, key: 'express-pickup', enabled: true, willDisable: [] }
+features.toggle('express-pickup', false); // -> { ok: true, key: 'express-pickup', enabled: false, willDisable: ['demo-night-booking'], mayDisable: [] }
+features.toggle('express-pickup', true); // -> { ok: true, key: 'express-pickup', enabled: true, willDisable: [], mayDisable: [] }
 // @ts-expect-error -- the store's keys are checked at compile time too
 features.toggle('express-delivery', false); // -> { ok: false, key: 'express-delivery', error: 'unknown-feature' }
 ```
 
 <!-- #endregion toggle-report -->
+
+<!-- #region toggle-may-disable -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  { key: 'new-checkout', enabled: true },
+  {
+    key: 'express-pickup',
+    enabled: true,
+    dependsOn: ['new-checkout'],
+    rules: [{ when: [{ field: 'role', op: 'eq', value: 'bookseller' }] }],
+  },
+]);
+
+features.toggle('new-checkout', false); // -> { ok: true, key: 'new-checkout', enabled: false, willDisable: [], mayDisable: ['express-pickup'] }
+```
+
+<!-- #endregion toggle-may-disable -->
 
 <!-- #region inspect -->
 

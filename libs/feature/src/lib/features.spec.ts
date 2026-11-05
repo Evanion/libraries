@@ -1296,6 +1296,7 @@ describe('toggle', () => {
       key: 'a',
       enabled: false,
       willDisable: ['b', 'c', 'd', 'e'],
+      mayDisable: [],
     });
   });
 
@@ -1319,6 +1320,150 @@ describe('toggle', () => {
 
     expect(features.toggle('parent', true)).toMatchObject({ willDisable: [] });
     expect(features.resolve().child.enabled).toBe(true);
+  });
+
+  describe('mayDisable', () => {
+    // An empty context settles nothing about a ruled or rolled-out dependant,
+    // so `willDisable` cannot name it. Turning its parent off takes it down for
+    // every context that had it on, and a console confirming a turn-off reads
+    // this list for exactly that.
+    const realm = { field: 'realm', op: 'eq', value: 'x' } as const;
+
+    it('names a ruled dependant the empty context defers', () => {
+      const features = createFeatures([
+        { key: 'a', enabled: true },
+        {
+          key: 'b',
+          enabled: true,
+          dependsOn: ['a'],
+          rules: [{ when: [realm] }],
+        },
+      ]);
+
+      expect(features.toggle('a', false)).toEqual({
+        ok: true,
+        key: 'a',
+        enabled: false,
+        willDisable: [],
+        mayDisable: ['b'],
+      });
+    });
+
+    it('names a rolled-out dependant the empty context defers', () => {
+      const features = createFeatures([
+        { key: 'a', enabled: true },
+        {
+          key: 'b',
+          enabled: true,
+          dependsOn: ['a'],
+          rules: [{ rollout: { percent: 50 } }],
+        },
+      ]);
+
+      expect(features.toggle('a', false)).toMatchObject({
+        willDisable: [],
+        mayDisable: ['b'],
+      });
+    });
+
+    it('names a plain dependant under a ruled parent', () => {
+      const features = createFeatures([
+        { key: 'a', enabled: true, rules: [{ when: [realm] }] },
+        { key: 'b', enabled: true, dependsOn: ['a'] },
+      ]);
+
+      expect(features.toggle('a', false)).toMatchObject({
+        willDisable: [],
+        mayDisable: ['b'],
+      });
+    });
+
+    it('leaves a dependant settled on in willDisable alone', () => {
+      const features = createFeatures([
+        { key: 'a', enabled: true },
+        { key: 'b', enabled: true, dependsOn: ['a'] },
+      ]);
+
+      expect(features.toggle('a', false)).toMatchObject({
+        willDisable: ['b'],
+        mayDisable: [],
+      });
+    });
+
+    it('names a dependant already settled off in neither list', () => {
+      const features = createFeatures([
+        { key: 'a', enabled: true },
+        { key: 'b', enabled: false, dependsOn: ['a'] },
+        {
+          key: 'c',
+          enabled: true,
+          dependsOn: ['a'],
+          rules: [{ when: [realm] }],
+        },
+      ]);
+
+      // `c` keeps the case honest: it proves the list is computed at all, so
+      // `b` missing from it is the settled-off filter and not an empty walk.
+      expect(features.toggle('a', false)).toMatchObject({
+        willDisable: [],
+        mayDisable: ['c'],
+      });
+    });
+
+    it('lists a chain under a ruled dependant in dependency order', () => {
+      const features = createFeatures([
+        { key: 'c', enabled: true, dependsOn: ['b'] },
+        {
+          key: 'b',
+          enabled: true,
+          dependsOn: ['a'],
+          rules: [{ when: [realm] }],
+        },
+        { key: 'a', enabled: true },
+      ]);
+
+      expect(features.toggle('a', false)).toMatchObject({
+        willDisable: [],
+        mayDisable: ['b', 'c'],
+      });
+    });
+
+    it('settles the dependant when the context supplies the field', () => {
+      const features = createFeatures([
+        { key: 'a', enabled: true },
+        {
+          key: 'b',
+          enabled: true,
+          dependsOn: ['a'],
+          rules: [{ when: [realm] }],
+        },
+      ]);
+
+      expect(features.toggle('a', false, { realm: 'x' })).toMatchObject({
+        willDisable: ['b'],
+        mayDisable: [],
+      });
+    });
+
+    it('reports nothing when enabling', () => {
+      const features = createFeatures([
+        { key: 'a', enabled: false },
+        {
+          key: 'b',
+          enabled: true,
+          dependsOn: ['a'],
+          rules: [{ when: [realm] }],
+        },
+      ]);
+
+      expect(features.toggle('a', true)).toEqual({
+        ok: true,
+        key: 'a',
+        enabled: true,
+        willDisable: [],
+        mayDisable: [],
+      });
+    });
   });
 
   it('returns a structured failure for an unknown feature rather than throwing', () => {
