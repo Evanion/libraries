@@ -1075,6 +1075,7 @@ describe('reload, a toggle it lands inside', () => {
       key: 'parent',
       enabled: false,
       willDisable: [],
+      mayDisable: [],
     });
     expect(features.keys).toEqual(['parent']);
     expect(features.isEnabled('parent')).toBe(false);
@@ -1121,6 +1122,7 @@ describe('reload, a toggle it lands inside', () => {
       key: 'parent',
       enabled: true,
       willDisable: [],
+      mayDisable: [],
     });
   });
 });

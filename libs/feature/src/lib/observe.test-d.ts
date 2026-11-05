@@ -62,6 +62,7 @@ describe('FeatureEvent, discriminating on type', () => {
           readonly key: 'cta';
           readonly enabled: boolean;
           readonly willDisable: readonly 'cta'[];
+          readonly mayDisable: readonly 'cta'[];
         }
       | {
           readonly ok: false;
@@ -90,6 +91,7 @@ describe('FeatureEvent, reporting the result a toggle returned', () => {
         expectTypeOf(event.result.willDisable).toEqualTypeOf<
           readonly 'cta'[]
         >();
+        expectTypeOf(event.result.mayDisable).toEqualTypeOf<readonly 'cta'[]>();
         return;
       }
 

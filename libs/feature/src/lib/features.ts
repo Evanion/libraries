@@ -1069,22 +1069,35 @@ export function createFeatures(
     >;
   };
 
-  const plan = (
-    context?: EvaluationContext,
-  ): Plan<Record<FeatureKey, VariantInfo>> => {
-    const evaluationContext = withNow(context);
-    // Bound after `withNow`, which this needs the settled context from.
-    const { walk, definitionAt } = boundView();
+  // The internal plan. It reports nothing, for the reason `resolveAll` reports
+  // nothing: `plan` emits the one partition the caller receives, and `toggle`
+  // plans its document twice to compute `mayDisable` and reports the write.
+  // `view` is the document to plan, which `toggle` names and `plan` binds.
+  const planAll = (
+    context: SettledContext,
+    view: ReturnType<typeof boundView>,
+  ): Map<FeatureKey, PlanEntry<FeatureKey>> => {
+    const { walk, definitionAt } = view;
     const plans = new Map<FeatureKey, PlanEntry<FeatureKey>>();
     const resolved = new Map<FeatureKey, Decision<FeatureKey>>();
 
     for (const key of walk.order) {
       const definition = definitionAt(key);
       if (!definition) continue;
-      const entry = planFeature(definition, evaluationContext, plans, resolved);
+      const entry = planFeature(definition, context, plans, resolved);
       plans.set(key, entry);
       if (entry.decision) resolved.set(key, entry.decision);
     }
+
+    return plans;
+  };
+
+  const plan = (
+    context?: EvaluationContext,
+  ): Plan<Record<FeatureKey, VariantInfo>> => {
+    const evaluationContext = withNow(context);
+    // Bound after `withNow`, which this needs the settled context from.
+    const plans = planAll(evaluationContext, boundView());
 
     const partition = frozenWhenObserved(
       Object.fromEntries(plans) as Plan<Record<FeatureKey, VariantInfo>>,
@@ -1225,10 +1238,8 @@ export function createFeatures(
     // from one document filtered on a decision from another.
     const before =
       view === start ? settled : resolveAll(evaluationContext, view);
-    const after = resolveAll(
-      evaluationContext,
-      viewOf(written, view.walk, view.positions),
-    );
+    const writtenView = viewOf(written, view.walk, view.positions);
+    const after = resolveAll(evaluationContext, writtenView);
 
     const willDisable = view.walk
       .dependants(key)
@@ -1238,7 +1249,30 @@ export function createFeatures(
           !(after[dependant]?.enabled ?? false),
       );
 
-    return reported({ ok: true, key, enabled, willDisable });
+    // `willDisable` reads one context. A dependant whose rules or rollout need
+    // a field that context lacks usually resolves off under it before and
+    // after the write, so `willDisable` leaves it out. The plan marks that
+    // dependant `'deferred'`, meaning a richer context may turn it on, and
+    // after the write the plan settles it off because `key` blocks it for
+    // every context. Both plans read the same two views as the resolutions
+    // above. A deferred dependant that resolved on above is already in
+    // `willDisable`, and the last check keeps the two lists disjoint. An
+    // enabling write blocks nothing, so it plans nothing.
+    let mayDisable: FeatureKey[] = [];
+    if (!enabled) {
+      const plannedBefore = planAll(evaluationContext, view);
+      const plannedAfter = planAll(evaluationContext, writtenView);
+      mayDisable = view.walk
+        .dependants(key)
+        .filter(
+          (dependant) =>
+            plannedBefore.get(dependant)?.resolved === 'deferred' &&
+            plannedAfter.get(dependant)?.resolved === false &&
+            !willDisable.includes(dependant),
+        );
+    }
+
+    return reported({ ok: true, key, enabled, willDisable, mayDisable });
   };
 
   /**

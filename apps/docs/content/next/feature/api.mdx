@@ -161,7 +161,7 @@ generic over `Frozen`.
 | `valueOf(key, context?)`         | `S[K]['value'] \| undefined`                                     | `undefined` for a key declaring no variants    |
 | `plan(context?)`                 | `FrozenWhenObserved<Frozen, Plan<S>>`                            | build-time partition                           |
 | `for(context?)`                  | `BoundFeatures<S, Frozen>`                                       | the store bound to one context and one instant |
-| `toggle(key, enabled, context?)` | `FrozenWhenObserved<Frozen, ToggleResult<keyof S & FeatureKey>>` | the only writer; reports `willDisable`         |
+| `toggle(key, enabled, context?)` | `FrozenWhenObserved<Frozen, ToggleResult<keyof S & FeatureKey>>` | the only writer; `willDisable`, `mayDisable`   |
 | `reload(config)`                 | `ReloadResult`                                                   | installs a candidate document, or refuses it   |
 
 `resolve`, `plan`, `variantOf`, `valueOf` and `toggle` all default `context.now`
@@ -726,6 +726,8 @@ To determine why a feature resolved to its current state, the engine assigns a `
 When you call `features.toggle`, the operation returns a `ToggleResult`.
 
 If the operation is successful (`ok: true`), the result names the key and repeats the `enabled` value the caller wrote. It also includes `willDisable`. The store applies the write before it answers, so `willDisable` names every transitive dependent that resolved on under the previous document and resolves off under the written one, listed in dependency order. By the time the caller holds the result, `features.isEnabled` already answers `false` for every entry on that list. If a caller enables a feature, this list is empty.
+
+The result also includes `mayDisable`. It names every transitive dependant that `plan` would mark `'deferred'` under the toggle's context before the write and that the write settles off, in dependency order. A rule, a rollout, or a ruled feature between the dependant and the key left it unsettled for that context, so some context had it on, and the write takes it off for every context. `mayDisable` shares no key with `willDisable`, and it is empty when enabling.
 
 If the operation fails (`ok: false`), it indicates a key the store does not hold, and no data is written.
 

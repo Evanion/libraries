@@ -978,6 +978,7 @@ describe('the instant the total entry points carry', () => {
       key: 'cta',
       enabled: false,
       willDisable: [],
+      mayDisable: [],
     });
   });
 

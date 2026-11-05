@@ -99,6 +99,14 @@ The `willDisable` property holds only the dependants that resolved on before the
 
 Because `willDisable` is empty when enabling, a UI can use this to report the full effect of a change: "Turning off Express Pickup also disabled Demo Night Booking." A key the store was not built with returns `ok: false` and never throws.
 
+A dependant with rules or a rollout often resolves off under the toggle's context, because that context lacks the field the rule reads. It is off before the write and off after it, so `willDisable` leaves it out, even though turning its parent off takes it down for every customer who had it on. The `mayDisable` property names these: each transitive dependant that `plan` would defer under the toggle's context before the write, and that the write settles off. The two lists never share a key, and both are empty when enabling.
+
+```ts twoslash file=libs/feature/docs/examples.md region=toggle-may-disable
+
+```
+
+A console that confirms a turn-off reads both lists: `willDisable` for the dependants it knows go off, and `mayDisable` for the ones that go off for some customers.
+
 ## Inspecting the Store
 
 To audit the configuration of an `@evanion/feature` store, you can use these inspection properties:
