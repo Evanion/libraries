@@ -21,7 +21,7 @@ claim.
 Tier 3 entries carry no passing defence, because a passing test there would
 imply one. Where an entry names a gap with no defence at all, it says so.
 
-Counts: 21 tier 1, 8 tier 2, 8 tier 3.
+Counts: 22 tier 1, 8 tier 2, 8 tier 3.
 
 ## Tier 1 — prevented
 
@@ -48,6 +48,7 @@ Counts: 21 tier 1, 8 tier 2, 8 tier 3.
 | SEC-019 | A hostile write escaping the decision it was narrowed against                                                      | CWE-915            | Property over generated writes of authoring tokens, prototype names, unicode shapes and oversized keys: every picked key was marked `allowed`, and applying the result moves no prototype                                                                               | `tier1-prevented.test.ts` › SEC-019 |
 | SEC-020 | A document that is not an envelope reaching the engine                                                             | CWE-20             | A missing or non-array `permissions`, a version that is neither a string nor a number, a schema that is not one, a declared type that is not one, and a bare list with no envelope at all are all construction errors                                                   | `tier1-prevented.test.ts` › SEC-020 |
 | SEC-021 | A write into a frozen matrix: a `Date`, `Map` or `Set` the freeze did not cover                                    | CWE-915, CWE-471   | `Object.freeze` covers no internal slot, so the walk seals every mutator of a `Date`, `Map` and `Set` with an own property that throws before it freezes the object                                                                                                     | `tier1-prevented.test.ts` › SEC-021 |
+| SEC-022 | A field rule that matches nothing: a dotted entry such as `!address.street` or a dotted `targets` key              | CWE-863            | A dotted field entry, or one with a backslash (reserved as the path escape), is refused at construction with `InvalidPermissionError`, because field rules match top-level keys of the object                                                                           | `tier1-prevented.test.ts` › SEC-022 |
 
 ## Tier 2 — the primitive exists, the consumer must use it
 

@@ -31,19 +31,21 @@ For an example of a filter that incorrectly implements the field step by passing
 
 ## Nested objects in @evanion/acl field rules
 
-To manage visibility of specific keys, `canFields` evaluates top-level keys derived from `Object.keys` of the row. This means `address` is treated as a single field, while `address.street` is not recognized as a field. Consequently, a list like `['*', '!address.street']` is accepted during construction but excludes nothing, as the row possesses no key literally named `address.street`.
+To define which parts of a data row are visible, `@evanion/acl` evaluates top-level keys via `Object.keys`. Because field rules name top-level keys only, nested paths are not supported; for example, `address` is a field, but `address.street` is not.
 
-The first half of the example below demonstrates this behavior: since `address` is `allowed`, `pickAllowedFields` returns the entire nested object, including the street.
+If you attempt to use a dotted key—whether in a field list like `['*', '!address.street']` or within `targets` or `transitions` rules—the build will refuse it. This results in an `InvalidPermissionError` that names the specific permission key and the invalid entry. The build also refuses a name containing a backslash, which is reserved as the path escape. A flat data key that literally contains a dot cannot be named by a rule.
+
+The example below demonstrates a refused build followed by the correct way to hide a nested field.
 
 ```ts twoslash file=libs/acl/docs/examples.md region=nested-fields
 
 ```
 
-Conditions share this limit; a path reads one field of a scope. As shown in [What can throw?](../errors), a path like `object.address.city` will cause the policy to be refused during build.
+Conditions share this same limitation, as a path can only read one field of a scope. As detailed in [What can throw?](../errors), a path like `object.address.city` will cause the policy to be refused during the build process.
 
-To hide a specific part of a nested object, you must decide its visibility separately. Assign the nested shape its own object kind with its own field rules, then call `canFields` on the nested value after the parent has been picked. The row-level gate remains on the parent kind, allowing the nested kind to permit `read` unconditionally.
+To hide a specific part of a nested object, you must decide its visibility separately. You can achieve this by giving the nested shape its own object kind with its own field rules, then calling `canFields` on the nested value after the parent has been picked. In this pattern, the row-level gate remains on the parent kind, while the nested kind permits `read` unconditionally.
 
-Because `@evanion/acl` does not automatically walk into values, a response with three nested objects requires three additional `canFields` calls per row. To reduce this overhead, you can flatten sensitive nested data into its own top-level field on the row.
+Because `@evanion/acl` does not automatically walk into values, a response containing three nested objects requires three additional `canFields` calls per row. To reduce this overhead, you can flatten sensitive nested data into its own top-level field on the row.
 
 ## Paging a filtered list with @evanion/acl
 

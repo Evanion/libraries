@@ -75,6 +75,54 @@ describe('validateMatrix', () => {
     expect(() => validateMatrix(matrix)).toThrow(BangInAllowListError);
   });
 
+  it.each([
+    ['a dotted allow entry', ['id', 'address.city']],
+    ['a dotted deny entry', ['*', '!address.street']],
+    ['an escaped allow entry', ['id', 'a\\.b']],
+    ['an escaped deny entry', ['*', '!a\\b']],
+  ])('rejects %s, naming the entry', (_, names) => {
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'order.read',
+          object: 'order',
+          action: 'read',
+          fields: { fields: names },
+        },
+      ],
+    };
+
+    expect(() => validateMatrix(matrix)).toThrow(InvalidPermissionError);
+    expect(() => validateMatrix(matrix)).toThrow(
+      /"order\.read": "fields\.fields\[\d\]" .*top-level keys.*nested path or an escaped name is not supported/,
+    );
+  });
+
+  it.each([
+    ['targets', 'address.country'],
+    ['transitions', 'address.country'],
+    ['targets', 'a\\.b'],
+    ['transitions', 'a\\.b'],
+  ] as const)('rejects the rule key %s carrying %s', (kind, name) => {
+    const config =
+      kind === 'targets' ? { targets: ['SE'] } : { transitions: { a: ['b'] } };
+    const matrix: Matrix = {
+      permissions: [
+        {
+          key: 'order.update',
+          object: 'order',
+          action: 'update',
+          fields: { [name]: config },
+        },
+      ],
+    };
+
+    expect(() => validateMatrix(matrix)).toThrow(InvalidPermissionError);
+    expect(() => validateMatrix(matrix)).toThrow(
+      /"order\.update": "fields\..+" .*nested path or an escaped name is not supported/,
+    );
+  });
+
   it('rejects targets and transitions on the same field', () => {
     const matrix: Matrix = {
       permissions: [

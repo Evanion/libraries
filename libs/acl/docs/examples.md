@@ -1587,15 +1587,28 @@ response; // -> [{ id: 'o1', customerId: 'c1', total: 40 }, { id: 'o3', customer
 <!-- #region nested-fields -->
 
 ```ts @import.meta.vitest
-import { pickAllowedFields, policy } from '@evanion/acl';
+import {
+  InvalidPermissionError,
+  pickAllowedFields,
+  policy,
+} from '@evanion/acl';
+import { expect } from 'vitest';
 
 type Address = { city: string; street: string };
 type Order = { id: string; address: Address };
 
+// A dotted entry names no top-level key, so the build refuses it.
+const dotted = () =>
+  policy<{ id: string }, { order: Order }>()
+    .for('order', (p) =>
+      p.allow('read', p.always).fields(['*', '!address.street']),
+    )
+    .build();
+expect(dotted).toThrow(InvalidPermissionError);
+
+// The nested shape gets its own object kind, decided with its own call.
 const access = policy<{ id: string }, { order: Order; address: Address }>()
-  .for('order', (p) =>
-    p.allow('read', p.always).fields(['*', '!address.street']),
-  )
+  .for('order', (p) => p.allow('read', p.always))
   .for('address', (p) => p.allow('read', p.always).fields(['*', '!street']))
   .build();
 
@@ -1608,9 +1621,7 @@ const order: Order = {
 const top = access.canFields(customer, 'order', 'read', order, 'read');
 Object.keys(top.fields); // -> ['id', 'address']
 top.fields['address']; // -> 'allowed'
-pickAllowedFields(top, order).address?.street; // -> 'Storgatan 1'
 
-// The application decides the nested object with its own kind.
 const nested = pickAllowedFields(top, order).address ?? {
   city: '',
   street: '',
