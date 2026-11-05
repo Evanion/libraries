@@ -1,3 +1,13 @@
+## 0.1.3 (2026-11-05)
+
+### 🚀 Features
+
+- **ui:** icon and icon button ([c74ab733](https://github.com/Evanion/libraries/commit/c74ab733))
+
+### ❤️ Thank You
+
+- Mikael Pettersson @Evanion
+
 ## 0.1.2 (2026-11-04)
 
 ### 🩹 Fixes
