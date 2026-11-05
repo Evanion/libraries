@@ -1,3 +1,19 @@
+## 0.1.1 (2026-11-05)
+
+### 🚀 Features
+
+- **feature:** toggle reports dependants that may go off ([3f05e6a9](https://github.com/Evanion/libraries/commit/3f05e6a9))
+
+### 📖 Documentation
+
+- **feature:** open on the flags living in your repo ([9e123209](https://github.com/Evanion/libraries/commit/9e123209))
+- **repo:** link the documentation at libs.evanion.com/docs ([dc18dbb2](https://github.com/Evanion/libraries/commit/dc18dbb2))
+- **feature:** give the readme gemma's npm landing-page shape ([3a13f560](https://github.com/Evanion/libraries/commit/3a13f560))
+
+### ❤️ Thank You
+
+- Mikael Pettersson @Evanion
+
 ## 0.1.0 (2026-10-17)
 
 ### 🚀 Features

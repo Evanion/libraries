@@ -1,3 +1,24 @@
+## 0.1.1 (2026-11-05)
+
+### 🚀 Features
+
+- **docs:** show a short sample from its own tested region ([68fa945c](https://github.com/Evanion/libraries/commit/68fa945c))
+
+### 📖 Documentation
+
+- **react-feature:** open on the flags living in your repo ([46ee7f90](https://github.com/Evanion/libraries/commit/46ee7f90))
+- **repo:** link the documentation at libs.evanion.com/docs ([dc18dbb2](https://github.com/Evanion/libraries/commit/dc18dbb2))
+- **react-feature:** open the readme on its family's promise ([66d2eefd](https://github.com/Evanion/libraries/commit/66d2eefd))
+- **react-feature:** give the readme gemma's npm landing-page shape ([c7872824](https://github.com/Evanion/libraries/commit/c7872824))
+
+### 🧱 Updated Dependencies
+
+- Updated @evanion/feature to 0.1.1
+
+### ❤️ Thank You
+
+- Mikael Pettersson @Evanion
+
 ## 0.1.0 (2026-10-17)
 
 ### 🚀 Features
