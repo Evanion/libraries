@@ -30,6 +30,7 @@
     "@babel/preset-react": "^8.0.1",
     "@commitlint/cli": "^21.2.3",
     "@commitlint/config-conventional": "^21.2.2",
+    "@evanion/nx-cache-reporter": "^0.1.0",
     "@nestjs/schematics": "^12.0.5",
     "@nestjs/testing": "^12.1.0",
     "@next/eslint-plugin-next": "^16.3.6",

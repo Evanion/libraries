@@ -34,13 +34,16 @@
     // whole-repository check is: its verdict depends on the repository.
     "repoChecks": ["{workspaceRoot}/**/*"]
   },
-  "nxCloudId": "68bf338daff9c334d6ac12a1",
   // Answers nx's usage-analytics prompt. Without a boolean here, an interactive
   // nx command asks the question and writes the answer back through
   // writeFormattedJsonFile, which drops every comment in this file. Off,
   // because a tracked setting speaks for everyone who clones the repository.
   "analytics": false,
   "plugins": [
+    // Reports each task's timing and cache result to the self-hosted cache
+    // server. It does nothing without the server and token the cache action
+    // exports.
+    "@evanion/nx-cache-reporter",
     {
       "plugin": "@nx/js/typescript",
       "options": {
