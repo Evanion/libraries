@@ -1,0 +1,60 @@
+{
+  "name": "@evanion/nx-cache-reporter",
+  "version": "0.1.0",
+  "description": "An Nx plugin that reports each run's task timings to a self-hosted remote cache, so the cache can show the time it saved.",
+  "keywords": [
+    "nx",
+    "nx-plugin",
+    "remote-cache",
+    "self-hosted",
+    "cache",
+    "build-stats",
+    "typescript"
+  ],
+  "homepage": "https://github.com/Evanion/libraries/tree/main/libs/nx-cache-reporter#readme",
+  "bugs": {
+    "url": "https://github.com/Evanion/libraries/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Evanion/libraries.git",
+    "directory": "libs/nx-cache-reporter"
+  },
+  "license": "MIT",
+  "author": "Mikael Pettersson",
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "@evanion/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo",
+    "src",
+    "!src/**/*.test.*",
+    "!src/**/*.spec.*",
+    "!src/**/*.test-d.*",
+    "!src/test-setup.ts",
+    "!src/**/test-fixtures.ts",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "peerDependencies": {
+    "nx": ">=21"
+  }
+}

@@ -1,4 +1,16 @@
 {
+  "@evanion/nx-cache-reporter": {
+    "undocumented": [
+      "ReportedStatus",
+      "ReportedTask",
+      "ReporterOptions",
+      "RunReport",
+      "buildReport",
+      "name",
+      "postTasksExecution"
+    ],
+    "unexercised": ["buildReport", "postTasksExecution"]
+  },
   "@evanion/ui": {
     "undocumented": [
       "Alert",
