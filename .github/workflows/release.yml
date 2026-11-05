@@ -26,6 +26,13 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # No remote cache here, and the cache action is deliberately not used. npm
+    # provenance attests that the package was built from this commit in this
+    # run, and restoring build outputs from the cache would weaken that. The
+    # skip keeps nx off the remote cache even if the server variable reaches
+    # this job's environment.
+    env:
+      NX_SKIP_REMOTE_CACHE: 'true'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -71,15 +78,6 @@ jobs:
             exit 1
           fi
           echo "npm $actual supports trusted publishing"
-
-      # Points nx at the self-hosted remote cache. Default-branch runs and
-      # same-repo pull requests get a one-hour write token through the job's
-      # OIDC token; fork pull requests get no secrets and run without the
-      # remote cache.
-      - uses: Evanion/nx-cache-action@a20fdbcc4f479b3ff937fac31a56c17968ff5966 # v0.1.0
-        with:
-          server: ${{ vars.NX_SELF_HOSTED_REMOTE_CACHE_SERVER }}
-          read-token: ${{ secrets.NX_CACHE_READ_TOKEN }}
 
       - run: npm ci
 
