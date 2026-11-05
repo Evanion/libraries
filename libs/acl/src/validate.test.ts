@@ -103,6 +103,8 @@ describe('validateMatrix', () => {
     ['transitions', 'address.country'],
     ['targets', 'a\\.b'],
     ['transitions', 'a\\.b'],
+    ['targets', 'a\\b'],
+    ['transitions', 'a\\b'],
   ] as const)('rejects the rule key %s carrying %s', (kind, name) => {
     const config =
       kind === 'targets' ? { targets: ['SE'] } : { transitions: { a: ['b'] } };

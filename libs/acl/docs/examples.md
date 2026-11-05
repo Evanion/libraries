@@ -1597,7 +1597,7 @@ import { expect } from 'vitest';
 type Address = { city: string; street: string };
 type Order = { id: string; address: Address };
 
-// A dotted entry names no top-level key, so the build refuses it.
+// Field rules name top-level keys, and a dotted entry is refused.
 const dotted = () =>
   policy<{ id: string }, { order: Order }>()
     .for('order', (p) =>
