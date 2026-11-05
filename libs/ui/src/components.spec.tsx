@@ -409,6 +409,7 @@ describe('Icon', () => {
     render(<Icon icon={FakeGlyph} />);
 
     const glyph = screen.getByTestId('glyph');
+
     expect(glyph).toHaveAttribute('aria-hidden', 'true');
     expect(glyph).not.toHaveAttribute('role');
     expect(glyph).toHaveClass('icon');
@@ -418,6 +419,7 @@ describe('Icon', () => {
     render(<Icon icon={FakeGlyph} label="Warning" className="extra" />);
 
     const glyph = screen.getByRole('img', { name: 'Warning' });
+
     expect(glyph).not.toHaveAttribute('aria-hidden');
     expect(glyph).toHaveClass('icon', 'extra');
   });
@@ -444,6 +446,7 @@ describe('IconButton', () => {
     render(<IconButton icon={FakeGlyph} label="Delete" />);
 
     const button = screen.getByRole('button', { name: 'Delete' });
+
     expect(button).toHaveAttribute('title', 'Delete');
     expect(button).toHaveAttribute('type', 'button');
     expect(within(button).getByTestId('glyph')).toHaveAttribute(
@@ -458,6 +461,7 @@ describe('IconButton', () => {
     );
 
     const button = screen.getByRole('button', { name: 'Delete' });
+
     expect(button).toBeDisabled();
     expect(button).toHaveAttribute('data-variant', 'danger');
   });
@@ -468,6 +472,7 @@ describe('Button and Badge icon', () => {
     render(<Button icon={FakeGlyph}>Save</Button>);
 
     const button = screen.getByRole('button', { name: 'Save' });
+
     expect(button.firstElementChild).toBe(screen.getByTestId('glyph'));
     expect(button.lastChild).toHaveTextContent('Save');
   });
@@ -476,6 +481,7 @@ describe('Button and Badge icon', () => {
     render(<Badge icon={FakeGlyph}>Live</Badge>);
 
     const badge = screen.getByText('Live');
+
     expect(badge.firstElementChild).toBe(screen.getByTestId('glyph'));
     expect(screen.getByTestId('glyph')).toHaveAttribute('width', '14');
   });
