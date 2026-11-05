@@ -56,22 +56,24 @@ The components import no CSS. Next resolves a CSS import inside a package, and p
 
 ## Components
 
-| Component                 | Renders                                                                                                                               |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `Button`, `ButtonLink`    | `<button type="button">` or `<a>` with `class="button"`; `variant="primary"` inverts ink and ground; `danger` is a destructive action |
-| `Field`                   | a label, an input, a hint and an error, wired with `aria-describedby` and `aria-invalid`; takes a required `id`                       |
-| `Select`                  | `Field` for a native `<select>`; its `<option>`s are its children                                                                     |
-| `Checkbox`                | a native checkbox with its label and an optional hint beside it; the hint describes it                                                |
-| `Switch`                  | `<button type="submit" role="switch" aria-checked>`, one form per switch                                                              |
-| `Badge`                   | a chip with an optional `tone`                                                                                                        |
-| `Card`                    | a `<section>` named by its `title`                                                                                                    |
-| `PageHeader`              | the page's `<h1>`, a description and actions                                                                                          |
-| `EmptyState`              | a dashed box for an empty list                                                                                                        |
-| `Alert`                   | a toned message; `role="alert"` for `negative` and `warning`, `role="status"` otherwise                                               |
-| `CopyValue`               | a value in mono with a copy button, optionally shortened to its start and end                                                         |
-| `CodeBlock`               | preformatted code with an optional label and copy button                                                                              |
-| `CopyButton`              | the copy button `CopyValue` and `CodeBlock` use                                                                                       |
-| `Dialog`, `dialogCommand` | a native modal `<dialog>` and the attributes that open and close it                                                                   |
+| Component                 | Renders                                                                                                                                                               |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Button`, `ButtonLink`    | `<button type="button">` or `<a>` with `class="button"`; `variant="primary"` inverts ink and ground; `danger` is a destructive action; `icon` renders before the text |
+| `Field`                   | a label, an input, a hint and an error, wired with `aria-describedby` and `aria-invalid`; takes a required `id`                                                       |
+| `Select`                  | `Field` for a native `<select>`; its `<option>`s are its children                                                                                                     |
+| `Checkbox`                | a native checkbox with its label and an optional hint beside it; the hint describes it                                                                                |
+| `Switch`                  | `<button type="submit" role="switch" aria-checked>`, one form per switch                                                                                              |
+| `Icon`                    | an icon component at `sm` (14px), `md` (16px) or `lg` (20px); `aria-hidden` unless it has a `label`                                                                   |
+| `IconButton`              | a `Button` showing only an icon; `label` is its accessible name and its `title`                                                                                       |
+| `Badge`                   | a chip with an optional `tone` and `icon`                                                                                                                             |
+| `Card`                    | a `<section>` named by its `title`                                                                                                                                    |
+| `PageHeader`              | the page's `<h1>`, a description and actions                                                                                                                          |
+| `EmptyState`              | a dashed box for an empty list                                                                                                                                        |
+| `Alert`                   | a toned message; `role="alert"` for `negative` and `warning`, `role="status"` otherwise                                                                               |
+| `CopyValue`               | a value in mono with a copy button, optionally shortened to its start and end                                                                                         |
+| `CodeBlock`               | preformatted code with an optional label and copy button                                                                                                              |
+| `CopyButton`              | the copy button `CopyValue` and `CodeBlock` use                                                                                                                       |
+| `Dialog`, `dialogCommand` | a native modal `<dialog>` and the attributes that open and close it                                                                                                   |
 
 `Field`, `Select` and `Checkbox` take `id` because a stateless component cannot call `useId`. The hint is `<id>-hint` and the error `<id>-error`.
 
@@ -85,6 +87,18 @@ The data table, the shell and two layout helpers are classes only:
 | `.stack`, `.card-grid`, `.form`, `.form-row`, `.form-actions`, `.hint`, `.mono`, `.visually-hidden` | layout and text helpers                                                                                              |
 
 A shell with a tone (`<div class="app-shell" data-tone="warning">`) rules its header in that tone, which is how a console marks a production page.
+
+### Icons
+
+The package depends on no icon set. `icon` takes any SVG component that accepts `size` and `strokeWidth`, which is the shape Lucide's icons have. The stylesheet sets the stroke width to 1.75.
+
+```tsx
+<Button icon={Save}>Save</Button>
+<IconButton icon={Trash} label="Delete" variant="danger" />
+<Icon icon={AlertTriangle} size="lg" label="Warning" />
+```
+
+An `Icon` without a `label` is `aria-hidden`. With one it is `role="img"` with that name. `Button` and `Badge` take an `icon` that renders before the text.
 
 ### Dialog
 

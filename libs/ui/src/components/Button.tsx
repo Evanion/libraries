@@ -1,5 +1,7 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react';
 
+import { Icon } from './Icon.js';
+import type { IconComponent } from './Icon.js';
 import { classNames } from './tone.js';
 
 /**
@@ -11,6 +13,8 @@ export type ButtonVariant = 'primary' | 'secondary' | 'danger';
 /** A native button's attributes, plus its variant. */
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
+  /** Rendered before the children. */
+  icon?: IconComponent;
 };
 
 /**
@@ -21,6 +25,8 @@ export function Button({
   variant = 'secondary',
   className,
   type = 'button',
+  icon,
+  children,
   ...props
 }: ButtonProps) {
   return (
@@ -29,7 +35,10 @@ export function Button({
       className={classNames('button', className)}
       data-variant={variant}
       {...props}
-    />
+    >
+      {icon && <Icon icon={icon} />}
+      {children}
+    </button>
   );
 }
 

@@ -233,6 +233,33 @@
   color: var(--tone);
 }
 
+/* Icon: sized by its `size` prop, stroked by the stylesheet. */
+.icon {
+  flex: none;
+  stroke-width: 1.75;
+
+  &[data-size='sm'] {
+    inline-size: 14px;
+    block-size: 14px;
+  }
+
+  &[data-size='md'] {
+    inline-size: 16px;
+    block-size: 16px;
+  }
+
+  &[data-size='lg'] {
+    inline-size: 20px;
+    block-size: 20px;
+  }
+}
+
+/* An icon-only button is square. */
+.icon-button {
+  inline-size: var(--control-height);
+  padding-inline: 0;
+}
+
 /* Data table: a native <table>. In a narrow main column the rows stack, and
    a cell's `data-label` stands in for the hidden header. */
 .data-table {
