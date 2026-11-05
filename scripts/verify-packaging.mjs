@@ -386,8 +386,8 @@ const reactCanFields: typeof useCanFields = useCanFields;
 const reactFieldDecision: ReactFieldDecision = fieldDecision;
 const reporterPlugin: NxPluginV2<ReporterOptions> = { name: reporterName, postTasksExecution };
 const reporterOptions: ReporterOptions = { server: 'https://cache.example.com', enabled: true };
-const reporterReport: RunReport = buildReport({ id: 'run-1', workspaceRoot: '/w', nxJsonConfiguration: {}, taskResults: {}, argv: [], startTime: 0, endTime: 1 });
-const reporterTasks: ReportedTask[] = reporterReport.tasks;
+const reporterReport: RunReport | undefined = buildReport({ id: 'run-1', workspaceRoot: '/w', nxJsonConfiguration: {}, taskResults: {}, argv: [], startTime: 0, endTime: 1 });
+const reporterTasks: ReportedTask[] = reporterReport?.tasks ?? [];
 const reporterStatus: ReportedStatus = 'remote-cache';
 void [reporterPlugin, reporterOptions, reporterTasks, reporterStatus,
       typedBound,

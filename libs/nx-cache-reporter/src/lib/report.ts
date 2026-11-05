@@ -24,9 +24,9 @@ export type ReportedStatus = (typeof REPORTED_STATUSES)[number];
 export interface ReportedTask {
   /** The Nx task hash, which is the cache key. */
   hash: string;
-  /** The Nx project name. */
+  /** The Nx project name, at most 128 characters. */
   project: string;
-  /** The target name, without its configuration. */
+  /** The target name, without its configuration, at most 128 characters. */
   target: string;
   status: ReportedStatus;
   /** Milliseconds since the epoch. */
@@ -51,7 +51,12 @@ export interface RunReport {
 }
 
 const HASH = /^[A-Za-z0-9_-]{1,128}$/;
-const MAX_NAME_LENGTH = 256;
+/**
+ * The longest Nx project or target name the server records. A task with a
+ * longer name is left out whole: a truncated name would count its runs against
+ * a target that does not exist.
+ */
+const MAX_NAME_LENGTH = 128;
 const MAX_SPAN_MS = 7 * 24 * 60 * 60 * 1000;
 
 const isStatus = (status: string): status is ReportedStatus =>
@@ -107,12 +112,42 @@ function reportedTask({ task, status }: TaskResult): ReportedTask | undefined {
 const utf8Bytes = (value: unknown): number =>
   Buffer.byteLength(JSON.stringify(value), 'utf8');
 
+/** The run's start and end, or `undefined` when the server would refuse them. */
+function runSpan(
+  context: PostTasksExecutionContext,
+  tasks: readonly ReportedTask[],
+): { startTime: number; endTime: number } | undefined {
+  // Nx sets both, but a context that lacks one falls back to the tasks it
+  // timed rather than losing the report.
+  const startTime =
+    milliseconds(context.startTime) ??
+    (tasks.length > 0 ? Math.min(...tasks.map((t) => t.startTime)) : undefined);
+  const endTime =
+    milliseconds(context.endTime) ??
+    (tasks.length > 0 ? Math.max(...tasks.map((t) => t.endTime)) : undefined);
+
+  if (
+    startTime === undefined ||
+    endTime === undefined ||
+    endTime < startTime ||
+    endTime - startTime > MAX_SPAN_MS
+  ) {
+    return undefined;
+  }
+  return { startTime, endTime };
+}
+
 /**
- * The report for one Nx run, in the shape `POST /v1/runs` accepts.
+ * The report for one Nx run, in the shape `POST /v1/runs` accepts, or
+ * `undefined` when the run has no start and end the server would accept.
  *
  * Only the fields in {@link ReportedTask} leave the machine: no terminal
  * output, no argv, no hash inputs, no paths. Tasks the server would skip are
  * left out.
+ *
+ * A run start or end that is missing or not a time is taken from the earliest
+ * task start or the latest task end. A run that still ends before it starts, or
+ * spans more than 7 days, is not reported.
  *
  * The server refuses a report over {@link MAX_TASKS} tasks or
  * {@link MAX_BODY_BYTES} bytes, and drops a second report with the same run id,
@@ -122,11 +157,20 @@ const utf8Bytes = (value: unknown): number =>
 export function buildReport(
   context: PostTasksExecutionContext,
   env: Record<string, string | undefined> = process.env,
-): RunReport {
+): RunReport | undefined {
+  const tasks: ReportedTask[] = [];
+  for (const result of Object.values(context.taskResults)) {
+    if (tasks.length === MAX_TASKS) break;
+    const task = reportedTask(result);
+    if (task) tasks.push(task);
+  }
+
+  const span = runSpan(context, tasks);
+  if (!span) return undefined;
+
   const report: RunReport = {
     runId: context.id,
-    startTime: Math.round(context.startTime),
-    endTime: Math.round(context.endTime),
+    ...span,
     ci: env['CI'] === 'true',
     tasks: [],
   };
@@ -134,12 +178,7 @@ export function buildReport(
   // The empty report, plus one byte per comma between tasks.
   let bytes = utf8Bytes(report);
 
-  for (const result of Object.values(context.taskResults)) {
-    if (report.tasks.length === MAX_TASKS) break;
-
-    const task = reportedTask(result);
-    if (!task) continue;
-
+  for (const task of tasks) {
     const size = utf8Bytes(task) + (report.tasks.length > 0 ? 1 : 0);
     if (bytes + size > MAX_BODY_BYTES) break;
 

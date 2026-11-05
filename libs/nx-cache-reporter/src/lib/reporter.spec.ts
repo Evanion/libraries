@@ -287,6 +287,36 @@ describe('postTasksExecution', () => {
     expect(lines).toEqual([]);
   });
 
+  it('does not follow a redirect', async () => {
+    reportingEnv(
+      await listen((req, res) => {
+        if (req.url === '/v1/runs') {
+          res.writeHead(307, { location: '/elsewhere' });
+          res.end();
+        } else accept(req, res);
+      }),
+    );
+
+    const lines = await run();
+
+    expect(lines).toEqual([]);
+    expect(received.map((r) => r.url)).toEqual(['/v1/runs']);
+  });
+
+  it('posts nothing when the run times cannot be recovered', async () => {
+    reportingEnv(await listen(accept));
+
+    const lines = await capture(() =>
+      postTasksExecution(
+        undefined,
+        runContext([taskResult()], { startTime: 9_000, endTime: 8_000 }),
+      ),
+    );
+
+    expect(lines).toEqual([]);
+    expect(received).toEqual([]);
+  });
+
   describe('with NX_VERBOSE_LOGGING=true', () => {
     beforeEach(() => vi.stubEnv('NX_VERBOSE_LOGGING', 'true'));
 
