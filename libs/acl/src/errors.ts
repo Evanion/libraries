@@ -213,7 +213,7 @@ export class InvalidRuleError extends AclConfigError {
  *
  * The two sides of a permission share one id space, and an allow rule may not
  * take the id of a deny rule beside it. A derived id carries the side it sits
- * on, as `allow-b72dadff`, so derivation puts no name on both sides. A
+ * on, as `allow-53eebf50`, so derivation puts no name on both sides. A
  * `Decision` reports `rule` as that one string and states no side next to it,
  * so `"blocked-on-probation"` appearing on both sides leaves a support answer
  * naming two rules that decide opposite ways.

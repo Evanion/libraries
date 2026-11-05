@@ -274,7 +274,7 @@ export function assertRules(key: string, side: string, rules: unknown): void {
  *
  * The check runs over both sides at once, so an allow rule and a deny rule of
  * one permission may not share an id either. `ruleId` derives an id from the
- * conditions and the side, as `allow-b72dadff`, so two sides never collide by
+ * conditions and the side, as `allow-53eebf50`, so two sides never collide by
  * derivation; a `Decision` carries `rule` as one string with no side beside it,
  * and an explicit id on both sides leaves that string naming two rules that
  * decide opposite ways.

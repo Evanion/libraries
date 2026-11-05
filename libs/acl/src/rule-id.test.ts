@@ -58,4 +58,40 @@ describe('ruleId', () => {
   it('names the side and eight hex digits', () => {
     expect(ruleId(owner, 'deny')).toMatch(/^deny-[0-9a-f]{8}$/);
   });
+
+  it('separates a field ending in the operator prefix from the shorter field', () => {
+    const a: Rule = {
+      when: [{ field: 'usernot-', op: 'in', value: ['x'] }],
+    };
+    const b: Rule = {
+      when: [{ field: 'user', op: 'not-in', value: ['x'] }],
+    };
+
+    expect(ruleId(a, 'allow')).not.toBe(ruleId(b, 'allow'));
+  });
+
+  it('separates a field carrying the delimiter from a shorter field and a longer operator', () => {
+    const a: Rule = {
+      when: [{ field: 'a\u0001ne', op: 'in', value: ['x'] }],
+    };
+    const b: Rule = {
+      when: [{ field: 'a', op: 'ne\u0001in' as 'in', value: ['x'] }],
+    };
+
+    expect(ruleId(a, 'allow')).not.toBe(ruleId(b, 'allow'));
+  });
+
+  it('separates two conditions from the one whose text is their concatenation', () => {
+    const two: Rule = {
+      when: [
+        { field: 'a', op: 'eq', value: 'x' },
+        { field: 'b', op: 'eq', value: 'y' },
+      ],
+    };
+    const one: Rule = {
+      when: [{ field: 'a\u0001eq\u0001v"x"b', op: 'eq', value: 'y' }],
+    };
+
+    expect(ruleId(two, 'allow')).not.toBe(ruleId(one, 'allow'));
+  });
 });

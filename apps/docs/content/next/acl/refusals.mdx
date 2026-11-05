@@ -96,11 +96,11 @@ The name comes from one of two places:
   names a rule with [`.id(name)`](../authoring#naming-a-rule-with-pid) after
   the `allow` or `deny` that wrote it.
 - A rule nobody named reports a derived id, the side it sits on and a hash of
-  its conditions, such as `allow-b72dadff`.
+  its conditions, such as `allow-53eebf50`.
 
 Store a name the author wrote, and never store a derived one. A release of this
 library that changes how a condition is represented changes every derived id, so
-an audit row holding `allow-b72dadff` stops matching its rule with nothing to
+an audit row holding `allow-53eebf50` stops matching its rule with nothing to
 report it.
 
 Treat `rule` as a log line and a support answer, such as "denied by

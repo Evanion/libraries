@@ -1,13 +1,26 @@
 import { canonical } from './canonical.js';
 import type { Condition, Rule } from './types.js';
 
-/** One condition as text, with the four keys in a fixed order. */
+/** A string with its length in front, so no two distinct parts share a text. */
+function part(text: string): string {
+  return `${text.length}:${text}`;
+}
+
+/**
+ * One condition as text, with the four keys in a fixed order.
+ *
+ * Every variable-length part carries its length: the field, the operator and
+ * the operand. A field is an arbitrary string, so a delimiter between the parts
+ * would still let a field that contains it read as a shorter field followed by
+ * an operator. The operator is prefixed too, so a later operator that begins
+ * with an existing one cannot collide with it.
+ */
 function conditionText(condition: Condition): string {
   const { field, op } = condition;
   const path = 'path' in condition ? condition.path : undefined;
   const operand =
     path === undefined ? `v${canonical(condition.value)}` : `p${path}`;
-  return `${field}${op}${operand}`;
+  return `${part(field)}${part(op)}${part(operand)}`;
 }
 
 /**
