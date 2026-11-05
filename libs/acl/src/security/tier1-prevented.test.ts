@@ -1340,50 +1340,60 @@ describe('SEC-022 a dotted field entry that matches nothing (CWE-863)', () => {
   // #region sec-022
   /**
    * Field rules match the top-level keys of the object. `'!address.street'`
-   * names no key a row carries, so the deny excluded nothing and `address`
-   * went out whole, street included. Construction refuses a dotted entry, on
-   * both entry points, so no rule is written that cannot hold.
+   * names no key a row carries, so the deny would exclude nothing and
+   * `address` would pass whole, street included. Construction refuses a dotted
+   * entry on both entry points, and refuses a backslash, which is reserved as
+   * the path escape.
    */
-  const dottedDeny = () =>
-    permission('order', 'read', {
-      fields: { fields: ['*', '!address.street'] },
-    });
-  const dottedTarget = () =>
+  const refused = (
+    make: () => Permission,
+    key: string,
+    field: string,
+  ): void => {
+    for (const build of [local, foreign]) {
+      let thrown: unknown;
+      try {
+        build([make()]);
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(InvalidPermissionError);
+      expect((thrown as InvalidPermissionError).key).toBe(key);
+      expect((thrown as InvalidPermissionError).field).toBe(field);
+      expect((thrown as Error).message).toMatch(/top-level keys/);
+    }
+  };
+
+  const names = (entries: string[]) => () =>
+    permission('order', 'read', { fields: { fields: entries } });
+  const keyed = (name: string) => () =>
     permission('order', 'update', {
-      fields: { 'address.country': { targets: ['SE'] } },
+      fields: { [name]: { targets: ['SE'] } },
     });
 
-  it('refuses a dotted deny entry on the local and the foreign path', () => {
-    expect(() => local([dottedDeny()])).toThrow(InvalidPermissionError);
-    expect(() => foreign([dottedDeny()])).toThrow(InvalidPermissionError);
+  it('refuses a dotted deny entry', () => {
+    refused(names(['*', '!address.street']), 'order.read', 'fields.fields[1]');
   });
 
   it('refuses a dotted allow entry', () => {
-    const allow = permission('order', 'read', {
-      fields: { fields: ['id', 'address.city'] },
-    });
-
-    expect(() => local([allow])).toThrow(InvalidPermissionError);
-    expect(() => foreign([allow])).toThrow(InvalidPermissionError);
+    refused(names(['id', 'address.city']), 'order.read', 'fields.fields[1]');
   });
 
   it('refuses a dotted targets key, which no write carries', () => {
-    expect(() => local([dottedTarget()])).toThrow(InvalidPermissionError);
-    expect(() => foreign([dottedTarget()])).toThrow(InvalidPermissionError);
+    refused(keyed('address.country'), 'order.update', 'fields.address.country');
   });
 
-  it('refuses a backslash, reserved as the path escape', () => {
-    const escapedAllow = permission('order', 'read', {
-      fields: { fields: ['id', '!a\\.b'] },
-    });
-    const escapedKey = permission('order', 'update', {
-      fields: { 'a\\.b': { targets: ['SE'] } },
-    });
+  it('refuses a backslash in a deny entry, with no dot present', () => {
+    refused(names(['*', '!a\\b']), 'order.read', 'fields.fields[1]');
+  });
 
-    for (const p of [escapedAllow, escapedKey]) {
-      expect(() => local([p])).toThrow(InvalidPermissionError);
-      expect(() => foreign([p])).toThrow(InvalidPermissionError);
-    }
+  it('refuses a backslash in an allow entry, with no dot present', () => {
+    refused(names(['id', 'a\\b']), 'order.read', 'fields.fields[1]');
+  });
+
+  it('refuses a backslash in a targets key, with no dot present', () => {
+    refused(keyed('a\\b'), 'order.update', 'fields.a\\b');
   });
   // #endregion sec-022
 });
