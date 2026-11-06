@@ -16,7 +16,8 @@ export type Paths<T, P extends string> = {
   [K in keyof T & string]: `${P}.${K}`;
 }[keyof T & string];
 
-export type Prev = [
+/** The depth counter `FieldPath` counts down: `PathDepth[N]` is `N - 1`. */
+export type PathDepth = [
   never,
   0,
   1,
@@ -37,9 +38,7 @@ export type Prev = [
   16,
 ];
 
-export type IsAny<T> = 0 extends 1 & T ? true : false;
-
-/** A value the path walk does not descend into. */
+/** A value a field path does not descend into. */
 export type PathLeaf =
   | string
   | number
@@ -54,37 +53,43 @@ export type PathLeaf =
   | WeakSet<WeakKey>
   | ((...args: never[]) => unknown);
 
-/** A key as a path segment: `\` becomes `\\` and `.` becomes `\.`. */
-export type EscapeKey<K extends string> = K extends `${infer H}\\${infer R}`
-  ? `${EscapeKey<H>}\\\\${EscapeKey<R>}`
-  : K extends `${infer H}.${infer R}`
-    ? `${EscapeKey<H>}\\.${EscapeKey<R>}`
-    : K;
+/**
+ * A key as a path segment: a backslash becomes two and a dot gains a backslash
+ * before it. A number key is written as its string form.
+ */
+export type EscapeKey<K extends string | number> =
+  `${K}` extends `${infer H}\\${infer R}`
+    ? `${EscapeKey<H>}\\\\${EscapeKey<R>}`
+    : `${K}` extends `${infer H}.${infer R}`
+      ? `${EscapeKey<H>}\\.${EscapeKey<R>}`
+      : `${K}`;
 
 /**
  * The escaped dotted paths of `T` through plain-object properties and array
- * elements. An array contributes the paths of its element type with no index
- * segment. `Date`, `Map`, `Set`, functions and primitives are leaves. A key
- * containing `.` or `\` appears escaped as `\.` or `\\`. Past `Depth` segments
- * the type is `string`, so a deep or recursive type still compiles. An
- * `any` or index-signature type is `string`.
+ * elements, as a union. An array contributes the paths of its element type
+ * with no index segment. `Date`, `Map`, `Set`, functions and primitives are
+ * leaves. A key containing a dot or a backslash appears escaped, and a number
+ * key as its string form. Past `Depth` segments, and under `any`, `unknown`,
+ * `object` or an index signature, the type is `string`.
+ *
+ * The typed `fields()` does not enumerate this union. It validates each entry
+ * by walking its own segments, so its cost does not grow with the size of `T`.
  */
-export type FieldPath<T, Depth extends number = 5> =
-  IsAny<T> extends true
+export type FieldPath<T, Depth extends number = 5> = [Depth] extends [0]
+  ? string
+  : object extends T
     ? string
-    : [Depth] extends [0]
-      ? string
-      : T extends readonly (infer E)[]
-        ? FieldPath<E, Depth>
-        : T extends PathLeaf
-          ? never
-          : T extends object
-            ? {
-                [K in keyof T & string]:
-                  | EscapeKey<K>
-                  | `${EscapeKey<K>}.${FieldPath<NonNullable<T[K]>, Prev[Depth]>}`;
-              }[keyof T & string]
-            : never;
+    : T extends readonly (infer E)[]
+      ? FieldPath<E, Depth>
+      : T extends PathLeaf
+        ? never
+        : T extends object
+          ? {
+              [K in keyof T & (string | number)]:
+                | EscapeKey<K>
+                | `${EscapeKey<K>}.${FieldPath<NonNullable<T[K]>, PathDepth[Depth]>}`;
+            }[keyof T & (string | number)]
+          : never;
 
 /** One entry of a field list: `*`, a path of `T`, or `!` and a path of `T`. */
 export type FieldEntry<T> = '*' | FieldPath<T> | `!${FieldPath<T>}`;
@@ -97,6 +102,101 @@ export type FieldRulesOf<Obj> = {
   fields?: readonly FieldEntry<Obj>[];
 } & {
   [P in FieldPath<Obj>]?: FieldConfig | readonly string[];
+};
+
+/** A segment the construction checks refuse as a field name. */
+export type RefusedSegment = '' | '*' | '__proto__' | `!${string}`;
+
+/**
+ * The type reached by naming `K` on `T`, or `never` when `T` has no such
+ * property. A union is walked member by member, an array through its element
+ * type, and `any`, `unknown`, `object` and index signatures reach `unknown`,
+ * which accepts every further segment.
+ */
+export type StepInto<T, K extends string> = K extends RefusedSegment
+  ? never
+  : unknown extends T
+    ? unknown
+    : StepMember<NonNullable<T>, K>;
+
+/** `StepInto` for one non-nullable type, distributed over a union. */
+export type StepMember<T, K extends string> = T extends unknown
+  ? object extends T
+    ? unknown
+    : T extends readonly (infer E)[]
+      ? StepInto<E, K>
+      : T extends PathLeaf
+        ? never
+        : K extends keyof T
+          ? T[K]
+          : {
+              [P in keyof T & number]: K extends `${P}` ? T[P] : never;
+            }[keyof T & number]
+  : never;
+
+/**
+ * `true` when the escaped path `S` names a property chain of `T`, and `false`
+ * when a segment is missing, refused or malformed. `Cur` is the segment being
+ * read. The walk costs one step per character of `S`, whatever the size of `T`.
+ */
+export type WalkPath<
+  S extends string,
+  T,
+  Cur extends string = '',
+> = S extends `\\${infer N}${infer R}`
+  ? N extends '.' | '\\'
+    ? WalkPath<R, T, `${Cur}${N}`>
+    : false
+  : S extends `.${infer R}`
+    ? [StepInto<T, Cur>] extends [never]
+      ? false
+      : WalkPath<R, StepInto<T, Cur>>
+    : S extends `${infer C}${infer R}`
+      ? WalkPath<R, T, `${Cur}${C}`>
+      : [StepInto<T, Cur>] extends [never]
+        ? false
+        : true;
+
+/** `S` when it names a path of `T`, and an error message otherwise. */
+export type ValidPath<S extends string, T> = string extends S
+  ? S
+  : WalkPath<S, T> extends true
+    ? S
+    : `unknown field path '${S}' on this resource`;
+
+/**
+ * `S` when it is `*`, a path of `Obj`, or `!` and a path of `Obj`, and an error
+ * message naming `S` otherwise. A `string` that is not a literal is accepted.
+ */
+export type ValidEntry<S extends string, Obj> = string extends S
+  ? S
+  : S extends '*'
+    ? S
+    : S extends `!${infer P}`
+      ? WalkPath<P, Obj> extends true
+        ? S
+        : `unknown field path '${S}' on this resource`
+      : ValidPath<S, Obj>;
+
+/** A field list with each entry checked against `Obj` by `ValidEntry`. */
+export type ValidEntries<E extends readonly string[], Obj> = {
+  [I in keyof E]: ValidEntry<E[I], Obj>;
+};
+
+/**
+ * A field rules object with its `fields` list and each config key checked
+ * against `Obj`.
+ */
+export type ValidRules<R, Obj> = {
+  [P in keyof R]: P extends 'fields'
+    ? R[P] extends readonly string[]
+      ? ValidEntries<R[P], Obj>
+      : R[P]
+    : P extends string
+      ? ValidPath<P, Obj> extends P
+        ? R[P]
+        : ValidPath<P, Obj>
+      : R[P];
 };
 
 /**
@@ -308,8 +408,11 @@ export interface Actions<
    */
   id(id: string): Actions<Sub, Obj, Act, Vocab>;
   /** Field rules for the action most recently declared in the chain. */
-  fields(
-    rules: readonly FieldEntry<Obj>[] | FieldRulesOf<Obj>,
+  fields<const E extends readonly string[]>(
+    rules: ValidEntries<E, Obj>,
+  ): Actions<Sub, Obj, Act, Vocab>;
+  fields<const R extends FieldRules>(
+    rules: ValidRules<R, Obj>,
   ): Actions<Sub, Obj, Act, Vocab>;
   /**
    * The publication marking for the action most recently declared in the chain.
@@ -576,7 +679,7 @@ function blockBuilder(
       only.id = id;
       return chain;
     },
-    fields(rules) {
+    fields(rules: readonly string[] | FieldRules) {
       attachTo('fields').fields = Array.isArray(rules)
         ? { fields: rules }
         : (rules as FieldRules);

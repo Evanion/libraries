@@ -475,11 +475,120 @@ describe('typed field paths', () => {
     );
   });
 
-  it('accepts any string past depth 5', () => {
-    typed.for('deep', (p) => p.allow('read').fields(['a.b.c.d.e.anything']));
+  it('validates a path at any depth', () => {
+    typed.for('deep', (p) => p.allow('read').fields(['a.b.c.d.e.f.g']));
     typed.for('deep', (p) =>
-      // @ts-expect-error depth 5 is still checked
-      p.allow('read').fields(['a.b.c.d.zzz']),
+      // @ts-expect-error g has no children
+      p.allow('read').fields(['a.b.c.d.e.f.g.h']),
+    );
+    typed.for('deep', (p) =>
+      // @ts-expect-error unknown key deep in the tree
+      p.allow('read').fields(['a.b.c.d.e.zzz']),
+    );
+  });
+
+  it('accepts a non-literal string list', () => {
+    const names: string[] = ['anything'];
+    typed.for('order', (p) => p.allow('read').fields(names));
+  });
+
+  it('refuses the segments construction refuses', () => {
+    typed.for('order', (p) =>
+      // @ts-expect-error empty trailing segment
+      p.allow('read').fields(['address.']),
+    );
+    typed.for('order', (p) =>
+      // @ts-expect-error empty leading segment
+      p.allow('read').fields(['.address']),
+    );
+    typed.for('order', (p) =>
+      // @ts-expect-error empty middle segment
+      p.allow('read').fields(['address..city']),
+    );
+    typed.for('order', (p) =>
+      // @ts-expect-error a whole * segment
+      p.allow('read').fields(['address.*']),
+    );
+    typed.for('order', (p) =>
+      // @ts-expect-error a segment starting with !
+      p.allow('read').fields(['address.!city']),
+    );
+    typed.for('order', (p) =>
+      // @ts-expect-error a doubled !
+      p.allow('read').fields(['!!address']),
+    );
+    typed.for('order', (p) =>
+      // @ts-expect-error __proto__
+      p.allow('read').fields(['address.__proto__']),
+    );
+    typed.for('order', (p) =>
+      // @ts-expect-error an empty entry
+      p.allow('read').fields(['']),
+    );
+  });
+
+  it('walks a numeric key as its string form', () => {
+    type Indexed = {
+      byId: Record<number, { name: string }>;
+      t: { 1: string };
+    };
+    const p2 = policy<Subject, { indexed: Indexed }>();
+    p2.for('indexed', (p) =>
+      p.allow('read').fields(['byId.1.name', 't.1', '!byId.7']),
+    );
+    p2.for('indexed', (p) =>
+      // @ts-expect-error name belongs under the id
+      p.allow('read').fields(['byId.name']),
+    );
+    p2.for('indexed', (p) =>
+      // @ts-expect-error t has only the key 1
+      p.allow('read').fields(['t.2']),
+    );
+    expectTypeOf<FieldPath<Indexed>>().toExtend<string>();
+  });
+
+  it('accepts any path under unknown, object and index signatures', () => {
+    const loose = policy<
+      Subject,
+      {
+        rec: Record<string, unknown>;
+        mixed: { meta: unknown; obj: object; map: Record<string, { z: 1 }> };
+      }
+    >();
+    loose.for('rec', (p) => p.allow('read').fields(['a.b.c', '!x', '*']));
+    loose.for('mixed', (p) =>
+      p.allow('read').fields(['meta.any.thing', 'obj.x', 'map.k.z']),
+    );
+    loose.for('mixed', (p) =>
+      // @ts-expect-error z is the only key under a map value
+      p.allow('read').fields(['map.k.y']),
+    );
+  });
+
+  it('refuses a non-string entry for every object type', () => {
+    const loose = policy<
+      Subject,
+      { rec: Record<string, unknown>; num: { 1: string }; order: Order }
+    >();
+    loose.for('rec', (p) =>
+      // @ts-expect-error a number is not an entry
+      p.allow('read').fields(5),
+    );
+    loose.for('rec', (p) =>
+      // @ts-expect-error a number is not an entry
+      p.allow('read').fields([42]),
+    );
+    loose.for('num', (p) =>
+      // @ts-expect-error a number is not an entry
+      p.allow('read').fields([1]),
+    );
+    loose.for('order', (p) =>
+      // @ts-expect-error null is not an entry
+      p.allow('read').fields([null]),
+    );
+    loose.for('order', (p) =>
+      // @ts-expect-error a bare string is not a list
+      p.allow('read').fields('id'),
     );
   });
 

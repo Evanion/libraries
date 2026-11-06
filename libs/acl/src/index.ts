@@ -62,6 +62,7 @@ export type {
   Action,
   FieldEntry,
   FieldPath,
+  FieldRulesOf,
   Operand,
   Ops,
   Paths,
