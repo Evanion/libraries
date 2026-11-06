@@ -1811,6 +1811,44 @@ pickAllowedFields(copy, plain); // -> { id: 's1', owner: { name: 'A' } }
 
 <!-- #endregion nested-walk -->
 
+<!-- #region dotted-columns -->
+
+```ts @import.meta.vitest
+import { pickAllowedFields, policy } from '@evanion/acl';
+
+// A row with flat columns whose names hold a dot, such as SQL aliases.
+type Flat = Record<string, unknown>;
+const row: Flat = {
+  id: 'r1',
+  'address.street': 'Storgatan 1',
+  'address.city': 'Malmo',
+  'other.col': 'x',
+};
+const viewer = { id: 'u1' };
+
+// The exclusion names address.street, so the flat column of that name is hidden.
+const hidden = policy<{ id: string }, { row: Flat }>()
+  .for('row', (p) => p.allow('read', p.always).fields(['*', '!address.street']))
+  .build();
+const hiddenDecision = hidden.canFields(viewer, 'row', 'read', row, 'read');
+hiddenDecision.reasons['address\\.street']; // -> 'not-listed'
+// address.city is a flat column under a parent that has rules, so it is hidden too.
+hiddenDecision.reasons['address\\.city']; // -> 'not-traversable'
+// A dotted column no rule touches stays visible.
+pickAllowedFields(hiddenDecision, row); // -> { id: 'r1', 'other.col': 'x' }
+
+// An allow entry that escapes the dot names the flat column, and the flat reading decides alone.
+const shown = policy<{ id: string }, { row: Flat }>()
+  .for('row', (p) =>
+    p.allow('read', p.always).fields(['id', 'address\\.street']),
+  )
+  .build();
+const shownDecision = shown.canFields(viewer, 'row', 'read', row, 'read');
+pickAllowedFields(shownDecision, row); // -> { id: 'r1', 'address.street': 'Storgatan 1' }
+```
+
+<!-- #endregion dotted-columns -->
+
 ### Paging a filtered list
 
 <!-- #region refill-page -->
