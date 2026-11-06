@@ -1504,11 +1504,8 @@ describe('a flat dotted key on the read axis', () => {
   });
 
   it('stays allowed when no exclusion covers the path', () => {
-    expect(read(['*', '!address.street'], { 'address.x': 1 }).fields).toEqual({
-      'address\\.x': 'allowed',
-      'address.street': 'denied',
-    });
-    expect(read(['*', '!a.b'], { 'a.c': 2 }).fields['a\\.c']).toBe('allowed');
+    expect(read(['*', '!x.y'], { 'z.w': 1 }).fields['z\\.w']).toBe('allowed');
+    expect(read(['*', '!a'], { 'b.c': 2 }).fields['b\\.c']).toBe('allowed');
     expect(read(['*'], { 'a.b': 1 }).fields['a\\.b']).toBe('allowed');
   });
 
@@ -1539,6 +1536,54 @@ describe('a flat dotted key on the read axis', () => {
       expect(read(['*'], object).fields[key.replace(/\./g, '\\.')]).toBe(
         'allowed',
       );
+    }
+  });
+
+  it('is denied as not-traversable when its path holds a ruled subtree', () => {
+    const object = { id: 1, 'a.b': { c: 'secret' } };
+    const d = read(['*', '!a.b.c'], object);
+
+    expect(d.fields['a\\.b']).toBe('denied');
+    expect(d.reasons['a\\.b']).toBe('not-traversable');
+    expect(pickAllowedFields(d, object)).toEqual({ id: 1 });
+  });
+
+  it('is denied as not-traversable when an unclean split stops under a ruled node', () => {
+    const d = read(['*', '!a.b.c'], { 'a.b.*': { c: 'secret' } });
+
+    expect(d.fields['a\\.b\\.*']).toBe('denied');
+    expect(d.reasons['a\\.b\\.*']).toBe('not-traversable');
+  });
+
+  it('is not decided by a flat key that is only a write config or an exclusion', () => {
+    const d = decideFields(
+      {
+        key: 'order.read',
+        object: 'order',
+        action: 'read',
+        fields: {
+          fields: ['*', '!a.b'],
+          'a\\.b': { targets: [1] },
+        },
+      },
+      { ...ctx, object: { 'a.b': 1 } },
+      'read',
+    );
+
+    expect(d.fields['a\\.b']).toBe('denied');
+  });
+
+  it('is denied as not-traversable when its path leaves the rules below a ruled field', () => {
+    for (const [rules, key] of [
+      [['*', '!lines.cost'], 'lines.0.cost'],
+      [['*', '!address.street'], 'address.x'],
+      [['*', '!a.b'], 'a.c'],
+    ] as const) {
+      const d = read(rules, Object.fromEntries([[key, 1]]));
+      const out = key.replace(/\./g, '\\.');
+
+      expect(d.fields[out]).toBe('denied');
+      expect(d.reasons[out]).toBe('not-traversable');
     }
   });
 
