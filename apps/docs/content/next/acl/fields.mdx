@@ -206,10 +206,26 @@ For example, if your rules are `['id', 'address.city', 'address.zip']` and the s
 
 ### Rows with dotted column names
 
-A row may contain flat keys that include dots, such as a Sequelize raw result or a SQL alias like `address.street`. The engine treats these based on how the rule is written:
+A row can carry flat keys with a dot in them, such as SQL aliases or Sequelize raw columns.
 
-- **Path Reading:** A raw key with a clean dotted split is denied with `not-listed` if its path reading is denied. For instance, under the rules `['*', '!address.street']`, the flat key `address.street` is hidden.
-- **Explicit Keys:** To target the flat key `a.b` specifically, use an escape in the rule: `a\.b`.
+When a raw key contains a `.`, it is decided twice: once as a flat key and once as a path. A dotted key is allowed only if the flat reading permits it **and** the path spelled by splitting the key at the dot is not excluded. The path reading acts as a filter that can only tighten the result.
+
+For example, if your allowed list is `['a']`, a flat key of `{ 'a.b': 1 }` remains hidden, because the flat reading does not list it and the path reading never loosens a decision. Similarly, `['id', 'address.city']` hides a flat `address.city` column. To explicitly allow a flat column containing a dot, use a backslash to escape the character: `address\.city`. An allow entry using this escaped flat key tells the library to let the flat reading decide alone.
+
+### Traversal and Escaping
+
+The path reading enforces boundaries using the `not-traversable` denial. A dotted key is denied if its spelled path ends at a rule node that has further rules below it, or if the path attempts to leave that node.
+
+This behavior ensures strict isolation. For instance:
+
+- Under `['*', '!address.street']`, the flat key `address.x` is denied as `not-traversable`.
+- Under `!lines.cost`, the key `lines.0.cost` is similarly denied.
+
+If a split is not "clean," the library utilizes the clean prefix. Finally, any rule written with an escape, such as `a\.b`, refers specifically to the flat key `a.b` itself.
+
+```ts twoslash file=libs/acl/docs/examples.md region=dotted-columns
+
+```
 
 ### Pass plain rows
 
