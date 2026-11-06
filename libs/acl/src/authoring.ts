@@ -70,25 +70,27 @@ export type EscapeKey<K extends string | number> =
  * with no index segment. `Date`, `Map`, `Set`, functions and primitives are
  * leaves. A key containing a dot or a backslash appears escaped, and a number
  * key as its string form. Past `Depth` segments, and under `any`, `unknown`,
- * `object` or an index signature, the type is `string`.
+ * `object`, `{}` or an index signature, the type is `string`.
  *
  * The typed `fields()` does not enumerate this union. It validates each entry
  * by walking its own segments, so its cost does not grow with the size of `T`.
  */
 export type FieldPath<T, Depth extends number = 5> = [Depth] extends [0]
   ? string
-  : object extends T
+  : unknown extends T
     ? string
     : T extends readonly (infer E)[]
       ? FieldPath<E, Depth>
       : T extends PathLeaf
         ? never
         : T extends object
-          ? {
-              [K in keyof T & (string | number)]:
-                | EscapeKey<K>
-                | `${EscapeKey<K>}.${FieldPath<NonNullable<T[K]>, PathDepth[Depth]>}`;
-            }[keyof T & (string | number)]
+          ? [keyof T] extends [never]
+            ? string
+            : {
+                [K in keyof T & (string | number)]:
+                  | EscapeKey<K>
+                  | `${EscapeKey<K>}.${FieldPath<NonNullable<T[K]>, PathDepth[Depth]>}`;
+              }[keyof T & (string | number)]
           : never;
 
 /** One entry of a field list: `*`, a path of `T`, or `!` and a path of `T`. */
@@ -110,8 +112,8 @@ export type RefusedSegment = '' | '*' | '__proto__' | `!${string}`;
 /**
  * The type reached by naming `K` on `T`, or `never` when `T` has no such
  * property. A union is walked member by member, an array through its element
- * type, and `any`, `unknown`, `object` and index signatures reach `unknown`,
- * which accepts every further segment.
+ * type, and `any`, `unknown`, `object`, `{}` and index signatures reach
+ * `unknown`, which accepts every further segment.
  */
 export type StepInto<T, K extends string> = K extends RefusedSegment
   ? never
@@ -121,12 +123,12 @@ export type StepInto<T, K extends string> = K extends RefusedSegment
 
 /** `StepInto` for one non-nullable type, distributed over a union. */
 export type StepMember<T, K extends string> = T extends unknown
-  ? object extends T
-    ? unknown
+  ? T extends PathLeaf
+    ? never
     : T extends readonly (infer E)[]
       ? StepInto<E, K>
-      : T extends PathLeaf
-        ? never
+      : [keyof T] extends [never]
+        ? unknown
         : K extends keyof T
           ? T[K]
           : {
@@ -139,44 +141,48 @@ export type StepMember<T, K extends string> = T extends unknown
  * when a segment is missing, refused or malformed. `Cur` is the segment being
  * read. The walk costs one step per character of `S`, whatever the size of `T`.
  */
-export type WalkPath<
-  S extends string,
-  T,
-  Cur extends string = '',
-> = S extends `\\${infer N}${infer R}`
-  ? N extends '.' | '\\'
-    ? WalkPath<R, T, `${Cur}${N}`>
-    : false
-  : S extends `.${infer R}`
-    ? [StepInto<T, Cur>] extends [never]
-      ? false
-      : WalkPath<R, StepInto<T, Cur>>
-    : S extends `${infer C}${infer R}`
-      ? WalkPath<R, T, `${Cur}${C}`>
-      : [StepInto<T, Cur>] extends [never]
-        ? false
-        : true;
+export type WalkPath<S extends string, T, Cur extends string = ''> =
+  Record<never, never> extends Record<S, 1>
+    ? true
+    : S extends `\\${infer N}${infer R}`
+      ? N extends '.' | '\\'
+        ? WalkPath<R, T, `${Cur}${N}`>
+        : false
+      : S extends `.${infer R}`
+        ? [StepInto<T, Cur>] extends [never]
+          ? false
+          : WalkPath<R, StepInto<T, Cur>>
+        : S extends `${infer C}${infer R}`
+          ? C extends '\\'
+            ? false
+            : WalkPath<R, T, `${Cur}${C}`>
+          : [StepInto<T, Cur>] extends [never]
+            ? false
+            : true;
 
 /** `S` when it names a path of `T`, and an error message otherwise. */
-export type ValidPath<S extends string, T> = string extends S
-  ? S
-  : WalkPath<S, T> extends true
+export type ValidPath<S extends string, T> =
+  Record<never, never> extends Record<S, 1>
     ? S
-    : `unknown field path '${S}' on this resource`;
+    : WalkPath<S, T> extends true
+      ? S
+      : `unknown field path '${S}' on this resource`;
 
 /**
  * `S` when it is `*`, a path of `Obj`, or `!` and a path of `Obj`, and an error
- * message naming `S` otherwise. A `string` that is not a literal is accepted.
+ * message naming `S` otherwise. A `string` or a template with a non-literal
+ * part is accepted.
  */
-export type ValidEntry<S extends string, Obj> = string extends S
-  ? S
-  : S extends '*'
+export type ValidEntry<S extends string, Obj> =
+  Record<never, never> extends Record<S, 1>
     ? S
-    : S extends `!${infer P}`
-      ? WalkPath<P, Obj> extends true
-        ? S
-        : `unknown field path '${S}' on this resource`
-      : ValidPath<S, Obj>;
+    : S extends '*'
+      ? S
+      : S extends `!${infer P}`
+        ? WalkPath<P, Obj> extends true
+          ? S
+          : `unknown field path '${S}' on this resource`
+        : ValidPath<S, Obj>;
 
 /** A field list with each entry checked against `Obj` by `ValidEntry`. */
 export type ValidEntries<E extends readonly string[], Obj> = {
