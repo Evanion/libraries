@@ -72,6 +72,8 @@ export type {
   Policy,
   PolicyOptions,
   Valid,
+  ValidEntries,
+  ValidRules,
   Visibility,
   VocabularyOf,
 } from './authoring.js';

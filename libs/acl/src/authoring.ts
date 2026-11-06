@@ -192,14 +192,21 @@ export type ValidEntry<S extends string, Obj> = string extends S
         : `unknown field path '${S}' on this resource`
       : ValidPath<S, Obj>;
 
-/** A field list with each entry checked against `Obj` by `ValidEntry`. */
+/**
+ * The field list `fields()` takes on the typed builder: each entry is `*`, a
+ * path of `Obj`, or `!` and a path of `Obj`. An entry that names no path of
+ * `Obj` becomes an error message naming it, so the compiler reports the bad
+ * entry itself.
+ */
 export type ValidEntries<E extends readonly string[], Obj> = {
   [I in keyof E]: ValidEntry<E[I], Obj>;
 };
 
 /**
- * A field rules object with its `fields` list and each config key checked
- * against `Obj`.
+ * The field rules object `fields()` takes on the typed builder: its `fields`
+ * list is checked as `ValidEntries`, and each `targets`/`transitions` key must
+ * be a path of `Obj`. A key that names no path of `Obj` becomes an error
+ * message naming it.
  */
 export type ValidRules<R, Obj> = {
   [P in keyof R]: P extends 'fields'
