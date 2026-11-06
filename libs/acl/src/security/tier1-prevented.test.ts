@@ -312,6 +312,42 @@ describe('SEC-007 a narrowed write never carries a prototype setter (CWE-1321)',
 
     expect(Object.hasOwn(decision.fields, '__proto__')).toBe(false);
   });
+
+  /**
+   * The guarantee holds at every level the rules descend into. A subtree no
+   * rule reaches is copied by reference, own `__proto__` key included, so a
+   * consumer that merges such a subtree skips the name itself.
+   */
+  it('drops a nested __proto__ where the rules descend, and copies an unwalked subtree whole', () => {
+    const proposed = fromJson(
+      '{"address": {"__proto__": {}, "*": 1, "!role": 2, "city": "Lund"}}',
+    );
+    const decide = (fields: string[]) =>
+      foreign([
+        permission('account', 'update', {
+          rules: [always],
+          fields: { fields },
+        }),
+      ]).canFields(
+        { id: 'u1' },
+        'account',
+        'update',
+        { address: { city: 'Malmo' } },
+        'write',
+        proposed,
+      );
+    const walked = pickAllowedFields(
+      decide(['*', '!address.zip']),
+      proposed,
+    ) as { address: object };
+    const unwalked = pickAllowedFields(decide(['*']), proposed) as {
+      address: object;
+    };
+
+    expect(Object.hasOwn(walked.address, '__proto__')).toBe(false);
+    expect(unwalked.address).toBe(proposed['address']);
+    expect(Object.hasOwn(unwalked.address, '__proto__')).toBe(true);
+  });
   // #endregion sec-007
 
   it('carries no __proto__ key one level down, and builds no prototype setter', () => {
@@ -461,6 +497,45 @@ describe('SEC-008 authoring tokens never key a decision (CWE-915)', () => {
 
     expect(Object.keys(decision.fields)).toEqual(['name']);
     expect(pickAllowedFields(decision, proposed)).toEqual({ name: 'Grace' });
+  });
+
+  /**
+   * The guarantee holds at every level the rules descend into. A subtree no
+   * rule reaches is copied by reference with its literal keys.
+   */
+  it('drops nested tokens where the rules descend, and copies an unwalked subtree whole', () => {
+    const proposed = fromJson(
+      '{"address": {"__proto__": {}, "*": 1, "!role": 2, "city": "Lund"}}',
+    );
+    const decide = (fields: string[]) =>
+      foreign([
+        permission('account', 'update', {
+          rules: [always],
+          fields: { fields },
+        }),
+      ]).canFields(
+        { id: 'u1' },
+        'account',
+        'update',
+        { address: { city: 'Malmo' } },
+        'write',
+        proposed,
+      );
+    const walked = pickAllowedFields(
+      decide(['*', '!address.zip']),
+      proposed,
+    ) as { address: object };
+    const unwalked = pickAllowedFields(decide(['*']), proposed) as {
+      address: object;
+    };
+
+    expect(Object.keys(walked.address)).toEqual(['city']);
+    expect(Object.keys(unwalked.address)).toEqual([
+      '__proto__',
+      '*',
+      '!role',
+      'city',
+    ]);
   });
   // #endregion sec-008
 
