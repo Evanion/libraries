@@ -1756,7 +1756,8 @@ const merged = structuredClone(zipped);
 Object.assign(merged, pickAllowedFields(lost, partial));
 merged; // -> { id: 'r1', address: { city: 'Lund' } }
 
-// A raw dotted key is refused, because Mongo $set and lodash set would apply it as a path.
+// A raw dotted key whose path leaves a ruled node is refused, because Mongo $set
+// and lodash set would apply it as a path.
 const guarded = policy<{ id: string }, { row: Row }>()
   .for('row', (p) =>
     p.allow('update', p.always).fields(['*', '!address.street']),
@@ -1846,27 +1847,13 @@ const shown = policy<{ id: string }, { row: Flat }>()
 const shownDecision = shown.canFields(viewer, 'row', 'read', row, 'read');
 pickAllowedFields(shownDecision, row); // -> { id: 'r1', 'address.street': 'Storgatan 1' }
 
-// On write, the escaped entry does not make the flat column writable.
 const edit = { 'address.street': 'Lilla Torg 2' };
-const escapedEdit = policy<{ id: string }, { row: Flat }>()
-  .for('row', (p) =>
-    p.allow('update', p.always).fields(['id', 'address\\.street']),
-  )
-  .build();
-const refusedEdit = escapedEdit.canFields(
-  viewer,
-  'row',
-  'update',
-  row,
-  'write',
-  edit,
-);
-refusedEdit.reasons['address\\.street']; // -> 'not-traversable'
-pickAllowedFields(refusedEdit, edit); // -> {}
 
-// A list with * and no rule on the column's path writes it.
+// With *, a dotted key no rule touches is written. The escaped entry is not such a rule.
 const starEdit = policy<{ id: string }, { row: Flat }>()
-  .for('row', (p) => p.allow('update', p.always).fields(['*', '!id']))
+  .for('row', (p) =>
+    p.allow('update', p.always).fields(['*', 'address\\.street']),
+  )
   .build();
 const allowedEdit = starEdit.canFields(
   viewer,

@@ -35,15 +35,15 @@ gated on the action, and that flag composes both halves. A caller who reads the 
 
 `reasons` carries one `FieldReason` per name.
 
-| `FieldReason`       | Emitted when                                                       |
-| ------------------- | ------------------------------------------------------------------ |
-| `allow`             | nothing refused it                                                 |
-| `not-listed`        | the name list does not carry it, or excludes it                    |
-| `targets-failed`    | the proposed value is not in the field's `targets`                 |
-| `transition-failed` | the current value has no edge to the proposed one                  |
-| `missing-field`     | a `transitions` field whose current value the object did not carry |
-| `proposed-required` | a configured field with no proposed value in the write             |
-| `not-traversable`   | a rule needs to look into a value the engine cannot walk           |
+| `FieldReason`       | Emitted when                                                                                                                    |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `allow`             | nothing refused it                                                                                                              |
+| `not-listed`        | the name list does not carry it, or excludes it                                                                                 |
+| `targets-failed`    | the proposed value is not in the field's `targets`                                                                              |
+| `transition-failed` | the current value has no edge to the proposed one                                                                               |
+| `missing-field`     | a `transitions` field whose current value the object did not carry, or a parent the write includes that the stored object lacks |
+| `proposed-required` | a configured field with no proposed value in the write                                                                          |
+| `not-traversable`   | a rule needs to look into a value the engine cannot walk                                                                        |
 
 ## Naming the fields
 
@@ -251,13 +251,17 @@ A key is marked `not-traversable` on the write axis if:
 - Its dots do not split into a clean path.
 - It attempts to leave the rule tree (e.g., `address.city` when the rules are `!address.street`).
 
-If the rule list does not include `*`, any raw dotted key is refused even if it touches no existing rule, for instance `other.col` under `['id', 'other\.col']`. However, if `*` is present, a dotted key that touches no rule is allowed.
+The engine determines which dotted columns a write updates from how your entries name them. When an allow entry explicitly names an escaped column, the engine writes to that raw dotted key. For example, if an `updateCity` action has the fields `['id', 'address\.city']`, the engine writes the flat `address.city` column and no other dotted column; any other, such as `other.col`, remains `not-listed`.
 
-To control which fields are writable, you must distinguish between escaped and raw dotted keys.
+The `*` wildcard writes to any dotted key that no rule touches. Because an escaped entry is not considered a rule in this context, a list like `['*', 'address\.city']` still writes the `address.city` column. Avoid `['*', '!note']` for this purpose. While it writes the target column, it also grants write access to every other column on the row.
 
-An escaped allow entry, such as `address\.city`, grants access to the read axis only. It does not make the raw `address.city` key writable.
+Even if a dotted key is explicitly listed, the engine refuses the write as `not-traversable` if the path to that column is restricted. This happens in three scenarios:
 
-The engine only writes a raw dotted key if the rule list contains a wildcard (`*`) and has no specific rule on the key's path. For example, a dedicated `updateCity` action using `['*', '!note']` would allow this write.
+1. An exclusion on the column's path or any of its ancestors, as in `['*', '!address', 'address\.city']` or `['*', '!address.city', 'address\.city']`.
+2. A config on an ancestor in the path, such as `address: { targets: ['x'] }`.
+3. A rule node with further rules beneath it, where the path ends at that node (`address.city.x` is in the list) or departs from it (`!address.street` is in the list).
+
+While these rules determine whether a path is traversable, the config on the column itself determines what is written. For instance, `'address.city': { targets: ['Lund'] }` still controls which values the write is permitted to carry. The list cannot override structural invalidity: any key containing brackets, or dots that do not resolve into a clean path, is always refused.
 
 The nested form cannot reach a flat column. Consider these two scenarios:
 
