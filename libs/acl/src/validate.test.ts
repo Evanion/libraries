@@ -1158,6 +1158,23 @@ describe('validateAll', () => {
     expect(validateAll(value)).toHaveLength(1);
   });
 
+  it.each([
+    [{ '': { targets: [1] } }, 'fields[""]'],
+    [{ '': 'x' }, 'fields[""]'],
+    [{ '': { targets: 'x' } }, 'fields[""].targets'],
+  ])('names an empty config key as a location', (fields, where) => {
+    const issues = validateAll({
+      permissions: [{ ...perm('update'), rules: [{ when: [] }], fields }],
+    });
+
+    expect(issues.map((issue) => issue.message)).toContainEqual(
+      expect.stringContaining(`"${where}" `),
+    );
+    for (const issue of issues) {
+      expect(issue.message).not.toContain('"fields."');
+    }
+  });
+
   it('lists every fault, in document order', () => {
     expect(validateAll(faulty).map((i) => [i.code, i.path])).toEqual([
       ['InvalidPermissionError', '/permissions/0/visibility'],

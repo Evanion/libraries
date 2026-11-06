@@ -529,7 +529,7 @@ function assertFieldConfig(
     report(
       new InvalidPermissionError(
         key,
-        `fields.${field}`,
+        configWhere(field),
         'is not a field config',
       ),
       at,
@@ -546,7 +546,7 @@ function assertFieldConfig(
     report(
       new InvalidPermissionError(
         key,
-        `fields.${field}.targets`,
+        `${configWhere(field)}.targets`,
         'is not an array',
       ),
       [...at, 'targets'],
@@ -558,7 +558,7 @@ function assertFieldConfig(
       report(
         new InvalidPermissionError(
           key,
-          `fields.${field}.transitions`,
+          `${configWhere(field)}.transitions`,
           'is not an object',
         ),
         [...at, 'transitions'],
@@ -570,7 +570,7 @@ function assertFieldConfig(
         report(
           new InvalidPermissionError(
             key,
-            `fields.${field}.transitions.${from}`,
+            `${configWhere(field)}.transitions.${from}`,
             'is not an array',
           ),
           [...at, 'transitions', from],
@@ -584,6 +584,14 @@ function assertFieldConfig(
 
 /** The most segments a field-rule path may have; the walk recurses per segment. */
 const MAX_PATH_SEGMENTS = 32;
+
+/**
+ * Where a config key sits in a permission's `fields`, as an error names it. An
+ * empty key has nothing to follow the dot, so it is written as a bracketed key.
+ */
+function configWhere(field: string): string {
+  return field === '' ? 'fields[""]' : `fields.${field}`;
+}
 
 /**
  * The segments of a field-rule path, or `undefined` after reporting why it
@@ -736,7 +744,7 @@ function collectFieldRules(
   for (const [field, config] of Object.entries(rules)) {
     if (field === 'fields') continue;
     if (config === undefined) continue;
-    const where = `fields.${field}`;
+    const where = configWhere(field);
     const at = [...base, field];
     const segments = segmentsOf(report, at, key, where, field);
     const usable = assertFieldConfig(report, at, key, field, config);
