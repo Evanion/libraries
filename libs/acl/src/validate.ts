@@ -1,5 +1,4 @@
 import {
-  BangInAllowListError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,
   DuplicateRuleIdError,
@@ -11,6 +10,7 @@ import {
   TargetsTransitionsConflictError,
 } from './errors.js';
 import { toEpoch } from './conditions.js';
+import { parsePath, pathFault as fieldPathFault } from './field-path.js';
 import { assertSchemaFit, assertSchemaShape } from './schema.js';
 import type {
   Condition,
@@ -384,18 +384,60 @@ function assertFieldConfig(key: string, field: string, config: unknown): void {
   }
 }
 
+/** The most segments a field-rule path may have; the walk recurses per segment. */
+const MAX_PATH_SEGMENTS = 32;
+
 /**
- * Field rules match the top-level keys of the object. A name with a `.` in it
- * (after a leading `!`) matches no key a row or write carries, so a deny would
- * exclude nothing and a targets rule would constrain nothing. A `\` is
- * refused too: it is reserved as the escape character of a path.
+ * The segments of a field-rule path, or a throw naming why it cannot be one.
+ * `name` is a list entry without its leading `!`, or a config key.
  */
-function assertTopLevelName(key: string, where: string, name: string): void {
-  if (!/[.\\]/.test(name.replace(/^!/, ''))) return;
-  throw new InvalidPermissionError(
+function segmentsOf(
+  key: string,
+  where: string,
+  name: string,
+): readonly string[] {
+  const fault = fieldPathFault(name);
+  if (fault !== undefined) {
+    throw new InvalidPermissionError(key, where, fault);
+  }
+  const segments = parsePath(name) as readonly string[];
+  if (segments.length > MAX_PATH_SEGMENTS) {
+    throw new InvalidPermissionError(
+      key,
+      where,
+      `${JSON.stringify(name)} has ${segments.length} segments; a path may have at most ${MAX_PATH_SEGMENTS}.`,
+    );
+  }
+  return segments;
+}
+
+/** Whether `ancestor` is `path` or names a key above it. */
+function covers(
+  ancestor: readonly string[],
+  path: readonly string[],
+  proper: boolean,
+): boolean {
+  if (ancestor.length > path.length) return false;
+  if (proper && ancestor.length === path.length) return false;
+  return ancestor.every((segment, index) => segment === path[index]);
+}
+
+interface PathEntry {
+  readonly segments: readonly string[];
+  readonly where: string;
+  readonly text: string;
+}
+
+function contradiction(
+  key: string,
+  first: PathEntry,
+  second: PathEntry,
+  why: string,
+): InvalidPermissionError {
+  return new InvalidPermissionError(
     key,
-    where,
-    `names "${name}", but field rules name top-level keys of the object and a nested path or an escaped name is not supported`,
+    second.where,
+    `${JSON.stringify(second.text)} contradicts ${JSON.stringify(first.text)} at "${first.where}": ${why}`,
   );
 }
 
@@ -404,6 +446,11 @@ function assertFieldRules(key: string, rules: unknown): void {
   if (!isNode(rules)) {
     throw new InvalidPermissionError(key, 'fields', 'is not an object');
   }
+
+  let star = false;
+  const allows: PathEntry[] = [];
+  const denies: PathEntry[] = [];
+  const configs: PathEntry[] = [];
 
   const names = rules['fields'];
   if (names !== undefined) {
@@ -419,31 +466,71 @@ function assertFieldRules(key: string, rules: unknown): void {
       );
     }
     for (const [index, name] of names.entries()) {
+      const where = `fields.fields[${index}]`;
       if (!isNonEmptyString(name)) {
-        throw new InvalidPermissionError(
-          key,
-          `fields.fields[${index}]`,
-          'is not a field name',
-        );
+        throw new InvalidPermissionError(key, where, 'is not a field name');
       }
-      assertTopLevelName(key, `fields.fields[${index}]`, name);
-      if (!name.startsWith('!')) continue;
-      // A deny entry requires a '*' baseline; and a deny mixed into an
-      // explicit allow-list (which already denies anything not listed) is
-      // refused. Both leave the intended allow-set undefined.
-      if (names.includes('*')) continue;
-      if (names.length > 1) {
-        throw new BangInAllowListError(name);
+      if (name === '*') {
+        star = true;
+        continue;
       }
-      throw new DenyWithoutBaselineError(name);
+      const denied = name.startsWith('!');
+      const segments = segmentsOf(key, where, denied ? name.slice(1) : name);
+      (denied ? denies : allows).push({ segments, where, text: name });
     }
   }
 
   for (const [field, config] of Object.entries(rules)) {
     if (field === 'fields') continue;
     if (config === undefined) continue;
-    assertTopLevelName(key, `fields.${field}`, field);
+    const where = `fields.${field}`;
+    const segments = segmentsOf(key, where, field);
     assertFieldConfig(key, field, config);
+    configs.push({ segments, where, text: field });
+  }
+
+  for (const deny of denies) {
+    for (const allow of allows) {
+      if (covers(deny.segments, allow.segments, false)) {
+        throw contradiction(
+          key,
+          deny,
+          allow,
+          covers(allow.segments, deny.segments, false)
+            ? 'an entry and its own exclusion state two intents for one path'
+            : 'an allow below an excluded path states two intents for one path',
+        );
+      }
+    }
+  }
+
+  for (const deny of denies) {
+    if (star) continue;
+    if (allows.some((a) => covers(a.segments, deny.segments, true))) continue;
+    throw new DenyWithoutBaselineError(deny.text);
+  }
+
+  for (const config of configs) {
+    for (const deny of denies) {
+      if (covers(deny.segments, config.segments, true)) {
+        throw contradiction(
+          key,
+          deny,
+          config,
+          'a rule below an excluded path states two intents for one path',
+        );
+      }
+    }
+    for (const other of [...allows, ...denies, ...configs]) {
+      if (covers(config.segments, other.segments, true)) {
+        throw contradiction(
+          key,
+          config,
+          other,
+          'a targets or transitions rule decides its whole subtree, so no other rule may sit below it',
+        );
+      }
+    }
   }
 }
 

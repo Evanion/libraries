@@ -420,6 +420,29 @@ describe('decideFields', () => {
         expect(d.reasons['lines']).toBe('not-traversable');
       });
 
+      it.each([
+        ['NaN', Number.NaN],
+        ['a negative', -1],
+        ['a fraction', 1.5],
+      ])(
+        'a read of an array reporting a length of %s denies the whole array',
+        (_, length) => {
+          const lines = new Proxy([{ price: 1 }], {
+            getOwnPropertyDescriptor(target, key) {
+              const descriptor = Reflect.getOwnPropertyDescriptor(target, key);
+              return key === 'length' && descriptor
+                ? { ...descriptor, value: length }
+                : descriptor;
+            },
+          });
+
+          const d = read(['*', '!lines.cost'], { lines });
+
+          expect(d.fields).toEqual({ lines: 'denied' });
+          expect(d.reasons['lines']).toBe('not-traversable');
+        },
+      );
+
       it('an array nested in an array element is walked across all elements', () => {
         const d = read(['*', '!lines.tags.secret'], {
           lines: [

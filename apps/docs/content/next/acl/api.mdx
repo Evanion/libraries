@@ -697,8 +697,7 @@ step.
 | `AmbiguousRuleIdError`            | `p.id()` follows an `allow` or `deny` that flattened to other than one rule                       |
 | `UnknownFieldError`               | a condition names a field the schema does not declare                                             |
 | `FieldTypeMismatchError`          | `contains` runs against a non-array, or a literal is of the wrong type                            |
-| `BangInAllowListError`            | a `!name` entry sits inside an allow-list                                                         |
-| `DenyWithoutBaselineError`        | a `!name` entry has no `*` baseline to subtract from                                              |
+| `DenyWithoutBaselineError`        | a `!path` entry has no `*` or listed ancestor to subtract from                                    |
 | `TargetsTransitionsConflictError` | one field configures both `targets` and `transitions`                                             |
 | `UnknownObjectKeyError`           | a query on the open path names an unknown object kind; `parseMatrix` fails closed                 |
 | `UnknownPermissionError`          | a query on the open path names an unknown key; `parseMatrix` answers `unknown-action`             |
@@ -762,10 +761,6 @@ branch.
 ## `FieldTypeMismatchError`
 
 <!-- reference @evanion/acl#FieldTypeMismatchError -->
-
-## `BangInAllowListError`
-
-<!-- reference @evanion/acl#BangInAllowListError -->
 
 ## `DenyWithoutBaselineError`
 
