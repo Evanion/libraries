@@ -3,6 +3,8 @@ import {
   InvalidSchemaError,
   UnknownFieldError,
 } from './errors.js';
+import { inPermission, throwFirst } from './issues.js';
+import type { Report, Segment } from './issues.js';
 import type {
   Condition,
   MatrixSchema,
@@ -51,37 +53,67 @@ function parseFieldType(type: string): Declared | undefined {
 const TYPE_FORMS =
   'is not a field type: one of "string", "number", "boolean", "instant", with an optional "[]" and an optional trailing "?"';
 
-function assertObjectSchema(where: string, schema: unknown): void {
+/**
+ * Checks one object schema's shape. A schema that is not an object has no
+ * members to check. `fields` and `relations` are independent, except that a
+ * relation shares its name with a field only when `fields` is an object.
+ */
+function assertObjectSchema(
+  report: Report,
+  where: string,
+  at: readonly Segment[],
+  schema: unknown,
+): void {
   if (!isNode(schema)) {
-    throw new InvalidSchemaError(where, 'is not an object');
+    report(new InvalidSchemaError(where, 'is not an object'), at);
+    return;
   }
   const fields = schema['fields'];
   if (fields !== undefined) {
     if (!isNode(fields)) {
-      throw new InvalidSchemaError(`${where}.fields`, 'is not an object');
-    }
-    for (const [name, type] of Object.entries(fields)) {
-      if (typeof type !== 'string' || parseFieldType(type) === undefined) {
-        throw new InvalidSchemaError(`${where}.fields.${name}`, TYPE_FORMS);
+      report(new InvalidSchemaError(`${where}.fields`, 'is not an object'), [
+        ...at,
+        'fields',
+      ]);
+    } else {
+      for (const [name, type] of Object.entries(fields)) {
+        if (typeof type !== 'string' || parseFieldType(type) === undefined) {
+          report(
+            new InvalidSchemaError(`${where}.fields.${name}`, TYPE_FORMS),
+            [...at, 'fields', name],
+          );
+        }
       }
     }
   }
   const relations = schema['relations'];
   if (relations !== undefined) {
     if (!isNode(relations)) {
-      throw new InvalidSchemaError(`${where}.relations`, 'is not an object');
+      report(new InvalidSchemaError(`${where}.relations`, 'is not an object'), [
+        ...at,
+        'relations',
+      ]);
+      return;
     }
     for (const [name, kind] of Object.entries(relations)) {
+      const here = [...at, 'relations', name];
       if (typeof kind !== 'string' || kind.length === 0) {
-        throw new InvalidSchemaError(
-          `${where}.relations.${name}`,
-          'is not an object kind',
+        report(
+          new InvalidSchemaError(
+            `${where}.relations.${name}`,
+            'is not an object kind',
+          ),
+          here,
         );
+        continue;
       }
       if (isNode(fields) && Object.hasOwn(fields, name)) {
-        throw new InvalidSchemaError(
-          `${where}.relations.${name}`,
-          'is also declared as a field: one name resolves to one member',
+        report(
+          new InvalidSchemaError(
+            `${where}.relations.${name}`,
+            'is also declared as a field: one name resolves to one member',
+          ),
+          here,
         );
       }
     }
@@ -89,26 +121,53 @@ function assertObjectSchema(where: string, schema: unknown): void {
 }
 
 /**
- * Validates a `schema`'s own shape.
+ * Validates a `schema`'s own shape, reporting every fault, and answers whether
+ * there were none.
  *
  * Structural before semantic, like the rest of the gate: nothing reads a
- * declared type until every declared type is known to be one.
+ * declared type until every declared type is known to be one, so a caller runs
+ * `assertSchemaFit` only on a schema this accepts. A schema that is not an
+ * object has no `subject` or `objects` to check; a `subject` or one entry of
+ * `objects` that is not an object has no members to check.
  */
-export function assertSchemaShape(schema: unknown): void {
+export function assertSchemaShape(schema: unknown, report: Report): boolean {
+  let clean = true;
+  const noting: Report = (error, path, permissionKey) => {
+    clean = false;
+    report(error, path, permissionKey);
+  };
   if (!isNode(schema)) {
-    throw new InvalidSchemaError('schema', 'is not an object');
+    noting(new InvalidSchemaError('schema', 'is not an object'), ['schema']);
+    return false;
   }
   const subject = schema['subject'];
-  if (subject !== undefined) assertObjectSchema('schema.subject', subject);
+  if (subject !== undefined) {
+    assertObjectSchema(
+      noting,
+      'schema.subject',
+      ['schema', 'subject'],
+      subject,
+    );
+  }
   const objects = schema['objects'];
   if (objects !== undefined) {
     if (!isNode(objects)) {
-      throw new InvalidSchemaError('schema.objects', 'is not an object');
+      noting(new InvalidSchemaError('schema.objects', 'is not an object'), [
+        'schema',
+        'objects',
+      ]);
+      return false;
     }
     for (const [kind, declared] of Object.entries(objects)) {
-      assertObjectSchema(`schema.objects.${kind}`, declared);
+      assertObjectSchema(
+        noting,
+        `schema.objects.${kind}`,
+        ['schema', 'objects', kind],
+        declared,
+      );
     }
   }
+  return clean;
 }
 
 /** What a condition path names in the schema. */
@@ -216,6 +275,8 @@ function readsField(condition: Condition): condition is ValueCondition {
 }
 
 function assertConditionFits(
+  report: Report,
+  at: readonly Segment[],
   schema: MatrixSchema,
   permission: Permission,
   where: string,
@@ -231,20 +292,28 @@ function assertConditionFits(
 
   if (found.state === 'unchecked') return;
   if (found.state === 'unknown') {
-    throw new UnknownFieldError(
-      key,
-      where,
-      field,
-      'names a field the schema does not declare',
+    report(
+      new UnknownFieldError(
+        key,
+        where,
+        field,
+        'names a field the schema does not declare',
+      ),
+      at,
     );
+    return;
   }
   if (found.state === 'relation') {
-    throw new UnknownFieldError(
-      key,
-      where,
-      field,
-      `names the relation to "${found.kind}": a condition reads one field of one scope, and a relation is not a value it compares`,
+    report(
+      new UnknownFieldError(
+        key,
+        where,
+        field,
+        `names the relation to "${found.kind}": a condition reads one field of one scope, and a relation is not a value it compares`,
+      ),
+      at,
     );
+    return;
   }
 
   const self = found.type;
@@ -252,42 +321,58 @@ function assertConditionFits(
 
   if (op === 'contains') {
     if (!self.array) {
-      throw new FieldTypeMismatchError(
-        key,
-        where,
-        field,
-        `is declared ${describe(self)}: contains tests an array for one element`,
+      report(
+        new FieldTypeMismatchError(
+          key,
+          where,
+          field,
+          `is declared ${describe(self)}: contains tests an array for one element`,
+        ),
+        at,
       );
+      return;
     }
     if (!literalFits(self.base, condition.value)) {
-      throw new FieldTypeMismatchError(
-        key,
-        where,
-        field,
-        `holds ${self.base} elements, and contains compares it against ${JSON.stringify(condition.value)}`,
+      report(
+        new FieldTypeMismatchError(
+          key,
+          where,
+          field,
+          `holds ${self.base} elements, and contains compares it against ${JSON.stringify(condition.value)}`,
+        ),
+        at,
       );
+      return;
     }
     return;
   }
 
   if (self.array) {
-    throw new FieldTypeMismatchError(
-      key,
-      where,
-      field,
-      `is declared ${describe(self)}, and ${op} compares by identity, which no two arrays satisfy: an array field is tested with contains`,
+    report(
+      new FieldTypeMismatchError(
+        key,
+        where,
+        field,
+        `is declared ${describe(self)}, and ${op} compares by identity, which no two arrays satisfy: an array field is tested with contains`,
+      ),
+      at,
     );
+    return;
   }
 
   if (op === 'in' || op === 'not-in') {
     for (const [index, element] of (condition.value as unknown[]).entries()) {
       if (literalFits(self.base, element)) continue;
-      throw new FieldTypeMismatchError(
-        key,
-        where,
-        field,
-        `is declared ${self.base}, and ${op} lists ${JSON.stringify(element)} at [${index}]`,
+      report(
+        new FieldTypeMismatchError(
+          key,
+          where,
+          field,
+          `is declared ${self.base}, and ${op} lists ${JSON.stringify(element)} at [${index}]`,
+        ),
+        at,
       );
+      return;
     }
     return;
   }
@@ -295,48 +380,98 @@ function assertConditionFits(
   const comparand = condition.path;
   if (comparand === undefined) {
     if (literalFits(self.base, condition.value)) return;
-    throw new FieldTypeMismatchError(
-      key,
-      where,
-      field,
-      `is declared ${self.base}, and ${op} compares it against ${JSON.stringify(condition.value)}`,
+    report(
+      new FieldTypeMismatchError(
+        key,
+        where,
+        field,
+        `is declared ${self.base}, and ${op} compares it against ${JSON.stringify(condition.value)}`,
+      ),
+      at,
     );
+    return;
   }
 
   const other = lookupPath(schema, permission.object, comparand);
   if (other.state === 'unchecked') return;
   if (other.state === 'unknown') {
-    throw new UnknownFieldError(
-      key,
-      where,
-      field,
-      `compares against "${comparand}", which the schema does not declare`,
+    report(
+      new UnknownFieldError(
+        key,
+        where,
+        field,
+        `compares against "${comparand}", which the schema does not declare`,
+      ),
+      at,
     );
+    return;
   }
   if (other.state === 'relation') {
-    throw new UnknownFieldError(
+    report(
+      new UnknownFieldError(
+        key,
+        where,
+        field,
+        `compares against the relation "${comparand}", which is not a value`,
+      ),
+      at,
+    );
+    return;
+  }
+  if (typesAgree(self, other.type)) return;
+  report(
+    new FieldTypeMismatchError(
       key,
       where,
       field,
-      `compares against the relation "${comparand}", which is not a value`,
-    );
-  }
-  if (typesAgree(self, other.type)) return;
-  throw new FieldTypeMismatchError(
-    key,
-    where,
-    field,
-    `is declared ${describe(self)} and compares against "${comparand}", declared ${describe(other.type)}`,
+      `is declared ${describe(self)} and compares against "${comparand}", declared ${describe(other.type)}`,
+    ),
+    at,
   );
 }
 
 /**
- * Checks one rule array's conditions against a present schema.
+ * Reports one rule array's conditions that do not fit a present schema.
+ *
+ * `where` names the array inside the document the conditions came from, and
+ * `base` is its pointer. A rule whose `when` is not an array, and a condition
+ * `usable` rejects, have no field to read and are skipped. `validateMatrix`
+ * passes the conditions its shape pass accepted.
+ */
+function collectRulesFit(
+  report: Report,
+  schema: MatrixSchema,
+  permission: Permission,
+  where: string,
+  base: readonly Segment[],
+  rules: unknown,
+  usable: (condition: unknown) => boolean,
+): void {
+  if (!Array.isArray(rules)) return;
+  for (const [index, rule] of (rules as unknown[]).entries()) {
+    if (!isNode(rule) || !Array.isArray(rule['when'])) continue;
+    for (const [at, condition] of (rule['when'] as unknown[]).entries()) {
+      if (!usable(condition)) continue;
+      assertConditionFits(
+        report,
+        [...base, index, 'when', at],
+        schema,
+        permission,
+        `${where}[${index}].when[${at}]`,
+        condition as Condition,
+      );
+    }
+  }
+}
+
+/**
+ * Checks one rule array's conditions against a present schema, and throws the
+ * first that does not fit.
  *
  * `where` names the array inside the document the conditions came from, so the
- * error locates a fault the way the reader reached it. `assertSchemaFit` passes
- * `rules` and `denyRules`; a deny overlay passes its own contribution and gets
- * `overlay[0].when[1]` rather than a position in a permission it did not write.
+ * error locates a fault the way the reader reached it. A deny overlay passes its
+ * own contribution and gets `overlay[0].when[1]` rather than a position in a
+ * permission it did not write. The rules passed `assertRules`.
  */
 export function assertRulesFit(
   schema: MatrixSchema,
@@ -344,34 +479,56 @@ export function assertRulesFit(
   where: string,
   rules: readonly Rule[] | undefined,
 ): void {
-  if (rules === undefined) return;
-  for (const [index, rule] of rules.entries()) {
-    for (const [at, condition] of (rule.when ?? []).entries()) {
-      assertConditionFits(
-        schema,
-        permission,
-        `${where}[${index}].when[${at}]`,
-        condition,
-      );
-    }
-  }
+  throwFirst((report) => {
+    collectRulesFit(
+      report,
+      schema,
+      permission,
+      where,
+      [where],
+      rules,
+      () => true,
+    );
+  });
 }
 
 /**
- * Checks every condition of every permission against a present schema.
+ * Reports every condition of every permission that does not fit a present
+ * schema.
  *
  * Runs after the per-condition structural checks, so a condition that is not
- * evaluable at all is reported as that rather than as a schema fault. Only kinds
- * `schema.objects` declares are checked, and `subject.*` paths only when
- * `schema.subject` is declared.
+ * evaluable at all is reported as that rather than as a schema fault: `usable`
+ * says which conditions passed them. A permission with no key or no object kind
+ * is skipped, as it names nothing to look up. Only kinds `schema.objects`
+ * declares are checked, and `subject.*` paths only when `schema.subject` is
+ * declared. `schema` must have passed `assertSchemaShape`.
  */
 export function assertSchemaFit(
   schema: MatrixSchema,
-  permissions: readonly Permission[],
+  permissions: readonly unknown[],
+  report: Report,
+  usable: (condition: unknown) => boolean,
 ): void {
-  for (const permission of permissions) {
+  for (const [index, permission] of permissions.entries()) {
+    if (
+      !isNode(permission) ||
+      typeof permission['key'] !== 'string' ||
+      typeof permission['object'] !== 'string' ||
+      permission['object'].length === 0
+    ) {
+      continue;
+    }
+    const scoped = inPermission(report, permission['key']);
     for (const side of ['rules', 'denyRules'] as const) {
-      assertRulesFit(schema, permission, side, permission[side]);
+      collectRulesFit(
+        scoped,
+        schema,
+        permission as unknown as Permission,
+        side,
+        ['permissions', index, side],
+        permission[side],
+        usable,
+      );
     }
   }
 }

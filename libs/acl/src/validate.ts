@@ -1,24 +1,30 @@
+import type { AclConfigError } from './errors.js';
 import {
   DenyWithoutBaselineError,
   DuplicatePermissionError,
   DuplicateRuleIdError,
   InvalidConditionError,
+  InvalidFreshnessError,
   InvalidMatrixError,
   InvalidPermissionError,
   InvalidRuleError,
   KeyMismatchError,
+  MissingFreshnessBudgetError,
   TargetsTransitionsConflictError,
 } from './errors.js';
-import { toEpoch } from './conditions.js';
+import { settleNow, toEpoch } from './conditions.js';
 import {
   formatPath,
   parsePath,
   pathFault as fieldPathFault,
 } from './field-path.js';
+import { collectInto, inPermission, throwFirst } from './issues.js';
+import type { Report, Segment } from './issues.js';
 import { assertSchemaFit, assertSchemaShape } from './schema.js';
 import type {
   Condition,
   FieldConfig,
+  Instant,
   Matrix,
   MatrixSchema,
   Permission,
@@ -78,59 +84,86 @@ function pathFault(path: unknown): string | undefined {
 }
 
 /**
- * Validates one condition's shape, namespaces and operator/value pairing.
+ * Validates one condition's shape, namespaces and operator/value pairing, and
+ * answers whether it is evaluable.
+ *
+ * Each check reads what the one before it settled (the op decides which
+ * operands apply, the field decides which path form), so the first fault is the
+ * only one reported per condition.
  *
  * An operand the engine would ignore is refused rather than dropped: a `path` on
  * an operator that compares against a literal, or a `value` alongside a `path`,
  * is config whose author expects it to decide something.
  */
 function assertCondition(
+  report: Report,
+  at: readonly Segment[],
   key: string,
   where: string,
   condition: Condition,
-): void {
+): boolean {
   if (!isNode(condition)) {
-    throw new InvalidConditionError(key, where, where, 'is not an object');
+    report(
+      new InvalidConditionError(key, where, where, 'is not an object'),
+      at,
+    );
+    return false;
   }
   const node = condition as Node;
   const field = node['field'];
   const named = typeof field === 'string' ? field : where;
 
   if (!isNonEmptyString(field)) {
-    throw new InvalidConditionError(
-      key,
-      where,
-      named,
-      'has no field: a condition names the path it reads',
+    report(
+      new InvalidConditionError(
+        key,
+        where,
+        named,
+        'has no field: a condition names the path it reads',
+      ),
+      at,
     );
+    return false;
   }
 
   const op = node['op'];
   if (typeof op !== 'string' || (!VALUE_OPS.has(op) && !TIME_OPS.has(op))) {
-    throw new InvalidConditionError(
-      key,
-      where,
-      named,
-      `has an unknown op ${JSON.stringify(op)}`,
+    report(
+      new InvalidConditionError(
+        key,
+        where,
+        named,
+        `has an unknown op ${JSON.stringify(op)}`,
+      ),
+      at,
     );
+    return false;
   }
 
   if (field === 'now' || TIME_OPS.has(op)) {
     if (field !== 'now' || !TIME_OPS.has(op)) {
-      throw new InvalidConditionError(
-        key,
-        where,
-        named,
-        'pairs a clock with a comparison: "now" supports before/after, and before/after read "now"',
+      report(
+        new InvalidConditionError(
+          key,
+          where,
+          named,
+          'pairs a clock with a comparison: "now" supports before/after, and before/after read "now"',
+        ),
+        at,
       );
+      return false;
     }
     if (supplied(node, 'path')) {
-      throw new InvalidConditionError(
-        key,
-        where,
-        named,
-        'carries a path: a time condition compares the clock against a literal instant',
+      report(
+        new InvalidConditionError(
+          key,
+          where,
+          named,
+          'carries a path: a time condition compares the clock against a literal instant',
+        ),
+        at,
       );
+      return false;
     }
     const value = node['value'];
     const instant =
@@ -138,30 +171,39 @@ function assertCondition(
       typeof value === 'number' ||
       value instanceof Date;
     if (!instant) {
-      throw new InvalidConditionError(
-        key,
-        where,
-        named,
-        'needs an instant value: an ISO string, epoch milliseconds, or a Date',
+      report(
+        new InvalidConditionError(
+          key,
+          where,
+          named,
+          'needs an instant value: an ISO string, epoch milliseconds, or a Date',
+        ),
+        at,
       );
+      return false;
     }
     // The boundary comes from the document and is settled once, here. A window
     // whose edge is not a point in time states nothing a decision could read,
     // and the document is the party that can fix it.
     if (Number.isNaN(toEpoch(value))) {
-      throw new InvalidConditionError(
-        key,
-        where,
-        named,
-        `carries an instant that does not parse: ${JSON.stringify(String(value))}`,
+      report(
+        new InvalidConditionError(
+          key,
+          where,
+          named,
+          `carries an instant that does not parse: ${JSON.stringify(String(value))}`,
+        ),
+        at,
       );
+      return false;
     }
-    return;
+    return true;
   }
 
   const fieldFault = pathFault(field);
   if (fieldFault) {
-    throw new InvalidConditionError(key, where, named, fieldFault);
+    report(new InvalidConditionError(key, where, named, fieldFault), at);
+    return false;
   }
 
   const hasPath = supplied(node, 'path');
@@ -169,89 +211,136 @@ function assertCondition(
 
   if (op === 'eq' || op === 'ne') {
     if (hasPath === hasValue) {
-      throw new InvalidConditionError(
-        key,
-        where,
-        named,
-        hasPath
-          ? 'carries both a path and a value: an equality compares against exactly one comparand'
-          : 'carries no comparand: an equality needs a path or a value',
+      report(
+        new InvalidConditionError(
+          key,
+          where,
+          named,
+          hasPath
+            ? 'carries both a path and a value: an equality compares against exactly one comparand'
+            : 'carries no comparand: an equality needs a path or a value',
+        ),
+        at,
       );
+      return false;
     }
     if (hasPath) {
       const fault = pathFault(node['path']);
       if (fault) {
-        throw new InvalidConditionError(
-          key,
-          where,
-          named,
-          `has a path ${JSON.stringify(node['path'])} that ${fault}`,
+        report(
+          new InvalidConditionError(
+            key,
+            where,
+            named,
+            `has a path ${JSON.stringify(node['path'])} that ${fault}`,
+          ),
+          at,
         );
+        return false;
       }
     }
-    return;
+    return true;
   }
 
   if (hasPath) {
-    throw new InvalidConditionError(
-      key,
-      where,
-      named,
-      `carries a path: only eq and ne compare against a path, ${op} compares against a value`,
+    report(
+      new InvalidConditionError(
+        key,
+        where,
+        named,
+        `carries a path: only eq and ne compare against a path, ${op} compares against a value`,
+      ),
+      at,
     );
+    return false;
   }
 
   if (op === 'in' || op === 'not-in') {
     if (!Array.isArray(node['value'])) {
-      throw new InvalidConditionError(
-        key,
-        where,
-        named,
-        `needs an array value: ${op} tests membership of a list`,
+      report(
+        new InvalidConditionError(
+          key,
+          where,
+          named,
+          `needs an array value: ${op} tests membership of a list`,
+        ),
+        at,
       );
+      return false;
     }
-    return;
+    return true;
   }
 
   if (!hasValue) {
-    throw new InvalidConditionError(
-      key,
-      where,
-      named,
-      'needs a value: contains tests the field for one element',
+    report(
+      new InvalidConditionError(
+        key,
+        where,
+        named,
+        'needs a value: contains tests the field for one element',
+      ),
+      at,
     );
+    return false;
   }
+  return true;
 }
 
 /**
- * Validates one rule's shape.
+ * Validates one rule's shape. Reports a condition that is not evaluable and
+ * adds each one that is to `usable`.
  *
  * `when` must be present. An empty `when` is the unconditional form, so a rule
  * that arrives without the key is indistinguishable from one an author wrote as
  * `always` — and the two cases differ by an unconditional grant. Requiring the
  * key separates them, and costs nothing across a JSON boundary, where `[]`
  * survives and `undefined` does not.
+ *
+ * A rule that is not an object has no `id` or `when` to read. A bad `id` does
+ * not stop the `when` check; a `when` that is not an array has no conditions.
  */
-function assertRule(key: string, where: string, rule: unknown): void {
+function assertRule(
+  report: Report,
+  at: readonly Segment[],
+  key: string,
+  where: string,
+  rule: unknown,
+  usable: WeakSet<object>,
+): void {
   if (!isNode(rule)) {
-    throw new InvalidRuleError(key, where, 'is not an object');
+    report(new InvalidRuleError(key, where, 'is not an object'), at);
+    return;
   }
   const id = rule['id'];
   if (id !== undefined && typeof id !== 'string') {
-    throw new InvalidRuleError(key, where, 'has an id that is not a string');
+    report(new InvalidRuleError(key, where, 'has an id that is not a string'), [
+      ...at,
+      'id',
+    ]);
   }
   const when = rule['when'];
   if (!Array.isArray(when)) {
-    throw new InvalidRuleError(
-      key,
-      where,
-      Object.hasOwn(rule, 'when') && when !== undefined
-        ? 'has a when that is not an array'
-        : 'has no when: an unconditional rule states it as an empty when array',
+    report(
+      new InvalidRuleError(
+        key,
+        where,
+        Object.hasOwn(rule, 'when') && when !== undefined
+          ? 'has a when that is not an array'
+          : 'has no when: an unconditional rule states it as an empty when array',
+      ),
+      at,
     );
+    return;
   }
   for (const [index, condition] of when.entries()) {
-    assertCondition(key, `${where}.when[${index}]`, condition as Condition);
+    const accepted = assertCondition(
+      report,
+      [...at, 'when', index],
+      key,
+      `${where}.when[${index}]`,
+      condition as Condition,
+    );
+    if (accepted) usable.add(condition as object);
   }
 }
 
@@ -261,20 +350,43 @@ function assertRule(key: string, where: string, rule: unknown): void {
  * `side` names the array inside the document, so a fault is located where the
  * author wrote it. `validateMatrix` passes `rules` and `denyRules`; a deny
  * overlay passes `overlay`, which is the same gate over a contribution that is
- * not yet part of a permission.
+ * not yet part of a permission. A value that is not an array has no rules to
+ * check.
  */
-export function assertRules(key: string, side: string, rules: unknown): void {
+function collectRules(
+  report: Report,
+  base: readonly Segment[],
+  key: string,
+  side: string,
+  rules: unknown,
+  usable: WeakSet<object>,
+): void {
   if (rules === undefined) return;
   if (!Array.isArray(rules)) {
-    throw new InvalidPermissionError(key, side, 'is not an array');
+    report(new InvalidPermissionError(key, side, 'is not an array'), base);
+    return;
   }
   for (const [index, rule] of rules.entries()) {
-    assertRule(key, `${side}[${index}]`, rule);
+    assertRule(
+      report,
+      [...base, index],
+      key,
+      `${side}[${index}]`,
+      rule,
+      usable,
+    );
   }
 }
 
+/** Validates one rule array's shape and throws the first fault. */
+export function assertRules(key: string, side: string, rules: unknown): void {
+  throwFirst((report) => {
+    collectRules(report, [side], key, side, rules, new WeakSet());
+  });
+}
+
 /**
- * Refuses one permission whose rules repeat an `id`.
+ * Reports each rule of one permission that repeats an `id` already taken.
  *
  * The check runs over both sides at once, so an allow rule and a deny rule of
  * one permission may not share an id either. `ruleId` derives an id from the
@@ -285,20 +397,27 @@ export function assertRules(key: string, side: string, rules: unknown): void {
  *
  * A rule that states no `id` is skipped. Two such rules with identical
  * conditions derive one id and decide identically, which `ruleId` documents and
- * this does not reopen.
- *
- * Malformed rules reach this after `assertRules`, so every `id` here is a
- * string or absent.
+ * this does not reopen. A side that is not an array, a rule that is not an
+ * object and an `id` that is not a string have no id to compare.
  */
-function assertUniqueRuleIds(key: string, permission: Node): void {
+function collectDuplicateRuleIds(
+  report: Report,
+  base: readonly Segment[],
+  key: string,
+  permission: Node,
+): void {
   const taken = new Set<string>();
   for (const side of ['rules', 'denyRules']) {
     const rules = permission[side];
     if (!Array.isArray(rules)) continue;
-    for (const rule of rules) {
-      const id = (rule as Node)['id'];
+    for (const [index, rule] of rules.entries()) {
+      if (!isNode(rule)) continue;
+      const id = rule['id'];
       if (typeof id !== 'string') continue;
-      if (taken.has(id)) throw new DuplicateRuleIdError(key, id);
+      if (taken.has(id)) {
+        report(new DuplicateRuleIdError(key, id), [...base, side, index, 'id']);
+        continue;
+      }
       taken.add(id);
     }
   }
@@ -319,20 +438,29 @@ const PERMISSION_MEMBERS = new Set([
 const VISIBILITIES = new Set(['public', 'internal']);
 
 /**
- * Refuses a permission carrying a member the canonical node does not have.
+ * Reports each member the canonical permission node does not have, and a
+ * `visibility` that is neither marking.
  *
  * A member nothing reads is a rule the author wrote and the engine never
  * applies, and `dependsOn` is the instance that matters: a document written for
  * the cascade states a deny this engine has no step for, so accepting it
  * silently would grant what its author refused.
  */
-function assertMembers(key: string, permission: Node): void {
+function collectMembers(
+  report: Report,
+  base: readonly Segment[],
+  key: string,
+  permission: Node,
+): void {
   for (const member of Object.keys(permission)) {
     if (PERMISSION_MEMBERS.has(member)) continue;
-    throw new InvalidPermissionError(
-      key,
-      member,
-      'is not a member of a permission',
+    report(
+      new InvalidPermissionError(
+        key,
+        member,
+        'is not a member of a permission',
+      ),
+      [...base, member],
     );
   }
 
@@ -341,76 +469,119 @@ function assertMembers(key: string, permission: Node): void {
   // internal and publish nothing without saying so.
   const visibility = permission['visibility'];
   if (visibility !== undefined && !VISIBILITIES.has(visibility as string)) {
-    throw new InvalidPermissionError(
-      key,
-      'visibility',
-      'is neither "public" nor "internal"',
+    report(
+      new InvalidPermissionError(
+        key,
+        'visibility',
+        'is neither "public" nor "internal"',
+      ),
+      [...base, 'visibility'],
     );
   }
 }
 
-function assertFieldConfig(key: string, field: string, config: unknown): void {
+/**
+ * Reports a field config's faults and answers whether it is usable.
+ *
+ * A config that is not an object has no members to check. Both `targets` and
+ * `transitions` is reported first and the two members are still checked, as
+ * each one's shape is independent of the other.
+ */
+function assertFieldConfig(
+  report: Report,
+  at: readonly Segment[],
+  key: string,
+  field: string,
+  config: unknown,
+): boolean {
   if (!isNode(config)) {
-    throw new InvalidPermissionError(
-      key,
-      `fields.${field}`,
-      'is not a field config',
+    report(
+      new InvalidPermissionError(
+        key,
+        `fields.${field}`,
+        'is not a field config',
+      ),
+      at,
     );
+    return false;
   }
+  let usable = true;
   if ('targets' in config && 'transitions' in config) {
-    throw new TargetsTransitionsConflictError(field);
+    report(new TargetsTransitionsConflictError(field), at);
+    usable = false;
   }
   const { targets, transitions } = config as Partial<FieldConfig> & Node;
   if (targets !== undefined && !Array.isArray(targets)) {
-    throw new InvalidPermissionError(
-      key,
-      `fields.${field}.targets`,
-      'is not an array',
+    report(
+      new InvalidPermissionError(
+        key,
+        `fields.${field}.targets`,
+        'is not an array',
+      ),
+      [...at, 'targets'],
     );
+    usable = false;
   }
   if (transitions !== undefined) {
     if (!isNode(transitions)) {
-      throw new InvalidPermissionError(
-        key,
-        `fields.${field}.transitions`,
-        'is not an object',
+      report(
+        new InvalidPermissionError(
+          key,
+          `fields.${field}.transitions`,
+          'is not an object',
+        ),
+        [...at, 'transitions'],
       );
+      return false;
     }
     for (const [from, to] of Object.entries(transitions)) {
       if (!Array.isArray(to)) {
-        throw new InvalidPermissionError(
-          key,
-          `fields.${field}.transitions.${from}`,
-          'is not an array',
+        report(
+          new InvalidPermissionError(
+            key,
+            `fields.${field}.transitions.${from}`,
+            'is not an array',
+          ),
+          [...at, 'transitions', from],
         );
+        usable = false;
       }
     }
   }
+  return usable;
 }
 
 /** The most segments a field-rule path may have; the walk recurses per segment. */
 const MAX_PATH_SEGMENTS = 32;
 
 /**
- * The segments of a field-rule path, or a throw naming why it cannot be one.
- * `name` is a list entry without its leading `!`, or a config key.
+ * The segments of a field-rule path, or `undefined` after reporting why it
+ * cannot be one. `name` is a list entry without its leading `!`, or a config
+ * key.
  */
 function segmentsOf(
+  report: Report,
+  at: readonly Segment[],
   key: string,
   where: string,
   name: string,
-): readonly string[] {
+): readonly string[] | undefined {
   const fault = fieldPathFault(name);
   if (fault !== undefined) {
-    throw new InvalidPermissionError(key, where, fault);
+    report(new InvalidPermissionError(key, where, fault), at);
+    return undefined;
   }
   const segments = parsePath(name) as readonly string[];
   if (segments.length > MAX_PATH_SEGMENTS) {
-    throw new InvalidPermissionError(
-      key,
-      where,
-      `${JSON.stringify(name)} has ${segments.length} segments; a path may have at most ${MAX_PATH_SEGMENTS}.`,
+    report(
+      new InvalidPermissionError(
+        key,
+        where,
+        `${JSON.stringify(name)} has ${segments.length} segments; a path may have at most ${MAX_PATH_SEGMENTS}.`,
+      ),
+      at,
     );
+    return undefined;
   }
   return segments;
 }
@@ -444,6 +615,7 @@ interface PathEntry {
   readonly segments: readonly string[];
   readonly where: string;
   readonly text: string;
+  readonly at: readonly Segment[];
 }
 
 function contradiction(
@@ -459,10 +631,26 @@ function contradiction(
   );
 }
 
-function assertFieldRules(key: string, rules: unknown): void {
+/**
+ * Reports the faults of a permission's field rules.
+ *
+ * `fields` not being an object has no entries. The allow-list and the per-field
+ * configs are independent of each other, and an entry or config whose path is
+ * not one is left out of the cross-checks, which compare paths. The
+ * cross-checks run over the entries that remain, in this order: an allow under
+ * an exclusion, a `!` entry with no baseline, a config under an exclusion, any
+ * entry under a config.
+ */
+function collectFieldRules(
+  report: Report,
+  base: readonly Segment[],
+  key: string,
+  rules: unknown,
+): void {
   if (rules === undefined) return;
   if (!isNode(rules)) {
-    throw new InvalidPermissionError(key, 'fields', 'is not an object');
+    report(new InvalidPermissionError(key, 'fields', 'is not an object'), base);
+    return;
   }
 
   let star = false;
@@ -477,24 +665,40 @@ function assertFieldRules(key: string, rules: unknown): void {
     // `transitions`. Naming that here, rather than only the type mismatch,
     // is the whole statement of the limit a foreign producer gets.
     if (!Array.isArray(names)) {
-      throw new InvalidPermissionError(
-        key,
-        'fields.fields',
-        'is not an array: "fields" is the name allow-list, so no field may be called "fields"',
+      report(
+        new InvalidPermissionError(
+          key,
+          'fields.fields',
+          'is not an array: "fields" is the name allow-list, so no field may be called "fields"',
+        ),
+        [...base, 'fields'],
       );
-    }
-    for (const [index, name] of names.entries()) {
-      const where = `fields.fields[${index}]`;
-      if (!isNonEmptyString(name)) {
-        throw new InvalidPermissionError(key, where, 'is not a field name');
+    } else {
+      for (const [index, name] of names.entries()) {
+        const where = `fields.fields[${index}]`;
+        const at = [...base, 'fields', index];
+        if (!isNonEmptyString(name)) {
+          report(
+            new InvalidPermissionError(key, where, 'is not a field name'),
+            at,
+          );
+          continue;
+        }
+        if (name === '*') {
+          star = true;
+          continue;
+        }
+        const denied = name.startsWith('!');
+        const segments = segmentsOf(
+          report,
+          at,
+          key,
+          where,
+          denied ? name.slice(1) : name,
+        );
+        if (segments === undefined) continue;
+        (denied ? denies : allows).push({ segments, where, text: name, at });
       }
-      if (name === '*') {
-        star = true;
-        continue;
-      }
-      const denied = name.startsWith('!');
-      const segments = segmentsOf(key, where, denied ? name.slice(1) : name);
-      (denied ? denies : allows).push({ segments, where, text: name });
     }
   }
 
@@ -502,9 +706,11 @@ function assertFieldRules(key: string, rules: unknown): void {
     if (field === 'fields') continue;
     if (config === undefined) continue;
     const where = `fields.${field}`;
-    const segments = segmentsOf(key, where, field);
-    assertFieldConfig(key, field, config);
-    configs.push({ segments, where, text: field });
+    const at = [...base, field];
+    const segments = segmentsOf(report, at, key, where, field);
+    const usable = assertFieldConfig(report, at, key, field, config);
+    if (segments === undefined || !usable) continue;
+    configs.push({ segments, where, text: field, at });
   }
 
   const denied = indexOf(denies);
@@ -514,42 +720,51 @@ function assertFieldRules(key: string, rules: unknown): void {
   for (const allow of allows) {
     const deny = ancestorIn(denied, allow.segments, false);
     if (!deny) continue;
-    throw contradiction(
-      key,
-      deny,
-      allow,
-      deny.segments.length === allow.segments.length
-        ? 'an entry and its own exclusion state two intents for one path'
-        : 'an allow below an excluded path states two intents for one path',
+    report(
+      contradiction(
+        key,
+        deny,
+        allow,
+        deny.segments.length === allow.segments.length
+          ? 'an entry and its own exclusion state two intents for one path'
+          : 'an allow below an excluded path states two intents for one path',
+      ),
+      allow.at,
     );
   }
 
   if (!star) {
     for (const deny of denies) {
       if (ancestorIn(allowed, deny.segments, true)) continue;
-      throw new DenyWithoutBaselineError(key, deny.text);
+      report(new DenyWithoutBaselineError(key, deny.text), deny.at);
     }
   }
 
   for (const config of configs) {
     const deny = ancestorIn(denied, config.segments, true);
     if (!deny) continue;
-    throw contradiction(
-      key,
-      deny,
-      config,
-      'a rule below an excluded path states two intents for one path',
+    report(
+      contradiction(
+        key,
+        deny,
+        config,
+        'a rule below an excluded path states two intents for one path',
+      ),
+      config.at,
     );
   }
 
   for (const other of [...allows, ...denies, ...configs]) {
     const config = ancestorIn(configured, other.segments, true);
     if (!config) continue;
-    throw contradiction(
-      key,
-      config,
-      other,
-      'a targets or transitions rule decides its whole subtree, so no other rule may sit below it',
+    report(
+      contradiction(
+        key,
+        config,
+        other,
+        'a targets or transitions rule decides its whole subtree, so no other rule may sit below it',
+      ),
+      other.at,
     );
   }
 }
@@ -558,8 +773,159 @@ const ENVELOPE =
   'a matrix is an envelope: { version?, maxStale?, schema?, permissions }';
 
 /**
- * Validates a canonical matrix document: the envelope, then its permissions'
- * shape, rules and field configs, then its conditions against a present schema.
+ * Checks one permission, reporting every fault.
+ *
+ * A permission that is not an object, or has no key, has nothing to name its
+ * faults by and nothing else is checked. A bad `object` or `action` stops only
+ * the checks that read them (the delimiter and key-match checks); the member,
+ * rule, rule-id and field-rule checks read none of the three. The duplicate-key
+ * check reads the key alone.
+ */
+function collectPermission(
+  report: Report,
+  index: number,
+  permission: unknown,
+  keys: Set<string>,
+  usable: WeakSet<object>,
+): void {
+  const base: readonly Segment[] = ['permissions', index];
+  if (!isNode(permission)) {
+    report(
+      new InvalidMatrixError(`permission [${index}] is not an object`),
+      base,
+    );
+    return;
+  }
+  const { key, object, action } = permission as Partial<Permission> & Node;
+  if (!isNonEmptyString(key)) {
+    report(new InvalidMatrixError(`permission [${index}] has no key`), [
+      ...base,
+      'key',
+    ]);
+    return;
+  }
+  const here = inPermission(report, key);
+  const objectOk = isNonEmptyString(object);
+  const actionOk = isNonEmptyString(action);
+  if (!objectOk) {
+    here(new InvalidPermissionError(key, 'object', 'is not an object kind'), [
+      ...base,
+      'object',
+    ]);
+  }
+  if (!actionOk) {
+    here(new InvalidPermissionError(key, 'action', 'is not an action'), [
+      ...base,
+      'action',
+    ]);
+  }
+  // A key is built by joining the two parts on a dot, and that join is
+  // reversible only while neither part carries one: `{ object: 'a.b',
+  // action: 'c' }` and `{ object: 'a', action: 'b.c' }` are two permissions
+  // with one key. An object kind namespaced by origin is spelled with a
+  // colon -- `orders:invoice.read` -- which stays legal.
+  if (objectOk && object.includes('.')) {
+    here(
+      new InvalidPermissionError(
+        key,
+        'object',
+        'carries the key delimiter ".": an object kind namespaced by origin is spelled "origin:kind"',
+      ),
+      [...base, 'object'],
+    );
+  }
+  if (actionOk && action.includes('.')) {
+    here(
+      new InvalidPermissionError(
+        key,
+        'action',
+        'carries the key delimiter "."',
+      ),
+      [...base, 'action'],
+    );
+  }
+  if (objectOk && actionOk && key !== `${object}.${action}`) {
+    here(new KeyMismatchError(key, object, action), [...base, 'key']);
+  }
+
+  if (keys.has(key)) {
+    here(new DuplicatePermissionError(key), [...base, 'key']);
+  }
+  keys.add(key);
+
+  collectMembers(here, base, key, permission);
+  collectRules(
+    here,
+    [...base, 'rules'],
+    key,
+    'rules',
+    permission['rules'],
+    usable,
+  );
+  collectRules(
+    here,
+    [...base, 'denyRules'],
+    key,
+    'denyRules',
+    permission['denyRules'],
+    usable,
+  );
+  collectDuplicateRuleIds(here, base, key, permission);
+  collectFieldRules(here, [...base, 'fields'], key, permission['fields']);
+}
+
+/**
+ * The freshness faults of a holder's `fetchedAt` and local `maxStale` against a
+ * document's `maxStale`, in the order a holder is told of them.
+ *
+ * Supplying `fetchedAt` is a request for a freshness budget, so every check
+ * here is conditional on it: a local `maxStale` alone claims nothing. The three
+ * checks read independent inputs. They are not located in the document, which
+ * holds neither option, so the two option faults sit at the root and the missing
+ * budget at the `maxStale` the document should state.
+ */
+export function freshnessIssues(
+  documentMaxStale: unknown,
+  options: ValidateOptions,
+): AclConfigError[] {
+  const issues: AclConfigError[] = [];
+  const { fetchedAt, maxStale: local } = options;
+  if (fetchedAt === undefined) return issues;
+  const report = collectInto(issues);
+
+  if (Number.isNaN(settleNow(fetchedAt))) {
+    report(new InvalidFreshnessError('fetchedAt', 'is not an instant'), []);
+  }
+  if (local !== undefined && (!Number.isFinite(local) || local < 0)) {
+    report(
+      new InvalidFreshnessError(
+        'maxStale',
+        'is not a finite, non-negative number of milliseconds',
+      ),
+      [],
+    );
+  }
+  if (documentMaxStale === undefined) {
+    report(new MissingFreshnessBudgetError(), ['maxStale']);
+  }
+  return issues;
+}
+
+/**
+ * What a holder knows about the document that the document does not: when it
+ * last validated, and how long it will trust that.
+ */
+export interface ValidateOptions {
+  /** The instant the holder last validated the document against its origin. */
+  fetchedAt?: Instant;
+  /** A shorter local ceiling on staleness, in milliseconds. */
+  maxStale?: number;
+}
+
+/**
+ * Collects every fault of a canonical matrix document, in document order: the
+ * envelope, then its permissions' shape, rules and field configs, then its
+ * conditions against a present schema, then the freshness of `options`.
  *
  * Keys are unique. Lookup is a map, so a second permission under a key already
  * taken decides every call the first was written to answer, and the winner is
@@ -570,100 +936,91 @@ const ENVELOPE =
  *
  * This is the whole gate between a foreign matrix and the engine: every entry
  * point passes through it, and everything it accepts evaluates without throwing.
- * Every rejection is an `AclConfigError` naming the permission key and the
+ * Every issue is an `AclConfigError` naming the permission key and the
  * offending field.
  *
- * The schema pass runs last, so a condition that is not evaluable at all is
- * reported as that rather than as a schema fault.
+ * A fault stops only the checks that read the faulty node. A document that is
+ * not an object, or whose `permissions` is not an array, stops everything. A
+ * `version` or `maxStale` fault stops nothing. A malformed `schema` stops the
+ * schema pass, which reads declared types, and nothing else. The schema pass
+ * runs last and skips a condition that is not evaluable, so that condition is
+ * reported as that rather than as a schema fault. Freshness faults are reported
+ * only for a document that has reached the permissions.
  */
-export function validateMatrix(matrix: Matrix): void {
+export function collectIssues(
+  matrix: unknown,
+  options: ValidateOptions = {},
+): AclConfigError[] {
+  const issues: AclConfigError[] = [];
+  const report = collectInto(issues);
+
   if (!isNode(matrix)) {
-    throw new InvalidMatrixError(ENVELOPE);
+    report(new InvalidMatrixError(ENVELOPE), []);
+    return issues;
   }
 
-  const node = matrix as Node;
-  const permissions = node['permissions'];
+  const permissions = matrix['permissions'];
   if (!Array.isArray(permissions)) {
-    throw new InvalidMatrixError(`"permissions" is not an array: ${ENVELOPE}`);
+    report(
+      new InvalidMatrixError(`"permissions" is not an array: ${ENVELOPE}`),
+      ['permissions'],
+    );
+    return issues;
   }
 
-  const version = node['version'];
+  const version = matrix['version'];
   if (
     version !== undefined &&
     typeof version !== 'string' &&
     typeof version !== 'number'
   ) {
-    throw new InvalidMatrixError('"version" is neither a string nor a number');
+    report(
+      new InvalidMatrixError('"version" is neither a string nor a number'),
+      ['version'],
+    );
   }
 
   // A bound the comparison cannot use answers "fresh" on every call, so the
   // refusal is here and not at the first decision that reads it.
-  const maxStale = node['maxStale'];
+  const maxStale = matrix['maxStale'];
   if (
     maxStale !== undefined &&
     (typeof maxStale !== 'number' || !Number.isFinite(maxStale) || maxStale < 0)
   ) {
-    throw new InvalidMatrixError(
-      '"maxStale" is not a finite, non-negative number of milliseconds',
+    report(
+      new InvalidMatrixError(
+        '"maxStale" is not a finite, non-negative number of milliseconds',
+      ),
+      ['maxStale'],
     );
   }
 
-  const schema = node['schema'];
-  if (schema !== undefined) assertSchemaShape(schema);
+  const schema = matrix['schema'];
+  const schemaOk = schema === undefined || assertSchemaShape(schema, report);
 
   const keys = new Set<string>();
-
+  const usable = new WeakSet<object>();
   for (const [index, permission] of permissions.entries()) {
-    if (!isNode(permission)) {
-      throw new InvalidMatrixError(`permission [${index}] is not an object`);
-    }
-    const { key, object, action } = permission as Partial<Permission> & Node;
-    if (!isNonEmptyString(key)) {
-      throw new InvalidMatrixError(`permission [${index}] has no key`);
-    }
-    if (!isNonEmptyString(object)) {
-      throw new InvalidPermissionError(key, 'object', 'is not an object kind');
-    }
-    if (!isNonEmptyString(action)) {
-      throw new InvalidPermissionError(key, 'action', 'is not an action');
-    }
-    // A key is built by joining the two parts on a dot, and that join is
-    // reversible only while neither part carries one: `{ object: 'a.b',
-    // action: 'c' }` and `{ object: 'a', action: 'b.c' }` are two permissions
-    // with one key. An object kind namespaced by origin is spelled with a
-    // colon -- `orders:invoice.read` -- which stays legal.
-    if (object.includes('.')) {
-      throw new InvalidPermissionError(
-        key,
-        'object',
-        'carries the key delimiter ".": an object kind namespaced by origin is spelled "origin:kind"',
-      );
-    }
-    if (action.includes('.')) {
-      throw new InvalidPermissionError(
-        key,
-        'action',
-        'carries the key delimiter "."',
-      );
-    }
-    if (key !== `${object}.${action}`) {
-      throw new KeyMismatchError(key, object, action);
-    }
-
-    if (keys.has(key)) throw new DuplicatePermissionError(key);
-    keys.add(key);
-
-    assertMembers(key, permission);
-    assertRules(key, 'rules', permission['rules']);
-    assertRules(key, 'denyRules', permission['denyRules']);
-    assertUniqueRuleIds(key, permission);
-    assertFieldRules(key, permission['fields']);
+    collectPermission(report, index, permission, keys, usable);
   }
 
-  if (schema !== undefined) {
-    assertSchemaFit(
-      schema as MatrixSchema,
-      permissions as readonly Permission[],
+  if (schema !== undefined && schemaOk) {
+    assertSchemaFit(schema as MatrixSchema, permissions, report, (condition) =>
+      typeof condition === 'object' && condition !== null
+        ? usable.has(condition)
+        : false,
     );
   }
+
+  issues.push(...freshnessIssues(maxStale, options));
+  return issues;
+}
+
+/**
+ * Validates a canonical matrix document and throws the first fault
+ * `collectIssues` reports, as the error class and message it has always had.
+ */
+export function validateMatrix(matrix: Matrix): void {
+  const [first] = collectIssues(matrix);
+  if (first) throw first;
 }

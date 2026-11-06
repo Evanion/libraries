@@ -114,4 +114,15 @@ describe('errors', () => {
       expect(err.message).toContain(err.field);
     }
   });
+
+  it('an error starts at the document root, and its code is its class name', () => {
+    const err = new InvalidMatrixError('x');
+
+    expect(err.code).toBe('InvalidMatrixError');
+    expect(err.path).toBe('');
+    expect(err.permissionKey).toBeUndefined();
+    expect(new DuplicatePermissionError('a.b').code).toBe(
+      'DuplicatePermissionError',
+    );
+  });
 });

@@ -14,8 +14,15 @@ import {
 } from './errors.js';
 import { policy } from './authoring.js';
 import { hydratePolicy } from './hydrate-policy.js';
-import { validateMatrix } from './validate.js';
+import { collectIssues, validateMatrix } from './validate.js';
 import type { Matrix } from './types.js';
+
+const perm = (action: string, extra: object = {}) => ({
+  key: `comment.${action}`,
+  object: 'comment',
+  action,
+  ...extra,
+});
 
 /** A one-permission matrix carrying `when` verbatim, however malformed. */
 function withWhen(when: unknown): Matrix {
@@ -709,5 +716,213 @@ describe('validateMatrix', () => {
     };
 
     expect(() => validateMatrix(matrix)).not.toThrow();
+  });
+});
+
+describe('collectIssues', () => {
+  it('returns nothing for a valid matrix', () => {
+    expect(collectIssues({ permissions: [perm('read')] })).toEqual([]);
+  });
+
+  it('sets code to the class name and path to a pointer', () => {
+    const [issue] = collectIssues({
+      permissions: [perm('read', { fields: { fields: ['ok', 7] } })],
+    } as unknown as Matrix);
+
+    expect(issue).toBeInstanceOf(InvalidPermissionError);
+    expect(issue?.code).toBe('InvalidPermissionError');
+    expect(issue?.path).toBe('/permissions/0/fields/fields/1');
+    expect(issue?.permissionKey).toBe('comment.read');
+  });
+
+  it('reports three faults in three permissions in document order', () => {
+    const matrix = {
+      permissions: [
+        perm('read', { visibility: 'secret' }),
+        perm('update', { rules: 5 }),
+        { key: 'comment.delete', object: 'comment', action: 'remove' },
+      ],
+    } as unknown as Matrix;
+
+    const issues = collectIssues(matrix);
+
+    expect(issues.map((i) => [i.code, i.path, i.permissionKey])).toEqual([
+      ['InvalidPermissionError', '/permissions/0/visibility', 'comment.read'],
+      ['InvalidPermissionError', '/permissions/1/rules', 'comment.update'],
+      ['KeyMismatchError', '/permissions/2/key', 'comment.delete'],
+    ]);
+    let caught: unknown;
+    try {
+      validateMatrix(matrix);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(InvalidPermissionError);
+    expect((caught as Error).message).toBe(issues[0]?.message);
+  });
+
+  it('reports one issue when permissions is not an array', () => {
+    const issues = collectIssues({
+      version: {},
+      maxStale: -1,
+      permissions: 'x',
+    } as unknown as Matrix);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toBeInstanceOf(InvalidMatrixError);
+    expect(issues[0]?.path).toBe('/permissions');
+  });
+
+  it('reports a document that is not an object at the root', () => {
+    const issues = collectIssues(null);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.path).toBe('');
+  });
+
+  it('checks rules in a permission whose fields are malformed', () => {
+    const issues = collectIssues({
+      permissions: [
+        perm('read', {
+          fields: 'nope',
+          rules: [{ id: 'r' }],
+        }),
+      ],
+    } as unknown as Matrix);
+
+    expect(issues.map((i) => [i.code, i.path])).toEqual([
+      ['InvalidRuleError', '/permissions/0/rules/0'],
+      ['InvalidPermissionError', '/permissions/0/fields'],
+    ]);
+  });
+
+  it('keeps checking after a bad field list', () => {
+    const issues = collectIssues({
+      permissions: [
+        perm('read', {
+          fields: { fields: 'x', status: { targets: 'y' } },
+        }),
+      ],
+    } as unknown as Matrix);
+
+    expect(issues.map((i) => i.path)).toEqual([
+      '/permissions/0/fields/fields',
+      '/permissions/0/fields/status/targets',
+    ]);
+  });
+
+  it('gives a condition of invalid shape no schema issue', () => {
+    const matrix = {
+      schema: { objects: { comment: { fields: { status: 'string' } } } },
+      permissions: [
+        perm('read', {
+          rules: [
+            {
+              when: [
+                { field: 'object.nope', op: 'eq', value: 'a', path: 'b' },
+                { field: 'object.ghost', op: 'eq', value: 'a' },
+              ],
+            },
+          ],
+        }),
+      ],
+    } as unknown as Matrix;
+
+    const issues = collectIssues(matrix);
+
+    expect(issues.map((i) => [i.code, i.path])).toEqual([
+      ['InvalidConditionError', '/permissions/0/rules/0/when/0'],
+      ['UnknownFieldError', '/permissions/0/rules/0/when/1'],
+    ]);
+  });
+
+  it('skips the schema pass when the schema itself is malformed', () => {
+    const issues = collectIssues({
+      schema: { objects: { comment: { fields: { status: 'strng' } } } },
+      permissions: [
+        perm('read', {
+          rules: [
+            {
+              when: [{ field: 'object.status', op: 'eq', value: 'a' }],
+            },
+          ],
+        }),
+      ],
+    } as unknown as Matrix);
+
+    expect(issues.map((i) => [i.code, i.path])).toEqual([
+      ['InvalidSchemaError', '/schema/objects/comment/fields/status'],
+    ]);
+  });
+
+  it('escapes / and ~ in a pointer segment', () => {
+    const [issue] = collectIssues({
+      permissions: [perm('read', { fields: { 'a/b~c': 5 } })],
+    } as unknown as Matrix);
+
+    expect(issue?.path).toBe('/permissions/0/fields/a~1b~0c');
+  });
+
+  it('reports every duplicate key and rule id', () => {
+    const issues = collectIssues({
+      permissions: [
+        perm('read', {
+          rules: [
+            { id: 'a', when: [] },
+            { id: 'a', when: [] },
+          ],
+        }),
+        perm('read'),
+      ],
+    } as unknown as Matrix);
+
+    expect(issues.map((i) => [i.code, i.path])).toEqual([
+      ['DuplicateRuleIdError', '/permissions/0/rules/1/id'],
+      ['DuplicatePermissionError', '/permissions/1/key'],
+    ]);
+  });
+
+  it('reports the nested-path refusals with the permission key', () => {
+    const issues = collectIssues({
+      permissions: [
+        perm('read', { fields: { fields: ['!a.b'] } }),
+        perm('update', {
+          fields: { fields: ['*'], 'a.b': { targets: [] }, a: { targets: [] } },
+        }),
+      ],
+    } as unknown as Matrix);
+
+    expect(issues.map((i) => [i.code, i.path, i.permissionKey])).toEqual([
+      [
+        'DenyWithoutBaselineError',
+        '/permissions/0/fields/fields/0',
+        'comment.read',
+      ],
+      ['InvalidPermissionError', '/permissions/1/fields/a.b', 'comment.update'],
+    ]);
+  });
+
+  it('reports freshness faults given the options', () => {
+    const matrix: Matrix = { permissions: [perm('read')] };
+
+    expect(collectIssues(matrix)).toEqual([]);
+    expect(collectIssues(matrix, { fetchedAt: 1 }).map((i) => i.code)).toEqual([
+      'MissingFreshnessBudgetError',
+    ]);
+    expect(
+      collectIssues(
+        { ...matrix, maxStale: 5 },
+        {
+          fetchedAt: 'nope',
+          maxStale: -1,
+        },
+      ).map((i) => [i.code, (i as { field?: string }).field]),
+    ).toEqual([
+      ['InvalidFreshnessError', 'fetchedAt'],
+      ['InvalidFreshnessError', 'maxStale'],
+    ]);
+    expect(collectIssues({ ...matrix, maxStale: 5 }, { fetchedAt: 1 })).toEqual(
+      [],
+    );
   });
 });
