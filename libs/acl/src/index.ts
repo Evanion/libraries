@@ -76,7 +76,6 @@ export {
   AclConfigError,
   ActionNotAllowedError,
   AmbiguousRuleIdError,
-  BangInAllowListError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,
   DuplicateRuleIdError,

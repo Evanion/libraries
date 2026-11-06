@@ -226,7 +226,7 @@ function refusedAtConstruction(entry) {
 }
 
 /**
- * The thirty-seven cases in the order the page shows them, by the rule the page
+ * The forty cases in the order the page shows them, by the rule the page
  * prints above them.
  *
  * The tier, the OWASP identifier and whether every mechanism clause names

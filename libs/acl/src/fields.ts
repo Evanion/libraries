@@ -303,6 +303,7 @@ function snapshotOf(target: object): Bag | undefined {
 function elementsOf(array: readonly unknown[]): Bag[] | undefined {
   const descriptors = Object.getOwnPropertyDescriptors(array);
   const length = (descriptors['length'] as PropertyDescriptor).value as number;
+  if (!Number.isInteger(length) || length < 0) return undefined;
   // An own property other than an index would ride along on the original array
   // and be lost from a rebuilt one.
   for (const key of Reflect.ownKeys(descriptors)) {

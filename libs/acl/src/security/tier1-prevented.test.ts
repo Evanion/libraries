@@ -14,7 +14,6 @@ import {
   ActionNotAllowedError,
   InvalidConditionError,
   InvalidMatrixError,
-  InvalidPermissionError,
   InvalidRuleError,
   KeyMismatchError,
   UnknownPermissionError,
@@ -1256,6 +1255,7 @@ describe('SEC-019 no hostile write escapes the decision it was narrowed against 
   ] as const;
 
   it('never picks a key the decision did not mark allowed', () => {
+    let built = 0;
     for (let seed = 1; seed <= 400; seed++) {
       const gen = new Gen(rng(seed));
       // An exclusion such as `!role` is valid only beside the `*` baseline, so
@@ -1268,12 +1268,22 @@ describe('SEC-019 no hostile write escapes the decision it was narrowed against 
         ? ['*', ...drawn]
         : drawn;
       const names = gen.bool(0.6) ? valid : undefined;
-      const access = foreign([
-        permission('account', 'update', {
-          rules: [always],
-          ...(names ? { fields: { fields: names } } : {}),
-        }),
-      ]);
+      let access: ReturnType<typeof foreign>;
+      try {
+        access = foreign([
+          permission('account', 'update', {
+            rules: [always],
+            ...(names ? { fields: { fields: names } } : {}),
+          }),
+        ]);
+      } catch (error) {
+        // A drawn list may be one construction refuses (an entry beside its
+        // own exclusion, a token spelled as a path). The refusal is the
+        // defence for that list.
+        expect(error, `seed ${seed}`).toBeInstanceOf(AclConfigError);
+        continue;
+      }
+      built++;
 
       const proposed: Record<string, unknown> = {};
       for (const key of gen.list(6, () => gen.pick(KEYS))) {
@@ -1308,6 +1318,9 @@ describe('SEC-019 no hostile write escapes the decision it was narrowed against 
       expect(Object.getPrototypeOf(row), `seed ${seed}`).toBe(Object.prototype);
       expect(({} as Record<string, unknown>)['isOwner']).toBeUndefined();
     }
+
+    // Most lists build, so the writes above ran against real decisions.
+    expect(built).toBeGreaterThan(100);
   });
   // #endregion sec-019
 });
@@ -1410,64 +1423,144 @@ describe('SEC-021 a frozen matrix grants nothing a caller wrote into it (CWE-915
   // #endregion sec-021
 });
 
-describe('SEC-022 a dotted field entry that matches nothing (CWE-863)', () => {
+describe('SEC-022 a nested exclusion hides the nested key (CWE-863)', () => {
   // #region sec-022
   /**
-   * Field rules match the top-level keys of the object. `'!address.street'`
-   * names no key a row carries, so the deny would exclude nothing and
-   * `address` would pass whole, street included. Construction refuses a dotted
-   * entry on both entry points, and refuses a backslash, which is reserved as
-   * the path escape.
+   * `['*', '!address.street']` names a key below `address`. The decision
+   * carries the street as denied and `pickAllowedFields` rebuilds the parent
+   * without it, so the response holds the city and no street.
    */
-  const refused = (
-    make: () => Permission,
-    key: string,
-    field: string,
-  ): void => {
-    for (const build of [local, foreign]) {
-      let thrown: unknown;
-      try {
-        build([make()]);
-      } catch (error) {
-        thrown = error;
-      }
-
-      expect(thrown).toBeInstanceOf(InvalidPermissionError);
-      expect((thrown as InvalidPermissionError).key).toBe(key);
-      expect((thrown as InvalidPermissionError).field).toBe(field);
-      expect((thrown as Error).message).toMatch(/top-level keys/);
-    }
+  const row = {
+    id: 'o1',
+    address: { city: 'Malmo', street: 'Storgatan 1' },
   };
+  const readable = () =>
+    foreign([
+      permission('order', 'read', {
+        rules: [always],
+        fields: { fields: ['*', '!address.street'] },
+      }),
+    ]);
 
-  const names = (entries: string[]) => () =>
-    permission('order', 'read', { fields: { fields: entries } });
-  const keyed = (name: string) => () =>
-    permission('order', 'update', {
-      fields: { [name]: { targets: ['SE'] } },
+  it('hides the nested key and keeps the rest of the parent', () => {
+    const decision = readable().canFields(
+      { id: 'u1' },
+      'order',
+      'read',
+      row,
+      'read',
+    );
+
+    expect(decision.fields['address.street']).toBe('denied');
+    expect(pickAllowedFields(decision, row)).toEqual({
+      id: 'o1',
+      address: { city: 'Malmo' },
     });
-
-  it('refuses a dotted deny entry', () => {
-    refused(names(['*', '!address.street']), 'order.read', 'fields.fields[1]');
   });
 
-  it('refuses a dotted allow entry', () => {
-    refused(names(['id', 'address.city']), 'order.read', 'fields.fields[1]');
-  });
+  it('leaves the excluded key out of the picked parent on the hydrated path', () => {
+    const decision = local([
+      permission('order', 'read', {
+        rules: [always],
+        fields: { fields: ['*', '!address.street'] },
+      }),
+    ]).canFields({ id: 'u1' }, 'order', 'read', row, 'read');
 
-  it('refuses a dotted targets key, which no write carries', () => {
-    refused(keyed('address.country'), 'order.update', 'fields.address.country');
-  });
-
-  it('refuses a backslash in a deny entry, with no dot present', () => {
-    refused(names(['*', '!a\\b']), 'order.read', 'fields.fields[1]');
-  });
-
-  it('refuses a backslash in an allow entry, with no dot present', () => {
-    refused(names(['id', 'a\\b']), 'order.read', 'fields.fields[1]');
-  });
-
-  it('refuses a backslash in a targets key, with no dot present', () => {
-    refused(keyed('a\\b'), 'order.update', 'fields.a\\b');
+    expect(pickAllowedFields(decision, row)).not.toHaveProperty(
+      'address.street',
+    );
+    expect(
+      (pickAllowedFields(decision, row) as { address: object }).address,
+    ).not.toHaveProperty('street');
   });
   // #endregion sec-022
+});
+
+describe('SEC-023 a write cannot replace a subtree holding a key the caller may not write (CWE-915)', () => {
+  // #region sec-023
+  /**
+   * `address: null` would erase a street the caller may not write, so the
+   * parent is refused as a whole and nothing of it is picked.
+   */
+  const access = () =>
+    foreign([
+      permission('order', 'update', {
+        rules: [always],
+        fields: { fields: ['*', '!address.street'] },
+      }),
+    ]);
+  const stored = {
+    id: 'o1',
+    address: { city: 'Malmo', street: 'Storgatan 1' },
+  };
+
+  it.each([
+    ['null', null],
+    ['a string', 'elsewhere'],
+    ['an array', []],
+    ['an empty object', {}],
+  ])('refuses a write that replaces the address with %s', (_, value) => {
+    const proposed = { address: value };
+    const decision = access().canFields(
+      { id: 'u1' },
+      'order',
+      'update',
+      stored,
+      'write',
+      proposed,
+    );
+
+    expect(decision.fields['address']).toBe('denied');
+    expect(decision.reasons['address']).toBe('not-traversable');
+    expect(decision.allowed).toBe(false);
+    expect(pickAllowedFields(decision, proposed)).toEqual({});
+  });
+  // #endregion sec-023
+});
+
+describe('SEC-024 a value the engine cannot walk is hidden, not passed whole (CWE-863)', () => {
+  // #region sec-024
+  /**
+   * A `Date`, a class instance or an accessor under a rule that descends into
+   * it cannot be inspected for the excluded key. The engine hides the value
+   * rather than return it with the key inside.
+   */
+  class Address {
+    constructor(readonly street: string) {}
+  }
+  const readable = () =>
+    foreign([
+      permission('order', 'read', {
+        rules: [always],
+        fields: { fields: ['*', '!address.street'] },
+      }),
+    ]);
+
+  it.each([
+    ['a Date', () => new Date(0)],
+    ['a class instance', () => new Address('Storgatan 1')],
+    [
+      'an accessor',
+      () =>
+        Object.defineProperty({}, 'street', {
+          enumerable: true,
+          get: () => 'Storgatan 1',
+        }),
+    ],
+    ['a primitive', () => 'Storgatan 1'],
+  ])('hides an address held as %s', (_, make) => {
+    const row = { id: 'o1', address: make() };
+    const decision = readable().canFields(
+      { id: 'u1' },
+      'order',
+      'read',
+      row,
+      'read',
+    );
+
+    expect(decision.fields['address']).toBe('denied');
+    expect(decision.reasons['address']).toBe('not-traversable');
+    expect(pickAllowedFields(decision, row)).toEqual({ id: 'o1' });
+  });
+  // #endregion sec-024
 });
