@@ -14,7 +14,9 @@ import {
 } from './errors.js';
 import { policy } from './authoring.js';
 import { hydratePolicy } from './hydrate-policy.js';
-import { collectIssues, validateMatrix } from './validate.js';
+import { collectIssues, validateAll, validateMatrix } from './validate.js';
+import { Gen, rng } from './security/generator.js';
+import { matrix as junkMatrix } from './security/matrix-generator.js';
 import type { Matrix } from './types.js';
 
 const perm = (action: string, extra: object = {}) => ({
@@ -1130,5 +1132,157 @@ describe('collectIssues over a hostile document', () => {
     expect(issues[0]?.message).toBe(
       'invalid matrix: permission [1] could not be read',
     );
+  });
+});
+
+describe('validateAll', () => {
+  const faulty = {
+    permissions: [
+      perm('read', { visibility: 'x' }),
+      perm('update', { rules: [{ when: [{ field: 'now', op: 'nope' }] }] }),
+    ],
+  } as unknown as Matrix;
+
+  it('returns [] for a valid document', () => {
+    expect(
+      validateAll({ permissions: [perm('read'), perm('update')] }),
+    ).toEqual([]);
+  });
+
+  it.each([
+    ['null', null],
+    ['a number', 42],
+    ['permissions that is a string', { permissions: 'x' }],
+  ])('returns one issue for %s and does not throw', (_name, value) => {
+    expect(() => validateAll(value)).not.toThrow();
+    expect(validateAll(value)).toHaveLength(1);
+  });
+
+  it('lists every fault, in document order', () => {
+    expect(validateAll(faulty).map((i) => [i.code, i.path])).toEqual([
+      ['InvalidPermissionError', '/permissions/0/visibility'],
+      ['InvalidConditionError', '/permissions/1/rules/0/when/0'],
+    ]);
+  });
+
+  it('returns plain objects that survive a JSON round trip', () => {
+    const issues = validateAll(faulty);
+
+    expect(issues.length).toBeGreaterThan(0);
+    for (const issue of issues) {
+      expect(Object.getPrototypeOf(issue)).toBe(Object.prototype);
+      expect(JSON.parse(JSON.stringify(issue))).toEqual(issue);
+    }
+    expect(issues[0]).toEqual({
+      code: 'InvalidPermissionError',
+      message: expect.any(String),
+      path: '/permissions/0/visibility',
+      permissionKey: 'comment.read',
+    });
+  });
+
+  it('omits permissionKey on an issue outside a permission', () => {
+    const [issue] = validateAll(null);
+
+    expect(issue && 'permissionKey' in issue).toBe(false);
+  });
+
+  it('reports a fetchedAt with no budget as MissingFreshnessBudgetError', () => {
+    const issues = validateAll(
+      { permissions: [perm('read')] },
+      { fetchedAt: Date.now() },
+    );
+
+    expect(issues.map((i) => i.code)).toEqual(['MissingFreshnessBudgetError']);
+  });
+
+  it('reports a local maxStale that is not a duration', () => {
+    const issues = validateAll(
+      { permissions: [perm('read')], maxStale: 1000 },
+      { fetchedAt: Date.now(), maxStale: -1 },
+    );
+
+    expect(issues.map((i) => i.code)).toEqual(['InvalidFreshnessError']);
+  });
+
+  it('reports an unreadable permission once when a schema is present', () => {
+    const bad = perm('read');
+    Object.defineProperty(bad, 'rules', {
+      enumerable: true,
+      get(): unknown {
+        throw new Error('boom');
+      },
+    });
+    const issues = collectIssues({
+      schema: { objects: { comment: { fields: { n: 'number' } } } },
+      permissions: [bad],
+    } as unknown as Matrix);
+
+    expect(issues.map((i) => i.path)).toEqual(['/permissions/0']);
+  });
+
+  it('reports a value the copy cannot clone, then the rest of the document', () => {
+    const issues = validateAll({
+      permissions: [
+        perm('read', { rules: [{ id: 'r', when: [], extra: () => 1 }] }),
+        perm('update', { visibility: 'x' }),
+      ],
+    });
+
+    expect(issues.map((i) => i.path)).toEqual([
+      '/permissions/0',
+      '/permissions/1/visibility',
+    ]);
+    expect(issues[0]?.message).toContain('cannot be cloned');
+  });
+
+  it('leaves the caller document unfrozen', () => {
+    const doc = { permissions: [perm('read')] };
+    validateAll(doc);
+
+    expect(Object.isFrozen(doc)).toBe(false);
+    expect(Object.isFrozen(doc.permissions[0])).toBe(false);
+  });
+
+  it('does not throw on a document that cannot be read', () => {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+
+    expect(() => validateAll(proxy)).not.toThrow();
+    expect(validateAll(proxy)).toHaveLength(1);
+  });
+
+  it('is empty exactly when hydratePolicy constructs, over 2,000 junk documents', () => {
+    let clean = 0;
+    let refused = 0;
+
+    for (let seed = 1; seed <= 2000; seed++) {
+      const candidate = junkMatrix(new Gen(rng(seed)));
+      let issues: ReturnType<typeof validateAll> = [];
+
+      expect(() => {
+        issues = validateAll(candidate);
+      }, `seed ${seed}`).not.toThrow();
+
+      let thrown: unknown;
+      try {
+        hydratePolicy(candidate);
+      } catch (error) {
+        thrown = error;
+      }
+
+      if (thrown === undefined) {
+        expect(issues, `seed ${seed}`).toEqual([]);
+        clean++;
+      } else {
+        expect(thrown, `seed ${seed}`).toBeInstanceOf(AclConfigError);
+        expect(issues[0]?.code, `seed ${seed}`).toBe(
+          (thrown as AclConfigError).name,
+        );
+        refused++;
+      }
+    }
+    expect(clean).toBeGreaterThan(0);
+    expect(refused).toBeGreaterThan(0);
   });
 });

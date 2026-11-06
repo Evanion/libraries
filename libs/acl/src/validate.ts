@@ -29,6 +29,7 @@ import {
 } from './issues.js';
 import type { Report, Segment } from './issues.js';
 import { assertSchemaFit, assertSchemaShape } from './schema.js';
+import { copyOf, isEnvelope } from './snapshot.js';
 import type {
   Condition,
   FieldConfig,
@@ -1060,15 +1061,26 @@ function collectDocument(
 
   const keys = new Set<string>();
   const usable = new WeakSet<object>();
-  eachPermission(report, permissions, (index, permission) => {
-    collectPermission(report, index, permission, keys, usable);
-  });
+  const unreadable = new Set<number>();
+  eachPermission(
+    report,
+    permissions,
+    (index, permission) => {
+      collectPermission(report, index, permission, keys, usable);
+    },
+    unreadable,
+  );
 
   if (schema !== undefined && schemaOk) {
-    assertSchemaFit(schema as MatrixSchema, permissions, report, (condition) =>
-      typeof condition === 'object' && condition !== null
-        ? usable.has(condition)
-        : false,
+    assertSchemaFit(
+      schema as MatrixSchema,
+      permissions,
+      report,
+      (condition) =>
+        typeof condition === 'object' && condition !== null
+          ? usable.has(condition)
+          : false,
+      unreadable,
     );
   }
 
@@ -1082,4 +1094,53 @@ function collectDocument(
 export function validateMatrix(matrix: Matrix): void {
   const [first] = collectIssues(matrix);
   if (first) throw first;
+}
+
+/**
+ * One fault of a matrix document, as a plain object that crosses a worker or
+ * the network.
+ */
+export interface ValidationIssue {
+  /** The error class name, e.g. `'DenyWithoutBaselineError'`. */
+  code: string;
+  /** The message the throwing path raises. */
+  message: string;
+  /** A JSON pointer into the document, e.g. `'/permissions/3/fields/fields/1'`. */
+  path: string;
+  /** `${key}.${action}` when the issue sits in a permission. */
+  permissionKey?: string;
+}
+
+function issueOf(error: AclConfigError): ValidationIssue {
+  return {
+    code: error.code,
+    message: error.message,
+    path: error.path,
+    ...(error.permissionKey === undefined
+      ? {}
+      : { permissionKey: error.permissionKey }),
+  };
+}
+
+/**
+ * Lists every fault `hydratePolicy` would refuse the document for, without
+ * throwing. An empty array means construction succeeds.
+ *
+ * The document is copied the way construction copies it before it is checked,
+ * so a value the copy cannot clone is the first issue, as it is the first thing
+ * construction throws. The caller's document is not changed or frozen.
+ */
+export function validateAll(
+  matrix: unknown,
+  options: ValidateOptions = {},
+): ValidationIssue[] {
+  const refused: AclConfigError[] = [];
+  try {
+    const copy = isEnvelope(matrix)
+      ? copyOf(matrix, undefined, collectInto(refused))
+      : matrix;
+    return [...refused, ...collectIssues(copy, options)].map(issueOf);
+  } catch {
+    return collectIssues(matrix, options).map(issueOf);
+  }
 }

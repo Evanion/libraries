@@ -502,16 +502,25 @@ export function assertRulesFit(
  * is skipped, as it names nothing to look up. Only kinds `schema.objects`
  * declares are checked, and `subject.*` paths only when `schema.subject` is
  * declared. `schema` must have passed `assertSchemaShape`.
+ *
+ * `unreadable` names the permissions an earlier walk already reported as
+ * unreadable; this one skips them and adds its own.
  */
 export function assertSchemaFit(
   schema: MatrixSchema,
   permissions: readonly unknown[],
   report: Report,
   usable: (condition: unknown) => boolean,
+  unreadable?: Set<number>,
 ): void {
-  eachPermission(report, permissions, (index, permission) => {
-    fitPermission(schema, index, permission, report, usable);
-  });
+  eachPermission(
+    report,
+    permissions,
+    (index, permission) => {
+      fitPermission(schema, index, permission, report, usable);
+    },
+    unreadable,
+  );
 }
 
 function fitPermission(

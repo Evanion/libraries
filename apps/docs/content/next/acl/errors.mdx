@@ -28,6 +28,29 @@ would not type-check as a document:
 
 ```
 
+## How to list every validation problem
+
+By default, the construction process is designed to fail fast; it throws the first fault it encounters. For an editor saving drafts, this means the user only sees one problem per save.
+
+To provide a comprehensive health check of a document, you can use `validateAll`. Instead of throwing, this function returns a complete list of all issues as plain objects. Each object contains:
+
+- `code`: The name of the error class.
+- `message`: The error text the throwing path raises.
+- `path`: A JSON pointer to the exact location of the error.
+- `permissionKey`: Included specifically when the fault occurs within a permission.
+
+If the returned list is empty, construction is successful. If issues exist, the first item in the list will share the same `code` as the error that `hydratePolicy` would have thrown for that document.
+
+```ts twoslash file=libs/acl/docs/examples.md region=validate-all
+
+```
+
+### Including freshness and cloning faults
+
+To ensure your validation includes freshness faults, pass the same `fetchedAt` and `maxStale` arguments that you provide to `hydratePolicy` as the second argument to `validateAll`.
+
+Note that some failures happen before validation can even begin. If a document fails to clone (for example, if it contains a function), that error is reported first, mirroring the behavior of the standard construction process.
+
 ## The one acl error outside `AclConfigError`
 
 `pickAllowedFields` keeps only the fields of a form post the subject may write,

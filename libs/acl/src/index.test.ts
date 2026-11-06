@@ -43,6 +43,7 @@ const RUNTIME_EXPORTS = [
   'findingsOf',
   'hydratePolicy',
   'parseMatrix',
+  'validateAll',
   'pickAllowedFields',
   'policy',
   'ruleId',

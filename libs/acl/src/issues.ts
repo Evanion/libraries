@@ -85,25 +85,35 @@ export function guarded(
  * Visits each element of `permissions` once, in order. An element that throws
  * when read, or whose visit throws, is reported as unreadable and the walk goes
  * on with the next one.
+ *
+ * `unreadable` holds the indices already reported as unreadable. A walk skips
+ * those and adds the ones it reports, so a second walk over the same array
+ * reports a permission once.
  */
 export function eachPermission(
   report: Report,
   permissions: readonly unknown[],
   visit: (index: number, permission: unknown) => void,
+  unreadable: Set<number> = new Set(),
 ): void {
   const count = permissions.length;
   for (let index = 0; index < count; index++) {
+    if (unreadable.has(index)) continue;
     let permission: unknown;
     try {
       permission = permissions[index];
     } catch {
+      unreadable.add(index);
       report(unreadablePermission(index, undefined), ['permissions', index]);
       continue;
     }
     guarded(
       report,
       ['permissions', index],
-      () => unreadablePermission(index, permission),
+      () => {
+        unreadable.add(index);
+        return unreadablePermission(index, permission);
+      },
       () => {
         visit(index, permission);
       },
