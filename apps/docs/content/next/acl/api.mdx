@@ -262,10 +262,13 @@ versions shown.
 
 <!-- reference @evanion/acl#UndeterminedCause -->
 
-`rule-edited` is a rule that kept an author-supplied `id` and changed its
-conditions. `both-sides-changed` is a permission whose allow side and deny side
-both moved. `fields-changed` is a field-rule change outside the one decidable
-case, which is two literal name lists carrying no `*` and no `!` entry.
+- `rule-edited`: a rule maintains its author-supplied `id` but has had its conditions modified.
+- `both-sides-changed`: a permission's allow and deny sides have both moved.
+- `fields-changed`: a field-rule change happens outside the one decidable case, which is two field lists that contain no `*`.
+
+When comparing two field lists without `*`, `diffMatrix` compares paths. An entry allows the named path and everything below it, while a `!` entry removes the named path and everything below it.
+
+The `fields` property of a finding holds the shortest paths that one list allows and the other does not, with dots in key names escaped as `\.`. Moving from `address.city` to `address` is a widening that reports `address`. Dropping `!address.street` from a list that allows `address` is also a widening, and it reports `address.street`.
 
 ## `ReadsObjectFinding`
 

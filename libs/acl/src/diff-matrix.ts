@@ -1,5 +1,6 @@
 import { canonical } from './canonical.js';
 import { conditionReadsObject } from './conditions.js';
+import { formatPath, parsePath } from './field-path.js';
 import { permissionReadsObject } from './reads-object.js';
 import { ruleId } from './rule-id.js';
 import type { Condition, Matrix, Permission, Rule } from './types.js';
@@ -51,7 +52,7 @@ export interface GrantedFinding {
   readonly rule?: string;
   readonly when: readonly Condition[];
   readonly groups: ConditionGroups;
-  /** The field names added, when `cause` is `field-list-widened`. */
+  /** The field paths added, when `cause` is `field-list-widened`. */
   readonly fields?: readonly string[];
 }
 
@@ -70,7 +71,7 @@ export interface WithdrawnFinding {
   readonly when: readonly Condition[];
   readonly groups: ConditionGroups;
   readonly holders?: { readonly closed: string; readonly open: string };
-  /** The field names removed, when `cause` is `field-list-narrowed`. */
+  /** The field paths removed, when `cause` is `field-list-narrowed`. */
   readonly fields?: readonly string[];
 }
 
@@ -242,14 +243,92 @@ function changed(side: SideChange): boolean {
   );
 }
 
-/** A name list carrying no `*` baseline and no `!` subtraction, or undefined. */
-function literalNames(permission: Permission): readonly string[] | undefined {
+/** The entries of an explicit field list, as segment paths. */
+interface PathList {
+  readonly included: readonly (readonly string[])[];
+  readonly excluded: readonly (readonly string[])[];
+}
+
+/** A name list carrying no `*` baseline, parsed into paths, or undefined. */
+function pathList(permission: Permission): PathList | undefined {
   const names = permission.fields?.fields;
   if (!Array.isArray(names)) return undefined;
-  const literal = names.every(
-    (name) => typeof name === 'string' && name !== '*' && !name.startsWith('!'),
+  const included: (readonly string[])[] = [];
+  const excluded: (readonly string[])[] = [];
+  for (const name of names as readonly unknown[]) {
+    if (typeof name !== 'string' || name === '*') return undefined;
+    const negated = name.startsWith('!');
+    const segments = parsePath(negated ? name.slice(1) : name);
+    if (segments === undefined) return undefined;
+    (negated ? excluded : included).push(segments);
+  }
+  return { included, excluded };
+}
+
+/** Whether `ancestor` is `path` or one of its proper ancestors, segment by segment. */
+function covers(ancestor: readonly string[], path: readonly string[]): boolean {
+  return (
+    ancestor.length <= path.length &&
+    ancestor.every((segment, i) => segment === path[i])
   );
-  return literal ? (names as readonly string[]) : undefined;
+}
+
+/** A path is allowed when a listed entry covers it and no exclusion does. */
+function allows(list: PathList, path: readonly string[]): boolean {
+  return (
+    list.included.some((entry) => covers(entry, path)) &&
+    !list.excluded.some((entry) => covers(entry, path))
+  );
+}
+
+interface PathNode {
+  readonly path: readonly string[];
+  readonly children: Map<string, PathNode>;
+}
+
+/** The prefix tree of every entry path in both lists, in insertion order. */
+function pathTree(lists: readonly PathList[]): PathNode {
+  const root: PathNode = { path: [], children: new Map() };
+  for (const list of lists) {
+    for (const entry of [...list.included, ...list.excluded]) {
+      let at = root;
+      for (const segment of entry) {
+        let next = at.children.get(segment);
+        if (next === undefined) {
+          next = { path: [...at.path, segment], children: new Map() };
+          at.children.set(segment, next);
+        }
+        at = next;
+      }
+    }
+  }
+  return root;
+}
+
+/**
+ * The shortest paths the `gaining` list allows and the `losing` list does not.
+ *
+ * Every path with no entry on or below it is allowed exactly as its nearest
+ * entry-bearing ancestor is, so the walk visits the entry tree only. A path is
+ * reported when its own status differs, unless an ancestor already reported the
+ * same difference with nothing between them that agrees.
+ */
+function gainedPaths(
+  gaining: PathList,
+  losing: PathList,
+  order: readonly PathList[],
+): readonly string[] {
+  const found: string[] = [];
+  const visit = (node: PathNode, covered: boolean): void => {
+    const differs =
+      node.path.length > 0 &&
+      allows(gaining, node.path) &&
+      !allows(losing, node.path);
+    if (differs && !covered) found.push(formatPath(node.path));
+    for (const child of node.children.values()) visit(child, differs);
+  };
+  visit(pathTree(order), false);
+  return found;
 }
 
 function granted(
@@ -293,11 +372,12 @@ function withdrawn(
 /**
  * Field rules, which are mostly undecidable and say so.
  *
- * A name allow-list has no defined comparison between configurations: `['*',
+ * A list with `*` has no defined comparison between configurations: `['*',
  * '!price']` and `['title']` over one field set have no intersection
  * expressible in the syntax, and the object's field list is absent from the
- * matrix. The one decidable case is two literal name lists, where subset and
- * superset are set comparison.
+ * matrix. Two lists without `*` are decidable: each allows the paths a listed
+ * entry covers and no `!` entry covers, so the findings are the shortest paths
+ * one list allows and the other does not.
  */
 function diffFields(
   key: string,
@@ -308,11 +388,11 @@ function diffFields(
   const now = after.fields;
   if (canonical(was) === canonical(now)) return [];
 
-  const from = literalNames(before);
-  const to = literalNames(after);
+  const from = pathList(before);
+  const to = pathList(after);
   if (from !== undefined && to !== undefined) {
-    const gone = from.filter((name) => !to.includes(name));
-    const arrived = to.filter((name) => !from.includes(name));
+    const arrived = gainedPaths(to, from, [to, from]);
+    const gone = gainedPaths(from, to, [from, to]);
     const findings: DiffFinding[] = [];
     if (arrived.length > 0) {
       findings.push(granted(key, 'field-list-widened', undefined, [], arrived));

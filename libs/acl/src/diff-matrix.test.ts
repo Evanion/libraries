@@ -235,6 +235,79 @@ describe('diffMatrix', () => {
       expect(finding?.fields).toEqual(['body']);
     });
 
+    describe('nested field paths', () => {
+      const base = permission('doc.update', [{ when: [isAdmin] }]);
+      const diffLists = (from: string[], to: string[]) =>
+        diffMatrix(
+          matrix([{ ...base, fields: { fields: from } }]),
+          matrix([{ ...base, fields: { fields: to } }]),
+        );
+
+      it('grants the parent when a child list becomes the parent', () => {
+        const diff = diffLists(['id', 'address.city'], ['id', 'address']);
+
+        expect(findingsOf(diff, 'granted')[0]?.fields).toEqual(['address']);
+        expect(findingsOf(diff, 'withdrawn')).toHaveLength(0);
+      });
+
+      it('withdraws the parent when the parent becomes a child list', () => {
+        const diff = diffLists(['id', 'address'], ['id', 'address.city']);
+        const [finding] = findingsOf(diff, 'withdrawn');
+
+        expect(finding?.cause).toBe('field-list-narrowed');
+        expect(finding?.fields).toEqual(['address']);
+        expect(findingsOf(diff, 'granted')).toHaveLength(0);
+      });
+
+      it('grants the path a dropped exclusion released', () => {
+        const diff = diffLists(
+          ['id', 'address', '!address.street'],
+          ['id', 'address'],
+        );
+
+        expect(findingsOf(diff, 'granted')[0]?.fields).toEqual([
+          'address.street',
+        ]);
+      });
+
+      it('withdraws the path a new exclusion removed', () => {
+        const diff = diffLists(
+          ['id', 'address'],
+          ['id', 'address', '!address.street'],
+        );
+
+        expect(findingsOf(diff, 'withdrawn')[0]?.fields).toEqual([
+          'address.street',
+        ]);
+      });
+
+      it('finds no difference between lists allowing the same paths', () => {
+        const diff = diffLists(['a', 'a.b'], ['a']);
+
+        expect(findingsOf(diff, 'granted')).toHaveLength(0);
+        expect(findingsOf(diff, 'withdrawn')).toHaveLength(0);
+      });
+
+      it('compares escaped segments, not string prefixes', () => {
+        const grown = diffLists(['a\\.b'], ['a']);
+        const shrunk = diffLists(['a'], ['a\\.b']);
+        const added = diffLists(['a'], ['a', 'a\\.b']);
+
+        expect(findingsOf(grown, 'granted')[0]?.fields).toEqual(['a']);
+        expect(findingsOf(shrunk, 'withdrawn')[0]?.fields).toEqual(['a']);
+        expect(findingsOf(added, 'granted')[0]?.fields).toEqual(['a\\.b']);
+      });
+
+      it('keeps a list with a baseline undetermined', () => {
+        const diff = diffLists(['*', '!a'], ['*', '!b']);
+
+        expect(findingsOf(diff, 'undetermined')[0]?.cause).toBe(
+          'fields-changed',
+        );
+        expect(findingsOf(diff, 'granted')).toHaveLength(0);
+      });
+    });
+
     it('refuses a comparison once a list carries a baseline or a subtraction', () => {
       const base = permission('doc.update', [{ when: [isAdmin] }]);
       const before = matrix([{ ...base, fields: { fields: ['*', '!price'] } }]);
