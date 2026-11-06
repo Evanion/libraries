@@ -169,7 +169,7 @@ button does:
 
 When a request is denied, a simple `allowed: false` doesn't tell you _why_. A user might be blocked because they have the wrong role, or because a specific "deny" rule overrode their permissions. For developers building admin dashboards or permission checkers, knowing the difference is critical.
 
-While `access.can()` returns a binary decision, `access.explain()` provides a full audit trail of the logic used to reach that conclusion.
+While `access.can()` returns a `Decision` that names only the deciding rule, `access.explain()` provides a full audit trail of the logic used to reach that conclusion.
 
 ### How Explanation Works
 
