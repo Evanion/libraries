@@ -18,8 +18,8 @@
     "v0.1": {
       "version": "0.1.0",
       "tag": "@evanion/acl@0.1.0",
-      "sha": "f9b1d930987fbbb3ee7c2aa12d64d3871b55d45b",
-      "reason": "Gemma's rewrite of the acl pages (#416, #420) landed after @evanion/acl@0.1.0, and acl has no API change since that tag, so acl v0.1 takes the new text."
+      "sha": "40b8f84bc5e8e191a418417d6c65e36e0b508f66",
+      "reason": "acl 0.1.2 refuses dotted and escaped field-rule entries at construction, so the v0.1 filtering page takes the corrected text from main."
     }
   },
   "urn": {
