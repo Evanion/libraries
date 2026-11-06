@@ -1236,6 +1236,75 @@ describe('validateAll', () => {
     expect(issues[0]?.message).toContain('cannot be cloned');
   });
 
+  it('keeps the clone refusals when a later permission cannot be read', () => {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    const issues = validateAll({
+      permissions: [perm('read', { extra: () => 1 }), proxy],
+    });
+
+    expect(issues.map((i) => i.path)).toEqual([
+      '/permissions/0',
+      '/permissions/1',
+    ]);
+    expect(issues[0]?.message).toContain('cannot be cloned');
+  });
+
+  it('reports a permission with a throwing getter once', () => {
+    const bad = perm('read');
+    Object.defineProperty(bad, 'rules', {
+      enumerable: true,
+      get(): unknown {
+        throw new Error('boom');
+      },
+    });
+    const issues = validateAll({ permissions: [bad] });
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.path).toBe('/permissions/0');
+  });
+
+  it('names the permission in a clone refusal', () => {
+    const [issue] = validateAll({
+      permissions: [perm('read', { extra: () => 1 })],
+    });
+
+    expect(issue?.permissionKey).toBe('comment.read');
+  });
+
+  it('lets the version option override the document version', () => {
+    const doc = { version: {}, permissions: [] };
+
+    expect(validateAll(doc)).toHaveLength(1);
+    expect(validateAll(doc, { version: 'v' })).toEqual([]);
+    expect(() => hydratePolicy(doc as never, { version: 'v' })).not.toThrow();
+  });
+
+  it('reports an option that cannot be read as a fault of that option', () => {
+    const options = {
+      get fetchedAt(): number {
+        throw new Error('boom');
+      },
+    };
+    const issues = validateAll({ permissions: [] }, options as never);
+
+    expect(issues.map((i) => [i.code, i.path])).toEqual([
+      ['InvalidFreshnessError', ''],
+    ]);
+    expect(issues[0]?.message).toContain('options');
+    expect(validateAll({ permissions: [] }, null as never)).toHaveLength(1);
+  });
+
+  it('reports a fetchedAt that cannot become an instant as a fault of fetchedAt', () => {
+    const issues = validateAll(
+      { permissions: [], maxStale: 1 },
+      { fetchedAt: Object.create(Date.prototype) },
+    );
+
+    expect(issues.map((i) => i.code)).toEqual(['InvalidFreshnessError']);
+    expect(issues[0]?.message).toContain('fetchedAt');
+  });
+
   it('leaves the caller document unfrozen', () => {
     const doc = { permissions: [perm('read')] };
     validateAll(doc);

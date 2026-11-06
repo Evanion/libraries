@@ -1,5 +1,6 @@
 import { InvalidMatrixError } from './errors.js';
 import type { AclConfigError } from './errors.js';
+import { keyOf } from './issues.js';
 import type { Segment } from './issues.js';
 import type { Matrix, MatrixSchema, Permission } from './types.js';
 
@@ -11,7 +12,11 @@ export function isEnvelope(matrix: unknown): matrix is Matrix {
 }
 
 /** Receives a refusal and the path of the node it is about. */
-export type Refuse = (error: AclConfigError, path: readonly Segment[]) => void;
+export type Refuse = (
+  error: AclConfigError,
+  path: readonly Segment[],
+  permissionKey?: string,
+) => void;
 
 /**
  * Clones one permission for the copy.
@@ -33,6 +38,7 @@ function cloneNode(
         `permission "${permission.key}" holds a value that cannot be cloned: a function, a symbol, or a structure nested deeper than the clone walks`,
       ),
       ['permissions', index],
+      keyOf(permission),
     );
     return permission;
   }
