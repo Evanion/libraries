@@ -1480,6 +1480,20 @@ describe('SEC-022 a nested exclusion hides the nested key (CWE-863)', () => {
       (pickAllowedFields(decision, row) as { address: object }).address,
     ).not.toHaveProperty('street');
   });
+
+  it('hides a flat key that spells the excluded path', () => {
+    const flat = { id: 'o1', 'address.street': 'Storgatan 1' };
+    const decision = readable().canFields(
+      { id: 'u1' },
+      'order',
+      'read',
+      flat,
+      'read',
+    );
+
+    expect(decision.fields['address\\.street']).toBe('denied');
+    expect(pickAllowedFields(decision, flat)).toEqual({ id: 'o1' });
+  });
   // #endregion sec-022
 });
 

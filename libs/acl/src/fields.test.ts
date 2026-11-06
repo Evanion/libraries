@@ -1477,3 +1477,64 @@ describe('pickAllowedFields', () => {
     }
   });
 });
+
+describe('a flat dotted key on the read axis', () => {
+  const read = (fields: readonly string[], object: Record<string, unknown>) => {
+    const d = decideFields(
+      perm('order.read', { fields }),
+      { ...ctx, object },
+      'read',
+    );
+    return { ...d, action: allowedAction };
+  };
+
+  it('is denied when an exclusion names the path it spells', () => {
+    const object = { 'address.street': 'S', id: 1 };
+    const d = read(['*', '!address.street'], object);
+
+    expect(d.fields['address\\.street']).toBe('denied');
+    expect(d.reasons['address\\.street']).toBe('not-listed');
+    expect(pickAllowedFields(d, object)).toEqual({ id: 1 });
+  });
+
+  it('is denied when an exclusion covers a parent of the path', () => {
+    const d = read(['*', '!address'], { 'address.city': 'C' });
+
+    expect(d.fields['address\\.city']).toBe('denied');
+  });
+
+  it('is allowed when the list covers the path', () => {
+    const object = { id: 1, 'address.city': 'C' };
+    const d = read(['id', 'address.city'], object);
+
+    expect(d.fields['address\\.city']).toBe('allowed');
+    expect(pickAllowedFields(d, object)).toEqual(object);
+  });
+
+  it('is denied when an explicit list does not cover the path', () => {
+    const d = read(['id', 'address.city'], { id: 1, 'address.zip': 'Z' });
+
+    expect(d.fields['address\\.zip']).toBe('denied');
+    expect(d.reasons['address\\.zip']).toBe('not-listed');
+  });
+
+  it('is allowed under a plain star', () => {
+    const d = read(['*'], { 'a.b': 1 });
+
+    expect(d.fields['a\\.b']).toBe('allowed');
+  });
+
+  it('is denied at a nested level', () => {
+    const object = { id: 1, meta: { 'x.y': 1, ok: 2 } };
+    const d = read(['*', '!meta.x.y'], object);
+
+    expect(d.fields['meta.x\\.y']).toBe('denied');
+    expect(pickAllowedFields(d, object)).toEqual({ id: 1, meta: { ok: 2 } });
+  });
+
+  it('keeps an unclean split as a flat key', () => {
+    const d = read(['*', '!a.b'], { 'a..b': 1, 'a.*': 2 });
+
+    expect(d.fields['a\\.\\.b']).toBe('allowed');
+  });
+});
