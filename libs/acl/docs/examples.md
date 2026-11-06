@@ -1845,6 +1845,38 @@ const shown = policy<{ id: string }, { row: Flat }>()
   .build();
 const shownDecision = shown.canFields(viewer, 'row', 'read', row, 'read');
 pickAllowedFields(shownDecision, row); // -> { id: 'r1', 'address.street': 'Storgatan 1' }
+
+// On write, the escaped entry does not make the flat column writable.
+const edit = { 'address.street': 'Lilla Torg 2' };
+const escapedEdit = policy<{ id: string }, { row: Flat }>()
+  .for('row', (p) =>
+    p.allow('update', p.always).fields(['id', 'address\\.street']),
+  )
+  .build();
+const refusedEdit = escapedEdit.canFields(
+  viewer,
+  'row',
+  'update',
+  row,
+  'write',
+  edit,
+);
+refusedEdit.reasons['address\\.street']; // -> 'not-traversable'
+pickAllowedFields(refusedEdit, edit); // -> {}
+
+// A list with * and no rule on the column's path writes it.
+const starEdit = policy<{ id: string }, { row: Flat }>()
+  .for('row', (p) => p.allow('update', p.always).fields(['*', '!id']))
+  .build();
+const allowedEdit = starEdit.canFields(
+  viewer,
+  'row',
+  'update',
+  row,
+  'write',
+  edit,
+);
+pickAllowedFields(allowedEdit, edit); // -> { 'address.street': 'Lilla Torg 2' }
 ```
 
 <!-- #endregion dotted-columns -->
