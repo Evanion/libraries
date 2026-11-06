@@ -1643,3 +1643,71 @@ describe('a flat dotted key on the read axis', () => {
     });
   });
 });
+
+describe('a flat dotted column on the write axis', () => {
+  const write = (
+    rules: FieldRules,
+    proposed: Record<string, unknown>,
+    stored: Record<string, unknown> = { id: 1 },
+  ) => {
+    const d = decideFields(
+      perm('order.update', rules),
+      { ...ctx, object: stored },
+      'write',
+      proposed,
+    );
+    return { ...d, action: allowedAction };
+  };
+  const col = 'address\\.city';
+
+  it('is allowed and picked when its escaped entry is listed', () => {
+    const proposed = { 'address.city': 'Lund' };
+    const d = write({ fields: ['id', 'address\\.city'] }, proposed);
+
+    expect(d.fields[col]).toBe('allowed');
+    expect(pickAllowedFields(d, proposed)).toEqual(proposed);
+  });
+
+  it('is refused when an exclusion covers an ancestor', () => {
+    const d = write(
+      { fields: ['id', 'address\\.city', '!address'] },
+      { 'address.city': 'Lund' },
+    );
+
+    expect(d.fields[col]).toBe('denied');
+  });
+
+  it('is refused when its path leaves a ruled node', () => {
+    const d = write(
+      { fields: ['*', '!address.street', 'address\\.city'] },
+      { 'address.city': 'Lund' },
+    );
+
+    expect(d.fields[col]).toBe('denied');
+    expect(d.reasons[col]).toBe('not-traversable');
+  });
+
+  it('is refused when a config sits on an ancestor', () => {
+    const d = write(
+      {
+        fields: ['id', 'address\\.city'],
+        address: { targets: ['x'] },
+      },
+      { 'address.city': 'Lund' },
+    );
+
+    expect(d.fields[col]).not.toBe('allowed');
+  });
+
+  it('is refused when a bracket key is listed', () => {
+    const d = write({ fields: ['id', 'a\\.b[0]'] }, { 'a.b[0]': 1 });
+
+    expect(d.fields['a\\.b[0]']).toBe('denied');
+  });
+
+  it('is refused when only other fields are listed', () => {
+    const d = write({ fields: ['id'] }, { 'address.city': 'Lund' });
+
+    expect(d.fields[col]).toBe('denied');
+  });
+});
