@@ -664,21 +664,27 @@ export function hydratePolicy<
   });
 
   /**
-   * The gates `can` and `explain` share, in one order: freshness ahead of the
-   * key lookup, since a document past its budget carries no claim about the
-   * present and that includes its claim about which keys it holds, then the
-   * object kind, then the permission. Answers the decision a gate settles, or
-   * the permission and the settled context to evaluate.
+   * The gates `can`, `explain` and `canEach` share, in one order: freshness
+   * ahead of the key lookup, since a document past its budget carries no claim
+   * about the present and that includes its claim about which keys it holds,
+   * then the object kind, then the permission. Answers the decision a gate
+   * settles, or the permission with the object and the settled clock to
+   * evaluate it on. The caller adds the subject.
    */
   const gate = (
-    subject: Subject,
     key: string,
     action: string,
     object: Record<string, unknown> | undefined,
     now: Instant | undefined,
-  ): Decision | { permission: Permission; ctx: ResolvedContext } => {
-    const ctx = ctxWith(subject, object, now);
-    if (stale(ctx.now)) return staleDecision(`${key}.${action}`);
+  ):
+    | Decision
+    | {
+        permission: Permission;
+        object: Record<string, unknown> | undefined;
+        now: number;
+      } => {
+    const settled = settleNow(now);
+    if (stale(settled)) return staleDecision(`${key}.${action}`);
     objectFor(key);
     const permission = permissionFor(key, action);
     if (!permission) {
@@ -688,7 +694,7 @@ export function hydratePolicy<
         reason: 'unknown-action',
       };
     }
-    return { permission, ctx };
+    return { permission, object, now: settled };
   };
 
   const can = (
@@ -698,9 +704,13 @@ export function hydratePolicy<
     object?: Record<string, unknown>,
     now?: Instant,
   ): Decision => {
-    const gated = gate(subject, key, action, object, now);
+    const gated = gate(key, action, object, now);
     return 'permission' in gated
-      ? decideResolved(gated.permission, gated.ctx)
+      ? decideResolved(gated.permission, {
+          subject,
+          object: gated.object,
+          now: gated.now,
+        })
       : gated;
   };
 
@@ -711,9 +721,13 @@ export function hydratePolicy<
     object?: Record<string, unknown>,
     now?: Instant,
   ): Explanation => {
-    const gated = gate(subject, key, action, object, now);
+    const gated = gate(key, action, object, now);
     return 'permission' in gated
-      ? explainResolved(gated.permission, gated.ctx)
+      ? explainResolved(gated.permission, {
+          subject,
+          object: gated.object,
+          now: gated.now,
+        })
       : { decision: gated, deny: [], allow: [] };
   };
 
@@ -750,13 +764,12 @@ export function hydratePolicy<
     object?: Record<string, unknown>,
     now?: Instant,
   ): Decision[] => {
-    // The gates read the subject only to build the context, so one gate call
-    // settles the clock and the permission for the whole list.
-    const gated = gate({}, key, action, object, now);
+    // One gate call settles the clock and the permission for the whole list.
+    const gated = gate(key, action, object, now);
     if (!('permission' in gated)) return subjects.map(() => ({ ...gated }));
-    const { permission, ctx } = gated;
+    const { permission, now: settled } = gated;
     return subjects.map((subject) =>
-      decideResolved(permission, { ...ctx, subject }),
+      decideResolved(permission, { subject, object, now: settled }),
     );
   };
 

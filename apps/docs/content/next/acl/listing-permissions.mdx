@@ -139,4 +139,4 @@ The results vary based on the input:
 - **Stale document:** Every entry returns `stale-contract`.
 - **Empty list:** Returns an empty list.
 
-Note that `canEach` requires a list of subjects rather than a description of them. It cannot answer queries like "subjects where role is support and team is billing," as that would require computing a predicate over the allow and deny rules—a feature `@evanion/acl` does not provide. Finally, `federatedPolicies` does not implement `canEach` because it evaluates a single permission via `get(origin)` to reach the origin that owns it.
+Note that `canEach` requires a list of subjects rather than a description of them. It cannot answer queries like "subjects where role is support and team is billing," as that would require computing a predicate over the allow and deny rules—a feature `@evanion/acl` does not provide. Finally, `federatedPolicies` does not implement `canEach`. The call answers about one permission, so the caller already knows which origin holds it and reaches it with `get(origin)`.
