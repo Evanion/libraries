@@ -3,7 +3,7 @@ import {
   InvalidSchemaError,
   UnknownFieldError,
 } from './errors.js';
-import { inPermission, throwFirst } from './issues.js';
+import { inPermission, show, throwFirst } from './issues.js';
 import type { Report, Segment } from './issues.js';
 import type {
   Condition,
@@ -338,7 +338,7 @@ function assertConditionFits(
           key,
           where,
           field,
-          `holds ${self.base} elements, and contains compares it against ${JSON.stringify(condition.value)}`,
+          `holds ${self.base} elements, and contains compares it against ${show(condition.value)}`,
         ),
         at,
       );
@@ -368,7 +368,7 @@ function assertConditionFits(
           key,
           where,
           field,
-          `is declared ${self.base}, and ${op} lists ${JSON.stringify(element)} at [${index}]`,
+          `is declared ${self.base}, and ${op} lists ${show(element)} at [${index}]`,
         ),
         at,
       );
@@ -385,7 +385,7 @@ function assertConditionFits(
         key,
         where,
         field,
-        `is declared ${self.base}, and ${op} compares it against ${JSON.stringify(condition.value)}`,
+        `is declared ${self.base}, and ${op} compares it against ${show(condition.value)}`,
       ),
       at,
     );

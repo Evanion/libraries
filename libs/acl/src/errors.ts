@@ -11,14 +11,23 @@ import type { ObjectKey, Reason } from './types.js';
 export class AclConfigError extends Error {
   path = '';
   permissionKey?: string;
-
-  get code(): string {
-    return this.name;
-  }
+  readonly code: string;
 
   constructor(message: string) {
     super(message);
-    this.name = 'AclConfigError';
+    // Each subclass assigns `name` after `super()`. `name` is an accessor
+    // here so that assignment also sets `code`, which stays an own property
+    // and so survives a spread or a JSON round trip.
+    let name = 'AclConfigError';
+    this.code = name;
+    Object.defineProperty(this, 'name', {
+      configurable: true,
+      get: () => name,
+      set: (value: string) => {
+        name = value;
+        (this as { code: string }).code = value;
+      },
+    });
   }
 }
 

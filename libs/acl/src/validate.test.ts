@@ -758,7 +758,29 @@ describe('collectIssues', () => {
       caught = error;
     }
     expect(caught).toBeInstanceOf(InvalidPermissionError);
-    expect((caught as Error).message).toBe(issues[0]?.message);
+    expect((caught as Error).message).toBe(
+      'permission "comment.read": "visibility" is neither "public" nor "internal"',
+    );
+  });
+
+  it('throws the first fault when a later permission has a schema fault', () => {
+    const matrix = {
+      schema: { objects: { comment: { fields: { status: 'string' } } } },
+      permissions: [
+        perm('read', { visibility: 'x' }),
+        perm('update', {
+          rules: [{ when: [{ field: 'object.ghost', op: 'eq', value: 'a' }] }],
+        }),
+      ],
+    } as unknown as Matrix;
+
+    expect(collectIssues(matrix).map((i) => i.code)).toEqual([
+      'InvalidPermissionError',
+      'UnknownFieldError',
+    ]);
+    expect(() => validateMatrix(matrix)).toThrow(
+      'permission "comment.read": "visibility" is neither "public" nor "internal"',
+    );
   });
 
   it('reports one issue when permissions is not an array', () => {
@@ -924,5 +946,58 @@ describe('collectIssues', () => {
     expect(collectIssues({ ...matrix, maxStale: 5 }, { fetchedAt: 1 })).toEqual(
       [],
     );
+  });
+});
+
+describe('collectIssues past a fault', () => {
+  const circular: unknown[] = [];
+  circular.push(circular);
+  const first = perm('read', { visibility: 'x' });
+  const doc = (condition: unknown, schema?: object) =>
+    ({
+      ...(schema ? { schema } : {}),
+      permissions: [first, perm('update', { rules: [{ when: [condition] }] })],
+    }) as unknown as Matrix;
+  const firstMessage =
+    'permission "comment.read": "visibility" is neither "public" nor "internal"';
+  const numberSchema = { objects: { comment: { fields: { n: 'number' } } } };
+  const stringSchema = {
+    objects: { comment: { fields: { status: 'string' } } },
+  };
+
+  const cases: [string, Matrix][] = [
+    [
+      'a bigint comparand against a string field',
+      doc({ field: 'object.status', op: 'eq', value: 10n }, stringSchema),
+    ],
+    ['a bigint op', doc({ field: 'object.status', op: 10n, value: 1 })],
+    ['a bigint path', doc({ field: 'object.status', op: 'eq', path: 10n })],
+    [
+      'a circular list against a number field',
+      doc({ field: 'object.n', op: 'in', value: [circular] }, numberSchema),
+    ],
+    [
+      'a circular contains comparand',
+      doc(
+        { field: 'object.n', op: 'contains', value: circular },
+        { objects: { comment: { fields: { n: 'number[]' } } } },
+      ),
+    ],
+  ];
+
+  it.each(cases)('survives %s', (_name, matrix) => {
+    expect(() => collectIssues(matrix)).not.toThrow();
+    expect(() => validateMatrix(matrix)).toThrow(firstMessage);
+    expect(() =>
+      hydratePolicy(matrix as unknown as Parameters<typeof hydratePolicy>[0]),
+    ).toThrow(firstMessage);
+  });
+
+  it('still names a bigint when it is the first fault', () => {
+    const [issue] = collectIssues(
+      doc({ field: 'object.status', op: 10n, value: 1 }),
+    ).slice(1);
+
+    expect(issue?.message).toContain('has an unknown op 10n');
   });
 });

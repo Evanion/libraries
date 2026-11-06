@@ -46,3 +46,16 @@ export function throwFirst(check: (report: Report) => void): void {
   check(collectInto(issues));
   if (issues[0]) throw issues[0];
 }
+
+/**
+ * `value` as an error message shows it: `JSON.stringify`'s output when that
+ * succeeds, and otherwise a fixed description. A document from outside can hold
+ * a bigint or a cycle, and a message about such a value must still build.
+ */
+export function show(value: unknown): string {
+  try {
+    return String(JSON.stringify(value));
+  } catch {
+    return typeof value === 'bigint' ? `${value}n` : '[unserializable]';
+  }
+}

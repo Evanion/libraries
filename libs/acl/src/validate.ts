@@ -18,7 +18,7 @@ import {
   parsePath,
   pathFault as fieldPathFault,
 } from './field-path.js';
-import { collectInto, inPermission, throwFirst } from './issues.js';
+import { collectInto, inPermission, show, throwFirst } from './issues.js';
 import type { Report, Segment } from './issues.js';
 import { assertSchemaFit, assertSchemaShape } from './schema.js';
 import type {
@@ -133,7 +133,7 @@ function assertCondition(
         key,
         where,
         named,
-        `has an unknown op ${JSON.stringify(op)}`,
+        `has an unknown op ${show(op)}`,
       ),
       at,
     );
@@ -232,7 +232,7 @@ function assertCondition(
             key,
             where,
             named,
-            `has a path ${JSON.stringify(node['path'])} that ${fault}`,
+            `has a path ${show(node['path'])} that ${fault}`,
           ),
           at,
         );
@@ -888,12 +888,25 @@ export function freshnessIssues(
   documentMaxStale: unknown,
   options: ValidateOptions,
 ): AclConfigError[] {
+  return settleFreshness(documentMaxStale, options).issues;
+}
+
+/**
+ * `freshnessIssues` with the result a clean check settles: `expiresAt`, the
+ * instant past which the holder's validation no longer holds, or `undefined`
+ * when `fetchedAt` is absent or any issue was reported.
+ */
+export function settleFreshness(
+  documentMaxStale: unknown,
+  options: ValidateOptions,
+): { issues: AclConfigError[]; expiresAt: number | undefined } {
   const issues: AclConfigError[] = [];
   const { fetchedAt, maxStale: local } = options;
-  if (fetchedAt === undefined) return issues;
+  if (fetchedAt === undefined) return { issues, expiresAt: undefined };
   const report = collectInto(issues);
 
-  if (Number.isNaN(settleNow(fetchedAt))) {
+  const validated = settleNow(fetchedAt);
+  if (Number.isNaN(validated)) {
     report(new InvalidFreshnessError('fetchedAt', 'is not an instant'), []);
   }
   if (local !== undefined && (!Number.isFinite(local) || local < 0)) {
@@ -908,7 +921,13 @@ export function freshnessIssues(
   if (documentMaxStale === undefined) {
     report(new MissingFreshnessBudgetError(), ['maxStale']);
   }
-  return issues;
+  if (issues.length > 0 || typeof documentMaxStale !== 'number') {
+    return { issues, expiresAt: undefined };
+  }
+  return {
+    issues,
+    expiresAt: validated + Math.min(documentMaxStale, local ?? Infinity),
+  };
 }
 
 /**
