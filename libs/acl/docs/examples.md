@@ -1694,7 +1694,7 @@ import { expect } from 'vitest';
 
 type Row = {
   id: string;
-  address: { city: string; street?: string };
+  address: { city: string; street?: string; zip?: string };
 };
 
 const access = policy<{ id: string }, { row: Row }>()
@@ -1728,11 +1728,33 @@ allowed.fields; // -> { id: 'allowed', 'address.city': 'allowed' }
 const picked = pickAllowedFields(allowed, write);
 picked; // -> { id: 'r1', address: { city: 'Lund' } }
 
-// Object.assign replaces row.address with the picked address. Nothing is lost,
-// because the stored address had no key the editor may not write.
+// Object.assign replaces row.address with the picked address whole. Here the
+// stored address held only the city, so the replace drops nothing.
 const row = structuredClone(bare);
 Object.assign(row, picked);
 expect(row).toEqual({ id: 'r1', address: { city: 'Lund' } });
+
+// A stored key the editor may write, left out of the write, is erased by the
+// replace. The write must carry every sibling it keeps.
+const withZip = policy<{ id: string }, { row: Row }>()
+  .for('row', (p) =>
+    p.allow('update', p.always).fields(['id', 'address.city', 'address.zip']),
+  )
+  .build();
+const zipped = { id: 'r1', address: { city: 'Malmo', zip: '211' } };
+const partial = { address: { city: 'Lund' } };
+const lost = withZip.canFields(
+  editor,
+  'row',
+  'update',
+  zipped,
+  'write',
+  partial,
+);
+lost.allowed; // -> true
+const merged = structuredClone(zipped);
+Object.assign(merged, pickAllowedFields(lost, partial));
+merged; // -> { id: 'r1', address: { city: 'Lund' } }
 
 // A raw dotted key is refused, because Mongo $set and lodash set would apply it as a path.
 const guarded = policy<{ id: string }, { row: Row }>()

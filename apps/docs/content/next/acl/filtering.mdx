@@ -40,7 +40,7 @@ To deny access to a specific nested field, you must first establish a baseline o
 For a row containing `{ id, address: { city, street } }`:
 
 - `['*', '!address.street']` allows `id` and `address.city` but denies `address.street`.
-- `['id', 'address', '!address.street']` allows the `id` and the `address` object, provided the street is removed.
+- `['id', 'address', '!address.street']` allows the `id` and the `address` object, except the street.
 
 In both cases, `pickAllowedFields` returns the address without the street. Note that `targets` or `transitions` keys can also be paths, such as `'address.country'`.
 
@@ -66,7 +66,7 @@ The permission walk only enters plain objects and arrays. The following are trea
 - Primitives, `null`, `Date`, `Map`, class instances, or objects with getters.
 - Cycles (which become `not-traversable` where they repeat).
 
-If a rule names a path below a leaf, the value is `denied` with the reason `not-traversable`. On read, the entire value is hidden; on write, it is refused. Because ORM rows are typically class instances with getters, you must convert them to plain objects before calling `canFields`.
+If a rule names a path below a leaf, the value is `denied` with the reason `not-traversable`. On read, the entire value is hidden; on write, it is refused. Because ORM rows are typically class instances with getters, a nested one is unwalkable. The top-level object is read as it is, whatever its class, and a wrapper that keeps data under an own property (Sequelize `dataValues`) leaks at the top level even with flat rules. Pass plain rows for the top level and nested values: `toJSON()`, `get({ plain: true })` or `.lean()`. A raw dotted key on a read row is denied when its path reading is denied. [Field permissions](../fields#how-to-manage-nested-fields-in-evanionacl) has the rule.
 
 This logic also protects stored data: a write that would erase a stored key the caller is not permitted to write is refused. If a stored parent contains a denied or undecidable key, that parent is marked `not-traversable` and `pickAllowedFields` excludes it. For further details, see [Field permissions](../fields#how-to-manage-nested-fields-in-evanionacl).
 
