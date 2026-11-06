@@ -1076,10 +1076,12 @@ describe('collectIssues over a hostile document', () => {
     } as unknown as Matrix);
 
     expect(issues.map((i) => [i.code, i.path])).toEqual([
-      ['InvalidPermissionError', '/permissions/0'],
+      ['InvalidMatrixError', '/permissions/0'],
       ['InvalidPermissionError', '/permissions/1/visibility'],
     ]);
-    expect(issues[0]?.message).toContain('could not be read');
+    expect(issues[0]?.message).toBe(
+      'invalid matrix: permission [0] "comment.read" could not be read',
+    );
     expect(issues[0]?.permissionKey).toBe('comment.read');
   });
 
@@ -1090,5 +1092,43 @@ describe('collectIssues over a hostile document', () => {
     expect(issues[0]).toBeInstanceOf(InvalidMatrixError);
     expect(issues[0]?.message).toContain('could not be read');
     expect(issues[0]?.path).toBe('');
+  });
+
+  it('reads each permission once, the way a plain walk does', () => {
+    const log: string[] = [];
+    const traced = new Proxy(
+      { key: 'zz.read', object: 'zz', action: 'read', visibility: 'x' },
+      {
+        get(target, name, receiver) {
+          log.push(String(name));
+          return Reflect.get(target, name, receiver);
+        },
+      },
+    );
+
+    collectIssues({ permissions: [traced] } as unknown as Matrix);
+
+    expect(log.filter((name) => name === 'key')).toHaveLength(1);
+  });
+
+  it('collects the permissions after an element that throws when read', () => {
+    const permissions: unknown[] = [perm('read')];
+    Object.defineProperty(permissions, '1', {
+      enumerable: true,
+      get(): unknown {
+        throw new Error('boom');
+      },
+    });
+    permissions.push(perm('delete', { visibility: 'x' }));
+
+    const issues = collectIssues({ permissions } as unknown as Matrix);
+
+    expect(issues.map((i) => [i.code, i.path])).toEqual([
+      ['InvalidMatrixError', '/permissions/1'],
+      ['InvalidPermissionError', '/permissions/2/visibility'],
+    ]);
+    expect(issues[0]?.message).toBe(
+      'invalid matrix: permission [1] could not be read',
+    );
   });
 });

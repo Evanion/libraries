@@ -20,13 +20,12 @@ import {
 } from './field-path.js';
 import {
   collectInto,
+  eachPermission,
   guarded,
   inPermission,
-  keyOf,
   show,
   throwFirst,
   unreadableDocument,
-  unreadablePermission,
 } from './issues.js';
 import type { Report, Segment } from './issues.js';
 import { assertSchemaFit, assertSchemaShape } from './schema.js';
@@ -1061,17 +1060,9 @@ function collectDocument(
 
   const keys = new Set<string>();
   const usable = new WeakSet<object>();
-  for (const [index, permission] of permissions.entries()) {
-    guarded(
-      report,
-      ['permissions', index],
-      () => unreadablePermission(index, permission),
-      () => {
-        collectPermission(report, index, permission, keys, usable);
-      },
-      keyOf(permission),
-    );
-  }
+  eachPermission(report, permissions, (index, permission) => {
+    collectPermission(report, index, permission, keys, usable);
+  });
 
   if (schema !== undefined && schemaOk) {
     assertSchemaFit(schema as MatrixSchema, permissions, report, (condition) =>

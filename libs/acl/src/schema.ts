@@ -3,14 +3,7 @@ import {
   InvalidSchemaError,
   UnknownFieldError,
 } from './errors.js';
-import {
-  guarded,
-  inPermission,
-  keyOf,
-  show,
-  throwFirst,
-  unreadablePermission,
-} from './issues.js';
+import { eachPermission, inPermission, show, throwFirst } from './issues.js';
 import type { Report, Segment } from './issues.js';
 import type {
   Condition,
@@ -516,17 +509,9 @@ export function assertSchemaFit(
   report: Report,
   usable: (condition: unknown) => boolean,
 ): void {
-  for (const [index, permission] of permissions.entries()) {
-    guarded(
-      report,
-      ['permissions', index],
-      () => unreadablePermission(index, permission),
-      () => {
-        fitPermission(schema, index, permission, report, usable);
-      },
-      keyOf(permission),
-    );
-  }
+  eachPermission(report, permissions, (index, permission) => {
+    fitPermission(schema, index, permission, report, usable);
+  });
 }
 
 function fitPermission(
@@ -536,20 +521,18 @@ function fitPermission(
   report: Report,
   usable: (condition: unknown) => boolean,
 ): void {
-  if (
-    !isNode(permission) ||
-    typeof permission['key'] !== 'string' ||
-    typeof permission['object'] !== 'string' ||
-    permission['object'].length === 0
-  ) {
-    return;
-  }
-  const scoped = inPermission(report, permission['key']);
+  if (!isNode(permission)) return;
+  const key = permission['key'];
+  const object = permission['object'];
+  if (typeof key !== 'string' || typeof object !== 'string') return;
+  if (object.length === 0) return;
+  const scoped = inPermission(report, key);
+  const named = { key, object } as Permission;
   for (const side of ['rules', 'denyRules'] as const) {
     collectRulesFit(
       scoped,
       schema,
-      permission as unknown as Permission,
+      named,
       side,
       ['permissions', index, side],
       permission[side],

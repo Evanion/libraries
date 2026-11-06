@@ -1,4 +1,4 @@
-import { InvalidMatrixError, InvalidPermissionError } from './errors.js';
+import { InvalidMatrixError } from './errors.js';
 import type { AclConfigError } from './errors.js';
 
 /** One step into the document: an object key or an array index. */
@@ -72,17 +72,47 @@ export function guarded(
   path: readonly Segment[],
   unreadable: () => AclConfigError,
   read: () => void,
-  permissionKey?: string,
 ): void {
   try {
     read();
   } catch {
-    report(unreadable(), path, permissionKey);
+    const error = unreadable();
+    report(error, path, error.permissionKey);
+  }
+}
+
+/**
+ * Visits each element of `permissions` once, in order. An element that throws
+ * when read, or whose visit throws, is reported as unreadable and the walk goes
+ * on with the next one.
+ */
+export function eachPermission(
+  report: Report,
+  permissions: readonly unknown[],
+  visit: (index: number, permission: unknown) => void,
+): void {
+  const count = permissions.length;
+  for (let index = 0; index < count; index++) {
+    let permission: unknown;
+    try {
+      permission = permissions[index];
+    } catch {
+      report(unreadablePermission(index, undefined), ['permissions', index]);
+      continue;
+    }
+    guarded(
+      report,
+      ['permissions', index],
+      () => unreadablePermission(index, permission),
+      () => {
+        visit(index, permission);
+      },
+    );
   }
 }
 
 /** The key a permission states, or `undefined` when reading it fails. */
-export function keyOf(permission: unknown): string | undefined {
+function keyOf(permission: unknown): string | undefined {
   try {
     const key = (permission as { key?: unknown }).key;
     return typeof key === 'string' && key.length > 0 ? key : undefined;
@@ -91,19 +121,22 @@ export function keyOf(permission: unknown): string | undefined {
   }
 }
 
-/** The error for permission `index` when reading it throws. */
-export function unreadablePermission(
+/**
+ * The error for permission `index` when reading it throws. It names the key
+ * when the key can still be read, and carries it as `permissionKey`.
+ */
+function unreadablePermission(
   index: number,
   permission: unknown,
 ): AclConfigError {
   const key = keyOf(permission);
-  return key === undefined
-    ? new InvalidMatrixError(`permission [${index}] could not be read`)
-    : new InvalidPermissionError(
-        key,
-        `permissions[${index}]`,
-        'could not be read',
-      );
+  const error = new InvalidMatrixError(
+    key === undefined
+      ? `permission [${index}] could not be read`
+      : `permission [${index}] "${key}" could not be read`,
+  );
+  if (key !== undefined) error.permissionKey = key;
+  return error;
 }
 
 /** The error for a document that cannot be read at all. */
