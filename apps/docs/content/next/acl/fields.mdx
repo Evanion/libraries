@@ -35,15 +35,15 @@ gated on the action, and that flag composes both halves. A caller who reads the 
 
 `reasons` carries one `FieldReason` per name.
 
-| `FieldReason`       | Emitted when                                                                                                                    |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `allow`             | nothing refused it                                                                                                              |
-| `not-listed`        | the name list does not carry it, or excludes it                                                                                 |
-| `targets-failed`    | the proposed value is not in the field's `targets`                                                                              |
-| `transition-failed` | the current value has no edge to the proposed one                                                                               |
-| `missing-field`     | a `transitions` field whose current value the object did not carry, or a parent the write includes that the stored object lacks |
-| `proposed-required` | a configured field with no proposed value in the write                                                                          |
-| `not-traversable`   | a rule needs to look into a value the engine cannot walk                                                                        |
+| `FieldReason`       | Emitted when                                                                                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allow`             | nothing refused it                                                                                                                                         |
+| `not-listed`        | the name list does not carry it, or excludes it                                                                                                            |
+| `targets-failed`    | the proposed value is not in the field's `targets`                                                                                                         |
+| `transition-failed` | the current value has no edge to the proposed one                                                                                                          |
+| `missing-field`     | a `transitions` field whose current value the object did not carry, or a parent the rules descend into that the write includes and the stored object lacks |
+| `proposed-required` | a configured field with no proposed value in the write                                                                                                     |
+| `not-traversable`   | a rule needs to look into a value the engine cannot walk                                                                                                   |
 
 ## Naming the fields
 
@@ -202,7 +202,25 @@ The engine determines traversability based on the stored object:
 
 To update a nested value, you must provide the entire parent object because a picked parent replaces the stored parent in its entirety. The engine only protects stored keys that the caller is explicitly forbidden from writing; any key the caller _is_ allowed to write—but omits from the update—is erased by the replacement.
 
-For example, if your rules are `['id', 'address.city', 'address.zip']` and the stored row is `{ address: { city, zip } }`, a write of `{ address: { city } }` is permitted, but `Object.assign` will drop the `zip`. To prevent this, the write must carry every sibling it intends to keep, or you must deep-merge the picked value into the row while skipping `__proto__`.
+To prevent data loss during updates, you must choose how to apply the filtered data to your stored records.
+
+Consider a scenario where your allowed rules are `['id', 'address.city', 'address.zip']` and the stored row is `{ address: { city, zip } }`. If a user submits a write containing only `{ address: { city } }`, the write is permitted, but a shallow `Object.assign` would drop the `zip` from the stored row. To avoid this, the write must either carry every sibling it intends to keep, or the application code must deep-merge the picked value into the row.
+
+A deep merge recurses only into own plain objects and copies all other values as-is. To prevent prototype pollution, it explicitly skips `__proto__`, `constructor`, and `prototype`. Because `pickAllowedFields` copies subtrees that the decision does not descend into by reference, those subtrees could potentially carry an own `__proto__` key (e.g., from `JSON.parse`). A subsequent merge would then set the prototype of the stored object. The example above concludes with such a merge.
+
+Some tools handle this natively. An ORM with a nested update form, for instance, applies only the keys it is given and leaves other stored keys untouched, removing the need for a manual merge. For example, Prisma's `update({ data: { address: { update: picked.address } } })` updates the city while preserving the zip.
+
+Even when every specific field is marked as allowed, `@evanion/acl` will refuse a write in two specific scenarios to prevent data loss or traversal errors.
+
+To ensure write operations do not accidentally corrupt data or bypass security, the library treats certain paths as `not-traversable`.
+
+#### Array-Based Configuration
+
+If a `targets` or `transitions` configuration path passes through an array (for example, `'lines.cost'`), the array is refused as `not-traversable` on every write. This occurs because the write axis is not designed to walk through arrays.
+
+#### Nested Allow Entries
+
+When using nested allow entries or configurations—such as `address.city` or `'address.country': { targets: ['SE'] }`—the library may refuse the parent object as `not-traversable`. This happens if the stored parent contains a sibling that the caller is forbidden from writing (e.g., a street defined under `!address.street`). Because the write operation would replace the entire parent object, it would inadvertently erase the protected sibling.
 
 ### Rows with dotted column names
 
@@ -250,10 +268,13 @@ A key is marked `not-traversable` on the write axis if:
 - It contains brackets (`[` or `]`).
 - Its dots do not split into a clean path.
 - It attempts to leave the rule tree (e.g., `address.city` when the rules are `!address.street`).
+- It holds a `constructor` or `prototype` segment, which a merge that splits the key would follow to a prototype.
 
 The engine determines which dotted columns a write updates from how your entries name them. When an allow entry explicitly names an escaped column, the engine writes to that raw dotted key. For example, if an `updateCity` action has the fields `['id', 'address\.city']`, the engine writes the flat `address.city` column and no other dotted column; any other, such as `other.col`, remains `not-listed`.
 
-The `*` wildcard writes to any dotted key that no rule touches. Because an escaped entry is not considered a rule in this context, a list like `['*', 'address\.city']` still writes the `address.city` column. Avoid `['*', '!note']` for this purpose. While it writes the target column, it also grants write access to every other column on the row.
+To specify which columns are written, you use a list of fields. The `*` symbol acts as a catch-all: it writes every dotted column that no other rule touches, along with every other column in the row.
+
+Adding an escaped entry beside `*` (for example, `['*', 'address\.city']`) does not narrow the operation; the `*` still captures everything. To write exactly one dotted column and no others, list that column escaped without the `*`, alongside the fields the action requires: `['id', 'address\.city']`.
 
 Even if a dotted key is explicitly listed, the engine refuses the write as `not-traversable` if the path to that column is restricted. This happens in three scenarios:
 
@@ -273,6 +294,10 @@ In every refused case, `pickAllowedFields` drops the key, ensuring the write nev
 ### Handling Arrays
 
 When a path segment reaches an array, the rule applies to every element within that array. For example, `!lines.cost` hides the `cost` field on every line; the resulting key is `lines.cost` without a specific index. The keys available under an array are the union of all keys carried by its elements.
+
+Rules in `@evanion/acl` cannot index into arrays. If a rule attempts to index into an array (such as `!items.0` or `!items.0.price`), the array is marked as `denied` and `not-traversable` on both axes, preventing any element from being read or written.
+
+Note that this restriction only applies to actual arrays; a numeric segment used as a key in a plain object (such as `byId.1.name`) is treated as an ordinary key and remains valid.
 
 **Write Limitations:**
 Because the engine cannot reliably match a stored array element to a proposed one, any array that a rule descends into is refused entirely on the write axis. Additionally, any array with holes, extra own properties, or elements the walk cannot see into is refused on both axes. `pickAllowedFields` never drops individual array elements; you must write array elements through their own dedicated action.
@@ -296,3 +321,7 @@ If a rule names a path below one of these leaves, the value is `denied` as `not-
 When using the typed builder, `.fields()` validates every path against the object kind's type. If a path is unknown, it results in a compile error.
 
 If a kind is typed as `Record<string, unknown>`, the builder accepts any path. If the kind is a generic type parameter, the builder cannot list its paths, so use the untyped builder.
+
+To resolve a path, the system uses different logic for types and values: the type check follows the declared type, while the runtime walk follows the actual value.
+
+If you define a path through a class-typed property—for example, `owner.email` where `owner` is an `Owner` instance—the code will compile because the type exists. However, the runtime walk cannot see into the class instance, so the value is `denied` as `not-traversable`.

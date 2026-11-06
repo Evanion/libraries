@@ -45,7 +45,7 @@ To ensure accuracy, `validateAll` follows a specific sequence:
 4. **Structural Faults:** If the document is not an object, or if the `permissions` property is not an array, no further checks run, as further validation is impossible. Only the clone faults, if any, come with it.
 5. **Ordering:** After the clone faults come the document's own faults: the envelope, the schema's shape, each permission in order, then the conditions checked against the schema. Faults in the options come last.
 
-The `options` argument accepts `version`, `fetchedAt` and `maxStale` (the same parameters used by `hydratePolicy`). `version` replaces the document's `version` before it is checked, and `fetchedAt` and `maxStale` let `validateAll` report freshness faults that would otherwise cause construction to fail. An option that cannot be read is reported as a fault of that option.
+The `options` argument accepts `version`, `fetchedAt` and `maxStale` (the same parameters used by `hydratePolicy`). `version` replaces the document's `version` before it is checked, and `fetchedAt` and `maxStale` let `validateAll` report freshness faults that would otherwise cause construction to fail. If an option cannot be read, the system reports it as a fault of that option. Because an options fault does not occur at a specific location within the document, its `path` is set to `''` (the pointer to the document root).
 
 Note that runtime faults, such as asking for an unknown object kind, are calls and not document faults, so they are not reported here.
 
