@@ -121,6 +121,9 @@ describe('errors', () => {
     expect(err.code).toBe('InvalidMatrixError');
     expect(err.path).toBe('');
     expect(err.permissionKey).toBeUndefined();
+    expect(Object.keys(JSON.parse(JSON.stringify({ ...err })))).toContain(
+      'code',
+    );
     expect(new DuplicatePermissionError('a.b').code).toBe(
       'DuplicatePermissionError',
     );

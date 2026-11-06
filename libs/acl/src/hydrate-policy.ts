@@ -5,7 +5,7 @@ import {
   UnknownObjectKeyError,
   UnknownPermissionError,
 } from './errors.js';
-import { freshnessIssues, validateMatrix } from './validate.js';
+import { settleFreshness, validateMatrix } from './validate.js';
 import { settleNow } from './conditions.js';
 import { permissionReadsObject } from './reads-object.js';
 import type { ResolvedContext } from './conditions.js';
@@ -274,15 +274,9 @@ export interface AccessOptions {
  * a holder that reported no `fetchedAt` and therefore claimed no freshness.
  */
 function expiryOf(matrix: Matrix, options: AccessOptions): number | undefined {
-  const { fetchedAt, maxStale: local } = options;
-  if (fetchedAt === undefined) return undefined;
-
-  const [fault] = freshnessIssues(matrix.maxStale, options);
-  if (fault) throw fault;
-
-  const validated = settleNow(fetchedAt);
-  const maxStale = matrix.maxStale as number;
-  return validated + Math.min(maxStale, local ?? Infinity);
+  const { issues, expiresAt } = settleFreshness(matrix.maxStale, options);
+  if (issues[0]) throw issues[0];
+  return expiresAt;
 }
 
 /**
