@@ -1647,6 +1647,28 @@ decision.allowed; // -> false
 // The picked parent keeps the rest of the address.
 pickAllowedFields(decision, order); // -> { id: 'o1', address: { city: 'Malmo' } }
 
+// A segment through an array applies to every element, and the key carries no index.
+type Basket = { id: string; lines: { sku: string; cost: number }[] };
+const baskets = policy<{ id: string }, { basket: Basket }>()
+  .for('basket', (p) => p.allow('read', p.always).fields(['*', '!lines.cost']))
+  .build();
+const basket: Basket = {
+  id: 'b1',
+  lines: [
+    { sku: 'a', cost: 5 },
+    { sku: 'b', cost: 7 },
+  ],
+};
+const lineDecision = baskets.canFields(
+  customer,
+  'basket',
+  'read',
+  basket,
+  'read',
+);
+Object.keys(lineDecision.fields); // -> ['id', 'lines.sku', 'lines.cost']
+pickAllowedFields(lineDecision, basket); // -> { id: 'b1', lines: [{ sku: 'a' }, { sku: 'b' }] }
+
 // A path that is also a flat key with a dot in it is escaped.
 const flat = policy<{ id: string }, { order: { 'a.b': string } }>()
   .for('order', (p) => p.allow('read', p.always).fields(['*', '!a\\.b']))
@@ -1663,6 +1685,109 @@ expect(flatDecision.allowed).toBe(false);
 ```
 
 <!-- #endregion nested-fields -->
+
+<!-- #region nested-write -->
+
+```ts @import.meta.vitest
+import { pickAllowedFields, policy } from '@evanion/acl';
+import { expect } from 'vitest';
+
+type Row = {
+  id: string;
+  address: { city: string; street?: string };
+};
+
+const access = policy<{ id: string }, { row: Row }>()
+  .for('row', (p) => p.allow('update', p.always).fields(['id', 'address.city']))
+  .build();
+const editor = { id: 'u1' };
+
+// The stored address holds a street the editor may not write. A parent that
+// would erase it is denied, so the write never reaches the row.
+const stored: Row = {
+  id: 'r1',
+  address: { city: 'Malmo', street: 'Storgatan 1' },
+};
+const write = { id: 'r1', address: { city: 'Lund' } };
+const refused = access.canFields(
+  editor,
+  'row',
+  'update',
+  stored,
+  'write',
+  write,
+);
+refused.fields; // -> { id: 'allowed', address: 'denied' }
+refused.reasons.address; // -> 'not-traversable'
+pickAllowedFields(refused, write); // -> { id: 'r1' }
+
+// The stored address holds only the city, so the whole parent is writable.
+const bare: Row = { id: 'r1', address: { city: 'Malmo' } };
+const allowed = access.canFields(editor, 'row', 'update', bare, 'write', write);
+allowed.fields; // -> { id: 'allowed', 'address.city': 'allowed' }
+const picked = pickAllowedFields(allowed, write);
+picked; // -> { id: 'r1', address: { city: 'Lund' } }
+
+// Object.assign replaces row.address with the picked address. Nothing is lost,
+// because the stored address had no key the editor may not write.
+const row = structuredClone(bare);
+Object.assign(row, picked);
+expect(row).toEqual({ id: 'r1', address: { city: 'Lund' } });
+
+// A raw dotted key is refused, because Mongo $set and lodash set would apply it as a path.
+const guarded = policy<{ id: string }, { row: Row }>()
+  .for('row', (p) =>
+    p.allow('update', p.always).fields(['*', '!address.street']),
+  )
+  .build();
+const dotted = { 'address.city': 'Lund' } as Partial<Row>;
+const pathKey = guarded.canFields(
+  editor,
+  'row',
+  'update',
+  bare,
+  'write',
+  dotted,
+);
+pathKey.reasons['address\\.city']; // -> 'not-traversable'
+expect(pathKey.allowed).toBe(false);
+```
+
+<!-- #endregion nested-write -->
+
+<!-- #region nested-walk -->
+
+```ts @import.meta.vitest
+import { pickAllowedFields, policy } from '@evanion/acl';
+
+type Shop = { id: string; owner: unknown; opened: unknown };
+const access = policy<{ id: string }, { shop: Shop }>()
+  .for('shop', (p) =>
+    p.allow('read', p.always).fields(['*', '!owner.email', '!opened.at']),
+  )
+  .build();
+const viewer = { id: 'u1' };
+
+// A class instance and a Date are values the walk cannot see into.
+class Owner {
+  email = 'a@b.se';
+}
+const shop: Shop = { id: 's1', owner: new Owner(), opened: new Date(0) };
+const decision = access.canFields(viewer, 'shop', 'read', shop, 'read');
+decision.reasons; // -> { id: 'allow', owner: 'not-traversable', opened: 'not-traversable' }
+pickAllowedFields(decision, shop); // -> { id: 's1' }
+
+// A plain copy of the same row is walkable.
+const plain = {
+  id: 's1',
+  owner: { email: 'a@b.se', name: 'A' },
+  opened: { at: 1 },
+};
+const copy = access.canFields(viewer, 'shop', 'read', plain, 'read');
+pickAllowedFields(copy, plain); // -> { id: 's1', owner: { name: 'A' } }
+```
+
+<!-- #endregion nested-walk -->
 
 ### Paging a filtered list
 

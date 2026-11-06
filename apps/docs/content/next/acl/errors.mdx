@@ -137,7 +137,7 @@ present or not.
 | `InvalidSchemaError`              | a malformed schema, or a field type outside `string`, `number`, `boolean` and `instant` |
 | `UnknownFieldError`               | a condition naming a field the schema does not declare                                  |
 | `FieldTypeMismatchError`          | an operator that does not fit the type, such as `contains` on a string                  |
-| `DenyWithoutBaselineError`        | a `!name` with no `*` beside it                                                         |
+| `DenyWithoutBaselineError`        | a `!name` with no `*` or listed ancestor                                                |
 | `TargetsTransitionsConflictError` | one field given both `targets` and `transitions`                                        |
 
 ### Field paths
