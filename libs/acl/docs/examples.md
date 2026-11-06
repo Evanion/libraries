@@ -1756,6 +1756,45 @@ const merged = structuredClone(zipped);
 Object.assign(merged, pickAllowedFields(lost, partial));
 merged; // -> { id: 'r1', address: { city: 'Lund' } }
 
+// A deep merge keeps the siblings the write left out. It recurses only into
+// own plain objects, and skips the names that lead to a prototype.
+const UNSAFE = new Set(['__proto__', 'constructor', 'prototype']);
+const isPlain = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' &&
+  value !== null &&
+  [Object.prototype, null].includes(Object.getPrototypeOf(value));
+function deepMerge(
+  target: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): void {
+  for (const key of Object.keys(patch)) {
+    if (UNSAFE.has(key)) continue;
+    const next = patch[key];
+    const own = Object.hasOwn(target, key) ? target[key] : undefined;
+    if (isPlain(next) && isPlain(own)) deepMerge(own, next);
+    else target[key] = next;
+  }
+}
+const kept = structuredClone(zipped);
+deepMerge(kept, pickAllowedFields(lost, partial));
+kept; // -> { id: 'r1', address: { city: 'Lund', zip: '211' } }
+
+// A subtree the decision does not descend into is copied by reference, so it
+// can carry an own __proto__ key from JSON.parse. The merge skips it.
+const open = policy<{ id: string }, { row: Row }>()
+  .for('row', (p) => p.allow('update', p.always).fields(['*']))
+  .build();
+const hostile = JSON.parse('{"address":{"__proto__":{"isAdmin":true}}}');
+const target = structuredClone(zipped);
+deepMerge(
+  target,
+  pickAllowedFields(
+    open.canFields(editor, 'row', 'update', zipped, 'write', hostile),
+    hostile,
+  ),
+);
+'isAdmin' in target.address; // -> false
+
 // A raw dotted key whose path leaves a ruled node is refused, because Mongo $set
 // and lodash set would apply it as a path.
 const guarded = policy<{ id: string }, { row: Row }>()
@@ -1849,13 +1888,32 @@ pickAllowedFields(shownDecision, row); // -> { id: 'r1', 'address.street': 'Stor
 
 const edit = { 'address.street': 'Lilla Torg 2' };
 
-// With *, a dotted key no rule touches is written. The escaped entry is not such a rule.
-const starEdit = policy<{ id: string }, { row: Flat }>()
+// An allow entry naming the escaped column writes that column and no other dotted one.
+const columnEdit = policy<{ id: string }, { row: Flat }>()
   .for('row', (p) =>
-    p.allow('update', p.always).fields(['*', 'address\\.street']),
+    p.allow('update', p.always).fields(['id', 'address\\.street']),
   )
   .build();
-const allowedEdit = starEdit.canFields(
+const withOther = { ...edit, 'other.col': 'y' };
+const written = columnEdit.canFields(
+  viewer,
+  'row',
+  'update',
+  row,
+  'write',
+  withOther,
+);
+written.reasons['address\\.street']; // -> 'allow'
+written.reasons['other\\.col']; // -> 'not-listed'
+pickAllowedFields(written, withOther); // -> { 'address.street': 'Lilla Torg 2' }
+
+// An exclusion on an ancestor of the column's path still refuses it.
+const fenced = policy<{ id: string }, { row: Flat }>()
+  .for('row', (p) =>
+    p.allow('update', p.always).fields(['*', '!address', 'address\\.street']),
+  )
+  .build();
+const fencedDecision = fenced.canFields(
   viewer,
   'row',
   'update',
@@ -1863,7 +1921,38 @@ const allowedEdit = starEdit.canFields(
   'write',
   edit,
 );
-pickAllowedFields(allowedEdit, edit); // -> { 'address.street': 'Lilla Torg 2' }
+fencedDecision.reasons['address\\.street']; // -> 'not-traversable'
+
+// * alone writes a dotted column no rule touches, and every other column too.
+const starEdit = policy<{ id: string }, { row: Flat }>()
+  .for('row', (p) => p.allow('update', p.always).fields(['*']))
+  .build();
+const everything = { ...withOther, id: 'r2' };
+const starDecision = starEdit.canFields(
+  viewer,
+  'row',
+  'update',
+  row,
+  'write',
+  everything,
+);
+pickAllowedFields(starDecision, everything); // -> { 'address.street': 'Lilla Torg 2', 'other.col': 'y', id: 'r2' }
+
+// On read a bracket is part of its segment: data.x[0] spells a path through
+// data, and data[0] is a segment of its own.
+const noData = policy<{ id: string }, { row: Flat }>()
+  .for('row', (p) => p.allow('read', p.always).fields(['*', '!data']))
+  .build();
+const bracketed: Flat = { id: 'r1', 'data.x[0]': 1, 'data[0]': 2 };
+const bracketDecision = noData.canFields(
+  viewer,
+  'row',
+  'read',
+  bracketed,
+  'read',
+);
+bracketDecision.reasons['data\\.x[0]']; // -> 'not-listed'
+pickAllowedFields(bracketDecision, bracketed); // -> { id: 'r1', 'data[0]': 2 }
 ```
 
 <!-- #endregion dotted-columns -->
