@@ -20,7 +20,7 @@ import {
   UnknownPermissionError,
 } from '../errors.js';
 import { hydratePolicy } from '../hydrate-policy.js';
-import { pickAllowedFields } from '../fields.js';
+import { decideFields, pickAllowedFields } from '../fields.js';
 import { parseMatrix } from '../parse-matrix.js';
 import { ruleId } from '../rule-id.js';
 import {
@@ -314,6 +314,42 @@ describe('SEC-007 a narrowed write never carries a prototype setter (CWE-1321)',
   });
   // #endregion sec-007
 
+  it('carries no __proto__ key one level down, and builds no prototype setter', () => {
+    const rules = {
+      key: 'account.update',
+      object: 'account',
+      action: 'update',
+      fields: { fields: ['*', '!address.street'] },
+    };
+    const proposed = fromJson(
+      '{"address": {"__proto__": {"isOwner": true}, "city": "Malmo"}}',
+    );
+    const outcome = decideFields(
+      rules,
+      { subject: { id: 'u1' }, object: {} },
+      'write',
+      proposed,
+    );
+
+    expect(Object.keys(outcome.fields).sort()).toEqual([
+      'address.city',
+      'address.street',
+    ]);
+
+    const writable = pickAllowedFields(
+      {
+        ...outcome,
+        action: { key: 'account.update', allowed: true, reason: 'allow' },
+      },
+      proposed,
+    );
+    const address = writable['address'] as Record<string, unknown>;
+
+    expect(Object.getPrototypeOf(address)).toBe(Object.prototype);
+    expect(Object.hasOwn(address, '__proto__')).toBe(false);
+    expect(({} as Record<string, unknown>)['isOwner']).toBeUndefined();
+  });
+
   it('applies to a row without moving its prototype', () => {
     const proposed = fromJson(
       '{"__proto__": {"isOwner": true}, "name": "Grace"}',
@@ -427,6 +463,33 @@ describe('SEC-008 authoring tokens never key a decision (CWE-915)', () => {
     expect(pickAllowedFields(decision, proposed)).toEqual({ name: 'Grace' });
   });
   // #endregion sec-008
+
+  it('drops a baseline or an exclusion key one level down', () => {
+    const rules = {
+      key: 'account.update',
+      object: 'account',
+      action: 'update',
+      fields: { fields: ['*', '!address.street'] },
+    };
+    const proposed = {
+      address: { '*': 1, '!street': 2, '!address.street': 3, city: 'Malmo' },
+    };
+    const outcome = decideFields(
+      rules,
+      { subject: { id: 'u1' }, object: { address: { '*': 1, '!role': 2 } } },
+      'write',
+      proposed,
+    );
+
+    expect(Object.keys(outcome.fields).sort()).toEqual([
+      'address.city',
+      'address.street',
+    ]);
+    expect(Object.keys(outcome.reasons).sort()).toEqual([
+      'address.city',
+      'address.street',
+    ]);
+  });
 
   it('drops an object key spelled as a baseline or an exclusion', () => {
     const decision = access().canFields(

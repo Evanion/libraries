@@ -35,6 +35,13 @@ export type FieldState = 'allowed' | 'denied' | 'unevaluable';
  * unreachable arm. A refusal is `not-listed`, `targets-failed` or
  * `transition-failed`; the reason names which rule refused, and `FieldState`
  * carries the plain `denied`.
+ *
+ * `not-traversable` marks a key the field rules need to look into and the engine
+ * cannot: a value that is not a plain object or an array (a `Date`, a `Map`, a
+ * class instance, a primitive, `null`), an array with a hole or a non-object
+ * element, an object that holds a getter or an empty-string key, a repeat in a
+ * cycle, or, on the write axis, an array or a replaced subtree. The key is
+ * `denied` whole and none of its children are decided.
  */
 export type FieldReason =
   | 'allow'
@@ -42,7 +49,8 @@ export type FieldReason =
   | 'targets-failed'
   | 'transition-failed'
   | 'missing-field'
-  | 'proposed-required';
+  | 'proposed-required'
+  | 'not-traversable';
 
 /**
  * A condition over the namespaced context.

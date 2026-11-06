@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ActionNotAllowedError } from './errors.js';
 import { decideFields, pickAllowedFields } from './fields.js';
@@ -56,6 +56,10 @@ describe('decideFields', () => {
       ],
       'proposed-required': [
         perm('comment.update', { status: { targets: ['published'] } }),
+        ctx,
+      ],
+      'not-traversable': [
+        perm('comment.update', { fields: ['*', '!status.sub'] }),
         ctx,
       ],
     };
@@ -307,6 +311,328 @@ describe('decideFields', () => {
       expect(d.reasons['status']).toBe('transition-failed');
     },
   );
+
+  describe('nested paths', () => {
+    const order = { id: 'o1', address: { city: 'Malmo', street: 'S1' } };
+    const read = (
+      fields: readonly string[],
+      object: Record<string, unknown> = order,
+    ) =>
+      decideFields(
+        perm('order.read', { fields }),
+        { subject: { id: 's1' }, object },
+        'read',
+      );
+    const ok = (reasons: Record<string, FieldReason>, key: string) =>
+      expect(reasons[key]).toBe('allow');
+
+    it('an exclusion below a key hides that subtree and keeps its siblings', () => {
+      const d = read(['*', '!address.street']);
+
+      expect(d.fields).toEqual({
+        id: 'allowed',
+        'address.city': 'allowed',
+        'address.street': 'denied',
+      });
+      expect(d.reasons['address.street']).toBe('not-listed');
+      expect(d.allowed).toBe(false);
+      ok(d.reasons, 'address.city');
+    });
+
+    it('an exclusion of the key itself does not expand it', () => {
+      const d = read(['*', '!address']);
+
+      expect(d.fields).toEqual({ id: 'allowed', address: 'denied' });
+    });
+
+    it('a listed parent with a nested exclusion keeps the rest of the parent', () => {
+      const d = read(['id', 'address', '!address.street']);
+
+      expect(d.fields).toEqual({
+        id: 'allowed',
+        'address.city': 'allowed',
+        'address.street': 'denied',
+      });
+    });
+
+    it('a nested allow denies the siblings the list does not name', () => {
+      const d = read(['id', 'address.city']);
+
+      expect(d.fields).toEqual({
+        id: 'allowed',
+        'address.city': 'allowed',
+        'address.street': 'denied',
+      });
+    });
+
+    it('a named path the data does not carry still enters the map', () => {
+      const d = read(['id', 'address.city'], { id: 'o1' });
+
+      expect(d.fields).toEqual({ id: 'allowed', 'address.city': 'allowed' });
+    });
+
+    it('a flat key containing a dot is keyed by its escaped form', () => {
+      const d = read(['*'], { 'a.b': 1, 'c\\d': 2 });
+
+      expect(Object.keys(d.fields)).toEqual(['a\\.b', 'c\\\\d']);
+    });
+
+    describe('arrays', () => {
+      const lines = {
+        lines: [
+          { price: 1, cost: 2 },
+          { price: 3, cost: 4 },
+        ],
+      };
+
+      it('a read rule applies to every element and the key carries no index', () => {
+        const d = read(['*', '!lines.cost'], lines);
+
+        expect(d.fields).toEqual({
+          'lines.price': 'allowed',
+          'lines.cost': 'denied',
+        });
+      });
+
+      it('a write that carries an array the rules descend into is not traversable', () => {
+        const d = decideFields(
+          perm('order.update', { fields: ['*', '!lines.cost'] }),
+          { subject: { id: 's1' }, object: lines },
+          'write',
+          { lines: [{ price: 9 }] },
+        );
+
+        expect(d.fields).toEqual({ lines: 'denied' });
+        expect(d.reasons['lines']).toBe('not-traversable');
+      });
+
+      it.each([
+        ['a primitive element', [{ price: 1 }, 'x']],
+        ['a Date element', [{ price: 1 }, new Date(0)]],
+        ['a null element', [{ price: 1 }, null]],
+        ['a nested array element', [{ price: 1 }, [{ price: 2 }]]],
+        // eslint-disable-next-line no-sparse-arrays
+        ['a hole', [{ price: 1 }, , { price: 2 }]],
+      ])('a read of an array with %s denies the whole array', (_, value) => {
+        const d = read(['*', '!lines.cost'], { lines: value });
+
+        expect(d.fields).toEqual({ lines: 'denied' });
+        expect(d.reasons['lines']).toBe('not-traversable');
+      });
+
+      it('an array nested in an array element is walked across all elements', () => {
+        const d = read(['*', '!lines.tags.secret'], {
+          lines: [
+            { tags: [{ name: 'a', secret: 1 }] },
+            { tags: [{ name: 'b' }] },
+          ],
+        });
+
+        expect(d.fields).toEqual({
+          'lines.tags.name': 'allowed',
+          'lines.tags.secret': 'denied',
+        });
+      });
+    });
+
+    describe('values the engine cannot walk', () => {
+      class Row {
+        city = 'c';
+        street = 's';
+      }
+      it.each([
+        ['a Date', new Date(0)],
+        ['a Map', new Map()],
+        ['a class instance', new Row()],
+        ['a string', 'text'],
+        ['null', null],
+        ['undefined', undefined],
+      ])('%s under a descending rule is not traversable', (_, address) => {
+        const d = read(['*', '!address.street'], { id: 'o1', address });
+
+        expect(d.fields).toEqual({ id: 'allowed', address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
+      });
+
+      it('walks an object with a null prototype like a plain object', () => {
+        const address = Object.assign(Object.create(null), {
+          city: 'c',
+          street: 's',
+        });
+        const d = read(['*', '!address.street'], { address });
+
+        expect(d.fields).toEqual({
+          'address.city': 'allowed',
+          'address.street': 'denied',
+        });
+      });
+
+      it('never calls a getter, and denies the object that holds it', () => {
+        const street = vi.fn(() => 's');
+        const address = {
+          city: 'c',
+          get street() {
+            return street();
+          },
+        };
+        const d = read(['*', '!address.street'], { address });
+
+        expect(d.fields).toEqual({ address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
+        expect(street).not.toHaveBeenCalled();
+      });
+
+      it('never calls a getter on the object the rules descend into', () => {
+        const address = vi.fn(() => ({ city: 'c' }));
+        const object = {
+          id: 'o1',
+          get address() {
+            return address();
+          },
+        };
+        const d = read(['*', '!address.street'], object);
+
+        expect(d.fields).toEqual({ id: 'allowed', address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
+        expect(address).not.toHaveBeenCalled();
+      });
+
+      it('terminates on a self-referencing object', () => {
+        const a: Record<string, unknown> = { x: 1 };
+        a['self'] = a;
+        const d = read(['*', '!self.self.self.x'], a);
+
+        expect(d.fields['self.self']).toBe('denied');
+        expect(d.reasons['self.self']).toBe('not-traversable');
+        expect(
+          Object.keys(d.fields).some((k) => k.startsWith('self.self.')),
+        ).toBe(false);
+      });
+
+      it('an expanded object with an empty-string key is not traversable', () => {
+        const d = read(['*', '!address.street'], {
+          id: 'o1',
+          address: { '': 1, city: 'c', street: 's' },
+        });
+
+        expect(d.fields).toEqual({ id: 'allowed', address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
+      });
+
+      it('a JSON object with an own __proto__ key never keys a map', () => {
+        const object = JSON.parse(
+          '{"address":{"__proto__":{"p":1},"city":"c"}}',
+        ) as Record<string, unknown>;
+        const d = read(['*', '!address.street'], object);
+
+        expect(Object.keys(d.fields).sort()).toEqual([
+          'address.city',
+          'address.street',
+        ]);
+        expect(Object.keys(d.reasons).sort()).toEqual([
+          'address.city',
+          'address.street',
+        ]);
+      });
+    });
+
+    describe('write axis', () => {
+      const write = (
+        rules: FieldRules,
+        object: Record<string, unknown>,
+        proposed?: Record<string, unknown>,
+      ) =>
+        decideFields(
+          perm('order.update', rules),
+          { subject: { id: 's1' }, object },
+          'write',
+          proposed,
+        );
+      const country = { 'address.country': { targets: ['SE'] } };
+
+      it('a targets config on a path refuses a proposed value outside the targets', () => {
+        const d = write(
+          country,
+          { address: { country: 'SE' } },
+          { address: { country: 'US' } },
+        );
+
+        expect(d.fields['address.country']).toBe('denied');
+        expect(d.reasons['address.country']).toBe('targets-failed');
+      });
+
+      it('a targets config on a path allows a proposed value inside the targets', () => {
+        const d = write(
+          country,
+          { address: { country: 'SE' } },
+          { address: { country: 'SE' } },
+        );
+
+        expect(d.fields['address.country']).toBe('allowed');
+      });
+
+      it('a transitions config on a path reads the current value at that path', () => {
+        const d = write(
+          { 'a.status': { transitions: { draft: ['live'] } } },
+          { a: { status: 'draft' } },
+          { a: { status: 'live' } },
+        );
+
+        expect(d.fields['a.status']).toBe('allowed');
+      });
+
+      it('a path config with no data names the path and asks for the proposed value', () => {
+        const d = write(country, {});
+
+        expect(d.fields).toEqual({ 'address.country': 'unevaluable' });
+        expect(d.reasons['address.country']).toBe('proposed-required');
+      });
+
+      it('a write that nulls a subtree the rules descend into is not traversable', () => {
+        const d = write({ fields: ['*', '!address.street'] }, order, {
+          address: null,
+        });
+
+        expect(d.fields).toEqual({ id: 'allowed', address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
+      });
+
+      it('a plain stored value with a Date proposed is one not-traversable entry', () => {
+        const d = write({ fields: ['*', '!address.street'] }, order, {
+          address: new Date(0),
+        });
+
+        expect(d.fields).toEqual({ id: 'allowed', address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
+      });
+
+      it('walks both the object and the write', () => {
+        const d = write({ fields: ['*', '!address.street'] }, order, {
+          address: { zip: '1' },
+        });
+
+        expect(d.fields).toEqual({
+          id: 'allowed',
+          'address.city': 'allowed',
+          'address.street': 'denied',
+          'address.zip': 'allowed',
+        });
+      });
+
+      it('a proposed object with an own __proto__ key never keys a map', () => {
+        const proposed = JSON.parse(
+          '{"address":{"__proto__":{"p":1},"city":"c"}}',
+        ) as Record<string, unknown>;
+        const d = write({ fields: ['*', '!address.street'] }, order, proposed);
+
+        expect(Object.keys(d.fields).sort()).toEqual([
+          'address.city',
+          'address.street',
+          'id',
+        ]);
+      });
+    });
+  });
 });
 
 const allowedAction: Decision = {
@@ -379,6 +705,131 @@ describe('pickAllowedFields', () => {
     expect(d.allowed).toBe(false);
     expect(pickAllowedFields(d, { name: 'Eve', role: 'admin' })).toEqual({
       name: 'Eve',
+    });
+  });
+
+  describe('nested paths', () => {
+    const pick = (
+      fields: readonly string[],
+      proposed: Record<string, unknown>,
+    ) =>
+      pickAllowedFields(
+        {
+          ...decideFields(
+            perm('order.read', { fields }),
+            { subject: { id: 's1' }, object: proposed },
+            'read',
+          ),
+          action: allowedAction,
+        },
+        proposed,
+      );
+
+    it('rebuilds the parent without the excluded child', () => {
+      const address = { city: 'Malmo', street: 'S1' };
+      const picked = pick(['*', '!address.street'], { id: 'o1', address });
+
+      expect(picked).toEqual({ id: 'o1', address: { city: 'Malmo' } });
+      expect(picked['address']).not.toBe(address);
+    });
+
+    it('keeps every element of an array and its indexes', () => {
+      expect(
+        pick(['*', '!lines.cost'], {
+          lines: [
+            { price: 1, cost: 2 },
+            { price: 3, cost: 4 },
+          ],
+        }),
+      ).toEqual({ lines: [{ price: 1 }, { price: 3 }] });
+    });
+
+    it('an element whose children are all withheld becomes an empty object', () => {
+      expect(pick(['*', '!lines.cost'], { lines: [{ cost: 2 }] })).toEqual({
+        lines: [{}],
+      });
+    });
+
+    it('builds no empty parent object', () => {
+      const picked = pick(['id', 'address.city'], {
+        id: 'o1',
+        address: { street: 'S1' },
+      });
+
+      expect(picked).toEqual({ id: 'o1' });
+      expect(Object.keys(picked)).toEqual(['id']);
+    });
+
+    it('copies a subtree no rule descends into by reference', () => {
+      const meta = { tags: ['a'] };
+      const picked = pick(['*', '!address.street'], {
+        meta,
+        address: { city: 'c' },
+      });
+
+      expect(picked['meta']).toBe(meta);
+    });
+
+    it('never calls a getter on the value it rebuilds', () => {
+      const street = vi.fn(() => 's');
+      const address = {
+        city: 'c',
+        get street() {
+          return street();
+        },
+      };
+      const picked = pick(['*', '!address.street'], { address });
+
+      expect(picked).toEqual({});
+      expect(street).not.toHaveBeenCalled();
+    });
+
+    it('withholds a value it cannot descend into where the decision descends', () => {
+      const decision = {
+        ...decideFields(
+          perm('order.read', { fields: ['*', '!address.street'] }),
+          {
+            subject: { id: 's1' },
+            object: { id: 'o1', address: { city: 'c', street: 's' } },
+          },
+          'read',
+        ),
+        action: allowedAction,
+      };
+
+      expect(
+        pickAllowedFields(decision, { id: 'o1', address: new Date(0) }),
+      ).toEqual({ id: 'o1' });
+      expect(pickAllowedFields(decision, { id: 'o1', address: null })).toEqual({
+        id: 'o1',
+      });
+    });
+
+    it('withholds an array holding a non-object element whole', () => {
+      expect(
+        pick(['*', '!lines.cost'], { lines: [{ price: 1 }, 'x'] }),
+      ).toEqual({});
+    });
+
+    it('builds every level on Object.prototype without an own __proto__', () => {
+      const proposed = JSON.parse(
+        '{"__proto__":{"top":1},"address":{"__proto__":{"p":1},"city":"c"}}',
+      ) as Record<string, unknown>;
+      const picked = pick(['*', '!address.street'], proposed);
+      const address = picked['address'] as Record<string, unknown>;
+
+      for (const level of [picked, address]) {
+        expect(Object.getPrototypeOf(level)).toBe(Object.prototype);
+        expect(Object.hasOwn(level, '__proto__')).toBe(false);
+      }
+      expect(address).toEqual({ city: 'c' });
+    });
+
+    it('terminates on a self-referencing value', () => {
+      const a: Record<string, unknown> = { x: 1 };
+      a['self'] = a;
+
+      expect(() => pick(['*', '!self.self.self.x'], a)).not.toThrow();
     });
   });
 
