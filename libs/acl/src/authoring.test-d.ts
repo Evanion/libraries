@@ -5,6 +5,7 @@ import type {
   Action,
   FieldEntry,
   FieldPath,
+  FieldRulesOf,
   Operand,
   Valid,
 } from './authoring.js';
@@ -606,6 +607,60 @@ describe('typed field paths', () => {
         'address.zip': { targets: ['1'] },
       }),
     );
+  });
+
+  it('accepts a value typed with FieldEntry of an object with a loose field', () => {
+    type Loose = { id: string; meta: Record<string, string> };
+    const loose = policy<Subject, { loose: Loose }>();
+    const entries: readonly FieldEntry<Loose>[] = ['meta.k', '!meta.j', 'id'];
+    loose.for('loose', (p) => p.allow('read').fields(entries));
+    const rules: FieldRulesOf<Loose> = {
+      fields: ['*'],
+      'meta.k': { targets: ['x'] },
+    };
+    loose.for('loose', (p) => p.allow('update').fields(rules));
+    loose.for('loose', (p) =>
+      // @ts-expect-error id is a string leaf
+      p.allow('read').fields(['id.x']),
+    );
+  });
+
+  it('refuses a typo under an object whose properties are all optional', () => {
+    type Opt = { opt?: { line2?: string; zip?: string }; part: Partial<Order> };
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+    type Empty = {};
+    const o = policy<
+      Subject,
+      { o: Opt; partial: Partial<Order>; empty: Empty }
+    >();
+    o.for('o', (p) =>
+      p
+        .allow('read')
+        .fields(['opt.zip', 'opt.line2', 'part.id', 'part.address.city']),
+    );
+    o.for('o', (p) =>
+      // @ts-expect-error zipp is not a key
+      p.allow('read').fields(['opt.zipp']),
+    );
+    o.for('o', (p) =>
+      // @ts-expect-error nope is not a key of Partial<Order>
+      p.allow('read').fields(['part.nope']),
+    );
+    o.for('partial', (p) => p.allow('read').fields(['id', '!address.street']));
+    o.for('partial', (p) =>
+      // @ts-expect-error nope is not a key of Partial<Order>
+      p.allow('read').fields(['nope']),
+    );
+    o.for('empty', (p) => p.allow('read').fields(['*', 'anything']));
+  });
+
+  it('refuses a trailing backslash', () => {
+    const rec = policy<Subject, { rec: { m: Record<string, string> } }>();
+    rec.for('rec', (p) =>
+      // @ts-expect-error a lone backslash escapes nothing
+      p.allow('read').fields(['m.a\\']),
+    );
+    rec.for('rec', (p) => p.allow('read').fields(['m.a\\.b', 'm.a\\\\']));
   });
 
   it('keeps the untyped builder on string', () => {
