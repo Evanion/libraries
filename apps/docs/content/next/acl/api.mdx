@@ -264,11 +264,11 @@ versions shown.
 
 - `rule-edited`: a rule maintains its author-supplied `id` but has had its conditions modified.
 - `both-sides-changed`: a permission's allow and deny sides have both moved.
-- `fields-changed`: a field-rule change happens outside the one decidable case, which is two field lists that contain no `*`.
+- `fields-changed`: the field rules changed in a way `diffMatrix` cannot call a widening or a narrowing. That is any change with a `*` in either name list, any change outside the name list, and two `*`-free lists that differ only in how they are written. A change outside the name list also appears beside the list findings.
 
-When comparing two field lists without `*`, `diffMatrix` compares paths. An entry allows the named path and everything below it, while a `!` entry removes the named path and everything below it.
+When comparing two field lists without `*`, `diffMatrix` compares paths. An entry allows the named path and everything below it, while a `!` entry removes the named path and everything below it. A key with an entry below it is walked into, so a value there that cannot be walked, such as a primitive, a date or a mixed array, is denied. A key with nothing below it keeps any value. `diffMatrix` reports both kinds of change.
 
-The `fields` property of a finding holds the shortest paths that one list allows and the other does not, with dots in key names escaped as `\.`. Moving from `address.city` to `address` is a widening that reports `address`. Dropping `!address.street` from a list that allows `address` is also a widening, and it reports `address.street`.
+The `fields` property of a finding holds the shortest paths that one list allows and the other does not, with `.` and `\` in a key name escaped as `\.` and `\\`. Moving from `address.city` to `address` is a widening that reports `address`. Dropping `!address.street` from a list that allows `address` is also a widening, and it reports `address` and `address.street`.
 
 ## `ReadsObjectFinding`
 
