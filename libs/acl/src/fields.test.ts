@@ -553,12 +553,23 @@ describe('decideFields', () => {
       it('a targets config on a path refuses a proposed value outside the targets', () => {
         const d = write(
           country,
-          { address: { country: 'SE' } },
+          { address: {} },
           { address: { country: 'US' } },
         );
 
         expect(d.fields['address.country']).toBe('denied');
         expect(d.reasons['address.country']).toBe('targets-failed');
+      });
+
+      it('a stored value the targets refuse to replace leaves its parent not traversable', () => {
+        const d = write(
+          country,
+          { address: { country: 'SE' } },
+          { address: { country: 'US' } },
+        );
+
+        expect(d.fields).toEqual({ address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
       });
 
       it('a targets config on a path allows a proposed value inside the targets', () => {
@@ -607,9 +618,11 @@ describe('decideFields', () => {
       });
 
       it('walks both the object and the write', () => {
-        const d = write({ fields: ['*', '!address.street'] }, order, {
-          address: { zip: '1' },
-        });
+        const d = write(
+          { fields: ['*', '!address.street'] },
+          { id: 'o1', address: { city: 'Malmo' } },
+          { address: { zip: '1' } },
+        );
 
         expect(d.fields).toEqual({
           id: 'allowed',
@@ -623,13 +636,255 @@ describe('decideFields', () => {
         const proposed = JSON.parse(
           '{"address":{"__proto__":{"p":1},"city":"c"}}',
         ) as Record<string, unknown>;
-        const d = write({ fields: ['*', '!address.street'] }, order, proposed);
+        const d = write(
+          { fields: ['*', '!address.street'] },
+          { id: 'o1', address: { city: 'Malmo' } },
+          proposed,
+        );
 
         expect(Object.keys(d.fields).sort()).toEqual([
           'address.city',
           'address.street',
           'id',
         ]);
+      });
+    });
+  });
+
+  describe('flat parity and write replacement', () => {
+    const decide = (
+      fields: FieldRules,
+      axis: 'read' | 'write',
+      object: Record<string, unknown>,
+      proposed?: Record<string, unknown>,
+    ) =>
+      decideFields(
+        perm('order.update', fields),
+        { subject: { id: 's1' }, object },
+        axis,
+        proposed,
+      );
+    const picked = (
+      outcome: ReturnType<typeof decideFields>,
+      proposed: Record<string, unknown>,
+    ) => pickAllowedFields({ ...outcome, action: allowedAction }, proposed);
+
+    it('an empty-string rule key configures the empty-string field', () => {
+      const d = decide({ '': { targets: ['x'] } }, 'write', {}, { '': 'y' });
+
+      expect(d.fields).toEqual({ '': 'denied' });
+      expect(d.reasons['']).toBe('targets-failed');
+    });
+
+    it('a bare "!" entry excludes the empty-string field', () => {
+      const d = decide({ fields: ['*', '!'] }, 'read', { '': 'secret', a: 1 });
+
+      expect(d.fields).toEqual({ '': 'denied', a: 'allowed' });
+      expect(d.reasons['']).toBe('not-listed');
+    });
+
+    it('pick copies a top-level getter key, as the flat decision allows it', () => {
+      const proposed = {
+        id: 1,
+        get status() {
+          return 'draft';
+        },
+      };
+      const outcome = decide({ fields: ['*'] }, 'read', proposed);
+
+      expect(picked(outcome, proposed)).toEqual({ id: 1, status: 'draft' });
+    });
+
+    it('a transitions config reads a stored top-level getter', () => {
+      const object = {
+        get status() {
+          return 'draft';
+        },
+      };
+      const d = decide(
+        { status: { transitions: { draft: ['published'] } } },
+        'write',
+        object,
+        { status: 'published' },
+      );
+
+      expect(d.fields['status']).toBe('allowed');
+    });
+
+    it('a targets config reads a proposed top-level getter', () => {
+      const proposed = {
+        get status() {
+          return 'published';
+        },
+      };
+      const d = decide(
+        { status: { targets: ['published'] } },
+        'write',
+        {},
+        proposed,
+      );
+
+      expect(d.fields['status']).toBe('allowed');
+    });
+
+    describe('hostile objects', () => {
+      const revoked = () => {
+        const { proxy, revoke } = Proxy.revocable({}, {});
+        revoke();
+        return proxy;
+      };
+      const throwing = () =>
+        new Proxy(
+          {},
+          {
+            getOwnPropertyDescriptor() {
+              throw new Error('trap');
+            },
+            ownKeys() {
+              throw new Error('trap');
+            },
+          },
+        );
+
+      it.each([
+        ['a revoked proxy', revoked],
+        ['a proxy whose traps throw', throwing],
+      ])('%s is not traversable and never throws', (_, make) => {
+        const rules = { fields: ['*', '!address.street'] };
+        const object = { id: 'o1', address: make() };
+
+        const read = decide(rules, 'read', object);
+
+        expect(read.fields).toEqual({ id: 'allowed', address: 'denied' });
+        expect(read.reasons['address']).toBe('not-traversable');
+
+        const write = decide(rules, 'write', { id: 'o1' }, object);
+
+        expect(write.reasons['address']).toBe('not-traversable');
+      });
+
+      it.each([
+        ['a revoked proxy', revoked],
+        ['a proxy whose traps throw', throwing],
+      ])('pick omits %s where the decision descends', (_, make) => {
+        const outcome = decide({ fields: ['*', '!address.street'] }, 'read', {
+          id: 'o1',
+          address: { city: 'c', street: 's' },
+        });
+
+        expect(picked(outcome, { id: 'o1', address: make() })).toEqual({
+          id: 'o1',
+        });
+      });
+    });
+
+    describe('replacing a stored subtree', () => {
+      const rules = { fields: ['*', '!address.street'] };
+
+      it('denies a parent whose stored value holds a denied descendant', () => {
+        const proposed = { address: { city: 'X' } };
+        const d = decide(
+          rules,
+          'write',
+          { address: { city: 'c', street: 's' } },
+          proposed,
+        );
+
+        expect(d.fields).toEqual({ address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
+        expect(picked(d, proposed)).toEqual({});
+      });
+
+      it('walks a parent whose stored value holds no denied descendant', () => {
+        const proposed = { address: { city: 'X' } };
+        const d = decide(rules, 'write', { address: { city: 'c' } }, proposed);
+
+        expect(d.fields['address.city']).toBe('allowed');
+        expect(picked(d, proposed)).toEqual({ address: { city: 'X' } });
+      });
+
+      it('bubbles the refusal up through a stored grandparent', () => {
+        const d = decide(
+          { fields: ['*', '!a.b.c'] },
+          'write',
+          { a: { b: { c: 1, d: 2 } } },
+          { a: { b: { d: 3 } } },
+        );
+
+        expect(d.fields).toEqual({ a: 'denied' });
+        expect(d.reasons['a']).toBe('not-traversable');
+      });
+
+      it('asks for the stored parent when the write carries one it lacks', () => {
+        const d = decide(
+          rules,
+          'write',
+          { id: 'o1' },
+          { address: { city: 'X' } },
+        );
+
+        expect(d.fields['address']).toBe('unevaluable');
+        expect(d.reasons['address']).toBe('missing-field');
+      });
+
+      it('allows a config path when no stored sibling is denied', () => {
+        const proposed = { address: { country: 'SE' } };
+        const d = decide(
+          { 'address.country': { targets: ['SE'] } },
+          'write',
+          { address: { country: 'NO', zip: '1' } },
+          proposed,
+        );
+
+        expect(d.fields).toEqual({
+          'address.country': 'allowed',
+          'address.zip': 'allowed',
+        });
+      });
+    });
+
+    describe('raw dotted keys on the write axis', () => {
+      it.each([
+        [['*', '!address.street'], 'address\\.street'],
+        [['*', '!address'], 'address\\.street'],
+      ])('%j denies a proposed key spelling a denied path', (list, key) => {
+        const proposed = { 'address.street': 'X' };
+        const d = decide({ fields: list }, 'write', {}, proposed);
+
+        expect(d.fields[key]).toBe('denied');
+        expect(d.reasons[key]).toBe('not-traversable');
+        expect(picked(d, proposed)).toEqual({});
+      });
+
+      it('allows a dotted key the path reading also allows', () => {
+        const proposed = { 'a.b': 1 };
+        const d = decide({ fields: ['*'] }, 'write', {}, proposed);
+
+        expect(d.fields).toEqual({ 'a\\.b': 'allowed' });
+        expect(picked(d, proposed)).toEqual({ 'a.b': 1 });
+      });
+
+      it('applies a path config to a dotted key', () => {
+        const d = decide(
+          { 'address.country': { targets: ['SE'] } },
+          'write',
+          {},
+          { 'address.country': 'US' },
+        );
+
+        expect(d.reasons['address\\.country']).toBe('not-traversable');
+      });
+
+      it('checks a dotted key one level down', () => {
+        const d = decide(
+          { fields: ['*', '!address.meta.secret'] },
+          'write',
+          { address: { city: 'c' } },
+          { address: { 'meta.secret': 1 } },
+        );
+
+        expect(d.fields['address.meta\\.secret']).toBe('denied');
+        expect(d.reasons['address.meta\\.secret']).toBe('not-traversable');
       });
     });
   });

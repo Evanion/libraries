@@ -116,7 +116,8 @@ function nodeAt(root: RuleNode, segments: readonly string[]): RuleNode {
 
 /** The segments of a rule path, or undefined when a segment cannot name a field. */
 function ruleSegments(path: string): readonly string[] | undefined {
-  const segments = parsePath(path);
+  // A top-level empty key is no path, but it is a field of the flat object.
+  const segments = path === '' ? [''] : parsePath(path);
   return segments && segments.every(isFieldName) ? segments : undefined;
 }
 
@@ -179,11 +180,16 @@ function buildRuleTree(rules: FieldRules, axis: 'read' | 'write'): RuleTree {
 
 /** A plain object is the only object the engine reads keys from. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+  try {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return false;
+    }
+    const proto = Object.getPrototypeOf(value);
+    return proto === Object.prototype || proto === null;
+  } catch {
+    // A proxy trap threw: the value is not one the engine can read.
     return false;
   }
-  const proto = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
 }
 
 /**
@@ -228,10 +234,14 @@ function elementsOf(array: readonly unknown[]): object[] | undefined {
  * read, and the walk reads descriptors only.
  */
 function isReadable(bag: object): boolean {
-  if (hasOwn(bag, '')) return false;
-  return Object.values(Object.getOwnPropertyDescriptors(bag)).every(
-    (descriptor) => 'value' in descriptor,
-  );
+  try {
+    if (hasOwn(bag, '')) return false;
+    return Object.values(Object.getOwnPropertyDescriptors(bag)).every(
+      (descriptor) => 'value' in descriptor,
+    );
+  } catch {
+    return false;
+  }
 }
 
 /** The containers on the current path of one side of the walk. */
@@ -244,6 +254,19 @@ type Visited = Set<object>;
  * proposed elements to carry a rule across.
  */
 function expandSide(
+  slots: readonly Slot[],
+  allowArrays: boolean,
+  visited: Visited,
+): object[] | undefined {
+  try {
+    return expandSlots(slots, allowArrays, visited);
+  } catch {
+    // A proxy trap threw: nothing under it can be read.
+    return undefined;
+  }
+}
+
+function expandSlots(
   slots: readonly Slot[],
   allowArrays: boolean,
   visited: Visited,
@@ -352,8 +375,8 @@ interface Level {
 interface WalkState {
   readonly tree: RuleTree;
   readonly axis: 'read' | 'write';
-  readonly fields: FieldOutcome['fields'];
-  readonly reasons: FieldOutcome['reasons'];
+  fields: FieldOutcome['fields'];
+  reasons: FieldOutcome['reasons'];
   readonly storedPath: Visited;
   readonly proposedPath: Visited;
 }
@@ -369,12 +392,87 @@ function emit(
 }
 
 /**
+ * The value of an own property, read as the flat decision reads it. A key no
+ * rule descends into is a plain value to the config checks, so an own getter on
+ * it answers as it does for any other field.
+ */
+function ownValue(bags: readonly object[], key: string): unknown {
+  for (const bag of bags) {
+    if (!hasOwn(bag, key)) continue;
+    try {
+      return (bag as Record<string, unknown>)[key];
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+/** The data value at a path of plain own properties, or undefined. */
+function dataAt(
+  root: object | undefined,
+  segments: readonly string[],
+): unknown {
+  try {
+    let value: unknown = root;
+    for (const segment of segments) {
+      if (typeof value !== 'object' || value === null) return undefined;
+      const slot = slotOf(value, segment);
+      if (slot.opaque) return undefined;
+      value = slot.value;
+    }
+    return value;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * How the rules decide a raw key that holds a `.`, read as the path its plain
+ * split spells. A proposed key `address.street` is one flat key to the object,
+ * and a deep merge or an ORM that splits on `.` writes it as a nested path, so
+ * the write must pass both readings. Undefined when the split is no path.
+ */
+function dottedVerdict(
+  state: WalkState,
+  level: Level,
+  node: RuleNode,
+  inherited: boolean,
+  key: string,
+): Verdict | undefined {
+  const segments = key.split('.');
+  if (!segments.every((segment) => segment !== '' && isFieldName(segment))) {
+    return undefined;
+  }
+  let at: RuleNode | undefined = node;
+  let inheritedAbove = inherited;
+  for (const segment of segments.slice(0, -1)) {
+    at = at?.children.get(segment);
+    if (at?.excluded) return { state: 'denied', reason: 'not-listed' };
+    inheritedAbove = inheritedAbove || state.tree.star || !!at?.listed;
+  }
+  at = at?.children.get(segments[segments.length - 1] as string);
+  if (at?.config) {
+    return decideConfig(
+      at.config,
+      dataAt(level.stored[0], segments),
+      ownValue(level.proposed, key),
+    );
+  }
+  return decideName(state.tree, at, inheritedAbove);
+}
+
+/**
  * Decides every key of one level, and descends into a key only where a rule
  * names a path below it and the key is not excluded. The key a rule descends
  * into leaves the map and its children enter it, so a key and one of its
  * descendants are never both there.
  *
  * `inherited` is whether a listed ancestor allows everything below it.
+ *
+ * Returns whether a key the stored value carries is not allowed. On the write
+ * axis a walked parent with such a key is refused whole, because the picked
+ * parent would replace the stored one and drop the key the caller may not write.
  */
 function walkLevel(
   state: WalkState,
@@ -382,7 +480,7 @@ function walkLevel(
   node: RuleNode,
   segments: readonly string[],
   inherited: boolean,
-): void {
+): boolean {
   const write = state.axis === 'write';
   const keys = new Set<string>();
   for (const bag of level.stored) {
@@ -393,42 +491,65 @@ function walkLevel(
       for (const key of Object.keys(bag)) keys.add(key);
     }
   }
-  // An exclusion below a key the data does carry is reported denied. At the top
-  // level an exclusion alone adds no key, so a flat `!name` stays out of the
-  // maps when the object lacks the field.
+  // An exclusion below a path is reported denied even when its parent is absent
+  // from the data. At the top level an exclusion alone adds no key, so a flat
+  // `!name` stays out of the maps when the object lacks the field.
   for (const [key, child] of node.children) {
     if (child.named || child.children.size > 0 || segments.length > 0) {
       keys.add(key);
     }
   }
 
+  let blocked = false;
   for (const key of keys) {
     if (!isFieldName(key)) continue;
     const child = node.children.get(key);
     const path = [...segments, key];
     const stored = slotsAt(level.stored, key);
     const proposed = write ? slotsAt(level.proposed, key) : [];
-    const first = (slots: readonly Slot[]) =>
+    const done = (verdict: Verdict): void => {
+      emit(state, path, verdict);
+      if (stored.length > 0 && verdict.state !== 'allowed') blocked = true;
+    };
+    const descends = child !== undefined && child.children.size > 0;
+    const descriptorValue = (slots: readonly Slot[]) =>
       slots[0]?.opaque ? undefined : slots[0]?.value;
 
     const verdict = child?.config
-      ? decideConfig(child.config, first(stored), first(proposed))
+      ? decideConfig(
+          child.config,
+          descends ? descriptorValue(stored) : ownValue(level.stored, key),
+          descends ? descriptorValue(proposed) : ownValue(level.proposed, key),
+        )
       : undefined;
-    const descends = child !== undefined && child.children.size > 0;
+    const dotted =
+      write && proposed.length > 0 && key.includes('.')
+        ? dottedVerdict(state, level, node, inherited, key)
+        : undefined;
+    const dottedDenied = dotted !== undefined && dotted.state !== 'allowed';
 
     if (!descends || child.excluded) {
-      emit(state, path, verdict ?? decideName(state.tree, child, inherited));
+      const flat = verdict ?? decideName(state.tree, child, inherited);
+      done(dottedDenied && flat.state === 'allowed' ? NOT_TRAVERSABLE : flat);
+      continue;
+    }
+    if (dottedDenied) {
+      done(NOT_TRAVERSABLE);
       continue;
     }
     if (verdict && verdict.state !== 'allowed') {
-      emit(state, path, verdict);
+      done(verdict);
       continue;
     }
 
     const storedNodes = expandSide(stored, !write, state.storedPath);
     const proposedNodes = expandSide(proposed, false, state.proposedPath);
     if (!storedNodes || !proposedNodes) {
-      emit(state, path, NOT_TRAVERSABLE);
+      done(NOT_TRAVERSABLE);
+      continue;
+    }
+    if (write && proposed.length > 0 && stored.length === 0) {
+      done({ state: 'unevaluable', reason: 'missing-field' });
       continue;
     }
 
@@ -436,8 +557,9 @@ function walkLevel(
     const proposedValues = proposed.map((slot) => slot.value as object);
     for (const v of storedValues) state.storedPath.add(v);
     for (const v of proposedValues) state.proposedPath.add(v);
-    walkLevel(
-      state,
+    const inner: WalkState = { ...state, fields: {}, reasons: {} };
+    const innerBlocked = walkLevel(
+      inner,
       { stored: storedNodes, proposed: proposedNodes },
       child,
       path,
@@ -445,7 +567,18 @@ function walkLevel(
     );
     for (const v of storedValues) state.storedPath.delete(v);
     for (const v of proposedValues) state.proposedPath.delete(v);
+
+    if (write && innerBlocked) {
+      done(NOT_TRAVERSABLE);
+      continue;
+    }
+    for (const innerKey of Object.keys(inner.fields)) {
+      put(state.fields, innerKey, inner.fields[innerKey] as FieldState);
+      put(state.reasons, innerKey, inner.reasons[innerKey] as FieldReason);
+    }
+    if (innerBlocked && stored.length > 0) blocked = true;
   }
+  return blocked;
 }
 
 /**
@@ -545,23 +678,34 @@ const OMIT = Symbol('omit');
  * Rebuilds the allowed part of one object. A key the tree does not carry is not
  * copied. A key the tree carries as a leaf is copied by reference. A key the
  * tree descends into is rebuilt, or left out when its value cannot be walked.
+ *
+ * The top level of the value reads a leaf as the flat decision does, so an own
+ * getter there answers as it does for any other field. Below it the rebuild
+ * reads descriptors only.
  */
 function pickObject(
   source: Record<string, unknown>,
   node: PickNode,
   path: Visited,
+  top: boolean,
 ): Record<string, unknown> {
   const built: Record<string, unknown> = {};
   for (const key of Object.keys(source)) {
     if (!isFieldName(key)) continue;
     const child = node.children.get(key);
     if (!child) continue;
-    const slot = slotOf(source, key);
-    if (slot.opaque) continue;
     if (child.children.size === 0) {
-      if (child.allowed) put(built, key, slot.value);
+      if (!child.allowed) continue;
+      if (top) {
+        put(built, key, source[key]);
+        continue;
+      }
+      const slot = slotOf(source, key);
+      if (!slot.opaque) put(built, key, slot.value);
       continue;
     }
+    const slot = slotOf(source, key);
+    if (slot.opaque) continue;
     const picked = pickValue(slot.value, child, path);
     if (picked !== OMIT) put(built, key, picked);
   }
@@ -582,14 +726,17 @@ function pickValue(value: unknown, node: PickNode, path: Visited): unknown {
         put(
           built as unknown as Record<string, unknown>,
           String(index),
-          pickObject(element as Record<string, unknown>, node, path),
+          pickObject(element as Record<string, unknown>, node, path, false),
         );
       });
       return built;
     }
     if (!isPlainObject(value)) return OMIT;
-    const built = pickObject(value, node, path);
+    const built = pickObject(value, node, path, false);
     return Object.keys(built).length > 0 ? built : OMIT;
+  } catch {
+    // A proxy trap threw: the value cannot be walked.
+    return OMIT;
   } finally {
     path.delete(value);
   }
@@ -630,5 +777,6 @@ export function pickAllowedFields<T extends Record<string, unknown>>(
     proposed,
     pickTree(decision.fields),
     new Set(),
+    true,
   ) as Partial<T>;
 }

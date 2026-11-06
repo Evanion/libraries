@@ -326,7 +326,7 @@ describe('SEC-007 a narrowed write never carries a prototype setter (CWE-1321)',
     );
     const outcome = decideFields(
       rules,
-      { subject: { id: 'u1' }, object: {} },
+      { subject: { id: 'u1' }, object: { address: {} } },
       'write',
       proposed,
     );
@@ -489,6 +489,17 @@ describe('SEC-008 authoring tokens never key a decision (CWE-915)', () => {
       'address.city',
       'address.street',
     ]);
+
+    const writable = pickAllowedFields(
+      {
+        ...outcome,
+        action: { key: 'account.update', allowed: true, reason: 'allow' },
+      },
+      proposed,
+    );
+
+    expect(writable).toEqual({ address: { city: 'Malmo' } });
+    expect(Object.keys(writable['address'] as object)).toEqual(['city']);
   });
 
   it('drops an object key spelled as a baseline or an exclusion', () => {
