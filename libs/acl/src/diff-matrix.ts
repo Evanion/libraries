@@ -281,6 +281,22 @@ function allows(list: PathList, path: readonly string[]): boolean {
   );
 }
 
+/**
+ * Whether a value of any shape at the path is allowed. The engine walks into a
+ * key where an entry sits below it, and a value it cannot walk there (a
+ * primitive, a date, a mixed array) is denied, so only a path with no entry
+ * below it keeps such a value.
+ */
+function keepsWhole(list: PathList, path: readonly string[]): boolean {
+  const below = (entry: readonly string[]) =>
+    entry.length > path.length && covers(path, entry);
+  return (
+    allows(list, path) &&
+    !list.included.some(below) &&
+    !list.excluded.some(below)
+  );
+}
+
 interface PathNode {
   readonly path: readonly string[];
   readonly children: Map<string, PathNode>;
@@ -311,7 +327,8 @@ function pathTree(lists: readonly PathList[]): PathNode {
  * Every path with no entry on or below it is allowed exactly as its nearest
  * entry-bearing ancestor is, so the walk visits the entry tree only. A path is
  * reported when its own status differs, unless an ancestor already reported the
- * same difference with nothing between them that agrees.
+ * same difference with nothing between them that agrees. A path differs in two
+ * ways: the paths it allows, and whether it keeps a value that cannot be walked.
  */
 function gainedPaths(
   gaining: PathList,
@@ -319,15 +336,23 @@ function gainedPaths(
   order: readonly PathList[],
 ): readonly string[] {
   const found: string[] = [];
-  const visit = (node: PathNode, covered: boolean): void => {
-    const differs =
-      node.path.length > 0 &&
-      allows(gaining, node.path) &&
-      !allows(losing, node.path);
-    if (differs && !covered) found.push(formatPath(node.path));
-    for (const child of node.children.values()) visit(child, differs);
+  const visit = (
+    node: PathNode,
+    coveredPath: boolean,
+    coveredWhole: boolean,
+  ) => {
+    const path = node.path;
+    const root = path.length === 0;
+    const pathGain = !root && allows(gaining, path) && !allows(losing, path);
+    const wholeGain =
+      !root && keepsWhole(gaining, path) && !keepsWhole(losing, path);
+    if ((pathGain && !coveredPath) || (wholeGain && !coveredWhole)) {
+      found.push(formatPath(path));
+    }
+    for (const child of node.children.values())
+      visit(child, pathGain, wholeGain);
   };
-  visit(pathTree(order), false);
+  visit(pathTree(order), false, false);
   return found;
 }
 
@@ -402,18 +427,31 @@ function diffFields(
         withdrawn(key, 'field-list-narrowed', undefined, [], undefined, gone),
       );
     }
+    if (outsideList(was, now)) findings.push(fieldsChanged(key, was, now));
     if (findings.length > 0) return findings;
   }
 
-  return [
-    {
-      kind: 'undetermined',
-      key,
-      cause: 'fields-changed',
-      before: was,
-      after: now,
-    },
-  ];
+  return [fieldsChanged(key, was, now)];
+}
+
+function fieldsChanged(
+  key: string,
+  before: Permission['fields'],
+  after: Permission['fields'],
+): DiffFinding {
+  return { kind: 'undetermined', key, cause: 'fields-changed', before, after };
+}
+
+/** Whether the field rules differ in anything but the name list. */
+function outsideList(
+  before: Permission['fields'],
+  after: Permission['fields'],
+): boolean {
+  const rest = (rules: Permission['fields']) => {
+    const { fields: _list, ...others } = rules ?? {};
+    return canonical(others);
+  };
+  return rest(before) !== rest(after);
 }
 
 function diffPermission(before: Permission, after: Permission): DiffFinding[] {

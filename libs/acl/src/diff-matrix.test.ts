@@ -266,6 +266,7 @@ describe('diffMatrix', () => {
         );
 
         expect(findingsOf(diff, 'granted')[0]?.fields).toEqual([
+          'address',
           'address.street',
         ]);
       });
@@ -277,15 +278,48 @@ describe('diffMatrix', () => {
         );
 
         expect(findingsOf(diff, 'withdrawn')[0]?.fields).toEqual([
+          'address',
           'address.street',
         ]);
       });
 
-      it('finds no difference between lists allowing the same paths', () => {
-        const diff = diffLists(['a', 'a.b'], ['a']);
+      it('grants a key whose value an entry below it stopped the walk from keeping', () => {
+        const diff = diffLists(['a', 'a.b', 'c'], ['a']);
 
+        expect(findingsOf(diff, 'granted')[0]?.fields).toEqual(['a']);
+        expect(findingsOf(diff, 'withdrawn')[0]?.fields).toEqual(['c']);
+      });
+
+      it('withdraws a key once an entry below it makes the walk descend', () => {
+        const diff = diffLists(['a'], ['a', 'a.b']);
+
+        expect(findingsOf(diff, 'withdrawn')[0]?.fields).toEqual(['a']);
         expect(findingsOf(diff, 'granted')).toHaveLength(0);
-        expect(findingsOf(diff, 'withdrawn')).toHaveLength(0);
+      });
+
+      it('grants both the key and the path a dropped exclusion released', () => {
+        const diff = diffLists(['a', '!a.b'], ['a']);
+
+        expect(findingsOf(diff, 'granted')[0]?.fields).toEqual(['a', 'a.b']);
+      });
+
+      it('reports a change outside the name list beside the list findings', () => {
+        const withConfig = (names: string[], config: unknown) =>
+          matrix([
+            {
+              ...base,
+              fields: { fields: names, status: config } as never,
+            },
+          ]);
+        const diff = diffMatrix(
+          withConfig(['a'], { transitions: [] }),
+          withConfig(['a', 'b'], { transitions: [['x', 'y']] }),
+        );
+
+        expect(findingsOf(diff, 'granted')[0]?.fields).toEqual(['b']);
+        expect(findingsOf(diff, 'undetermined')[0]?.cause).toBe(
+          'fields-changed',
+        );
       });
 
       it('compares escaped segments, not string prefixes', () => {
