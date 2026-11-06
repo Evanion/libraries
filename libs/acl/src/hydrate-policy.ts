@@ -642,15 +642,20 @@ export function hydratePolicy<
     now: settleNow(now),
   });
 
-  const can = (
+  /**
+   * The gates `can` and `explain` share, in one order: freshness ahead of the
+   * key lookup, since a document past its budget carries no claim about the
+   * present and that includes its claim about which keys it holds, then the
+   * object kind, then the permission. Answers the decision a gate settles, or
+   * the permission and the settled context to evaluate.
+   */
+  const gate = (
     subject: Subject,
     key: string,
     action: string,
-    object?: Record<string, unknown>,
-    now?: Instant,
-  ): Decision => {
-    // Ahead of the key lookup: a document past its budget carries no claim
-    // about the present, and that includes its claim about which keys it holds.
+    object: Record<string, unknown> | undefined,
+    now: Instant | undefined,
+  ): Decision | { permission: Permission; ctx: ResolvedContext } => {
     const ctx = ctxWith(subject, object, now);
     if (stale(ctx.now)) return staleDecision(`${key}.${action}`);
     objectFor(key);
@@ -662,7 +667,20 @@ export function hydratePolicy<
         reason: 'unknown-action',
       };
     }
-    return decideResolved(permission, ctx);
+    return { permission, ctx };
+  };
+
+  const can = (
+    subject: Subject,
+    key: string,
+    action: string,
+    object?: Record<string, unknown>,
+    now?: Instant,
+  ): Decision => {
+    const gated = gate(subject, key, action, object, now);
+    return 'permission' in gated
+      ? decideResolved(gated.permission, gated.ctx)
+      : gated;
   };
 
   const explain = (
@@ -672,29 +690,10 @@ export function hydratePolicy<
     object?: Record<string, unknown>,
     now?: Instant,
   ): Explanation => {
-    const ctx = ctxWith(subject, object, now);
-    // The same gates as `can`, in the same order, so the decisions agree.
-    if (stale(ctx.now)) {
-      return {
-        decision: staleDecision(`${key}.${action}`),
-        deny: [],
-        allow: [],
-      };
-    }
-    objectFor(key);
-    const permission = permissionFor(key, action);
-    if (!permission) {
-      return {
-        decision: {
-          key: `${key}.${action}`,
-          allowed: false,
-          reason: 'unknown-action',
-        },
-        deny: [],
-        allow: [],
-      };
-    }
-    return explainResolved(permission, ctx);
+    const gated = gate(subject, key, action, object, now);
+    return 'permission' in gated
+      ? explainResolved(gated.permission, gated.ctx)
+      : { decision: gated, deny: [], allow: [] };
   };
 
   const canMany = (

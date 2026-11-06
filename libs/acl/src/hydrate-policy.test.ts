@@ -627,6 +627,36 @@ describe('explain', () => {
     );
   });
 
+  const clockRule = {
+    when: [{ field: 'now', op: 'before', value: '2030-01-01T00:00:00Z' }],
+  };
+  const unreadRule = { when: [{ field: 'object.x', op: 'eq', value: 1 }] };
+  const always = { when: [] };
+
+  it.each([
+    { step: 3, deny: [clockRule], allow: [always], reason: 'unusable-clock' },
+    { step: 4, deny: [unreadRule], allow: [always], reason: 'unevaluable' },
+    { step: 5, deny: [], allow: [always], reason: 'allow' },
+    { step: 6, deny: [], allow: [clockRule], reason: 'unusable-clock' },
+  ])('reports step $step', ({ step, deny, allow, reason }) => {
+    const access = hydratePolicy({
+      permissions: [
+        {
+          key: 'doc.read',
+          object: 'doc',
+          action: 'read',
+          rules: allow,
+          denyRules: deny,
+        },
+      ],
+    } as Matrix);
+
+    const explanation = access.explain({}, 'doc', 'read', undefined, 'nope');
+
+    expect(explanation.decision.reason).toBe(reason);
+    expect(explanation.step).toBe(step);
+  });
+
   it('decides what can decides, over 2,000 generated matrices and contexts', () => {
     let compared = 0;
 

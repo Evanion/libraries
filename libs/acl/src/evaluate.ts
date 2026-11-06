@@ -28,14 +28,39 @@ type RuleOutcome =
  *
  * Short of that, an unusable clock outranks an unevaluable path, because it is
  * the one the caller cannot repair by fetching.
- *
- * Takes the outcomes lazily and stops at the first `fails`, so the deciding
- * path reads no condition past it. `explain` hands over outcomes it already
- * computed for every condition.
  */
+function settleRule(
+  id: string,
+  clockUnusable: boolean,
+  missing: readonly string[],
+): RuleOutcome {
+  if (clockUnusable) return { state: 'unusable-clock', rule: id };
+  if (missing.length > 0) return { state: 'unevaluable', rule: id, missing };
+  return { state: 'matched', rule: id };
+}
+
+/** The deciding path: stops at the first `fails`, reading no condition past it. */
+function ruleMatches(
+  rule: Rule,
+  side: 'allow' | 'deny',
+  ctx: ResolvedContext,
+): RuleOutcome {
+  const id = ruleId(rule, side);
+  const missing: string[] = [];
+  let clockUnusable = false;
+  for (const condition of rule.when ?? []) {
+    const outcome = evaluateResolved(condition, ctx);
+    if (outcome.state === 'fails') return { state: 'not-matched', rule: id };
+    if (outcome.state === 'unusable-clock') clockUnusable = true;
+    if (outcome.state === 'unevaluable') missing.push(...outcome.missing);
+  }
+  return settleRule(id, clockUnusable, missing);
+}
+
+/** The same rule over outcomes `explain` already computed for every condition. */
 function foldRule(
   id: string,
-  outcomes: Iterable<ConditionOutcome>,
+  outcomes: readonly ConditionOutcome[],
 ): RuleOutcome {
   const missing: string[] = [];
   let clockUnusable = false;
@@ -44,18 +69,7 @@ function foldRule(
     if (outcome.state === 'unusable-clock') clockUnusable = true;
     if (outcome.state === 'unevaluable') missing.push(...outcome.missing);
   }
-  if (clockUnusable) return { state: 'unusable-clock', rule: id };
-  if (missing.length > 0) return { state: 'unevaluable', rule: id, missing };
-  return { state: 'matched', rule: id };
-}
-
-function* conditionOutcomes(
-  rule: Rule,
-  ctx: ResolvedContext,
-): Generator<ConditionOutcome> {
-  for (const condition of rule.when ?? []) {
-    yield evaluateResolved(condition, ctx);
-  }
+  return settleRule(id, clockUnusable, missing);
 }
 
 /**
@@ -76,25 +90,11 @@ type SideOutcome =
   | { state: 'unusable-clock'; rule: string }
   | { state: 'unevaluable'; rule: string; missing: readonly string[] };
 
-/** Folds rule outcomes into a side, stopping at the first match. */
-function foldSide(outcomes: Iterable<RuleOutcome>): SideOutcome {
-  const missing = new Set<string>();
-  let first: string | undefined;
-  let clockRule: string | undefined;
-
-  for (const outcome of outcomes) {
-    if (outcome.state === 'matched') {
-      return { state: 'matched', rule: outcome.rule };
-    }
-    if (outcome.state === 'unusable-clock') {
-      clockRule ??= outcome.rule;
-    }
-    if (outcome.state === 'unevaluable') {
-      first ??= outcome.rule;
-      for (const path of outcome.missing) missing.add(path);
-    }
-  }
-
+function settleSide(
+  clockRule: string | undefined,
+  first: string | undefined,
+  missing: ReadonlySet<string>,
+): SideOutcome {
   if (clockRule !== undefined) {
     return { state: 'unusable-clock', rule: clockRule };
   }
@@ -104,22 +104,47 @@ function foldSide(outcomes: Iterable<RuleOutcome>): SideOutcome {
   return { state: 'fails' };
 }
 
-function* ruleOutcomes(
-  rules: readonly Rule[] | undefined,
-  side: 'allow' | 'deny',
-  ctx: ResolvedContext,
-): Generator<RuleOutcome> {
-  for (const rule of rules ?? []) {
-    yield foldRule(ruleId(rule, side), conditionOutcomes(rule, ctx));
-  }
-}
-
+/** The deciding path: stops at the first rule that matches. */
 function sideOutcome(
   rules: readonly Rule[] | undefined,
   side: 'allow' | 'deny',
   ctx: ResolvedContext,
 ): SideOutcome {
-  return foldSide(ruleOutcomes(rules, side, ctx));
+  const missing = new Set<string>();
+  let first: string | undefined;
+  let clockRule: string | undefined;
+
+  for (const rule of rules ?? []) {
+    const outcome = ruleMatches(rule, side, ctx);
+    if (outcome.state === 'matched') {
+      return { state: 'matched', rule: outcome.rule };
+    }
+    if (outcome.state === 'unusable-clock') clockRule ??= outcome.rule;
+    if (outcome.state === 'unevaluable') {
+      first ??= outcome.rule;
+      for (const path of outcome.missing) missing.add(path);
+    }
+  }
+  return settleSide(clockRule, first, missing);
+}
+
+/** The same side over rule outcomes `explain` already computed. */
+function foldSide(outcomes: readonly RuleOutcome[]): SideOutcome {
+  const missing = new Set<string>();
+  let first: string | undefined;
+  let clockRule: string | undefined;
+
+  for (const outcome of outcomes) {
+    if (outcome.state === 'matched') {
+      return { state: 'matched', rule: outcome.rule };
+    }
+    if (outcome.state === 'unusable-clock') clockRule ??= outcome.rule;
+    if (outcome.state === 'unevaluable') {
+      first ??= outcome.rule;
+      for (const path of outcome.missing) missing.add(path);
+    }
+  }
+  return settleSide(clockRule, first, missing);
 }
 
 /**
