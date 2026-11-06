@@ -1,7 +1,21 @@
 import type { ObjectKey, Reason } from './types.js';
 
-/** Base class for the configuration errors. All raised at construction. */
+/**
+ * Base class for the configuration errors. All raised at construction.
+ *
+ * `code` is the class name, so a consumer that holds only the data of an error
+ * can still tell which one it was. `path` is a JSON pointer to the node of the
+ * document at fault, `''` for the root. `permissionKey` names the permission
+ * the node sits in. The validator sets both after construction.
+ */
 export class AclConfigError extends Error {
+  path = '';
+  permissionKey?: string;
+
+  get code(): string {
+    return this.name;
+  }
+
   constructor(message: string) {
     super(message);
     this.name = 'AclConfigError';

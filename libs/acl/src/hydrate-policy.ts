@@ -1,13 +1,11 @@
 import { decideResolved, explainResolved } from './evaluate.js';
 import { decideFields } from './fields.js';
 import {
-  InvalidFreshnessError,
   InvalidMatrixError,
-  MissingFreshnessBudgetError,
   UnknownObjectKeyError,
   UnknownPermissionError,
 } from './errors.js';
-import { validateMatrix } from './validate.js';
+import { freshnessIssues, validateMatrix } from './validate.js';
 import { settleNow } from './conditions.js';
 import { permissionReadsObject } from './reads-object.js';
 import type { ResolvedContext } from './conditions.js';
@@ -279,19 +277,12 @@ function expiryOf(matrix: Matrix, options: AccessOptions): number | undefined {
   const { fetchedAt, maxStale: local } = options;
   if (fetchedAt === undefined) return undefined;
 
-  const validated = settleNow(fetchedAt);
-  if (Number.isNaN(validated)) {
-    throw new InvalidFreshnessError('fetchedAt', 'is not an instant');
-  }
-  if (local !== undefined && (!Number.isFinite(local) || local < 0)) {
-    throw new InvalidFreshnessError(
-      'maxStale',
-      'is not a finite, non-negative number of milliseconds',
-    );
-  }
-  if (matrix.maxStale === undefined) throw new MissingFreshnessBudgetError();
+  const [fault] = freshnessIssues(matrix.maxStale, options);
+  if (fault) throw fault;
 
-  return validated + Math.min(matrix.maxStale, local ?? Infinity);
+  const validated = settleNow(fetchedAt);
+  const maxStale = matrix.maxStale as number;
+  return validated + Math.min(maxStale, local ?? Infinity);
 }
 
 /**
