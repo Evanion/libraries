@@ -1,7 +1,13 @@
 import { describe, expectTypeOf, it } from 'vitest';
 
 import { policy } from './authoring.js';
-import type { Action, Operand, Valid } from './authoring.js';
+import type {
+  Action,
+  FieldEntry,
+  FieldPath,
+  Operand,
+  Valid,
+} from './authoring.js';
 import { hydratePolicy } from './hydrate-policy.js';
 import type { Access, KeysOf } from './hydrate-policy.js';
 import { federatedPolicies } from './federated-policies.js';
@@ -420,5 +426,85 @@ describe('typed authoring', () => {
     expectTypeOf(
       access.canFields(subject, 'comment', 'update', {}, 'read').allowed,
     ).toEqualTypeOf<boolean>();
+  });
+});
+
+describe('typed field paths', () => {
+  type Order = {
+    id: string;
+    address: { city: string; street: string };
+    lines: { price: number }[];
+    at: Date;
+    'a.b': { c: string };
+    'x\\y': string;
+  };
+  type Deep = { a: { b: { c: { d: { e: { f: { g: string } } } } } } };
+
+  const typed = policy<Subject, { order: Order; deep: Deep }>();
+
+  it('accepts the paths of the object type, with * and !', () => {
+    typed.for('order', (p) => p.allow('read').fields(['*', '!address.street']));
+    typed.for('order', (p) => p.allow('read').fields(['id', 'lines.price']));
+    typed.for('order', (p) => p.allow('read').fields(['address', 'lines']));
+  });
+
+  it('refuses a path the object type does not have', () => {
+    typed.for('order', (p) =>
+      // @ts-expect-error address has no zip
+      p.allow('read').fields(['!address.zip']),
+    );
+    typed.for('order', (p) =>
+      // @ts-expect-error no such top-level key
+      p.allow('read').fields(['nope']),
+    );
+  });
+
+  it('does not walk a Date', () => {
+    typed.for('order', (p) =>
+      // @ts-expect-error Date is a leaf
+      p.allow('read').fields(['at.getTime']),
+    );
+    typed.for('order', (p) => p.allow('read').fields(['at']));
+  });
+
+  it('writes a key containing a dot or backslash escaped', () => {
+    typed.for('order', (p) => p.allow('read').fields(['a\\.b.c', 'x\\\\y']));
+    typed.for('order', (p) =>
+      // @ts-expect-error the unescaped form is a different path
+      p.allow('read').fields(['a.b.c']),
+    );
+  });
+
+  it('accepts any string past depth 5', () => {
+    typed.for('deep', (p) => p.allow('read').fields(['a.b.c.d.e.anything']));
+    typed.for('deep', (p) =>
+      // @ts-expect-error depth 5 is still checked
+      p.allow('read').fields(['a.b.c.d.zzz']),
+    );
+  });
+
+  it('keys targets and transitions by field path', () => {
+    typed.for('order', (p) =>
+      p.allow('update').fields({
+        fields: ['*'],
+        'address.city': { targets: ['Oslo'] },
+        id: { transitions: { a: ['b'] } },
+      }),
+    );
+    typed.for('order', (p) =>
+      p.allow('update').fields({
+        // @ts-expect-error unknown path
+        'address.zip': { targets: ['1'] },
+      }),
+    );
+  });
+
+  it('keeps the untyped builder on string', () => {
+    const untyped = policy<Subject, { anything: Record<string, unknown> }>();
+    untyped.for('anything', (p) => p.allow('read').fields(['x.y', '!z']));
+    expectTypeOf<FieldPath<Record<string, unknown>>>().toEqualTypeOf<string>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expectTypeOf<FieldPath<any>>().toEqualTypeOf<string>();
+    expectTypeOf<FieldEntry<Order>>().toExtend<string>();
   });
 });

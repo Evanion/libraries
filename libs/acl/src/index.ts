@@ -60,6 +60,8 @@ export type {
   Actions,
   Cond,
   Action,
+  FieldEntry,
+  FieldPath,
   Operand,
   Ops,
   Paths,
