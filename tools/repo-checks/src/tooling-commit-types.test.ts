@@ -26,6 +26,7 @@ import {
   committedMessage,
   projectsOf,
   rangeCommits,
+  report,
   stagedCommit,
   toolingProjects,
   violations,
@@ -353,5 +354,27 @@ describe('the rule', () => {
     expect(
       found.map(({ commit, files: named }) => [commit.message, named]),
     ).toEqual([['fix(repo): cut the fence again', [files.tooling]]]);
+  });
+});
+
+describe('the refusal', () => {
+  const found = [
+    {
+      commit: { sha: '', message: 'fix(repo): x', files: ['NOTES.md'] },
+      files: ['NOTES.md'],
+    },
+  ];
+
+  it('suggests only types that bump nothing', () => {
+    const text = report(found, new Set(['feat', 'fix', 'docs']));
+
+    expect(text).toContain('chore(repo)');
+    expect(text).not.toContain('docs(repo)');
+  });
+
+  it('names the types that bump', () => {
+    const text = report(found, new Set(['feat', 'fix', 'docs']));
+
+    expect(text).toContain('a feat, fix or docs commit');
   });
 });

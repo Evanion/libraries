@@ -399,8 +399,22 @@ export function repositoryWorkspace(root = workspaceRoot): Workspace {
   };
 }
 
-/** The refusal, naming each commit and the files that decided it. */
-export function report(found: Violation[]): string {
+/** The commitlint types a refusal can suggest, in the order it lists them. */
+const SUGGESTED = ['build', 'test', 'ci', 'chore', 'docs', 'style'];
+
+/** Joins names as `a, b or c`. */
+function either(names: readonly string[]): string {
+  return names.length < 2
+    ? names.join('')
+    : `${names.slice(0, -1).join(', ')} or ${names.at(-1)}`;
+}
+
+/**
+ * The refusal, naming each commit and the files that decided it. `bumps` is
+ * the workspace's bumping types, so the types it names as bumping and the ones
+ * it suggests are the ones nx release resolves here.
+ */
+export function report(found: Violation[], bumps: Set<string>): string {
   const lines = [''];
 
   for (const { commit, files } of found) {
@@ -415,9 +429,9 @@ export function report(found: Violation[]): string {
   }
 
   lines.push(
-    '  nx release reads a feat or fix here as a patch for every library that',
-    '  depends on that tooling. Type it build(repo), test(repo) or docs(repo).',
-    '  A commit that also changes a library under release.projects may stay feat or fix.',
+    `  nx release reads a ${either([...bumps])} commit here as a patch for every library that`,
+    `  depends on that tooling. Type it ${either(SUGGESTED.filter((type) => !bumps.has(type)).map((type) => `${type}(repo)`))}.`,
+    '  A commit that also changes a library under release.projects may keep its type.',
     '',
   );
 
@@ -482,10 +496,11 @@ async function main(mode: string | undefined, ...rest: string[]) {
     mode === 'staged'
       ? [stagedCommit(workspaceRoot, argument)]
       : rangeCommits(workspaceRoot, argument);
-  const found = await violations(commits, repositoryWorkspace());
+  const workspace = repositoryWorkspace();
+  const found = await violations(commits, workspace);
 
   if (found.length === 0) return 0;
-  console.error(report(found));
+  console.error(report(found, workspace.bumps));
   return 1;
 }
 
