@@ -1614,6 +1614,23 @@ describe('a flat dotted key on the read axis', () => {
     expect(d.fields['a\\.b.d']).toBe('allowed');
   });
 
+  it('is read under the path it spells when a segment holds a bracket', () => {
+    const own = read(['*', '!data'], { 'data.x[0]': 1 });
+
+    expect(own.fields['data\\.x[0]']).toBe('denied');
+    expect(own.reasons['data\\.x[0]']).toBe('not-listed');
+
+    const below = read(['*', '!address.street'], { 'address.street[0]': 1 });
+
+    expect(below.fields['address\\.street[0]']).toBe('denied');
+    expect(below.reasons['address\\.street[0]']).toBe('not-traversable');
+  });
+
+  it('keeps a bracket key with no rule on its path allowed', () => {
+    expect(read(['*'], { 'a.b[0]': 1 }).fields['a\\.b[0]']).toBe('allowed');
+    expect(read(['*', '!x'], { 'a[0]': 1 }).fields['a[0]']).toBe('allowed');
+  });
+
   it('is denied at a nested level', () => {
     const object = { id: 1, meta: { 'x.y': 1, ok: 2 } };
     const d = read(['*', '!meta.x.y'], object);
