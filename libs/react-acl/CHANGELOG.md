@@ -1,3 +1,23 @@
+## 0.2.0 (2026-11-06)
+
+### 🚀 Features
+
+- ⚠️  **react-acl:** re-export the not-traversable field reason ([b7774b4e](https://github.com/Evanion/libraries/commit/b7774b4e))
+
+### ⚠️  Breaking Changes
+
+- **react-acl:** re-export the not-traversable field reason  ([b7774b4e](https://github.com/Evanion/libraries/commit/b7774b4e))
+  FieldReason gains "not-traversable", so an exhaustive
+  switch over FieldReason needs the new arm.
+
+### 🧱 Updated Dependencies
+
+- Updated @evanion/acl to 0.2.0
+
+### ❤️ Thank You
+
+- Mikael Pettersson @Evanion
+
 ## 0.1.2 (2026-11-06)
 
 ### 🚀 Features
