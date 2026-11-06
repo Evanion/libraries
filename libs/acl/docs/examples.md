@@ -3664,3 +3664,45 @@ garbled.rule; // -> 'preorders-open'
 ```
 
 <!-- #endregion unusable-clock -->
+
+<!-- #region explain -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Question = { ownerId: string };
+type Asker = { id: string; roles: string[] };
+
+const access = policy<Asker, { question: Question }>()
+  .for('question', (p) =>
+    p
+      .allow('update', p.eq('object.ownerId', 'subject.id'))
+      .id('owner')
+      .deny('update', p.contains('subject.roles', 'suspended'))
+      .id('suspended'),
+  )
+  .build();
+
+const owner = { id: 'customer-41', roles: ['suspended'] };
+const why = access.explain(owner, 'question', 'update', {
+  ownerId: 'customer-41',
+});
+
+why.decision.reason; // -> 'denied'
+why.step; // -> 1
+why.deny[0]?.state; // -> 'matched'
+// The allow rule is reported too: the deny decided, and the owner condition held.
+why.allow[0]?.conditions[0]?.state; // -> 'holds'
+
+// Without the row, the owner condition names the path it could not read.
+const unloaded = access.explain(
+  { id: 'customer-41', roles: [] },
+  'question',
+  'update',
+);
+unloaded.decision.reason; // -> 'unevaluable'
+unloaded.allow[0]?.conditions[0]?.state; // -> 'unevaluable'
+unloaded.allow[0]?.conditions[0]?.missing; // -> ['object.ownerId']
+```
+
+<!-- #endregion explain -->

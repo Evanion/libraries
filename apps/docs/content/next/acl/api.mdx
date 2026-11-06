@@ -83,6 +83,7 @@ Both are document fields, so they land in the flattened JSON.
 | `can`                         | one decision for one action on one row                      |
 | `canMany`                     | one decision per row, settling one clock for the whole list |
 | `canFields`                   | the field-level decision on the `read` or `write` axis      |
+| `explain`                     | the decision with every condition behind it                 |
 | `capabilities`                | every permission key, decided against one subject           |
 | `authorize`                   | an `Authorized` handle carrying the subject                 |
 | `object`                      | a `BoundKind` handle carrying the object kind               |
@@ -311,6 +312,35 @@ an object path lands in `object`.
 ## `Condition`
 
 <!-- reference @evanion/acl#Condition example=diff-matrix -->
+
+## `Explanation`
+
+<!-- reference @evanion/acl#Explanation example=explain -->
+
+`Explanation` is what `explain` returns. `decision` equals what `can` returns
+for the same call. `deny` and `allow` list the permission's rules in document
+order, each a `RuleExplanation`. `step` is the precedence step, 1 to 7, that
+decided. An unknown action and a stale document return their `can` decision
+with empty lists and no `step`.
+
+## `RuleExplanation`
+
+<!-- reference @evanion/acl#RuleExplanation -->
+
+`RuleExplanation` is one rule of an `Explanation`. `rule` is the id a
+`Decision.rule` carries. `state` is `matched`, `not-matched`, `unusable-clock`
+or `unevaluable`, taken over all its conditions. `conditions` lists each one as
+a `ConditionExplanation`.
+
+## `ConditionExplanation`
+
+<!-- reference @evanion/acl#ConditionExplanation -->
+
+`ConditionExplanation` is one condition of a rule. `condition` is the
+condition as the document stores it. `state` is `holds`, `fails`,
+`unusable-clock` or `unevaluable`. `missing` names the `object.*` paths an
+`unevaluable` condition could not read. It carries no value from the subject or
+the row.
 
 ## `FieldRules`
 

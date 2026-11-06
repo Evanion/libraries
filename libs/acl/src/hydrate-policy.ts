@@ -1,4 +1,4 @@
-import { decideResolved } from './evaluate.js';
+import { decideResolved, explainResolved } from './evaluate.js';
 import { decideFields } from './fields.js';
 import {
   InvalidFreshnessError,
@@ -13,6 +13,7 @@ import { permissionReadsObject } from './reads-object.js';
 import type { ResolvedContext } from './conditions.js';
 import type {
   Decision,
+  Explanation,
   FieldDecision,
   Instant,
   Matrix,
@@ -371,6 +372,12 @@ export interface Authorized<R = AnyObjects, Keys extends string = string> {
     proposed?: Partial<R[K]>,
   ): FieldDecision;
   capabilities(): Record<Keys, Decision>;
+  /** `Access.explain` for this subject, on the clock `authorize` settled. */
+  explain<K extends keyof R & string>(
+    key: K,
+    action: ActionOf<Keys, K>,
+    object?: Partial<R[K]>,
+  ): Explanation;
 }
 
 /**
@@ -405,6 +412,13 @@ export interface BoundKind<Sub, Obj, Act extends string = string> {
     proposed?: Partial<Obj>,
     now?: Instant,
   ): FieldDecision;
+  /** `Access.explain` for this kind, with the key already bound. */
+  explain(
+    subject: Sub,
+    action: Act,
+    object?: Partial<Obj>,
+    now?: Instant,
+  ): Explanation;
   /** `Access.readsObject` for this kind, with the key already bound. */
   readsObject(action: Act): boolean;
 }
@@ -459,6 +473,24 @@ export interface Access<
     proposed?: Partial<R[K]>,
     now?: Instant,
   ): FieldDecision;
+  /**
+   * Why `can` decides as it does: the same `Decision`, with every condition of
+   * every allow and deny rule evaluated and the precedence step that decided.
+   *
+   * `can` stops at the first rule that decides. `explain` reads them all, so an
+   * editor can show each failing condition without re-implementing evaluation.
+   * The result holds states and the missing `object.*` paths, never a value
+   * from the subject or the object. An unknown action and a stale document
+   * answer with empty rule lists and no `step`. Field decisions carry their own
+   * reasons on `canFields`, so `explain` covers the action decision only.
+   */
+  explain<K extends keyof R & string>(
+    subject: Sub,
+    key: K,
+    action: ActionOf<Keys, K>,
+    object?: Partial<R[K]>,
+    now?: Instant,
+  ): Explanation;
   /**
    * Every action-level decision for this subject, under the document's keys.
    *
@@ -633,6 +665,38 @@ export function hydratePolicy<
     return decideResolved(permission, ctx);
   };
 
+  const explain = (
+    subject: Subject,
+    key: string,
+    action: string,
+    object?: Record<string, unknown>,
+    now?: Instant,
+  ): Explanation => {
+    const ctx = ctxWith(subject, object, now);
+    // The same gates as `can`, in the same order, so the decisions agree.
+    if (stale(ctx.now)) {
+      return {
+        decision: staleDecision(`${key}.${action}`),
+        deny: [],
+        allow: [],
+      };
+    }
+    objectFor(key);
+    const permission = permissionFor(key, action);
+    if (!permission) {
+      return {
+        decision: {
+          key: `${key}.${action}`,
+          allowed: false,
+          reason: 'unknown-action',
+        },
+        deny: [],
+        allow: [],
+      };
+    }
+    return explainResolved(permission, ctx);
+  };
+
   const canMany = (
     subject: Subject,
     key: string,
@@ -735,6 +799,8 @@ export function hydratePolicy<
       canFields: (key, action, object, axis, proposed) =>
         canFields(subject, key, action, object, axis, proposed, now),
       capabilities: () => capabilities(subject, now),
+      explain: (key, action, object) =>
+        explain(subject, key, action, object, now),
     };
   };
 
@@ -747,6 +813,8 @@ export function hydratePolicy<
       canMany(subject, key, action, objects, now),
     canFields: (subject, action, object, axis, proposed, now) =>
       canFields(subject, key, action, object, axis, proposed, now),
+    explain: (subject, action, object, now) =>
+      explain(subject, key, action, object, now),
     readsObject: (action) => readsObject(key, action),
   });
 
@@ -763,6 +831,7 @@ export function hydratePolicy<
     can,
     canMany,
     canFields,
+    explain,
     capabilities,
     authorize,
     object,

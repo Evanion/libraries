@@ -10,6 +10,14 @@ import {
 } from './errors.js';
 import { pickAllowedFields } from './fields.js';
 import { parseMatrix } from './parse-matrix.js';
+import { Gen, rng } from './security/generator.js';
+import {
+  ACTIONS,
+  context,
+  KEYS,
+  matrix as generatedMatrix,
+} from './security/matrix-generator.js';
+import type { Access } from './hydrate-policy.js';
 import type { Instant, Matrix, Permission } from './types.js';
 
 const matrix: Matrix = {
@@ -441,5 +449,229 @@ describe('the context clock', () => {
 
   it('defaults an omitted now to the wall clock', () => {
     expect(answers(undefined).can).toBe(true);
+  });
+});
+
+describe('explain', () => {
+  const owner = hydratePolicy({
+    permissions: [
+      {
+        key: 'comment.update',
+        object: 'comment',
+        action: 'update',
+        rules: [
+          {
+            id: 'owner',
+            when: [{ field: 'object.ownerId', op: 'eq', path: 'subject.id' }],
+          },
+        ],
+        denyRules: [
+          {
+            id: 'suspended',
+            when: [
+              { field: 'subject.roles', op: 'contains', value: 'suspended' },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+
+  it('reports the allow rule that held beside the deny that decided', () => {
+    const explanation = owner.explain(
+      { id: 's1', roles: ['suspended'] },
+      'comment',
+      'update',
+      { ownerId: 's1' },
+    );
+
+    expect(explanation.decision.reason).toBe('denied');
+    expect(explanation.step).toBe(1);
+    expect(explanation.deny[0]).toMatchObject({
+      rule: explanation.decision.rule,
+      state: 'matched',
+    });
+    expect(explanation.allow[0]?.state).toBe('matched');
+    expect(explanation.allow[0]?.conditions[0]?.state).toBe('holds');
+  });
+
+  it('names the object path an omitted object leaves unread', () => {
+    const explanation = owner.explain(
+      { id: 's1', roles: [] },
+      'comment',
+      'update',
+    );
+
+    expect(explanation.decision.reason).toBe('unevaluable');
+    expect(explanation.step).toBe(7);
+    expect(explanation.allow[0]?.state).toBe('unevaluable');
+    expect(explanation.allow[0]?.conditions[0]).toMatchObject({
+      state: 'unevaluable',
+      missing: ['object.ownerId'],
+    });
+  });
+
+  it('reports every condition of a rule whose first one fails', () => {
+    const access = hydratePolicy({
+      permissions: [
+        {
+          key: 'post.read',
+          object: 'post',
+          action: 'read',
+          rules: [
+            {
+              when: [
+                { field: 'subject.roles', op: 'contains', value: 'editor' },
+                { field: 'object.status', op: 'eq', value: 'draft' },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const explanation = access.explain({ roles: [] }, 'post', 'read');
+
+    expect(explanation.allow[0]?.state).toBe('not-matched');
+    expect(
+      explanation.allow[0]?.conditions.map((entry) => entry.state),
+    ).toEqual(['fails', 'unevaluable']);
+    expect(explanation.step).toBe(2);
+  });
+
+  it('keeps the condition as the document stores it', () => {
+    const explanation = owner.explain(
+      { id: 's1', roles: [] },
+      'comment',
+      'update',
+      { ownerId: 's1' },
+    );
+
+    expect(explanation.allow[0]?.conditions[0]?.condition).toEqual({
+      field: 'object.ownerId',
+      op: 'eq',
+      path: 'subject.id',
+    });
+  });
+
+  it('answers an unknown action with empty lists and no step', () => {
+    const access = hydratePolicy(matrix, { closed: true });
+
+    const explanation = access.explain(editor, 'comment', 'archive');
+
+    expect(explanation.decision.reason).toBe('unknown-action');
+    expect(explanation.deny).toEqual([]);
+    expect(explanation.allow).toEqual([]);
+    expect(explanation).not.toHaveProperty('step');
+  });
+
+  it('answers a stale document with empty lists and no step', () => {
+    const access = hydratePolicy(
+      { ...matrix, maxStale: 1000 },
+      { fetchedAt: 0 },
+    );
+
+    const explanation = access.explain(
+      editor,
+      'comment',
+      'read',
+      undefined,
+      5000,
+    );
+
+    expect(explanation.decision.reason).toBe('stale-contract');
+    expect(explanation.deny).toEqual([]);
+    expect(explanation.allow).toEqual([]);
+    expect(explanation).not.toHaveProperty('step');
+  });
+
+  it('carries no value read from the subject or the object', () => {
+    const access = hydratePolicy({
+      permissions: [
+        {
+          key: 'doc.read',
+          object: 'doc',
+          action: 'read',
+          rules: [
+            {
+              when: [
+                { field: 'subject.secret', op: 'eq', path: 'object.label' },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const explanation = access.explain(
+      { secret: 'SUBJECT-SECRET' },
+      'doc',
+      'read',
+      { label: 'OBJECT-LABEL' },
+    );
+    const text = JSON.stringify(explanation);
+
+    expect(text).not.toContain('SUBJECT-SECRET');
+    expect(text).not.toContain('OBJECT-LABEL');
+  });
+
+  it('binds the clock and the subject in the bound forms', () => {
+    const subject = { id: 's1', roles: [] };
+    const object = { ownerId: 's1' };
+
+    expect(
+      owner.authorize(subject).explain('comment', 'update', object),
+    ).toEqual(owner.explain(subject, 'comment', 'update', object));
+    expect(owner.object('comment').explain(subject, 'update', object)).toEqual(
+      owner.explain(subject, 'comment', 'update', object),
+    );
+  });
+
+  it('decides what can decides, over 2,000 generated matrices and contexts', () => {
+    let compared = 0;
+
+    for (let seed = 1; seed <= 2000; seed++) {
+      const gen = new Gen(rng(seed));
+      let access: Access;
+      try {
+        access = parseMatrix(generatedMatrix(gen));
+      } catch {
+        continue;
+      }
+      const permissions = access.matrix.permissions;
+      for (let round = 0; round < 3; round++) {
+        const { subject, object, now } = context(gen);
+        const known = permissions.length > 0 && gen.bool(0.8);
+        const target = known ? gen.pick(permissions) : undefined;
+        const key = target?.object ?? gen.pick(KEYS);
+        const action = target?.action ?? gen.pick(ACTIONS);
+        const clock = now as never;
+
+        const asked = (): unknown => {
+          try {
+            return access.can(subject, key, action, object, clock);
+          } catch (error) {
+            return error;
+          }
+        };
+        const explained = (): unknown => {
+          try {
+            return access.explain(subject, key, action, object, clock).decision;
+          } catch (error) {
+            return error;
+          }
+        };
+        const expected = asked();
+        const actual = explained();
+        if (expected instanceof Error) {
+          expect(actual, `seed ${seed}`).toBeInstanceOf(expected.constructor);
+        } else {
+          expect(actual, `seed ${seed}`).toEqual(expected);
+          compared++;
+        }
+      }
+    }
+
+    expect(compared).toBeGreaterThan(200);
   });
 });
