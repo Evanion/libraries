@@ -184,7 +184,6 @@ built, which is startup for a local matrix and adoption time for a foreign one.
 | `AmbiguousRuleIdError`            | `p.id()` follows an `allow` or `deny` that flattened to other than one rule                                                                                               |
 | `UnknownFieldError`               | a condition names a field the declared schema does not carry                                                                                                              |
 | `FieldTypeMismatchError`          | an operator or comparand does not fit the declared type                                                                                                                   |
-| `BangInAllowListError`            | a `!name` entry sits inside an explicit allow-list, which already denies                                                                                                  |
 | `DenyWithoutBaselineError`        | a `!name` entry has no `*` baseline to subtract from                                                                                                                      |
 | `TargetsTransitionsConflictError` | one field configures both `targets` and `transitions`                                                                                                                     |
 | `UnknownObjectKeyError`           | a query on a local typed matrix names an object kind the document never held; under `parseMatrix` the key fails closed with `reason: 'unknown-action'` and nothing throws |

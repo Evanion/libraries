@@ -160,6 +160,7 @@ button does:
 | `transition-failed` | the edge from the current value, which `transitions` does not list    |
 | `missing-field`     | the current value, which the row lacked; the same refetch as the row  |
 | `proposed-required` | the proposed value, which a field with a config needs and did not get |
+| `not-traversable`   | the value, which a rule looks into and the engine cannot walk         |
 
 [Which fields may they write?](../writing) builds a policy that produces
 `allow`, `not-listed`, `transition-failed` and `missing-field`, and

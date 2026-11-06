@@ -29,23 +29,51 @@ The `pickAllowedFields` function throws `ActionNotAllowedError` if the action it
 
 For an example of a filter that incorrectly implements the field step by passing a projection, see [Caveats and pitfalls](../pitfalls).
 
-## Nested objects in @evanion/acl field rules
+## Handling Nested Objects in @evanion/acl
 
-To define which parts of a data row are visible, `@evanion/acl` evaluates top-level keys via `Object.keys`. Because field rules name top-level keys only, nested paths are not supported; for example, `address` is a field, but `address.street` is not.
+To manage access to specific properties within an object, `@evanion/acl` uses dot-notation paths. While `address` refers to a top-level key of a row, `address.street` targets the street property nested inside that object. If a key contains a literal `.` or `\`, you escape it with a backslash; for example, the flat key `a.b` is written as `a\.b`. This same escaped spelling is used in decision maps.
 
-If you attempt to use a dotted key—whether in a field list like `['*', '!address.street']` or within `targets` or `transitions` rules—the build will refuse it. This results in an `InvalidPermissionError` that names the specific permission key and the invalid entry. The build also refuses a name containing a backslash, which is reserved as the path escape. A flat data key that literally contains a dot cannot be named by a rule.
+### How Nested Exclusions Work
 
-The example below demonstrates a refused build followed by the correct way to hide a nested field.
+You can hide specific nested keys by combining a baseline allowance with a targeted exclusion. Because an exclusion needs a baseline to function, you must either use the wildcard `*` or list an ancestor of the path you wish to hide.
+
+For example, given a row `{ id, address: { city, street } }`, the rule `['*', '!address.street']` marks `id` and `address.city` as `allowed` and `address.street` as `denied`. Consequently, `pickAllowedFields` returns the address object without the street.
+
+Similarly, listing a parent allows everything beneath it. The rule `['id', 'address', '!address.street']` allows the `id` and the entire `address` object, except for the street. These path-based rules can also be used for `targets` or `transitions` keys, such as `'address.country'`.
+
+The example below demonstrates how to hide a nested key and the resulting decision.
 
 ```ts twoslash file=libs/acl/docs/examples.md region=nested-fields
 
 ```
 
-Conditions share this same limitation, as a path can only read one field of a scope. As detailed in [What can throw?](../errors), a path like `object.address.city` will cause the policy to be refused during the build process.
+### Arrays and Traversability
 
-To hide a specific part of a nested object, you must decide its visibility separately. You can achieve this by giving the nested shape its own object kind with its own field rules, then calling `canFields` on the nested value after the parent has been picked. In this pattern, the row-level gate remains on the parent kind, while the nested kind permits `read` unconditionally.
+When a rule targets an array, it applies to every element within that array. For instance, `!lines.cost` hides the `cost` property on every line; the resulting map key contains no index.
 
-Because `@evanion/acl` does not automatically walk into values, a response containing three nested objects requires three additional `canFields` calls per row. To reduce this overhead, you can flatten sensitive nested data into its own top-level field on the row.
+However, the write axis handles arrays differently. Any rule that attempts to descend into an array during a write operation will refuse the entire array, as the engine cannot reliably match stored elements to proposed ones. To modify an array, write each element through its own distinct action.
+
+The engine can walk plain objects and arrays. If it encounters a value it cannot traverse—such as a `Date`, a class instance, a value with a getter, a primitive, `null`, or a circular reference—the value is `denied` with the reason `not-traversable`.
+
+- **On Read:** The entire value is hidden.
+- **On Write:** The value is refused.
+
+This protection also prevents "accidental erasure." If a write would replace a subtree containing a key the caller is forbidden from writing (e.g., setting `address: null` when `!address.street` is active), the operation is marked `not-traversable`. Additionally, any raw key shaped like a path (containing `[` or `]` or an ambiguous `.`) is refused on the write axis.
+
+### Validation and Constraints
+
+To ensure permission integrity, the construction process refuses lists that contain conflicting intents or invalid paths. An `InvalidPermissionError` (naming the permission key and the entries) is raised for:
+
+- Empty segments (e.g., `a..b`).
+- Segments named `__proto__`, `*`, or those starting with `!`.
+- An entry placed beside its own exclusion.
+- An allow rule placed below an excluded ancestor.
+- A `targets` or `transitions` key that has another rule beneath it.
+- Paths exceeding 32 segments.
+
+If an exclusion is provided without a baseline, the engine raises a `DenyWithoutBaselineError`.
+
+Finally, conditions maintain a one-field limit. Any path like `object.address.city` used within a condition is refused at build time, as detailed in [What can throw?](../errors).
 
 ## Paging a filtered list with @evanion/acl
 

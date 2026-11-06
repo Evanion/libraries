@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   AclConfigError,
-  BangInAllowListError,
   DenyWithoutBaselineError,
   DuplicatePermissionError,
   DuplicateRuleIdError,
@@ -13,6 +12,8 @@ import {
   KeyMismatchError,
   TargetsTransitionsConflictError,
 } from './errors.js';
+import { policy } from './authoring.js';
+import { hydratePolicy } from './hydrate-policy.js';
 import { validateMatrix } from './validate.js';
 import type { Matrix } from './types.js';
 
@@ -60,69 +61,173 @@ describe('validateMatrix', () => {
     expect(() => validateMatrix(matrix)).toThrow(DenyWithoutBaselineError);
   });
 
-  it('rejects a bang mixed into an explicit allow-list', () => {
-    const matrix: Matrix = {
+  describe('field paths', () => {
+    type FieldsArg = string[] | Record<string, unknown>;
+    const matrixOf = (fields: FieldsArg, action = 'read'): Matrix => ({
       permissions: [
         {
-          key: 'comment.read',
-          object: 'comment',
-          action: 'read',
-          fields: { fields: ['body', '!status'] },
-        },
-      ],
-    };
-
-    expect(() => validateMatrix(matrix)).toThrow(BangInAllowListError);
-  });
-
-  it.each([
-    ['a dotted allow entry', ['id', 'address.city']],
-    ['a dotted deny entry', ['*', '!address.street']],
-    ['an escaped allow entry', ['id', 'a\\.b']],
-    ['an escaped deny entry', ['*', '!a\\b']],
-  ])('rejects %s, naming the entry', (_, names) => {
-    const matrix: Matrix = {
-      permissions: [
-        {
-          key: 'order.read',
+          key: `order.${action}`,
           object: 'order',
-          action: 'read',
-          fields: { fields: names },
+          action,
+          fields: (Array.isArray(fields)
+            ? { fields }
+            : fields) as unknown as Matrix['permissions'][number]['fields'],
         },
       ],
-    };
-
-    expect(() => validateMatrix(matrix)).toThrow(InvalidPermissionError);
-    expect(() => validateMatrix(matrix)).toThrow(
-      /"order\.read": "fields\.fields\[\d\]" .*top-level keys.*nested path or an escaped name is not supported/,
-    );
-  });
-
-  it.each([
-    ['targets', 'address.country'],
-    ['transitions', 'address.country'],
-    ['targets', 'a\\.b'],
-    ['transitions', 'a\\.b'],
-    ['targets', 'a\\b'],
-    ['transitions', 'a\\b'],
-  ] as const)('rejects the rule key %s carrying %s', (kind, name) => {
-    const config =
-      kind === 'targets' ? { targets: ['SE'] } : { transitions: { a: ['b'] } };
-    const matrix: Matrix = {
-      permissions: [
-        {
-          key: 'order.update',
-          object: 'order',
-          action: 'update',
-          fields: { [name]: config },
-        },
+    });
+    /** Every construction path a path list reaches. */
+    const builds: [string, (fields: FieldsArg) => unknown][] = [
+      ['validateMatrix', (fields) => validateMatrix(matrixOf(fields))],
+      ['hydratePolicy', (fields) => hydratePolicy(matrixOf(fields))],
+      [
+        'policy().build',
+        (fields) =>
+          policy<{ id: string }, { order: Record<string, unknown> }>()
+            .for('order', (p) =>
+              p.allow('read', p.always).fields(fields as never),
+            )
+            .build(),
       ],
+    ];
+    const caught = (
+      build: (fields: FieldsArg) => unknown,
+      fields: FieldsArg,
+    ) => {
+      try {
+        build(fields);
+      } catch (error) {
+        return error;
+      }
+      return undefined;
     };
 
-    expect(() => validateMatrix(matrix)).toThrow(InvalidPermissionError);
-    expect(() => validateMatrix(matrix)).toThrow(
-      /"order\.update": "fields\..+" .*nested path or an escaped name is not supported/,
-    );
+    describe.each(builds)('through %s', (_, build) => {
+      it.each([
+        [['*', '!address.street']],
+        [['id', 'address', '!address.street']],
+        [['id', 'address.city']],
+        [['a\\.b']],
+        [{ 'address.country': { targets: ['SE'] } }],
+        [['*', 'title']],
+        [['address', 'address.city']],
+        [['*', '!address.street', '!address.street']],
+      ] as [FieldsArg][])('accepts %j', (fields) => {
+        expect(caught(build, fields)).toBeUndefined();
+      });
+
+      it('accepts a config on the same path as an exclusion', () => {
+        expect(
+          caught(build, {
+            fields: ['*', '!status'],
+            status: { targets: ['x'] },
+          }),
+        ).toBeUndefined();
+      });
+
+      it.each([
+        ['a..b', 'fields.fields[0]'],
+        ['.a', 'fields.fields[0]'],
+        ['a.', 'fields.fields[0]'],
+        ['a\\', 'fields.fields[0]'],
+        ['a.__proto__', 'fields.fields[0]'],
+        ['a.*', 'fields.fields[0]'],
+        ['a.!b', 'fields.fields[0]'],
+        ['!a..b', 'fields.fields[0]'],
+      ])('refuses the entry %j', (entry, field) => {
+        const error = caught(build, [entry]);
+
+        expect(error).toBeInstanceOf(InvalidPermissionError);
+        expect((error as InvalidPermissionError).key).toBe('order.read');
+        expect((error as InvalidPermissionError).field).toBe(field);
+      });
+
+      it.each([['a..b'], ['a.'], ['a.__proto__'], ['a.*'], ['a\\']])(
+        'refuses the config key %j',
+        (name) => {
+          const error = caught(build, { [name]: { targets: ['x'] } });
+
+          expect(error).toBeInstanceOf(InvalidPermissionError);
+          expect((error as InvalidPermissionError).field).toBe(
+            `fields.${name}`,
+          );
+        },
+      );
+
+      it.each([[['id', '!address.street']], [['!a']], [['body', '!status']]])(
+        'refuses an exclusion with no baseline: %j',
+        (fields) => {
+          expect(caught(build, fields)).toBeInstanceOf(
+            DenyWithoutBaselineError,
+          );
+        },
+      );
+
+      it.each([
+        [['a', '!a'], '"!a"', '"a"'],
+        [['*', '!address', 'address.city'], '"address.city"', '"!address"'],
+      ])(
+        'refuses contradictory entries %j, naming both',
+        (fields, ...named) => {
+          const error = caught(build, fields);
+
+          expect(error).toBeInstanceOf(InvalidPermissionError);
+          expect((error as InvalidPermissionError).key).toBe('order.read');
+          for (const name of named) {
+            expect((error as Error).message).toContain(name);
+          }
+        },
+      );
+
+      it('refuses a config under an excluded ancestor, naming both', () => {
+        const error = caught(build, {
+          fields: ['*', '!address'],
+          'address.country': { targets: ['SE'] },
+        });
+
+        expect(error).toBeInstanceOf(InvalidPermissionError);
+        expect((error as InvalidPermissionError).field).toBe(
+          'fields.address.country',
+        );
+        expect((error as Error).message).toContain('"!address"');
+      });
+
+      it('refuses a config with a list entry below it, naming both', () => {
+        const error = caught(build, {
+          fields: ['*', '!address.city'],
+          address: { targets: ['x'] },
+        });
+
+        expect(error).toBeInstanceOf(InvalidPermissionError);
+        expect((error as Error).message).toContain('"address"');
+        expect((error as Error).message).toContain('"!address.city"');
+      });
+
+      it('refuses a config with another config below it, naming both', () => {
+        const error = caught(build, {
+          address: { targets: ['x'] },
+          'address.country': { targets: ['SE'] },
+        });
+
+        expect(error).toBeInstanceOf(InvalidPermissionError);
+        expect((error as Error).message).toContain('"address"');
+        expect((error as Error).message).toContain('"address.country"');
+      });
+
+      it('accepts a path of 32 segments and refuses one of 33', () => {
+        const path = (n: number) =>
+          Array.from({ length: n }, () => 'a').join('.');
+
+        expect(caught(build, ['*', `!${path(32)}`])).toBeUndefined();
+        const error = caught(build, ['*', `!${path(33)}`]);
+        expect(error).toBeInstanceOf(InvalidPermissionError);
+        expect((error as InvalidPermissionError).field).toBe(
+          'fields.fields[1]',
+        );
+        expect(
+          caught(build, { [path(33)]: { targets: ['x'] } }),
+        ).toBeInstanceOf(InvalidPermissionError);
+      });
+    });
   });
 
   it('rejects targets and transitions on the same field', () => {

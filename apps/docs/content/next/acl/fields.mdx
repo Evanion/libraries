@@ -43,6 +43,7 @@ gated on the action, and that flag composes both halves. A caller who reads the 
 | `transition-failed` | the current value has no edge to the proposed one                  |
 | `missing-field`     | a `transitions` field whose current value the object did not carry |
 | `proposed-required` | a configured field with no proposed value in the write             |
+| `not-traversable`   | a rule needs to look into a value the engine cannot walk           |
 
 ## Naming the fields
 
@@ -71,12 +72,12 @@ The object form keys the configs by field name and takes `fields` for the name
 list, so a field called `fields` gets no config. The name list can still allow
 or deny it.
 
-Construction refuses four authoring mistakes.
+Construction refuses these authoring mistakes.
 
 | The document says                            | Construction raises               |
 | -------------------------------------------- | --------------------------------- |
-| a `!name` with no `*` baseline               | `DenyWithoutBaselineError`        |
-| a `!name` inside an explicit allow-list      | `BangInAllowListError`            |
+| a `!path` with no `*` or listed ancestor     | `DenyWithoutBaselineError`        |
+| a malformed path, or two intents for a path  | `InvalidPermissionError`          |
 | `targets` and `transitions` on one field     | `TargetsTransitionsConflictError` |
 | a per-field config on a field named `fields` | `InvalidPermissionError`          |
 

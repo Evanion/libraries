@@ -56,16 +56,6 @@ export class DenyWithoutBaselineError extends AclConfigError {
   }
 }
 
-/** A `!` entry mixed into an explicit allow-list. */
-export class BangInAllowListError extends AclConfigError {
-  constructor(field: string) {
-    super(
-      `field "${field}" is denied inside an explicit allow-list, which already denies anything not listed`,
-    );
-    this.name = 'BangInAllowListError';
-  }
-}
-
 /** Both `targets` and `transitions` on one field. */
 export class TargetsTransitionsConflictError extends AclConfigError {
   constructor(field: string) {

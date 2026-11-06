@@ -1620,29 +1620,17 @@ response; // -> [{ id: 'o1', customerId: 'c1', total: 40 }, { id: 'o3', customer
 <!-- #region nested-fields -->
 
 ```ts @import.meta.vitest
-import {
-  InvalidPermissionError,
-  pickAllowedFields,
-  policy,
-} from '@evanion/acl';
+import { pickAllowedFields, policy } from '@evanion/acl';
 import { expect } from 'vitest';
 
 type Address = { city: string; street: string };
 type Order = { id: string; address: Address };
 
-// Field rules name top-level keys, and a dotted entry is refused.
-const dotted = () =>
-  policy<{ id: string }, { order: Order }>()
-    .for('order', (p) =>
-      p.allow('read', p.always).fields(['*', '!address.street']),
-    )
-    .build();
-expect(dotted).toThrow(InvalidPermissionError);
-
-// The nested shape gets its own object kind, decided with its own call.
-const access = policy<{ id: string }, { order: Order; address: Address }>()
-  .for('order', (p) => p.allow('read', p.always))
-  .for('address', (p) => p.allow('read', p.always).fields(['*', '!street']))
+// A rule names a path, and the exclusion hides exactly that key.
+const access = policy<{ id: string }, { order: Order }>()
+  .for('order', (p) =>
+    p.allow('read', p.always).fields(['*', '!address.street']),
+  )
   .build();
 
 const customer = { id: 'c1' };
@@ -1651,16 +1639,27 @@ const order: Order = {
   address: { city: 'Malmo', street: 'Storgatan 1' },
 };
 
-const top = access.canFields(customer, 'order', 'read', order, 'read');
-Object.keys(top.fields); // -> ['id', 'address']
-top.fields['address']; // -> 'allowed'
+const decision = access.canFields(customer, 'order', 'read', order, 'read');
+Object.keys(decision.fields); // -> ['id', 'address.city', 'address.street']
+decision.fields['address.street']; // -> 'denied'
+decision.allowed; // -> false
 
-const nested = pickAllowedFields(top, order).address ?? {
-  city: '',
-  street: '',
-};
-const address = access.canFields(customer, 'address', 'read', nested, 'read');
-pickAllowedFields(address, nested); // -> { city: 'Malmo' }
+// The picked parent keeps the rest of the address.
+pickAllowedFields(decision, order); // -> { id: 'o1', address: { city: 'Malmo' } }
+
+// A path that is also a flat key with a dot in it is escaped.
+const flat = policy<{ id: string }, { order: { 'a.b': string } }>()
+  .for('order', (p) => p.allow('read', p.always).fields(['*', '!a\\.b']))
+  .build();
+const flatDecision = flat.canFields(
+  customer,
+  'order',
+  'read',
+  { 'a.b': 'x' },
+  'read',
+);
+flatDecision.fields; // -> { 'a\\.b': 'denied' }
+expect(flatDecision.allowed).toBe(false);
 ```
 
 <!-- #endregion nested-fields -->
@@ -3256,13 +3255,13 @@ raised(() => parseMatrix(containsOnString)); // -> 'FieldTypeMismatchError'
 const fields = (rules: unknown) =>
   ({ version: 'v1', permissions: [{ ...read, fields: rules }] }) as never;
 
-const bangInList = fields({ fields: ['body', '!status'] });
+const twoIntents = fields({ fields: ['*', '!address', 'address.city'] });
 const bangNoBaseline = fields({ fields: ['!status'] });
 const bothConfigs = fields({
   status: { targets: ['open'], transitions: { open: [] } },
 });
 
-raised(() => parseMatrix(bangInList)); // -> 'BangInAllowListError'
+raised(() => parseMatrix(twoIntents)); // -> 'InvalidPermissionError'
 raised(() => parseMatrix(bangNoBaseline)); // -> 'DenyWithoutBaselineError'
 raised(() => parseMatrix(bothConfigs)); // -> 'TargetsTransitionsConflictError'
 ```

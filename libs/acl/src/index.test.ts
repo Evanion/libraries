@@ -17,7 +17,6 @@ const RUNTIME_EXPORTS = [
   'AclConfigError',
   'ActionNotAllowedError',
   'AmbiguousRuleIdError',
-  'BangInAllowListError',
   'DenyWithoutBaselineError',
   'DuplicatePermissionError',
   'DuplicateRuleIdError',

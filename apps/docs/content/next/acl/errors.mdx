@@ -82,14 +82,14 @@ its input first, and `raised` reports the class, so one case reads as one line:
 
 ```
 
-| Class                      | The input that raises it                                                        |
-| -------------------------- | ------------------------------------------------------------------------------- |
-| `InvalidMatrixError`       | no `permissions` array, or a `version` that is not a string or a number         |
-| `KeyMismatchError`         | a `key` that is not exactly `` `${object}.${action}` ``                         |
-| `DuplicatePermissionError` | two permissions sharing one key                                                 |
-| `InvalidPermissionError`   | a permission missing its `action`, or a malformed `object`, `rules` or `fields` |
-| `InvalidRuleError`         | a rule whose `when` is absent or not an array                                   |
-| `InvalidConditionError`    | an unknown `op`, a path nested below its scope, or an unknown scope             |
+| Class                      | The input that raises it                                                                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `InvalidMatrixError`       | no `permissions` array, or a `version` that is not a string or a number                                                                                                         |
+| `KeyMismatchError`         | a `key` that is not exactly `` `${object}.${action}` ``                                                                                                                         |
+| `DuplicatePermissionError` | two permissions sharing one key                                                                                                                                                 |
+| `InvalidPermissionError`   | a permission missing its `action`, or a malformed `object`, `rules` or `fields`, including a field path that cannot name a field or a list that states two intents for one path |
+| `InvalidRuleError`         | a rule whose `when` is absent or not an array                                                                                                                                   |
+| `InvalidConditionError`    | an unknown `op`, a path nested below its scope, or an unknown scope                                                                                                             |
 
 `InvalidConditionError` carries `key`, `field` and `where`, and `where` is the
 path to the condition inside the permission, so a document with forty rules
@@ -114,15 +114,30 @@ present or not.
 | `InvalidSchemaError`              | a malformed schema, or a field type outside `string`, `number`, `boolean` and `instant` |
 | `UnknownFieldError`               | a condition naming a field the schema does not declare                                  |
 | `FieldTypeMismatchError`          | an operator that does not fit the type, such as `contains` on a string                  |
-| `BangInAllowListError`            | a `!name` inside a list of names                                                        |
 | `DenyWithoutBaselineError`        | a `!name` with no `*` beside it                                                         |
 | `TargetsTransitionsConflictError` | one field given both `targets` and `transitions`                                        |
 
-`*` and `!name` are syntax in a list of fields, so the last three are raised by
-the shape of the list. [Which fields may they write?](../writing) has that
-syntax. A typed author meets two more while naming rules, `DuplicateRuleIdError`
-and `AmbiguousRuleIdError`, which
-[Typed authoring](../authoring#construction-errors) tables.
+### Field paths
+
+To define which data a user can access, you specify a list of field paths in `@evanion/acl`. This list uses a specific syntax where `*` (wildcard) and `!name` (exclusion) denote the intent of the rule.
+
+Because these symbols carry special meaning in the list, they cannot be part of a field's actual name. If a path is malformed, the package throws an `InvalidPermissionError`. This error occurs if a path contains:
+
+- An empty segment.
+- A `__proto__` segment.
+- A `*` segment.
+- A segment starting with `!`.
+- More than 32 segments.
+
+The system also prevents conflicting intents for the same path. An `InvalidPermissionError` is raised if the list contains:
+
+- An entry and its own exclusion side-by-side.
+- An allow rule positioned below an excluded ancestor.
+- A `targets` or `transitions` key with another rule below it.
+
+When these conflicts occur, the error identifies the specific permission key and both conflicting entries. For a full guide on this syntax, see [Which fields may they write?](../writing).
+
+Users employing typed authoring may encounter two additional errors while naming rules: `DuplicateRuleIdError` and `AmbiguousRuleIdError`. These are detailed in the [Typed authoring](../authoring#construction-errors) tables.
 
 ## What refuses an acl consumer's freshness settings
 

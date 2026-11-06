@@ -1,6 +1,6 @@
 # The acl security register
 
-`libs/acl/SECURITY.md` is the security register of `@evanion/acl`: thirty-seven
+`libs/acl/SECURITY.md` is the security register of `@evanion/acl`: forty
 classes of attack, each held to a `describe` block of tests that
 `npx nx test @evanion/acl` runs. This page shows every entry beside its tests.
 
@@ -206,9 +206,9 @@ the cases on this page leave this order.
 
 <RankRule />
 
-## The acl register's thirty-seven cases
+## The acl register's forty cases
 
-`@evanion/acl`'s thirty-seven register entries follow, each with its test, in
+`@evanion/acl`'s forty register entries follow, each with its test, in
 four groups: out of scope, primitive supplied, prevented when a decision is
 made, and refused at construction.
 
@@ -468,6 +468,30 @@ made, and refused at construction.
 
 </Case>
 
+<Case id="SEC-022">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-022
+
+```
+
+</Case>
+
+<Case id="SEC-023">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-023
+
+```
+
+</Case>
+
+<Case id="SEC-024">
+
+```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-024
+
+```
+
+</Case>
+
 ### Refused at construction
 
 <Case id="SEC-002">
@@ -513,14 +537,6 @@ made, and refused at construction.
 <Case id="SEC-021">
 
 ```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-021
-
-```
-
-</Case>
-
-<Case id="SEC-022">
-
-```ts file=libs/acl/src/security/tier1-prevented.test.ts region=sec-022
 
 ```
 
