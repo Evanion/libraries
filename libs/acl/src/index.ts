@@ -102,8 +102,10 @@ export {
 export type {
   BaseFieldType,
   Condition,
+  ConditionExplanation,
   Decision,
   EvaluationContext,
+  Explanation,
   FieldConfig,
   FieldDecision,
   FieldReason,
@@ -118,4 +120,5 @@ export type {
   Permission,
   Reason,
   Rule,
+  RuleExplanation,
 } from './types.js';

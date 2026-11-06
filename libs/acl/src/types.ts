@@ -258,6 +258,50 @@ export type Reason =
   | 'unusable-clock'
   | 'stale-contract';
 
+/**
+ * One condition of a rule, as `explain` reports it.
+ *
+ * `condition` is the condition as the document stores it. `state` is what the
+ * engine found: `holds`, `fails`, `unusable-clock` when the call's instant does
+ * not parse, or `unevaluable` when the object lacks a path it reads. `missing`
+ * names those `object.*` paths and appears only on `unevaluable`. No value from
+ * the subject or the object appears here.
+ */
+export interface ConditionExplanation {
+  condition: Condition;
+  state: 'holds' | 'fails' | 'unusable-clock' | 'unevaluable';
+  missing?: readonly string[];
+}
+
+/**
+ * One rule of a permission, as `explain` reports it.
+ *
+ * `rule` is the id a `Decision.rule` would carry. `state` is the rule over all
+ * its conditions: `not-matched` when any one fails, then `unusable-clock`, then
+ * `unevaluable`, then `matched`.
+ */
+export interface RuleExplanation {
+  rule: string;
+  state: 'matched' | 'not-matched' | 'unusable-clock' | 'unevaluable';
+  conditions: ConditionExplanation[];
+}
+
+/**
+ * What `explain` returns: the `Decision` `can` returns for the same call, and
+ * every rule behind it.
+ *
+ * `step` is the precedence step, 1 to 7, that decided. `deny` and `allow` list
+ * the permission's rules in document order with every condition evaluated.
+ * An unknown action and a stale document answer their `can` decision with empty
+ * lists and no `step`.
+ */
+export interface Explanation {
+  decision: Decision;
+  step?: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  deny: RuleExplanation[];
+  allow: RuleExplanation[];
+}
+
 /** One action-level decision. */
 export interface Decision {
   key: string;

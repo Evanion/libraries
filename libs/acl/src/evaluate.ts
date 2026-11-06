@@ -1,7 +1,15 @@
 import { evaluateResolved, resolveContext } from './conditions.js';
 import type { ResolvedContext } from './conditions.js';
 import { ruleId } from './rule-id.js';
-import type { Decision, EvaluationContext, Permission, Rule } from './types.js';
+import type {
+  ConditionOutcome,
+  Decision,
+  EvaluationContext,
+  Explanation,
+  Permission,
+  Rule,
+  RuleExplanation,
+} from './types.js';
 
 /**
  * How one rule stands: matched, a definite miss, held up by a clock that does
@@ -20,17 +28,18 @@ type RuleOutcome =
  *
  * Short of that, an unusable clock outranks an unevaluable path, because it is
  * the one the caller cannot repair by fetching.
+ *
+ * Takes the outcomes lazily and stops at the first `fails`, so the deciding
+ * path reads no condition past it. `explain` hands over outcomes it already
+ * computed for every condition.
  */
-function ruleMatches(
-  rule: Rule,
-  side: 'allow' | 'deny',
-  ctx: ResolvedContext,
+function foldRule(
+  id: string,
+  outcomes: Iterable<ConditionOutcome>,
 ): RuleOutcome {
-  const id = ruleId(rule, side);
   const missing: string[] = [];
   let clockUnusable = false;
-  for (const condition of rule.when ?? []) {
-    const outcome = evaluateResolved(condition, ctx);
+  for (const outcome of outcomes) {
     if (outcome.state === 'fails') return { state: 'not-matched', rule: id };
     if (outcome.state === 'unusable-clock') clockUnusable = true;
     if (outcome.state === 'unevaluable') missing.push(...outcome.missing);
@@ -38,6 +47,15 @@ function ruleMatches(
   if (clockUnusable) return { state: 'unusable-clock', rule: id };
   if (missing.length > 0) return { state: 'unevaluable', rule: id, missing };
   return { state: 'matched', rule: id };
+}
+
+function* conditionOutcomes(
+  rule: Rule,
+  ctx: ResolvedContext,
+): Generator<ConditionOutcome> {
+  for (const condition of rule.when ?? []) {
+    yield evaluateResolved(condition, ctx);
+  }
 }
 
 /**
@@ -58,17 +76,13 @@ type SideOutcome =
   | { state: 'unusable-clock'; rule: string }
   | { state: 'unevaluable'; rule: string; missing: readonly string[] };
 
-function sideOutcome(
-  rules: readonly Rule[] | undefined,
-  side: 'allow' | 'deny',
-  ctx: ResolvedContext,
-): SideOutcome {
+/** Folds rule outcomes into a side, stopping at the first match. */
+function foldSide(outcomes: Iterable<RuleOutcome>): SideOutcome {
   const missing = new Set<string>();
   let first: string | undefined;
   let clockRule: string | undefined;
 
-  for (const rule of rules ?? []) {
-    const outcome = ruleMatches(rule, side, ctx);
+  for (const outcome of outcomes) {
     if (outcome.state === 'matched') {
       return { state: 'matched', rule: outcome.rule };
     }
@@ -88,6 +102,24 @@ function sideOutcome(
     return { state: 'unevaluable', rule: first, missing: [...missing] };
   }
   return { state: 'fails' };
+}
+
+function* ruleOutcomes(
+  rules: readonly Rule[] | undefined,
+  side: 'allow' | 'deny',
+  ctx: ResolvedContext,
+): Generator<RuleOutcome> {
+  for (const rule of rules ?? []) {
+    yield foldRule(ruleId(rule, side), conditionOutcomes(rule, ctx));
+  }
+}
+
+function sideOutcome(
+  rules: readonly Rule[] | undefined,
+  side: 'allow' | 'deny',
+  ctx: ResolvedContext,
+): SideOutcome {
+  return foldSide(ruleOutcomes(rules, side, ctx));
 }
 
 /**
@@ -128,29 +160,66 @@ export function decideResolved(
   permission: Permission,
   ctx: ResolvedContext,
 ): Decision {
-  const deny = sideOutcome(permission.denyRules, 'deny', ctx);
+  return precedence(
+    permission,
+    sideOutcome(permission.denyRules, 'deny', ctx),
+    () => sideOutcome(permission.rules, 'allow', ctx),
+  ).decision;
+}
+
+/** The decision and the numbered step above that produced it. */
+interface Decided {
+  step: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  decision: Decision;
+}
+
+/**
+ * The seven steps of `decideResolved`, over outcomes already computed.
+ *
+ * `allowOf` is called only past step 1, so the deciding path leaves the allow
+ * side unread when a deny matched. `explain` passes a thunk over an outcome it
+ * computed with every condition read.
+ */
+function precedence(
+  permission: Permission,
+  deny: SideOutcome,
+  allowOf: () => SideOutcome,
+): Decided {
   if (deny.state === 'matched') {
     return {
-      key: permission.key,
-      allowed: false,
-      reason: 'denied',
-      rule: deny.rule,
+      step: 1,
+      decision: {
+        key: permission.key,
+        allowed: false,
+        reason: 'denied',
+        rule: deny.rule,
+      },
     };
   }
 
-  const allow = sideOutcome(permission.rules, 'allow', ctx);
+  const allow = allowOf();
   if (allow.state === 'fails') {
-    return { key: permission.key, allowed: false, reason: 'no-rule-matched' };
+    return {
+      step: 2,
+      decision: {
+        key: permission.key,
+        allowed: false,
+        reason: 'no-rule-matched',
+      },
+    };
   }
 
   if (deny.state === 'unusable-clock') {
     // The rule whose job is to refuse is gated on a clock that does not parse.
     // No instant is available to decide it, so the permission refuses.
     return {
-      key: permission.key,
-      allowed: false,
-      reason: 'unusable-clock',
-      rule: deny.rule,
+      step: 3,
+      decision: {
+        key: permission.key,
+        allowed: false,
+        reason: 'unusable-clock',
+        rule: deny.rule,
+      },
     };
   }
 
@@ -162,37 +231,119 @@ export function decideResolved(
       for (const path of allow.missing) missing.add(path);
     }
     return {
-      key: permission.key,
-      allowed: false,
-      reason: 'unevaluable',
-      rule: deny.rule,
-      missing: [...missing],
+      step: 4,
+      decision: {
+        key: permission.key,
+        allowed: false,
+        reason: 'unevaluable',
+        rule: deny.rule,
+        missing: [...missing],
+      },
     };
   }
 
   if (allow.state === 'matched') {
     return {
-      key: permission.key,
-      allowed: true,
-      reason: 'allow',
-      rule: allow.rule,
+      step: 5,
+      decision: {
+        key: permission.key,
+        allowed: true,
+        reason: 'allow',
+        rule: allow.rule,
+      },
     };
   }
 
   if (allow.state === 'unusable-clock') {
     return {
-      key: permission.key,
-      allowed: false,
-      reason: 'unusable-clock',
-      rule: allow.rule,
+      step: 6,
+      decision: {
+        key: permission.key,
+        allowed: false,
+        reason: 'unusable-clock',
+        rule: allow.rule,
+      },
     };
   }
 
   return {
-    key: permission.key,
-    allowed: false,
-    reason: 'unevaluable',
-    missing: allow.missing,
+    step: 7,
+    decision: {
+      key: permission.key,
+      allowed: false,
+      reason: 'unevaluable',
+      missing: allow.missing,
+    },
+  };
+}
+
+/** One rule with every condition read, and the rule's state over them. */
+function explainRule(
+  rule: Rule,
+  side: 'allow' | 'deny',
+  ctx: ResolvedContext,
+): { explanation: RuleExplanation; outcome: RuleOutcome } {
+  const outcomes = (rule.when ?? []).map((condition) => ({
+    condition,
+    outcome: evaluateResolved(condition, ctx),
+  }));
+  const outcome = foldRule(
+    ruleId(rule, side),
+    outcomes.map((entry) => entry.outcome),
+  );
+  return {
+    outcome,
+    explanation: {
+      rule: outcome.rule,
+      state: outcome.state,
+      conditions: outcomes.map(({ condition, outcome: held }) =>
+        held.state === 'unevaluable'
+          ? { condition, state: held.state, missing: held.missing }
+          : { condition, state: held.state },
+      ),
+    },
+  };
+}
+
+function explainSide(
+  rules: readonly Rule[] | undefined,
+  side: 'allow' | 'deny',
+  ctx: ResolvedContext,
+): { explanations: RuleExplanation[]; outcome: SideOutcome } {
+  const explained = (rules ?? []).map((rule) => explainRule(rule, side, ctx));
+  return {
+    explanations: explained.map((entry) => entry.explanation),
+    outcome: foldSide(explained.map((entry) => entry.outcome)),
+  };
+}
+
+/**
+ * Explains one permission: `decideResolved`'s decision and the step that made
+ * it, with every condition of every rule on both sides evaluated.
+ *
+ * The decision comes from `precedence`, the function `decideResolved` calls, so
+ * the two cannot disagree. Only the cost differs: `decideResolved` stops at the
+ * first rule that decides and `explainResolved` reads them all.
+ *
+ * The result holds states and the paths a condition could not read. It holds no
+ * value from the subject or the object.
+ */
+export function explainResolved(
+  permission: Permission,
+  ctx: ResolvedContext,
+): Explanation {
+  const deny = explainSide(permission.denyRules, 'deny', ctx);
+  const allow = explainSide(permission.rules, 'allow', ctx);
+  const { step, decision } = precedence(
+    permission,
+    deny.outcome,
+    () => allow.outcome,
+  );
+  return {
+    decision,
+    step,
+    deny: deny.explanations,
+    allow: allow.explanations,
   };
 }
 

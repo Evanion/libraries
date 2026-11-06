@@ -164,3 +164,56 @@ button does:
 [Which fields may they write?](../writing) builds a policy that produces
 `allow`, `not-listed`, `transition-failed` and `missing-field`, and
 [Field permissions](../fields) is the reference.
+
+## Debugging Decisions with `explain`
+
+When a request is denied, a simple `allowed: false` doesn't tell you _why_. A user might be blocked because they have the wrong role, or because a specific "deny" rule overrode their permissions. For developers building admin dashboards or permission checkers, knowing the difference is critical.
+
+While `access.can()` returns a binary decision, `access.explain()` provides a full audit trail of the logic used to reach that conclusion.
+
+### How Explanation Works
+
+The `access.explain(subject, key, action, object, now)` function accepts the same arguments as `can()`, but it returns an `Explanation` object.
+
+The most significant difference between the two is their execution: `can()` stops the moment it finds a deciding rule to optimize performance. `explain()`, however, evaluates every condition of every rule. This means if a "suspended owner" is denied access, the explanation will show you both the `deny` rule that blocked them and the `allow` rule that would have granted access if they weren't suspended.
+
+### Understanding the Explanation Object
+
+The `Explanation` object breaks down the decision process into three primary areas:
+
+**1. The Final Result**
+
+- `decision`: The `Decision` `can()` returns for the same call.
+- `step`: Indicates which precedence step (1 through 7) ultimately decided the outcome.
+
+**2. Rule Analysis**
+The `allow` and `deny` lists enumerate every rule within the permission. Each rule is labeled with its status:
+
+- `matched`: The rule's conditions were met.
+- `not-matched`: The rule's conditions were not met.
+- `unevaluable`: The row lacked a path a condition reads.
+- `unusable-clock`: Occurs if the `now` argument passed to the call is not a valid instant.
+
+**3. Condition Details**
+Within each rule, every condition is tracked individually:
+
+- `holds`: The condition is true.
+- `fails`: The condition is false.
+- `unevaluable`: The row lacked a path the condition reads.
+- `missing`: The `object.*` paths the row lacked, present only on `unevaluable`.
+- `unusable-clock`: The `now` argument was not an instant.
+
+```ts twoslash file=libs/acl/docs/examples.md region=explain
+
+```
+
+### Implementation Details
+
+**Safe for Logging**
+The explanation object is designed to be portable. It stores states and paths, but it does **not** store actual values from the subject or the data row. This ensures you can log explanations to a client or external monitoring tool without leaking sensitive data.
+
+**Edge Cases and Scope**
+
+- **Empty Explanations:** If a document has exceeded its `maxStale` budget, or if the document does not carry the requested action, `explain()` returns the `can` decision with empty `allow`/`deny` lists and no `step`.
+- **Binding:** You can use `authorize(subject).explain(key, action, object)` or `object(key).explain(subject, action, object)` to pre-bind the subject or the key.
+- **Field-Level Permissions:** Because field-specific decisions carry their own reasons via `canFields`, the `explain()` function focuses exclusively on the primary action.
