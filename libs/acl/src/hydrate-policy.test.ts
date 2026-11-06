@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { hydratePolicy } from './hydrate-policy.js';
 import {
@@ -703,5 +703,129 @@ describe('explain', () => {
     }
 
     expect(compared).toBeGreaterThan(200);
+  });
+});
+
+describe('canEach', () => {
+  const documents = hydratePolicy({
+    permissions: [
+      {
+        key: 'document.delete',
+        object: 'document',
+        action: 'delete',
+        rules: [
+          {
+            id: 'admin',
+            when: [{ field: 'subject.roles', op: 'contains', value: 'admin' }],
+          },
+          {
+            id: 'owner',
+            when: [{ field: 'object.ownerId', op: 'eq', path: 'subject.id' }],
+          },
+        ],
+      },
+    ],
+  });
+  const admin = { id: 'a1', roles: ['admin'] };
+  const owner = { id: 'o1', roles: [] };
+  const stranger = { id: 'x1', roles: [] };
+  const row = { ownerId: 'o1' };
+
+  it('answers each subject as can does', () => {
+    const subjects = [admin, owner, stranger];
+    const decisions = documents.canEach(subjects, 'document', 'delete', row);
+
+    expect(decisions.map((decision) => decision.reason)).toEqual([
+      'allow',
+      'allow',
+      'no-rule-matched',
+    ]);
+    expect(decisions).toEqual(
+      subjects.map((subject) =>
+        documents.can(subject, 'document', 'delete', row),
+      ),
+    );
+  });
+
+  it('answers unevaluable with missing for an owner rule when the object is omitted', () => {
+    const [, ownerDecision] = documents.canEach(
+      [admin, owner],
+      'document',
+      'delete',
+    );
+
+    expect(ownerDecision).toMatchObject({
+      allowed: false,
+      reason: 'unevaluable',
+      missing: ['object.ownerId'],
+    });
+  });
+
+  it('settles one clock for every subject', () => {
+    const access = hydratePolicy(timed);
+    const subjects = [editor, { id: 's2', roles: [] }];
+
+    expect(
+      access
+        .canEach(subjects, 'comment', 'update', {}, OPEN)
+        .map((decision) => decision.allowed),
+    ).toEqual([true, true]);
+    expect(
+      access
+        .canEach(subjects, 'comment', 'update', {}, SHUT)
+        .map((decision) => decision.allowed),
+    ).toEqual([false, false]);
+
+    const now = vi.spyOn(Date, 'now');
+    try {
+      access.canEach(subjects, 'comment', 'update', {});
+      expect(now).toHaveBeenCalledTimes(1);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it('answers unknown-action for every subject', () => {
+    const access = hydratePolicy(matrix, { closed: true });
+    const decisions = access.canEach(
+      [editor, { id: 's2' }],
+      'comment',
+      'delete',
+    );
+
+    expect(decisions.map((decision) => decision.reason)).toEqual([
+      'unknown-action',
+      'unknown-action',
+    ]);
+    expect(decisions[0]?.key).toBe('comment.delete');
+  });
+
+  it('answers stale-contract for every subject on a stale document', () => {
+    const access = hydratePolicy(
+      { ...matrix, maxStale: 1000 },
+      { fetchedAt: 0 },
+    );
+    const decisions = access.canEach(
+      [editor, { id: 's2' }],
+      'comment',
+      'update',
+      { authorId: 's1' },
+      5000,
+    );
+
+    expect(decisions.map((decision) => decision.reason)).toEqual([
+      'stale-contract',
+      'stale-contract',
+    ]);
+  });
+
+  it('answers an empty list with an empty list', () => {
+    expect(documents.canEach([], 'document', 'delete', row)).toEqual([]);
+  });
+
+  it('is on the bound kind with the key already named', () => {
+    expect(
+      documents.object('document').canEach([admin, stranger], 'delete', row),
+    ).toEqual(documents.canEach([admin, stranger], 'document', 'delete', row));
   });
 });
