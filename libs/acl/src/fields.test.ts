@@ -888,6 +888,178 @@ describe('decideFields', () => {
       });
     });
   });
+
+  describe('snapshots and path-shaped keys', () => {
+    const decide = (
+      fields: FieldRules,
+      axis: 'read' | 'write',
+      object: Record<string, unknown>,
+      proposed?: Record<string, unknown>,
+    ) =>
+      decideFields(
+        perm('order.update', fields),
+        { subject: { id: 's1' }, object },
+        axis,
+        proposed,
+      );
+    const picked = (
+      outcome: ReturnType<typeof decideFields>,
+      proposed: Record<string, unknown>,
+    ) => pickAllowedFields({ ...outcome, action: allowedAction }, proposed);
+    const rules = { fields: ['*', '!address.street'] };
+
+    describe('a proxy whose traps throw after some calls', () => {
+      const stateful = (limit: number) => {
+        let calls = 0;
+        const guard = () => {
+          if (++calls > limit) throw new Error('trap');
+        };
+        return new Proxy(
+          { city: 'c' },
+          {
+            ownKeys(target) {
+              guard();
+              return Reflect.ownKeys(target);
+            },
+            getOwnPropertyDescriptor(target, key) {
+              guard();
+              return Reflect.getOwnPropertyDescriptor(target, key);
+            },
+            getPrototypeOf(target) {
+              guard();
+              return Reflect.getPrototypeOf(target);
+            },
+            has(target, key) {
+              guard();
+              return Reflect.has(target, key);
+            },
+          },
+        );
+      };
+      const limits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 20];
+
+      it.each(limits)('read never throws after %i calls', (limit) => {
+        expect(() =>
+          decide(rules, 'read', { address: stateful(limit) }),
+        ).not.toThrow();
+      });
+
+      it.each(limits)('write never throws after %i calls', (limit) => {
+        expect(() =>
+          decide(
+            rules,
+            'write',
+            { address: stateful(limit) },
+            {
+              address: stateful(limit),
+            },
+          ),
+        ).not.toThrow();
+      });
+
+      it.each(limits)('pick never throws after %i calls', (limit) => {
+        const outcome = decide(rules, 'read', { address: { city: 'c' } });
+
+        expect(() =>
+          picked(outcome, { address: stateful(limit) }),
+        ).not.toThrow();
+      });
+
+      it('a config key on a throwing top-level proxy does not throw', () => {
+        const object = stateful(0) as unknown as Record<string, unknown>;
+
+        expect(() =>
+          decide({ status: { targets: ['x'] } }, 'write', object, {
+            status: 'x',
+          }),
+        ).not.toThrow();
+      });
+    });
+
+    describe('stored keys the replace would erase', () => {
+      const proposed = { address: { city: 'X' } };
+
+      it.each([
+        ['a * key', { city: 'c', '*': 'keep' }],
+        ['a !name key', { city: 'c', '!street': 's' }],
+        [
+          'an own __proto__ key',
+          JSON.parse('{"city":"c","__proto__":{"k":1}}') as unknown,
+        ],
+      ])('%s under a walked parent refuses the parent', (_, address) => {
+        const d = decide(rules, 'write', { address }, proposed);
+
+        expect(d.fields).toEqual({ address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
+        expect(picked(d, proposed)).toEqual({});
+      });
+
+      it('a stored dotted key a rule denies refuses the parent', () => {
+        const d = decide(
+          { fields: ['*', '!address.meta.secret'] },
+          'write',
+          { address: { city: 'c', 'meta.secret': 's' } },
+          proposed,
+        );
+
+        expect(d.fields).toEqual({ address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
+      });
+    });
+
+    describe('write keys that are shaped like paths', () => {
+      it.each([
+        'address.__proto__',
+        'address.',
+        'address.*',
+        'address..x',
+        'address.!x',
+        '.address',
+      ])('%s is denied under an excluded ancestor', (key) => {
+        const proposed = { [key]: 'X' };
+        const d = decide({ fields: ['*', '!address'] }, 'write', {}, proposed);
+        const mapKey = Object.keys(d.fields)[0] as string;
+
+        expect(d.fields[mapKey]).toBe('denied');
+        expect(d.reasons[mapKey]).toBe('not-traversable');
+        expect(picked(d, proposed)).toEqual({});
+      });
+
+      it.each(['a[0]', 'a]b', 'a[b'])(
+        '%s is denied on write and allowed on read',
+        (key) => {
+          const write = decide({ fields: ['*'] }, 'write', {}, { [key]: 1 });
+          const read = decide({ fields: ['*'] }, 'read', { [key]: 1 });
+
+          expect(Object.values(write.fields)).toEqual(['denied']);
+          expect(Object.values(write.reasons)).toEqual(['not-traversable']);
+          expect(Object.values(read.fields)).toEqual(['allowed']);
+        },
+      );
+
+      it('denies a dotted key whose path crosses a config', () => {
+        const proposed = { 'address.street': 'X' };
+        const d = decide(
+          { address: { targets: ['A'] } },
+          'write',
+          { address: 'A' },
+          proposed,
+        );
+
+        expect(d.fields['address\\.street']).toBe('denied');
+        expect(d.reasons['address\\.street']).toBe('not-traversable');
+      });
+
+      it('denies a dotted key whose path reaches rules below it', () => {
+        const proposed = { 'a.b': { c: 'X' } };
+        const d = decide({ fields: ['*', '!a.b.c'] }, 'write', {}, proposed);
+
+        expect(d.fields['a\\.b']).toBe('denied');
+        expect(d.reasons['a\\.b']).toBe('not-traversable');
+        expect(picked(d, proposed)).toEqual({});
+      });
+    });
+  });
 });
 
 const allowedAction: Decision = {
