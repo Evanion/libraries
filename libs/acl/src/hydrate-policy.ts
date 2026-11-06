@@ -404,6 +404,13 @@ export interface BoundKind<Sub, Obj, Act extends string = string> {
     objects: readonly Partial<Obj>[],
     now?: Instant,
   ): Decision[];
+  /** `Access.canEach` for this kind, with the key already bound. */
+  canEach(
+    subjects: readonly Sub[],
+    action: Act,
+    object?: Partial<Obj>,
+    now?: Instant,
+  ): Decision[];
   canFields(
     subject: Sub,
     action: Act,
@@ -462,6 +469,20 @@ export interface Access<
     key: K,
     action: ActionOf<Keys, K>,
     objects: readonly Partial<R[K]>[],
+    now?: Instant,
+  ): Decision[];
+  /**
+   * One permission decided for many subjects against one object, on one
+   * settled clock. Entry `i` is what `can` answers for `subjects[i]`, so the
+   * caller groups them. An omitted `object` leaves object rules `unevaluable`
+   * with `missing`. `federatedPolicies` carries no `canEach`; reach one origin
+   * through `get(origin)`.
+   */
+  canEach<K extends keyof R & string>(
+    subjects: readonly Sub[],
+    key: K,
+    action: ActionOf<Keys, K>,
+    object?: Partial<R[K]>,
     now?: Instant,
   ): Decision[];
   canFields<K extends keyof R & string>(
@@ -722,6 +743,23 @@ export function hydratePolicy<
     );
   };
 
+  const canEach = (
+    subjects: readonly Subject[],
+    key: string,
+    action: string,
+    object?: Record<string, unknown>,
+    now?: Instant,
+  ): Decision[] => {
+    // The gates read the subject only to build the context, so one gate call
+    // settles the clock and the permission for the whole list.
+    const gated = gate({}, key, action, object, now);
+    if (!('permission' in gated)) return subjects.map(() => ({ ...gated }));
+    const { permission, ctx } = gated;
+    return subjects.map((subject) =>
+      decideResolved(permission, { ...ctx, subject }),
+    );
+  };
+
   const canFields = (
     subject: Subject,
     key: string,
@@ -810,6 +848,8 @@ export function hydratePolicy<
       can(subject, key, action, object, now),
     canMany: (subject, action, objects, now) =>
       canMany(subject, key, action, objects, now),
+    canEach: (subjects, action, object, now) =>
+      canEach(subjects, key, action, object, now),
     canFields: (subject, action, object, axis, proposed, now) =>
       canFields(subject, key, action, object, axis, proposed, now),
     explain: (subject, action, object, now) =>
@@ -829,6 +869,7 @@ export function hydratePolicy<
     },
     can,
     canMany,
+    canEach,
     canFields,
     explain,
     capabilities,

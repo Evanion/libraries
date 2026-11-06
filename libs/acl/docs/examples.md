@@ -443,6 +443,39 @@ reasons; // -> ['allow', 'no-rule-matched', 'unevaluable']
 
 <!-- #endregion can-many -->
 
+<!-- #region can-each -->
+
+```ts @import.meta.vitest
+import { policy } from '@evanion/acl';
+
+type Refund = { id: string; ownerId: string };
+type Agent = { id: string; roles: string[] };
+
+const access = policy<Agent, { refund: Refund }>()
+  .for('refund', (p) =>
+    p
+      .allow('delete', p.contains('subject.roles', 'admin'))
+      .allow('delete', p.eq('object.ownerId', 'subject.id')),
+  )
+  .build();
+
+const candidates: Agent[] = [
+  { id: 'a1', roles: ['admin'] },
+  { id: 'o1', roles: [] },
+  { id: 'x1', roles: [] },
+];
+
+const refund = { id: 'r1', ownerId: 'o1' };
+const decisions = access.canEach(candidates, 'refund', 'delete', refund);
+decisions.map((decision) => decision.reason); // -> ['allow', 'allow', 'no-rule-matched']
+
+// Without the row, an owner rule cannot be decided for anyone it might cover.
+const unloaded = access.canEach(candidates, 'refund', 'delete');
+unloaded.map((decision) => decision.reason); // -> ['allow', 'unevaluable', 'unevaluable']
+```
+
+<!-- #endregion can-each -->
+
 <!-- #region many-questions -->
 
 ```ts @import.meta.vitest

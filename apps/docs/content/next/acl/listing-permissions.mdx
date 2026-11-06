@@ -119,3 +119,24 @@ A capability map is also not a copy of the rules to ship to a browser. Ship
 `access.matrix` and let the browser rebuild an evaluator with `hydratePolicy`,
 as [the Overview](../) draws it. A map computed per subject is a second
 document to keep fresh.
+
+## Who can do this
+
+To determine who among a group can perform an action, you use `canEach`. While `capabilities` answers every permission for one subject, `canEach` answers one permission for many subjects. This is useful for editors who need to know, for example, which specific users in a list have the right to delete a particular refund. Because `@evanion/acl` holds no subjects of its own, the caller must supply the candidates, whether they are saved scenarios or a sample of real users.
+
+The `access.canEach(subjects, key, action, object?, now?)` call decides one permission for each subject against one object and returns a `Decision[]` in the order of the provided `subjects`. Since entry `i` is simply what `can` returns for `subjects[i]`, the properties `allowed`, `reason`, `rule`, and `missing` retain their standard meanings. The caller is responsible for grouping these entries into allowed, denied, or undetermined categories.
+
+```ts twoslash file=libs/acl/docs/examples.md region=can-each
+
+```
+
+To ensure consistency across the group, `@evanion/acl` reads the clock once for the entire list (similar to `canMany`); consequently, any rule built with `p.before` or `p.after` will evaluate every subject identically.
+
+The results vary based on the input:
+
+- **Omitted object:** An object rule becomes `unevaluable`, and `missing` names the required paths. These subjects remain undetermined until the row is loaded.
+- **Unknown action:** Every entry returns `unknown-action`.
+- **Stale document:** Every entry returns `stale-contract`.
+- **Empty list:** Returns an empty list.
+
+Note that `canEach` requires a list of subjects rather than a description of them. It cannot answer queries like "subjects where role is support and team is billing," as that would require computing a predicate over the allow and deny rules—a feature `@evanion/acl` does not provide. Finally, `federatedPolicies` does not implement `canEach` because it evaluates a single permission via `get(origin)` to reach the origin that owns it.
