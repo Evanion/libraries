@@ -10,7 +10,11 @@ import {
   TargetsTransitionsConflictError,
 } from './errors.js';
 import { toEpoch } from './conditions.js';
-import { parsePath, pathFault as fieldPathFault } from './field-path.js';
+import {
+  formatPath,
+  parsePath,
+  pathFault as fieldPathFault,
+} from './field-path.js';
 import { assertSchemaFit, assertSchemaShape } from './schema.js';
 import type {
   Condition,
@@ -411,15 +415,29 @@ function segmentsOf(
   return segments;
 }
 
-/** Whether `ancestor` is `path` or names a key above it. */
-function covers(
-  ancestor: readonly string[],
+/** Entries by their path, so an ancestor is found by looking up each prefix. */
+function indexOf(entries: readonly PathEntry[]): Map<string, PathEntry> {
+  return new Map(entries.map((entry) => [formatPath(entry.segments), entry]));
+}
+
+/**
+ * The entry whose path is `path` (unless `proper`) or names a key above it, or
+ * `undefined` when none does.
+ */
+function ancestorIn(
+  index: ReadonlyMap<string, PathEntry>,
   path: readonly string[],
   proper: boolean,
-): boolean {
-  if (ancestor.length > path.length) return false;
-  if (proper && ancestor.length === path.length) return false;
-  return ancestor.every((segment, index) => segment === path[index]);
+): PathEntry | undefined {
+  for (
+    let length = proper ? path.length - 1 : path.length;
+    length > 0;
+    length--
+  ) {
+    const found = index.get(formatPath(path.slice(0, length)));
+    if (found) return found;
+  }
+  return undefined;
 }
 
 interface PathEntry {
@@ -489,48 +507,50 @@ function assertFieldRules(key: string, rules: unknown): void {
     configs.push({ segments, where, text: field });
   }
 
-  for (const deny of denies) {
-    for (const allow of allows) {
-      if (covers(deny.segments, allow.segments, false)) {
-        throw contradiction(
-          key,
-          deny,
-          allow,
-          covers(allow.segments, deny.segments, false)
-            ? 'an entry and its own exclusion state two intents for one path'
-            : 'an allow below an excluded path states two intents for one path',
-        );
-      }
-    }
+  const denied = indexOf(denies);
+  const allowed = indexOf(allows);
+  const configured = indexOf(configs);
+
+  for (const allow of allows) {
+    const deny = ancestorIn(denied, allow.segments, false);
+    if (!deny) continue;
+    throw contradiction(
+      key,
+      deny,
+      allow,
+      deny.segments.length === allow.segments.length
+        ? 'an entry and its own exclusion state two intents for one path'
+        : 'an allow below an excluded path states two intents for one path',
+    );
   }
 
-  for (const deny of denies) {
-    if (star) continue;
-    if (allows.some((a) => covers(a.segments, deny.segments, true))) continue;
-    throw new DenyWithoutBaselineError(deny.text);
+  if (!star) {
+    for (const deny of denies) {
+      if (ancestorIn(allowed, deny.segments, true)) continue;
+      throw new DenyWithoutBaselineError(key, deny.text);
+    }
   }
 
   for (const config of configs) {
-    for (const deny of denies) {
-      if (covers(deny.segments, config.segments, true)) {
-        throw contradiction(
-          key,
-          deny,
-          config,
-          'a rule below an excluded path states two intents for one path',
-        );
-      }
-    }
-    for (const other of [...allows, ...denies, ...configs]) {
-      if (covers(config.segments, other.segments, true)) {
-        throw contradiction(
-          key,
-          config,
-          other,
-          'a targets or transitions rule decides its whole subtree, so no other rule may sit below it',
-        );
-      }
-    }
+    const deny = ancestorIn(denied, config.segments, true);
+    if (!deny) continue;
+    throw contradiction(
+      key,
+      deny,
+      config,
+      'a rule below an excluded path states two intents for one path',
+    );
+  }
+
+  for (const other of [...allows, ...denies, ...configs]) {
+    const config = ancestorIn(configured, other.segments, true);
+    if (!config) continue;
+    throw contradiction(
+      key,
+      config,
+      other,
+      'a targets or transitions rule decides its whole subtree, so no other rule may sit below it',
+    );
   }
 }
 

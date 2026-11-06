@@ -46,13 +46,18 @@ export class OriginCollisionError extends AclConfigError {
   }
 }
 
-/** A `!` entry in `fields()` has no `*` baseline. */
+/**
+ * A `!` entry in a permission's field rules has no baseline: it needs `*` or a
+ * listed ancestor of its path to subtract from.
+ */
 export class DenyWithoutBaselineError extends AclConfigError {
-  constructor(field: string) {
+  readonly key: string;
+  constructor(key: string, field: string) {
     super(
-      `field "${field}" has no baseline: a deny entry requires a '*' baseline (or an explicit allow-list) to say what is allowed`,
+      `permission "${key}": field "${field}" has no baseline: a deny entry needs '*' or a listed ancestor of its path to say what is allowed`,
     );
     this.name = 'DenyWithoutBaselineError';
+    this.key = key;
   }
 }
 

@@ -14,6 +14,7 @@ import {
   ActionNotAllowedError,
   InvalidConditionError,
   InvalidMatrixError,
+  InvalidPermissionError,
   InvalidRuleError,
   KeyMismatchError,
   UnknownPermissionError,
@@ -1277,10 +1278,16 @@ describe('SEC-019 no hostile write escapes the decision it was narrowed against 
           }),
         ]);
       } catch (error) {
-        // A drawn list may be one construction refuses (an entry beside its
-        // own exclusion, a token spelled as a path). The refusal is the
-        // defence for that list.
-        expect(error, `seed ${seed}`).toBeInstanceOf(AclConfigError);
+        // A drawn list may be one construction refuses: an entry beside its
+        // own exclusion, or a token spelled as a path. Each refusal is an
+        // InvalidPermissionError on a list entry, and it names the permission.
+        expect(error, `seed ${seed}`).toBeInstanceOf(InvalidPermissionError);
+        expect((error as InvalidPermissionError).key, `seed ${seed}`).toBe(
+          'account.update',
+        );
+        expect((error as InvalidPermissionError).field, `seed ${seed}`).toMatch(
+          /^fields\.fields\[\d+\]$/,
+        );
         continue;
       }
       built++;

@@ -156,9 +156,10 @@ describe('validateMatrix', () => {
       it.each([[['id', '!address.street']], [['!a']], [['body', '!status']]])(
         'refuses an exclusion with no baseline: %j',
         (fields) => {
-          expect(caught(build, fields)).toBeInstanceOf(
-            DenyWithoutBaselineError,
-          );
+          const error = caught(build, fields);
+
+          expect(error).toBeInstanceOf(DenyWithoutBaselineError);
+          expect((error as DenyWithoutBaselineError).key).toBe('order.read');
         },
       );
 
