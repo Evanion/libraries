@@ -21,7 +21,7 @@ import {
 describe('errors', () => {
   it('every configuration error extends AclConfigError', () => {
     const cases: (() => Error)[] = [
-      () => new DenyWithoutBaselineError('!status'),
+      () => new DenyWithoutBaselineError('comment.read', '!status'),
       () => new DuplicatePermissionError('x'),
       () => new TargetsTransitionsConflictError('status'),
       () => new UnknownObjectKeyError('unknown'),
@@ -63,9 +63,11 @@ describe('errors', () => {
     expect(err.message).toContain('unknown');
   });
 
-  it('a deny-without-baseline error names the field', () => {
-    const err = new DenyWithoutBaselineError('!status');
+  it('a deny-without-baseline error names the permission and the field', () => {
+    const err = new DenyWithoutBaselineError('comment.read', '!status');
 
+    expect(err.key).toBe('comment.read');
+    expect(err.message).toContain('comment.read');
     expect(err.message).toContain('!status');
   });
 

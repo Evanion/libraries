@@ -121,7 +121,7 @@ present or not.
 
 To define which data a user can access, you specify a list of field paths in `@evanion/acl`. This list uses a specific syntax where `*` (wildcard) and `!name` (exclusion) denote the intent of the rule.
 
-Because these symbols carry special meaning in the list, they cannot be part of a field's actual name. If a path is malformed, the package throws an `InvalidPermissionError`. This error occurs if a path contains:
+Because these symbols carry special meaning in the list, a whole segment cannot be `*` and a segment cannot start with `!`; a name like `a*b` or `x!` is still a plain name. If a path is malformed, the package throws an `InvalidPermissionError`. This error occurs if a path contains:
 
 - An empty segment.
 - A `__proto__` segment.
