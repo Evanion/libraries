@@ -27,6 +27,49 @@ An unknown object kind or action answers `unknown-action` and nothing throws.
 `Keys` is the union the consumer expects, unchecked against the document. See
 [Adopting a foreign matrix](../matrix#adopting-a-foreign-matrix).
 
+## `validateAll`
+
+<!-- reference @evanion/acl#validateAll example=validate-all -->
+
+When building a policy editor or a debugging tool, stopping at the first error isn't enough. You need a complete map of every failure in a document to give the user a comprehensive list of what to fix.
+
+While `hydratePolicy` and `parseMatrix` are designed to fail fast (stopping at the first error), `validateAll` is designed for exhaustive reporting. It scans the entire matrix document and returns every validation issue as a list, ensuring the process never throws an exception.
+
+If `validateAll` returns an empty list, `hydratePolicy` can successfully construct a policy from the document using the same options.
+
+To ensure accuracy, `validateAll` follows a specific sequence:
+
+1. **Cloning:** It creates a non-frozen copy of the document (matching the cloning logic used in `hydratePolicy`).
+2. **Cloning Faults:** If a value cannot be cloned (e.g., a function), that is recorded as the first issue.
+3. **Read Faults:** If a node cannot be read (e.g., a getter that throws), an issue is recorded at that specific path.
+4. **Structural Faults:** If the document is not an object, or if the `permissions` property is not an array, the function returns a single issue and stops immediately, as further validation is impossible.
+5. **Ordering:** All discovered issues are returned in the order they appear in the document.
+
+The `options` argument accepts `fetchedAt` and `maxStale` (the same parameters used by `hydratePolicy`). This allows `validateAll` to report freshness faults that would otherwise cause construction to fail.
+
+Note that runtime faults, such as asking for an unknown object kind, are calls and not document faults, so they are not reported here.
+
+## `ValidationIssue`
+
+<!-- reference @evanion/acl#ValidationIssue -->
+
+A `ValidationIssue` is a plain object designed to be serializable. Because it survives `JSON.stringify`, it can be passed across workers or sent over a network without losing data.
+
+Each issue contains:
+
+- `code`: The name of the error class.
+- `message`: The error text raised by the throwing path.
+- `path`: A JSON pointer indicating exactly where in the document the error occurred.
+- `permissionKey`: The `key` of the permission containing the error (if applicable).
+
+## `ValidateOptions`
+
+<!-- reference @evanion/acl#ValidateOptions -->
+
+`ValidateOptions` holds the `fetchedAt` and `maxStale` that change what construction checks. Providing them makes `validateAll` report the same freshness faults `hydratePolicy` would refuse, such as a `fetchedAt` that is not an instant or a local `maxStale` that is negative.
+
+For example, if you provide a `fetchedAt` timestamp but the document lacks a `maxStale` value, `validateAll` will report a `MissingFreshnessBudgetError`.
+
 ## `policy`
 
 <!-- reference @evanion/acl#policy example=field-permissions -->

@@ -1,10 +1,7 @@
 import { decideResolved, explainResolved } from './evaluate.js';
 import { decideFields } from './fields.js';
-import {
-  InvalidMatrixError,
-  UnknownObjectKeyError,
-  UnknownPermissionError,
-} from './errors.js';
+import { UnknownObjectKeyError, UnknownPermissionError } from './errors.js';
+import { copyOf, isEnvelope } from './snapshot.js';
 import { settleFreshness, validateMatrix } from './validate.js';
 import { settleNow } from './conditions.js';
 import { permissionReadsObject } from './reads-object.js';
@@ -124,74 +121,6 @@ function deepFreeze<T>(value: T): T {
 }
 
 /**
- * Clones one permission for the frozen matrix.
- *
- * Cloning is per permission so a value the structured clone algorithm refuses —
- * a function, a symbol, a structure nested deeper than it walks — is reported
- * against the permission holding it.
- */
-function cloneNode(permission: Permission): Permission {
-  try {
-    return structuredClone(permission);
-  } catch {
-    throw new InvalidMatrixError(
-      `permission "${permission.key}" holds a value that cannot be cloned: a function, a symbol, or a structure nested deeper than the clone walks`,
-    );
-  }
-}
-
-/**
- * Clones the declared shapes for the frozen document.
- *
- * Validation accepted a schema of strings, so the only way this refuses is a
- * getter or a proxy the caller hung off the object it passed in.
- */
-function cloneSchema(schema: MatrixSchema): MatrixSchema {
-  try {
-    return structuredClone(schema);
-  } catch {
-    throw new InvalidMatrixError(
-      'the schema holds a value that cannot be cloned: a function, a symbol, or a structure nested deeper than the clone walks',
-    );
-  }
-}
-
-/** Whether a value is shaped like a document at all, before anything reads it. */
-function isEnvelope(matrix: Matrix): boolean {
-  return (
-    typeof matrix === 'object' && matrix !== null && !Array.isArray(matrix)
-  );
-}
-
-/**
- * The frozen document, rebuilt from one read of each envelope member.
- *
- * The envelope is rebuilt rather than cloned whole, so an absent version or
- * schema stays absent through a JSON round trip instead of becoming a key
- * holding undefined. The option wins over the document's version, and the
- * winner is what freezes, so what crosses an SSR boundary is the version that
- * decided.
- *
- * Every member is read once, into this copy. Nothing downstream reads the
- * caller's object again.
- */
-function rebuild(
-  matrix: Matrix,
-  override: string | number | undefined,
-): Matrix {
-  const { schema, permissions, maxStale } = matrix;
-  const version = override ?? matrix.version;
-  return deepFreeze({
-    ...(version === undefined ? {} : { version }),
-    ...(maxStale === undefined ? {} : { maxStale }),
-    ...(schema === undefined ? {} : { schema: cloneSchema(schema) }),
-    permissions: Array.isArray(permissions)
-      ? permissions.map(cloneNode)
-      : permissions,
-  }) as Matrix;
-}
-
-/**
  * The document the engine evaluates: a frozen deep copy, validated as the copy.
  *
  * Validation and evaluation have to read the same bytes. A caller's document is
@@ -204,7 +133,15 @@ function rebuild(
  * owns the message for that and throws before anything evaluates.
  */
 function adopt(matrix: Matrix, override: string | number | undefined): Matrix {
-  const frozen = isEnvelope(matrix) ? rebuild(matrix, override) : matrix;
+  if (!isEnvelope(matrix)) {
+    validateMatrix(matrix);
+    return matrix;
+  }
+  const frozen = deepFreeze(
+    copyOf(matrix, override, (error) => {
+      throw error;
+    }),
+  );
   validateMatrix(frozen);
   return frozen;
 }

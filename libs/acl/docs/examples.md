@@ -3427,6 +3427,45 @@ base instanceof Error; // -> true
 
 <!-- #endregion errors-catching -->
 
+<!-- #region validate-all -->
+
+```ts @import.meta.vitest
+import { validateAll } from '@evanion/acl';
+
+// A draft from a policy editor with two faults, in two permissions.
+const draft = {
+  permissions: [
+    {
+      key: 'question.read',
+      object: 'question',
+      action: 'read',
+      visibility: 'everyone',
+    },
+    {
+      key: 'question.update',
+      object: 'question',
+      action: 'update',
+      rules: [{ when: [{ field: 'subject.id', op: 'equals', value: 'a' }] }],
+    },
+  ],
+} as never;
+
+// validateAll never throws, and it reports both faults in one call.
+const issues = validateAll(draft);
+
+issues.length; // -> 2
+issues[0]?.code; // -> 'InvalidPermissionError'
+issues[0]?.path; // -> '/permissions/0/visibility'
+issues[0]?.permissionKey; // -> 'question.read'
+issues[1]?.code; // -> 'InvalidConditionError'
+issues[1]?.path; // -> '/permissions/1/rules/0/when/0'
+
+// A valid document returns an empty list.
+validateAll({ permissions: [] }); // -> []
+```
+
+<!-- #endregion validate-all -->
+
 <!-- #region errors-action-refused -->
 
 ```ts @import.meta.vitest
