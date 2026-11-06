@@ -566,6 +566,9 @@ function spelledPrefix(key: string): string[] {
   return names;
 }
 
+/** The verdict a gate passes when the flat reading has nothing to add. */
+const ALLOWED: Verdict = { state: 'allowed', reason: 'allow' };
+
 /**
  * The read verdict for a raw key. A key without a dot, a key with a bracket and
  * a key the list allows by its escaped name (`a\.b`) keep the flat verdict. Any
@@ -677,6 +680,13 @@ function walkLevel(
     if (dottedDenied) {
       done(NOT_TRAVERSABLE);
       continue;
+    }
+    if (!write) {
+      const gate = readVerdict(node, key, child.listed, ALLOWED);
+      if (gate.state !== 'allowed') {
+        done(gate);
+        continue;
+      }
     }
     if (verdict && verdict.state !== 'allowed') {
       done(verdict);

@@ -1587,6 +1587,32 @@ describe('a flat dotted key on the read axis', () => {
     }
   });
 
+  it('is gated by the path it spells before the walk descends into it', () => {
+    const object = { 'a.b': { c: 1, d: 2 } };
+    const d = read(['*', '!a.b', '!a\\.b.c'], object);
+
+    expect(d.fields['a\\.b']).toBe('denied');
+    expect(d.fields).not.toHaveProperty('a\\.b.d');
+    expect(pickAllowedFields(d, object)).toEqual({});
+  });
+
+  it('is walked when no path reading denies it', () => {
+    const object = { 'a.b': { c: 1, d: 2 } };
+    const d = read(['*', '!a\\.b.c'], object);
+
+    expect(d.fields['a\\.b.c']).toBe('denied');
+    expect(d.fields['a\\.b.d']).toBe('allowed');
+    expect(pickAllowedFields(d, object)).toEqual({ 'a.b': { d: 2 } });
+  });
+
+  it('is walked when the list allows its escaped name', () => {
+    const object = { 'a.b': { c: 1, d: 2 } };
+    const d = read(['a\\.b', '!a\\.b.c', '!a.b'], object);
+
+    expect(d.fields['a\\.b.c']).toBe('denied');
+    expect(d.fields['a\\.b.d']).toBe('allowed');
+  });
+
   it('is denied at a nested level', () => {
     const object = { id: 1, meta: { 'x.y': 1, ok: 2 } };
     const d = read(['*', '!meta.x.y'], object);
