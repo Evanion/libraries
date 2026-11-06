@@ -568,25 +568,31 @@ function spelledPrefix(key: string): string[] {
 
 /**
  * The read verdict for a raw key. A key without a dot, a key with a bracket and
- * a key a rule names itself (`a\.b`) keep the flat verdict. Any other dotted key
- * is also read as the path it spells, which can only deny it: it is denied when
- * an exclusion covers a field on that path. Reads apply no other path rule.
+ * a key the list allows by its escaped name (`a\.b`) keep the flat verdict. Any
+ * other dotted key is also read as the path it spells, which can only deny it:
+ * it is denied when an exclusion covers a field on that path, and as
+ * not-traversable when the path ends at, or leaves the rules below, a field
+ * that has rules below it, because the value reaches what they hide. Reads apply no other path rule.
  */
 function readVerdict(
   node: RuleNode,
   key: string,
-  named: boolean,
+  listed: boolean,
   flat: Verdict,
 ): Verdict {
-  if (flat.state !== 'allowed' || named) return flat;
+  if (flat.state !== 'allowed' || listed) return flat;
   if (!key.includes('.') || PATH_BRACKET.test(key)) return flat;
-  let at: RuleNode | undefined = node;
+  let at: RuleNode = node;
   for (const name of spelledPrefix(key)) {
-    at = at?.children.get(name);
-    if (!at) return flat;
+    const next = at.children.get(name);
+    // Leaving the rules below a field that has rules reaches what they hide.
+    if (!next)
+      return at !== node && at.children.size > 0 ? NOT_TRAVERSABLE : flat;
+    at = next;
     if (at.excluded) return { state: 'denied', reason: 'not-listed' };
   }
-  return flat;
+  // The value at a path with rules below it holds the subtree they hide.
+  return at !== node && at.children.size > 0 ? NOT_TRAVERSABLE : flat;
 }
 
 /**
@@ -662,7 +668,7 @@ function walkLevel(
     if (!descends || child.excluded) {
       const flat = verdict ?? decideName(state.tree, child, inherited);
       if (!write) {
-        done(readVerdict(node, key, child !== undefined, flat));
+        done(readVerdict(node, key, child?.listed === true, flat));
         continue;
       }
       done(dottedDenied && flat.state === 'allowed' ? NOT_TRAVERSABLE : flat);
