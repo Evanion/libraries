@@ -160,7 +160,7 @@ To control access to deeply nested data, you use paths. While `address` refers t
 
 You define access by listing paths in a name list. An entry allows that path and everything below it, while an entry starting with `!` hides that path and its descendants.
 
-Because exclusions only work if there is something to exclude, a `!` entry requires a `*` or a listed ancestor above it in the list. For example:
+Because exclusions only work if there is something to exclude, a `!` entry requires a `*` or a listed ancestor, in any order. For example:
 
 - `['*', '!address.street']` allows everything except the street.
 - `['id', 'address', '!address.street']` allows the ID and the address, but hides the street.
@@ -179,13 +179,13 @@ If a key contains a literal `.` or `\`, you must escape it with a backslash:
 
 #### Resolving Leaves
 
-The map tracks only the "leaves" that the rules reach. If you apply `['*', '!address.street']` to `{ id, address: { city, street } }`, the resulting keys are `id` and `address.city`. Note that `address` itself is not a key; a key and its descendant never both appear in the result.
+The map tracks only the "leaves" that the rules reach. If you apply `['*', '!address.street']` to `{ id, address: { city, street } }`, the resulting keys are `id`, `address.city` and `address.street`, and the last is denied. Note that `address` itself is not a key; a key and its descendant never both appear in the result.
 
 ### Writing to Nested Objects
 
 When you use `pickAllowedFields` to filter a row, it rebuilds every parent as a new object containing only the allowed children. This means a parent becomes a "partial" object if some of its children are withheld.
 
-`Object.assign(row, picked)` replaces a full stored parent with one of these partial parents, which would erase any stored key the caller isn't allowed to write. To prevent that, the engine denies the parent before `pickAllowedFields` runs.
+`Object.assign(row, picked)` replaces a full stored parent with one of these partial parents, which would erase any stored key the caller isn't allowed to write. To prevent that, the engine denies the parent before `pickAllowedFields` runs when the stored parent holds such a key.
 
 The engine determines traversability based on the stored object:
 
@@ -198,9 +198,28 @@ The engine determines traversability based on the stored object:
 
 **Recommendation:** To change a single nested key without risking its siblings, give the nested object its own action and permission, or define it as its own object kind. This allows the caller to write the street or city via rules that name them directly.
 
+### What a picked parent replaces
+
+To update a nested value, you must provide the entire parent object because a picked parent replaces the stored parent in its entirety. The engine only protects stored keys that the caller is explicitly forbidden from writing; any key the caller _is_ allowed to write—but omits from the update—is erased by the replacement.
+
+For example, if your rules are `['id', 'address.city', 'address.zip']` and the stored row is `{ address: { city, zip } }`, a write of `{ address: { city } }` is permitted, but `Object.assign` will drop the `zip`. To prevent this, the write must carry every sibling it intends to keep, or you must deep-merge the picked value into the row while skipping `__proto__`.
+
+### Rows with dotted column names
+
+A row may contain flat keys that include dots, such as a Sequelize raw result or a SQL alias like `address.street`. The engine treats these based on how the rule is written:
+
+- **Path Reading:** A raw key with a clean dotted split is denied with `not-listed` if its path reading is denied. For instance, under the rules `['*', '!address.street']`, the flat key `address.street` is hidden.
+- **Explicit Keys:** To target the flat key `a.b` specifically, use an escape in the rule: `a\.b`.
+
+### Pass plain rows
+
+The walk reads the top-level object exactly as it is, regardless of its class, though all nested values must be plain objects. If an ORM wrapper stores data under an own property (such as Sequelize's `dataValues`), that wrapper will leak at the top level even when using flat rules.
+
+To ensure consistent behavior, pass plain rows for both the top level and all nested values using methods like `toJSON()`, `get({ plain: true })`, or `.lean()`.
+
 #### Write-Axis Restrictions
 
-The engine refuses path-shaped raw keys on the write axis. A key is marked `not-traversable` if it contains `[` or `]`, contains a `.` that doesn't split into a clean path, or refers to a dotted key that leaves the rule tree (e.g., attempting to write `address.city` when `!address.street` is active). The refusal exists because path writers such as Mongo's `$set` and lodash's `set` would apply such a key as a path and write below the parent.
+The engine refuses some path-shaped raw keys on the write axis, those that touch the rules or are malformed. A key is marked `not-traversable` if it contains `[` or `]`, contains a `.` that doesn't split into a clean path, or refers to a dotted key that leaves the rule tree (e.g., attempting to write `address.city` when `!address.street` is active). The refusal exists because path writers such as Mongo's `$set` and lodash's `set` would apply such a key as a path and write below the parent.
 
 ### Handling Arrays
 
@@ -217,7 +236,7 @@ The engine's walk only penetrates plain objects and arrays. The following are tr
 
 If a rule names a path below one of these leaves, the value is `denied` as `not-traversable`. On read, the entire value is hidden; on write, it is refused. Circular references are also marked `not-traversable` at the point of repetition.
 
-**ORM Warning:** Since ORM rows are typically class instances with getters, they are unwalkable. You must convert an ORM row to a plain object before calling `canFields`, otherwise every value under a descending rule will be hidden.
+**ORM Warning:** Since ORM rows are typically class instances with getters, a nested one is unwalkable. Convert an ORM row to a plain object before calling `canFields`, otherwise every value under a descending rule will be hidden. The top-level object is read as it is, whatever its class, so a wrapper that keeps its data under an own property leaks (see Pass plain rows above).
 
 ```ts twoslash file=libs/acl/docs/examples.md region=nested-walk
 
@@ -227,4 +246,4 @@ If a rule names a path below one of these leaves, the value is `denied` as `not-
 
 When using the typed builder, `.fields()` validates every path against the object kind's type. If a path is unknown, it results in a compile error.
 
-If a kind is typed as a generic object (e.g., `Record<string, unknown>`), there are no specific paths to validate. In these cases, use the untyped builder.
+If a kind is typed as `Record<string, unknown>`, the builder accepts any path. If the kind is a generic type parameter, the builder cannot list its paths, so use the untyped builder.
