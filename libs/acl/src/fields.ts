@@ -308,7 +308,7 @@ function elementsOf(array: readonly unknown[]): Bag[] | undefined {
   // and be lost from a rebuilt one.
   for (const key of Reflect.ownKeys(descriptors)) {
     if (key === 'length') continue;
-    const index = typeof key === 'string' && /^(0|[1-9]\d*)$/.test(key);
+    const index = typeof key === 'string' && INDEX.test(key);
     if (!index || Number(key) >= length) return undefined;
   }
   const elements: Bag[] = [];
@@ -324,6 +324,9 @@ function elementsOf(array: readonly unknown[]): Bag[] | undefined {
   return elements;
 }
 
+/** A canonical array index, as an array names its own elements. */
+const INDEX = /^(0|[1-9]\d*)$/;
+
 /** The containers on the current path of one side of the walk. */
 type Visited = Set<object>;
 
@@ -332,10 +335,15 @@ type Visited = Set<object>;
  * undefined when the engine cannot walk them. An array contributes its elements.
  * The write axis walks no array: it has no identity between the stored and the
  * proposed elements to carry a rule across.
+ *
+ * `indexed` is whether a rule below the key names an index segment such as
+ * `items.0`. Rules do not address array elements by index, so such a rule would
+ * decide nothing about the elements, and an array under it cannot be walked.
  */
 function expandSide(
   slots: readonly Slot[],
   allowArrays: boolean,
+  indexed: boolean,
   visited: Visited,
 ): Bag[] | undefined {
   try {
@@ -346,7 +354,7 @@ function expandSide(
       if (typeof value !== 'object' || value === null) return undefined;
       if (visited.has(value)) return undefined;
       if (Array.isArray(value)) {
-        if (!allowArrays) return undefined;
+        if (!allowArrays || indexed) return undefined;
         const elements = elementsOf(value);
         if (!elements) return undefined;
         bags.push(...elements);
@@ -497,6 +505,14 @@ function dataAt(root: Bag | undefined, segments: readonly string[]): unknown {
   }
 }
 
+/**
+ * A segment a deep merge follows from a plain object to its prototype:
+ * `constructor.prototype.isAdmin` reaches `Object.prototype` (CWE-1321).
+ */
+function isPrototypeStep(segment: string): boolean {
+  return segment === 'constructor' || segment === 'prototype';
+}
+
 /** The verdict a gate passes when the flat reading has nothing to add. */
 const ALLOWED: Verdict = { state: 'allowed', reason: 'allow' };
 
@@ -506,8 +522,10 @@ const PATH_BRACKET = /[[\]]/;
  * How the rules decide a raw write key that reads as a path. A key `address.street`
  * is one flat key to the object, and a deep merge or an ORM that splits on `.`
  * writes it as a nested path, so the write must pass both readings. A key whose
- * split is not a clean path of field names, or that holds a bracket (an index
- * path to some writers), cannot be checked as a path and is refused.
+ * split is not a clean path of field names, that holds a bracket (an index
+ * path to some writers), or that holds a `constructor` or `prototype` segment (a
+ * merge would walk it to a prototype), cannot be checked as a path and is
+ * refused.
  * `listed` is whether an allow entry names the escaped flat key, which decides
  * the name check. Undefined when the key reads as no path.
  */
@@ -522,7 +540,9 @@ function pathVerdict(
   if (PATH_BRACKET.test(key)) return NOT_TRAVERSABLE;
   if (!key.includes('.')) return undefined;
   const segments = key.split('.');
-  if (!segments.every((segment) => segment !== '' && isFieldName(segment))) {
+  const clean = (segment: string) =>
+    segment !== '' && isFieldName(segment) && !isPrototypeStep(segment);
+  if (!segments.every(clean)) {
     return NOT_TRAVERSABLE;
   }
   let at: RuleNode | undefined = node;
@@ -699,8 +719,14 @@ function walkLevel(
       continue;
     }
 
-    const storedNodes = expandSide(stored, !write, state.storedPath);
-    const proposedNodes = expandSide(proposed, false, state.proposedPath);
+    const indexed = [...child.children.keys()].some((name) => INDEX.test(name));
+    const storedNodes = expandSide(stored, !write, indexed, state.storedPath);
+    const proposedNodes = expandSide(
+      proposed,
+      false,
+      indexed,
+      state.proposedPath,
+    );
     if (!storedNodes || !proposedNodes) {
       done(NOT_TRAVERSABLE);
       continue;
