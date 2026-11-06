@@ -11,8 +11,8 @@ import type { Decision, Instant } from './types.js';
  * that wants the document reaches the member through `get`, which hands back
  * the `Access` that was passed in, with everything on it.
  *
- * `canMany`, `canFields`, `readsObject` and `authorize` are absent for the same
- * reason in reverse. Each one answers about a single permission or a single
+ * `canMany`, `canEach`, `canFields`, `explain`, `readsObject` and `authorize`
+ * are absent for the same reason in reverse. Each one answers about a single permission or a single
  * object kind, so the caller that asks already knows which origin holds it, and
  * `get(origin)` is the call that reaches it. Forwarding them would rebuild the
  * facade over an evaluator that already carries them.
