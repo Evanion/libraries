@@ -3,6 +3,7 @@ import { hydratePolicy } from './hydrate-policy.js';
 import type { Access, AccessOptions } from './hydrate-policy.js';
 import type {
   Condition,
+  FieldConfig,
   FieldRules,
   Instant,
   Matrix,
@@ -14,6 +15,89 @@ import type {
 export type Paths<T, P extends string> = {
   [K in keyof T & string]: `${P}.${K}`;
 }[keyof T & string];
+
+export type Prev = [
+  never,
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+];
+
+export type IsAny<T> = 0 extends 1 & T ? true : false;
+
+/** A value the path walk does not descend into. */
+export type PathLeaf =
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | Date
+  | RegExp
+  | Map<unknown, unknown>
+  | Set<unknown>
+  | WeakMap<WeakKey, unknown>
+  | WeakSet<WeakKey>
+  | ((...args: never[]) => unknown);
+
+/** A key as a path segment: `\` becomes `\\` and `.` becomes `\.`. */
+export type EscapeKey<K extends string> = K extends `${infer H}\\${infer R}`
+  ? `${EscapeKey<H>}\\\\${EscapeKey<R>}`
+  : K extends `${infer H}.${infer R}`
+    ? `${EscapeKey<H>}\\.${EscapeKey<R>}`
+    : K;
+
+/**
+ * The escaped dotted paths of `T` through plain-object properties and array
+ * elements. An array contributes the paths of its element type with no index
+ * segment. `Date`, `Map`, `Set`, functions and primitives are leaves. A key
+ * containing `.` or `\` appears escaped as `\.` or `\\`. Past `Depth` segments
+ * the type is `string`, so a deep or recursive type still compiles. An
+ * `any` or index-signature type is `string`.
+ */
+export type FieldPath<T, Depth extends number = 5> =
+  IsAny<T> extends true
+    ? string
+    : [Depth] extends [0]
+      ? string
+      : T extends readonly (infer E)[]
+        ? FieldPath<E, Depth>
+        : T extends PathLeaf
+          ? never
+          : T extends object
+            ? {
+                [K in keyof T & string]:
+                  | EscapeKey<K>
+                  | `${EscapeKey<K>}.${FieldPath<NonNullable<T[K]>, Prev[Depth]>}`;
+              }[keyof T & string]
+            : never;
+
+/** One entry of a field list: `*`, a path of `T`, or `!` and a path of `T`. */
+export type FieldEntry<T> = '*' | FieldPath<T> | `!${FieldPath<T>}`;
+
+/**
+ * The field rules of an action on `Obj`: the entry list under `fields`, and a
+ * `targets` or `transitions` config under each path of `Obj`.
+ */
+export type FieldRulesOf<Obj> = {
+  fields?: readonly FieldEntry<Obj>[];
+} & {
+  [P in FieldPath<Obj>]?: FieldConfig | readonly string[];
+};
 
 /**
  * `S` when it names a path on this resource, and an error message otherwise.
@@ -224,7 +308,9 @@ export interface Actions<
    */
   id(id: string): Actions<Sub, Obj, Act, Vocab>;
   /** Field rules for the action most recently declared in the chain. */
-  fields(rules: readonly string[] | FieldRules): Actions<Sub, Obj, Act, Vocab>;
+  fields(
+    rules: readonly FieldEntry<Obj>[] | FieldRulesOf<Obj>,
+  ): Actions<Sub, Obj, Act, Vocab>;
   /**
    * The publication marking for the action most recently declared in the chain.
    *
