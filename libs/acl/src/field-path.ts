@@ -29,7 +29,10 @@ export function parsePath(path: string): readonly string[] | undefined {
   return segments;
 }
 
-/** Joins segments into a path, escaping `.` and `\` in each. */
+/**
+ * Joins segments into a path, escaping `.` and `\` in each. Segments must be
+ * non-empty: an empty segment formats to a path `parsePath` refuses.
+ */
 export function formatPath(segments: readonly string[]): string {
   return segments.map((segment) => segment.replace(/[\\.]/g, '\\$&')).join('.');
 }
@@ -41,15 +44,15 @@ export function formatPath(segments: readonly string[]): string {
 export function pathFault(path: string): string | undefined {
   const segments = parsePath(path);
   if (segments === undefined) {
-    return `"${path}" is not a well-formed path: it needs non-empty segments, and "\\" may only escape "." or "\\".`;
+    return `${JSON.stringify(path)} is not a well-formed path: it needs non-empty segments, and "\\" may only escape "." or "\\".`;
   }
   for (const segment of segments) {
     if (segment === '__proto__')
-      return `"${path}" has a "__proto__" segment, which cannot name a field.`;
+      return `${JSON.stringify(path)} has a "__proto__" segment, which cannot name a field.`;
     if (segment === '*')
-      return `"${path}" has a "*" segment; "*" is only valid as a whole list entry.`;
+      return `${JSON.stringify(path)} has a "*" segment; "*" is only valid as a whole list entry.`;
     if (segment.startsWith('!'))
-      return `"${path}" has a segment starting with "!"; "!" is only valid at the start of a list entry.`;
+      return `${JSON.stringify(path)} has a segment starting with "!"; "!" is only valid at the start of a list entry.`;
   }
   return undefined;
 }
