@@ -232,3 +232,90 @@ export function context(gen: Gen): {
     now: gen.pick([undefined, 0, Date.now(), 'nope', new Date(), null, {}]),
   };
 }
+
+/**
+ * Path segments a field rule may name: nested keys, an array, a canonical
+ * index, an escaped dotted key, and names the engine refuses as fields.
+ */
+const RULE_SEGMENTS = ['a', 'b', 'c', 'items', '0', 'x\\.y', 'constructor'];
+
+function rulePath(gen: Gen): string {
+  return Array.from({ length: 1 + gen.int(3) }, () =>
+    gen.pick(RULE_SEGMENTS),
+  ).join('.');
+}
+
+/**
+ * Field rules over nested, array, indexed and dotted paths, valid and not: a
+ * list of `*`, paths and exclusions, and `targets`/`transitions` configs keyed
+ * by path.
+ */
+export function pathFieldRules(gen: Gen): Record<string, unknown> {
+  const node: Record<string, unknown> = {};
+  if (gen.bool(0.9)) {
+    node['fields'] = gen.list(4, () =>
+      gen.bool(0.25) ? '*' : `${gen.bool(0.5) ? '!' : ''}${rulePath(gen)}`,
+    );
+  }
+  for (let i = gen.int(3); i > 0; i--) {
+    node[rulePath(gen)] = gen.pick([
+      { targets: [1, 'x'] },
+      { transitions: { '1': [2], x: ['y'] } },
+    ]);
+  }
+  return node;
+}
+
+/** Keys a row or a write may carry: nested, dotted, bracketed and hostile. */
+const DATA_KEYS = [
+  'a',
+  'b',
+  'c',
+  'items',
+  '0',
+  'x.y',
+  'a.b',
+  'items.0.b',
+  'a[0]',
+  'constructor',
+  'constructor.prototype.p',
+  '*',
+  '!a',
+  '',
+];
+
+/**
+ * A row or a write over the keys `pathFieldRules` names, nested up to three
+ * levels: primitives, plain objects, arrays of plain objects, a `Date`, and an
+ * own `__proto__` key as `JSON.parse` yields it.
+ */
+export function pathData(gen: Gen, depth = 0): Record<string, unknown> {
+  const node: Record<string, unknown> = {};
+  for (const key of DATA_KEYS) {
+    if (!gen.bool(0.35)) continue;
+    Object.defineProperty(node, key, {
+      value: pathValue(gen, depth),
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  if (gen.bool(0.05)) {
+    Object.defineProperty(node, '__proto__', {
+      value: { p: 1 },
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+  }
+  return node;
+}
+
+function pathValue(gen: Gen, depth: number): unknown {
+  if (depth >= 2 || gen.bool(0.45)) {
+    return gen.pick([1, 2, 'x', 'y', null, true, new Date(0)]);
+  }
+  return gen.bool(0.7)
+    ? pathData(gen, depth + 1)
+    : gen.list(2, () => pathData(gen, depth + 1));
+}

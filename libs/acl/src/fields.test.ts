@@ -3,6 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { ActionNotAllowedError } from './errors.js';
 import { hydratePolicy } from './hydrate-policy.js';
 import { decideFields, pickAllowedFields } from './fields.js';
+import { parsePath } from './field-path.js';
+import { Gen, rng } from './security/generator.js';
+import {
+  matrix as junkMatrix,
+  pathData,
+  pathFieldRules,
+} from './security/matrix-generator.js';
+import { validateAll } from './validate.js';
 import type {
   Decision,
   EvaluationContext,
@@ -1782,4 +1790,93 @@ describe('a flat dotted column on the write axis', () => {
 
     expect(d.fields[col]).toBe('denied');
   });
+});
+
+/**
+ * Whether nothing sits at `segments` in a picked value. An array is the walk's
+ * fan-out, so the location is absent when it is absent from every element.
+ */
+function absentAt(value: unknown, segments: readonly string[]): boolean {
+  if (segments.length === 0) return false;
+  if (Array.isArray(value)) {
+    return value.every((element) => absentAt(element, segments));
+  }
+  if (typeof value !== 'object' || value === null) return true;
+  const [head, ...rest] = segments as [string, ...string[]];
+  if (!Object.prototype.hasOwnProperty.call(value, head)) return true;
+  return absentAt((value as Record<string, unknown>)[head], rest);
+}
+
+describe('pickAllowedFields against the decision it narrows', () => {
+  /**
+   * The property a consumer relies on: a key the decision reports as not
+   * allowed is not in the picked value at the location the key names. The
+   * documents are the ones `validateAll` accepts, drawn from the matrix
+   * generator's envelopes with nested, array, indexed and dotted field rules,
+   * over rows and writes of the same shapes.
+   */
+  it('leaves out every key the decision does not allow, on both axes', () => {
+    let accepted = 0;
+    let checked = 0;
+
+    for (let seed = 0; seed < 2000; seed++) {
+      const gen = new Gen(rng(seed));
+      const envelope = junkMatrix(gen) as unknown;
+      const base =
+        typeof envelope === 'object' &&
+        envelope !== null &&
+        !Array.isArray(envelope) &&
+        Array.isArray((envelope as { permissions?: unknown }).permissions)
+          ? (envelope as Record<string, unknown>)
+          : { permissions: [] };
+      const fields = pathFieldRules(gen);
+      const ours = ['read', 'update'].map((action) => ({
+        key: `doc.${action}`,
+        object: 'doc',
+        action,
+        rules: [{ when: [] }],
+        fields,
+      }));
+      const withBase = {
+        ...base,
+        permissions: [...(base['permissions'] as unknown[]), ...ours],
+      };
+      const document =
+        validateAll(withBase).length === 0 ? withBase : { permissions: ours };
+      if (validateAll(document).length > 0) continue;
+      accepted++;
+
+      const access = hydratePolicy(document as never);
+      const row = pathData(gen);
+      const proposed = pathData(gen);
+      const read = access.canFields({}, 'doc', 'read', row, 'read');
+      const write = access.canFields(
+        {},
+        'doc',
+        'update',
+        row,
+        'write',
+        proposed,
+      );
+      for (const [decision, value] of [
+        [read, row],
+        [write, proposed],
+      ] as const) {
+        const picked = pickAllowedFields(decision, value);
+        for (const [key, state] of Object.entries(decision.fields)) {
+          if (state === 'allowed') continue;
+          const segments = key === '' ? [''] : parsePath(key);
+
+          expect(segments, `seed ${seed}: ${key}`).toBeDefined();
+          expect(
+            absentAt(picked, segments as string[]),
+            `seed ${seed}: ${key} is ${state} but picked`,
+          ).toBe(true);
+          checked++;
+        }
+      }
+    }
+    expect(accepted).toBeGreaterThan(500);
+    expect(checked).toBeGreaterThan(1000);
+  }, 30_000);
 });
