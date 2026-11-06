@@ -210,7 +210,13 @@ A row can carry flat keys with a dot in them, such as SQL aliases or Sequelize r
 
 When a raw key contains a `.`, it is decided twice: once as a flat key and once as a path. A dotted key is allowed only if the flat reading permits it **and** the path spelled by splitting the key at the dot is not excluded. The path reading acts as a filter that can only tighten the result.
 
-For example, if your allowed list is `['a']`, a flat key of `{ 'a.b': 1 }` remains hidden, because the flat reading does not list it and the path reading never loosens a decision. Similarly, `['id', 'address.city']` hides a flat `address.city` column. To explicitly allow a flat column containing a dot, use a backslash to escape the character: `address\.city`. An allow entry using this escaped flat key tells the library to let the flat reading decide alone.
+For example, if your allowed list is `['a']`, a flat key of `{ 'a.b': 1 }` remains hidden, because the flat reading does not list it and the path reading never loosens a decision. Similarly, `['id', 'address.city']` hides a flat `address.city` column. To explicitly allow a flat column containing a dot, use a backslash to escape the character: `address\.city`. On the read axis, an allow entry using this escaped flat key tells the library to let the flat reading decide alone.
+
+### Reading Segmented Keys
+
+On the read axis, brackets are treated as ordinary characters within a segment. This means a key containing brackets splits on the `.` character like any other key.
+
+For example, if your rules are `['*', '!data']`, the key `data.x[0]` is denied because it starts with the denied `data` segment. Similarly, under `['*', '!address.street']`, the key `address.street[0]` is marked as `not-traversable`.
 
 ### Traversal and Escaping
 
@@ -235,7 +241,17 @@ To ensure consistent behavior, pass plain rows for both the top level and all ne
 
 #### Write-Axis Restrictions
 
-The engine refuses some path-shaped raw keys on the write axis, those that touch the rules or are malformed. A key is marked `not-traversable` if it contains `[` or `]`, contains a `.` that doesn't split into a clean path, or refers to a dotted key that leaves the rule tree (e.g., attempting to write `address.city` when `!address.street` is active). The refusal exists because path writers such as Mongo's `$set` and lodash's `set` would apply such a key as a path and write below the parent.
+On the write axis, the engine prevents "raw" keys from being used if a path writer would interpret them as a path. Because tools like Mongo's `$set` and lodash's `set` apply keys as paths to write below a parent, the engine imposes stricter restrictions to prevent accidental traversal.
+
+A key is marked `not-traversable` on the write axis if:
+
+- It contains brackets (`[` or `]`).
+- Its dots do not split into a clean path.
+- It attempts to leave the rule tree (e.g., `address.city` when the rules are `!address.street`).
+
+If the rule list does not include `*`, any raw dotted key is refused even if it touches no existing rule, for instance `other.col` under `['id', 'other\.col']`. However, if `*` is present, a dotted key that touches no rule is allowed.
+
+Because of these protections, an escaped allow entry (like `address\.city`) works on the read axis but not the write axis; it will not make a raw `address.city` key writable. To update a dotted column, you must either write the nested form or use its own specific action. If a write is refused, `pickAllowedFields` will drop the key entirely.
 
 ### Handling Arrays
 
