@@ -12,6 +12,7 @@ import type {
   Access,
   Decision,
   FieldDecision,
+  FieldReason,
   Instant,
   Matrix,
   PolicyProviderProps,
@@ -102,6 +103,10 @@ describe('the hooks', () => {
 
   it('returns a field decision from useCanFields', () => {
     expectTypeOf(useCanFields).returns.toEqualTypeOf<FieldDecision>();
+  });
+
+  it('re-exports the not-traversable field reason', () => {
+    expectTypeOf<'not-traversable'>().toMatchTypeOf<FieldReason>();
   });
 
   it('closes the axis of useCanFields to the two it evaluates', () => {
