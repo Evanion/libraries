@@ -1503,25 +1503,43 @@ describe('a flat dotted key on the read axis', () => {
     expect(d.fields['address\\.city']).toBe('denied');
   });
 
-  it('is allowed when the list covers the path', () => {
-    const object = { id: 1, 'address.city': 'C' };
-    const d = read(['id', 'address.city'], object);
-
-    expect(d.fields['address\\.city']).toBe('allowed');
-    expect(pickAllowedFields(d, object)).toEqual(object);
+  it('stays allowed when no exclusion covers the path', () => {
+    expect(read(['*', '!address.street'], { 'address.x': 1 }).fields).toEqual({
+      'address\\.x': 'allowed',
+      'address.street': 'denied',
+    });
+    expect(read(['*', '!a.b'], { 'a.c': 2 }).fields['a\\.c']).toBe('allowed');
+    expect(read(['*'], { 'a.b': 1 }).fields['a\\.b']).toBe('allowed');
   });
 
-  it('is denied when an explicit list does not cover the path', () => {
-    const d = read(['id', 'address.city'], { id: 1, 'address.zip': 'Z' });
-
-    expect(d.fields['address\\.zip']).toBe('denied');
-    expect(d.reasons['address\\.zip']).toBe('not-listed');
+  it('is never allowed by the path when the flat reading denies it', () => {
+    expect(read(['a'], { 'a.b': 1 }).fields['a\\.b']).toBe('denied');
+    expect(
+      read(['id', 'address.city'], { id: 1, 'address.city': 'C' }).fields[
+        'address\\.city'
+      ],
+    ).toBe('denied');
+    expect(read(['a.b', '!a.b.c'], { 'a.b.d': 2 }).fields['a\\.b\\.d']).toBe(
+      'denied',
+    );
   });
 
-  it('is allowed under a plain star', () => {
-    const d = read(['*'], { 'a.b': 1 });
+  it('is decided by the flat reading alone when a rule names the flat key', () => {
+    expect(read(['a\\.b'], { 'a.b': 1 }).fields['a\\.b']).toBe('allowed');
+    expect(read(['a\\.b', 'id'], { 'a.b': 1 }).fields['a\\.b']).toBe('allowed');
+    expect(read(['*', '!a\\.b'], { 'a.b': 1 }).fields['a\\.b']).toBe('denied');
+  });
 
-    expect(d.fields['a\\.b']).toBe('allowed');
+  it('reads an unclean split as the field names before the unclean segment', () => {
+    for (const key of ['a.*', 'a..b', 'a.!b', 'a.__proto__']) {
+      const object = Object.fromEntries([[key, 1]]);
+      expect(read(['*', '!a'], object).fields[key.replace(/\./g, '\\.')]).toBe(
+        'denied',
+      );
+      expect(read(['*'], object).fields[key.replace(/\./g, '\\.')]).toBe(
+        'allowed',
+      );
+    }
   });
 
   it('is denied at a nested level', () => {
@@ -1532,9 +1550,25 @@ describe('a flat dotted key on the read axis', () => {
     expect(pickAllowedFields(d, object)).toEqual({ id: 1, meta: { ok: 2 } });
   });
 
-  it('keeps an unclean split as a flat key', () => {
-    const d = read(['*', '!a.b'], { 'a..b': 1, 'a.*': 2 });
+  it('is denied inside an array element', () => {
+    const object = { lines: [{ 'x.y': 1, ok: 2 }] };
+    const d = read(['*', '!lines.x.y'], object);
 
-    expect(d.fields['a\\.\\.b']).toBe('allowed');
+    expect(d.fields['lines.x\\.y']).toBe('denied');
+    expect(pickAllowedFields(d, object)).toEqual({ lines: [{ ok: 2 }] });
+  });
+
+  it('denies the flat key and the nested key of a mixed row', () => {
+    const object = {
+      id: 1,
+      address: { street: 'S', city: 'C' },
+      'address.street': 'T',
+    };
+    const d = read(['*', '!address.street'], object);
+
+    expect(pickAllowedFields(d, object)).toEqual({
+      id: 1,
+      address: { city: 'C' },
+    });
   });
 });
