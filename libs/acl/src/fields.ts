@@ -500,6 +500,17 @@ function dataAt(root: Bag | undefined, segments: readonly string[]): unknown {
 const PATH_BRACKET = /[[\]]/;
 
 /**
+ * The field names a dotted key spells, or undefined when its plain split holds
+ * an empty segment or a token that names no field.
+ */
+function cleanSegments(key: string): readonly string[] | undefined {
+  const segments = key.split('.');
+  return segments.every((segment) => segment !== '' && isFieldName(segment))
+    ? segments
+    : undefined;
+}
+
+/**
  * How the rules decide a raw write key that reads as a path. A key `address.street`
  * is one flat key to the object, and a deep merge or an ORM that splits on `.`
  * writes it as a nested path, so the write must pass both readings. A key whose
@@ -516,10 +527,8 @@ function pathVerdict(
 ): Verdict | undefined {
   if (PATH_BRACKET.test(key)) return NOT_TRAVERSABLE;
   if (!key.includes('.')) return undefined;
-  const segments = key.split('.');
-  if (!segments.every((segment) => segment !== '' && isFieldName(segment))) {
-    return NOT_TRAVERSABLE;
-  }
+  const segments = cleanSegments(key);
+  if (!segments) return NOT_TRAVERSABLE;
   let at: RuleNode | undefined = node;
   let inheritedAbove = inherited;
   for (const [index, segment] of segments.slice(0, -1).entries()) {
@@ -618,14 +627,30 @@ function walkLevel(
           descends ? descriptorValue(proposed) : ownValue(level.proposed, key),
         )
       : undefined;
-    const dotted = write
-      ? pathVerdict(state, level, node, inherited, key)
-      : undefined;
+    // A read applies a dotted key's path reading only when the key splits into
+    // a clean path; the write axis refuses every key it cannot check.
+    const dotted =
+      write || (!PATH_BRACKET.test(key) && cleanSegments(key))
+        ? pathVerdict(state, level, node, inherited, key)
+        : undefined;
     const dottedDenied = dotted !== undefined && dotted.state !== 'allowed';
 
     if (!descends || child.excluded) {
       const flat = verdict ?? decideName(state.tree, child, inherited);
-      done(dottedDenied && flat.state === 'allowed' ? NOT_TRAVERSABLE : flat);
+      // A clean dotted key on a read passes both readings. A rule that names
+      // the flat key (`a\.b`) decides that reading; otherwise the rules name
+      // paths only, and the path the key spells decides.
+      done(
+        write
+          ? dottedDenied && flat.state === 'allowed'
+            ? NOT_TRAVERSABLE
+            : flat
+          : !dotted || (child && flat.state !== 'allowed')
+            ? flat
+            : dottedDenied
+              ? { state: 'denied', reason: 'not-listed' }
+              : { state: 'allowed', reason: 'allow' },
+      );
       continue;
     }
     if (dottedDenied) {
