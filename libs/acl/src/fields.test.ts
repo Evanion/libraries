@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { ActionNotAllowedError } from './errors.js';
+import { hydratePolicy } from './hydrate-policy.js';
 import { decideFields, pickAllowedFields } from './fields.js';
 import type {
   Decision,
@@ -1669,12 +1670,65 @@ describe('a flat dotted column on the write axis', () => {
   });
 
   it('is refused when an exclusion covers an ancestor', () => {
-    const d = write(
-      { fields: ['id', 'address\\.city', '!address'] },
+    const access = hydratePolicy({
+      permissions: [
+        {
+          key: 'order.update',
+          object: 'order',
+          action: 'update',
+          rules: [
+            {
+              when: [
+                { field: 'subject.roles', op: 'contains', value: 'editor' },
+              ],
+            },
+          ],
+          fields: { fields: ['*', 'address\\.city', '!address'] },
+        },
+      ],
+    });
+    const d = access.canFields(
+      { id: 'u1', roles: ['editor'] },
+      'order',
+      'update',
+      { id: 1 },
+      'write',
       { 'address.city': 'Lund' },
     );
 
     expect(d.fields[col]).toBe('denied');
+    expect(d.reasons[col]).toBe('not-traversable');
+  });
+
+  it('is allowed beside a star and at a nested level', () => {
+    expect(
+      write({ fields: ['*', 'address\\.city'] }, { 'address.city': 'Lund' })
+        .fields[col],
+    ).toBe('allowed');
+
+    const d = write(
+      { fields: ['id', 'meta', 'meta.x\\.y'] },
+      { meta: { 'x.y': 1 } },
+      { id: 1, meta: { 'x.y': 0 } },
+    );
+
+    expect(d.fields['meta.x\\.y']).toBe('allowed');
+  });
+
+  it('lets a config on the column decide once it is listed', () => {
+    const rules = {
+      fields: ['*', 'address\\.city'],
+      'address.city': { targets: ['Lund'] },
+    };
+    const stored = { address: { city: 'Lund' } };
+
+    expect(write(rules, { 'address.city': 'Lund' }, stored).fields[col]).toBe(
+      'allowed',
+    );
+
+    const other = write(rules, { 'address.city': 'Oslo' }, stored);
+
+    expect(other.fields[col]).toBe('denied');
   });
 
   it('is refused when its path leaves a ruled node', () => {
@@ -1696,7 +1750,8 @@ describe('a flat dotted column on the write axis', () => {
       { 'address.city': 'Lund' },
     );
 
-    expect(d.fields[col]).not.toBe('allowed');
+    expect(d.fields[col]).toBe('denied');
+    expect(d.reasons[col]).toBe('not-traversable');
   });
 
   it('is refused when a bracket key is listed', () => {

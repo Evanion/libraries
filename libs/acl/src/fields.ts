@@ -508,8 +508,8 @@ const PATH_BRACKET = /[[\]]/;
  * writes it as a nested path, so the write must pass both readings. A key whose
  * split is not a clean path of field names, or that holds a bracket (an index
  * path to some writers), cannot be checked as a path and is refused.
- * `listed` is whether an allow entry names the escaped flat key, which settles
- * the listing. Undefined when the key reads as no path.
+ * `listed` is whether an allow entry names the escaped flat key, which decides
+ * the name check. Undefined when the key reads as no path.
  */
 function pathVerdict(
   state: WalkState,
@@ -550,8 +550,7 @@ function pathVerdict(
   if (at && at.children.size > 0) return NOT_TRAVERSABLE;
   // An allow entry naming the escaped flat key lists it, so only a restriction
   // on the path can refuse it.
-  if (listed) {
-    if (at?.config) return NOT_TRAVERSABLE;
+  if (listed && !at?.config) {
     return at?.excluded ? { state: 'denied', reason: 'not-listed' } : ALLOWED;
   }
   if (at?.config) {
