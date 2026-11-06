@@ -122,7 +122,7 @@ export function eachPermission(
 }
 
 /** The key a permission states, or `undefined` when reading it fails. */
-function keyOf(permission: unknown): string | undefined {
+export function keyOf(permission: unknown): string | undefined {
   try {
     const key = (permission as { key?: unknown }).key;
     return typeof key === 'string' && key.length > 0 ? key : undefined;

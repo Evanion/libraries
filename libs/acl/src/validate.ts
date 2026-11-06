@@ -966,6 +966,8 @@ export function settleFreshness(
  * last validated, and how long it will trust that.
  */
 export interface ValidateOptions {
+  /** Overrides the document's `version`, as the `hydratePolicy` option does. */
+  version?: string | number;
   /** The instant the holder last validated the document against its origin. */
   fetchedAt?: Instant;
   /** A shorter local ceiling on staleness, in milliseconds. */
@@ -1001,10 +1003,23 @@ export function collectIssues(
   matrix: unknown,
   options: ValidateOptions = {},
 ): AclConfigError[] {
+  return collectIssuesSkipping(matrix, options, new Set());
+}
+
+/**
+ * `collectIssues`, leaving out the permissions at the indices in `unreadable`
+ * and adding the ones it finds unreadable, so a caller that already reported a
+ * permission is not told of it twice.
+ */
+function collectIssuesSkipping(
+  matrix: unknown,
+  options: ValidateOptions,
+  unreadable: Set<number>,
+): AclConfigError[] {
   const issues: AclConfigError[] = [];
   const report = collectInto(issues);
   guarded(report, [], unreadableDocument, () => {
-    collectDocument(report, matrix, issues, options);
+    collectDocument(report, matrix, issues, options, unreadable);
   });
   return issues;
 }
@@ -1014,6 +1029,7 @@ function collectDocument(
   matrix: unknown,
   issues: AclConfigError[],
   options: ValidateOptions,
+  unreadable: Set<number>,
 ): void {
   if (!isNode(matrix)) {
     report(new InvalidMatrixError(ENVELOPE), []);
@@ -1061,7 +1077,6 @@ function collectDocument(
 
   const keys = new Set<string>();
   const usable = new WeakSet<object>();
-  const unreadable = new Set<number>();
   eachPermission(
     report,
     permissions,
@@ -1107,7 +1122,7 @@ export interface ValidationIssue {
   message: string;
   /** A JSON pointer into the document, e.g. `'/permissions/3/fields/fields/1'`. */
   path: string;
-  /** `${key}.${action}` when the issue sits in a permission. */
+  /** The `key` of the permission the issue sits in, when it sits in one. */
   permissionKey?: string;
 }
 
@@ -1123,24 +1138,73 @@ function issueOf(error: AclConfigError): ValidationIssue {
 }
 
 /**
+ * The options `collectIssues` can read, with the faults found reading them.
+ *
+ * A getter that throws, or a `fetchedAt` that cannot be settled to an instant,
+ * is a fault of the options and is reported as one. The unreadable member is
+ * left out of the options that go on to the checks.
+ */
+function readOptions(options: ValidateOptions): {
+  usable: ValidateOptions;
+  faults: AclConfigError[];
+} {
+  const faults: AclConfigError[] = [];
+  const fault = (field: string): void => {
+    const error = new InvalidFreshnessError(field, 'could not be read');
+    error.path = '';
+    faults.push(error);
+  };
+  const usable: ValidateOptions = {};
+  try {
+    const { version, fetchedAt, maxStale } = options;
+    if (version !== undefined) usable.version = version;
+    if (maxStale !== undefined) usable.maxStale = maxStale;
+    if (fetchedAt !== undefined) {
+      try {
+        settleNow(fetchedAt);
+        usable.fetchedAt = fetchedAt;
+      } catch {
+        fault('fetchedAt');
+      }
+    }
+  } catch {
+    fault('options');
+  }
+  return { usable, faults };
+}
+
+/**
  * Lists every fault `hydratePolicy` would refuse the document for, without
  * throwing. An empty array means construction succeeds.
  *
  * The document is copied the way construction copies it before it is checked,
- * so a value the copy cannot clone is the first issue, as it is the first thing
- * construction throws. The caller's document is not changed or frozen.
+ * so a value the copy cannot clone is reported first, as it is the first thing
+ * construction throws. The caller's document is not changed or frozen. A
+ * permission the copy refused is not checked again.
  */
 export function validateAll(
   matrix: unknown,
   options: ValidateOptions = {},
 ): ValidationIssue[] {
   const refused: AclConfigError[] = [];
+  const skipped = new Set<number>();
+  const { usable, faults } = readOptions(options);
+  const refuse = collectInto(refused);
+  const note: typeof refuse = (error, path, permissionKey) => {
+    if (path.length === 2 && path[0] === 'permissions') {
+      skipped.add(Number(path[1]));
+    }
+    refuse(error, path, permissionKey);
+  };
+  let target: unknown = matrix;
   try {
-    const copy = isEnvelope(matrix)
-      ? copyOf(matrix, undefined, collectInto(refused))
-      : matrix;
-    return [...refused, ...collectIssues(copy, options)].map(issueOf);
+    if (isEnvelope(matrix)) target = copyOf(matrix, usable.version, note);
   } catch {
-    return collectIssues(matrix, options).map(issueOf);
+    target = matrix;
   }
+  return [
+    ...refused,
+    ...collectIssuesSkipping(target, usable, skipped),
+    ...faults,
+  ].map(issueOf);
 }
