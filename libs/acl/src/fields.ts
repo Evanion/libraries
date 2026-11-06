@@ -577,8 +577,7 @@ function spelledPrefix(key: string): string[] {
 }
 
 /**
- * The read verdict for a raw key. A key without a dot, a key with a bracket and
- * a key the list allows by its escaped name (`a\.b`) keep the flat verdict. Any
+ * The read verdict for a raw key. A key without a dot and a key the list allows by its escaped name (`a\.b`) keep the flat verdict. Any
  * other dotted key is also read as the path it spells, which can only deny it:
  * it is denied when an exclusion covers a field on that path, and as
  * not-traversable when the path ends at, or leaves the rules below, a field
@@ -591,7 +590,7 @@ function readVerdict(
   flat: Verdict,
 ): Verdict {
   if (flat.state !== 'allowed' || listed) return flat;
-  if (!key.includes('.') || PATH_BRACKET.test(key)) return flat;
+  if (!key.includes('.')) return flat;
   let at: RuleNode = node;
   for (const name of spelledPrefix(key)) {
     const next = at.children.get(name);
