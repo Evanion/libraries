@@ -213,42 +213,103 @@ function slotOf(bag: object, key: string): Slot {
 }
 
 /**
- * The plain objects an array holds, or undefined when it holds anything else:
- * a hole, an accessor, a primitive, `null`, a `Date`, a nested array.
+ * The keys of one object the walk reads, and how it reads them.
+ *
+ * A nested object is read once: `snapshotOf` takes its descriptors in one call
+ * and the walk answers every later question from that copy, so an object whose
+ * answers change between calls cannot split a decision. The top-level object
+ * and the write stay live, and read as the flat decision reads them.
  */
-function elementsOf(array: readonly unknown[]): object[] | undefined {
-  // Own keys equal the length only when no index is a hole.
-  if (Object.keys(array).length !== array.length) return undefined;
-  const elements: object[] = [];
-  for (let i = 0; i < array.length; i++) {
-    const slot = slotOf(array, String(i));
-    if (slot.opaque || !isPlainObject(slot.value)) return undefined;
-    elements.push(slot.value);
-  }
-  return elements;
+interface Bag {
+  /** The enumerable string keys. */
+  keys(): readonly string[];
+  /** The own property by descriptor, so a getter never runs. */
+  slot(key: string): Slot;
+  /** The own value as the flat decision reads it. */
+  value(key: string): unknown;
+}
+
+function liveBag(target: object): Bag {
+  return {
+    keys() {
+      try {
+        return Object.keys(target);
+      } catch {
+        return [];
+      }
+    },
+    slot(key) {
+      try {
+        return slotOf(target, key);
+      } catch {
+        return OPAQUE;
+      }
+    },
+    value(key) {
+      try {
+        return hasOwn(target, key)
+          ? (target as Record<string, unknown>)[key]
+          : undefined;
+      } catch {
+        return undefined;
+      }
+    },
+  };
+}
+
+function slotFrom(descriptor: PropertyDescriptor): Slot {
+  return 'value' in descriptor
+    ? { present: true, opaque: false, value: descriptor.value }
+    : OPAQUE;
 }
 
 /**
- * Whether the engine can read every key of an object it expands. An own
- * empty-string key cannot be named by a path. An accessor would run code on
- * read, and the walk reads descriptors only.
+ * A copy of a plain object's own properties, or undefined when the engine
+ * cannot read it: an own empty-string key cannot be named by a path, and an
+ * accessor would run code on read. Throws when a proxy trap throws.
  */
-function isReadable(bag: object): boolean {
-  try {
-    if (hasOwn(bag, '')) return false;
-    return Object.values(Object.getOwnPropertyDescriptors(bag)).every(
-      (descriptor) => 'value' in descriptor,
-    );
-  } catch {
-    return false;
+function snapshotOf(target: object): Bag | undefined {
+  if (!isPlainObject(target)) return undefined;
+  const descriptors = Object.getOwnPropertyDescriptors(target);
+  const slots = new Map<string, Slot>();
+  for (const key of Object.keys(descriptors)) {
+    const descriptor = descriptors[key] as PropertyDescriptor;
+    if (key === '' || !('value' in descriptor)) return undefined;
+    if (descriptor.enumerable) slots.set(key, slotFrom(descriptor));
   }
+  const keys = [...slots.keys()];
+  return {
+    keys: () => keys,
+    slot: (key) => slots.get(key) ?? ABSENT,
+    value: (key) => slots.get(key)?.value,
+  };
+}
+
+/**
+ * The snapshots of the plain objects an array holds, or undefined when it holds
+ * anything else: a hole, an accessor, a primitive, `null`, a `Date`, a nested
+ * array.
+ */
+function elementsOf(array: readonly unknown[]): Bag[] | undefined {
+  const descriptors = Object.getOwnPropertyDescriptors(array);
+  const elements: Bag[] = [];
+  for (let i = 0; i < array.length; i++) {
+    const descriptor = descriptors[i as unknown as keyof typeof descriptors];
+    if (!descriptor || !('value' in descriptor)) return undefined;
+    const element = descriptor.value as unknown;
+    if (typeof element !== 'object' || element === null) return undefined;
+    const bag = snapshotOf(element);
+    if (!bag) return undefined;
+    elements.push(bag);
+  }
+  return elements;
 }
 
 /** The containers on the current path of one side of the walk. */
 type Visited = Set<object>;
 
 /**
- * The objects whose keys a level reads, from the values found at one key, or
+ * The snapshots whose keys a level reads, from the values found at one key, or
  * undefined when the engine cannot walk them. An array contributes its elements.
  * The write axis walks no array: it has no identity between the stored and the
  * proposed elements to carry a rule across.
@@ -257,44 +318,36 @@ function expandSide(
   slots: readonly Slot[],
   allowArrays: boolean,
   visited: Visited,
-): object[] | undefined {
+): Bag[] | undefined {
   try {
-    return expandSlots(slots, allowArrays, visited);
+    const bags: Bag[] = [];
+    for (const slot of slots) {
+      if (slot.opaque) return undefined;
+      const value = slot.value;
+      if (typeof value !== 'object' || value === null) return undefined;
+      if (visited.has(value)) return undefined;
+      if (Array.isArray(value)) {
+        if (!allowArrays) return undefined;
+        const elements = elementsOf(value);
+        if (!elements) return undefined;
+        bags.push(...elements);
+      } else {
+        const bag = snapshotOf(value);
+        if (!bag) return undefined;
+        bags.push(bag);
+      }
+    }
+    return bags;
   } catch {
     // A proxy trap threw: nothing under it can be read.
     return undefined;
   }
 }
 
-function expandSlots(
-  slots: readonly Slot[],
-  allowArrays: boolean,
-  visited: Visited,
-): object[] | undefined {
-  const nodes: object[] = [];
-  for (const slot of slots) {
-    if (slot.opaque) return undefined;
-    const value = slot.value;
-    if (typeof value !== 'object' || value === null) return undefined;
-    if (visited.has(value)) return undefined;
-    if (Array.isArray(value)) {
-      if (!allowArrays) return undefined;
-      const elements = elementsOf(value);
-      if (!elements) return undefined;
-      nodes.push(...elements);
-    } else if (isPlainObject(value)) {
-      nodes.push(value);
-    } else {
-      return undefined;
-    }
-  }
-  return nodes.every(isReadable) ? nodes : undefined;
-}
-
-function slotsAt(nodes: readonly object[], key: string): Slot[] {
+function slotsAt(bags: readonly Bag[], key: string): Slot[] {
   const slots: Slot[] = [];
-  for (const node of nodes) {
-    const slot = slotOf(node, key);
+  for (const bag of bags) {
+    const slot = bag.slot(key);
     if (slot.present) slots.push(slot);
   }
   return slots;
@@ -367,9 +420,9 @@ function decideName(
 
 interface Level {
   /** The objects of the stored value whose keys this level reads. */
-  readonly stored: readonly object[];
+  readonly stored: readonly Bag[];
   /** The objects of the proposed write, on the write axis. */
-  readonly proposed: readonly object[];
+  readonly proposed: readonly Bag[];
 }
 
 interface WalkState {
@@ -396,26 +449,21 @@ function emit(
  * rule descends into is a plain value to the config checks, so an own getter on
  * it answers as it does for any other field.
  */
-function ownValue(bags: readonly object[], key: string): unknown {
+function ownValue(bags: readonly Bag[], key: string): unknown {
   for (const bag of bags) {
-    if (!hasOwn(bag, key)) continue;
-    try {
-      return (bag as Record<string, unknown>)[key];
-    } catch {
-      return undefined;
-    }
+    if (bag.slot(key).present) return bag.value(key);
   }
   return undefined;
 }
 
 /** The data value at a path of plain own properties, or undefined. */
-function dataAt(
-  root: object | undefined,
-  segments: readonly string[],
-): unknown {
+function dataAt(root: Bag | undefined, segments: readonly string[]): unknown {
   try {
-    let value: unknown = root;
-    for (const segment of segments) {
+    const [first, ...rest] = segments as [string, ...string[]];
+    const top = root?.slot(first);
+    if (!top || top.opaque) return undefined;
+    let value: unknown = top.value;
+    for (const segment of rest) {
       if (typeof value !== 'object' || value === null) return undefined;
       const slot = slotOf(value, segment);
       if (slot.opaque) return undefined;
@@ -427,31 +475,42 @@ function dataAt(
   }
 }
 
+const PATH_BRACKET = /[[\]]/;
+
 /**
- * How the rules decide a raw key that holds a `.`, read as the path its plain
- * split spells. A proposed key `address.street` is one flat key to the object,
- * and a deep merge or an ORM that splits on `.` writes it as a nested path, so
- * the write must pass both readings. Undefined when the split is no path.
+ * How the rules decide a raw write key that reads as a path. A key `address.street`
+ * is one flat key to the object, and a deep merge or an ORM that splits on `.`
+ * writes it as a nested path, so the write must pass both readings. A key whose
+ * split is not a clean path of field names, or that holds a bracket (an index
+ * path to some writers), cannot be checked as a path and is refused.
+ * Undefined when the key reads as no path.
  */
-function dottedVerdict(
+function pathVerdict(
   state: WalkState,
   level: Level,
   node: RuleNode,
   inherited: boolean,
   key: string,
 ): Verdict | undefined {
+  if (PATH_BRACKET.test(key)) return NOT_TRAVERSABLE;
+  if (!key.includes('.')) return undefined;
   const segments = key.split('.');
   if (!segments.every((segment) => segment !== '' && isFieldName(segment))) {
-    return undefined;
+    return NOT_TRAVERSABLE;
   }
   let at: RuleNode | undefined = node;
   let inheritedAbove = inherited;
   for (const segment of segments.slice(0, -1)) {
     at = at?.children.get(segment);
     if (at?.excluded) return { state: 'denied', reason: 'not-listed' };
+    // A config on a parent decides the parent's whole value, which a path
+    // through it would write around.
+    if (at?.config) return NOT_TRAVERSABLE;
     inheritedAbove = inheritedAbove || state.tree.star || !!at?.listed;
   }
   at = at?.children.get(segments[segments.length - 1] as string);
+  // A value written at a path with rules below it replaces that subtree.
+  if (at && at.children.size > 0) return NOT_TRAVERSABLE;
   if (at?.config) {
     return decideConfig(
       at.config,
@@ -484,11 +543,11 @@ function walkLevel(
   const write = state.axis === 'write';
   const keys = new Set<string>();
   for (const bag of level.stored) {
-    for (const key of Object.keys(bag)) keys.add(key);
+    for (const key of bag.keys()) keys.add(key);
   }
   if (write) {
     for (const bag of level.proposed) {
-      for (const key of Object.keys(bag)) keys.add(key);
+      for (const key of bag.keys()) keys.add(key);
     }
   }
   // An exclusion below a path is reported denied even when its parent is absent
@@ -502,7 +561,11 @@ function walkLevel(
 
   let blocked = false;
   for (const key of keys) {
-    if (!isFieldName(key)) continue;
+    if (!isFieldName(key)) {
+      // The decision names no such key, so a replaced parent would erase it.
+      if (level.stored.some((bag) => bag.slot(key).present)) blocked = true;
+      continue;
+    }
     const child = node.children.get(key);
     const path = [...segments, key];
     const stored = slotsAt(level.stored, key);
@@ -522,10 +585,9 @@ function walkLevel(
           descends ? descriptorValue(proposed) : ownValue(level.proposed, key),
         )
       : undefined;
-    const dotted =
-      write && proposed.length > 0 && key.includes('.')
-        ? dottedVerdict(state, level, node, inherited, key)
-        : undefined;
+    const dotted = write
+      ? pathVerdict(state, level, node, inherited, key)
+      : undefined;
     const dottedDenied = dotted !== undefined && dotted.state !== 'allowed';
 
     if (!descends || child.excluded) {
@@ -633,8 +695,8 @@ export function decideFields(
   walkLevel(
     state,
     {
-      stored: ctx.object ? [ctx.object] : [],
-      proposed: axis === 'write' && proposed ? [proposed] : [],
+      stored: ctx.object ? [liveBag(ctx.object)] : [],
+      proposed: axis === 'write' && proposed ? [liveBag(proposed)] : [],
     },
     tree.root,
     [],
@@ -679,32 +741,25 @@ const OMIT = Symbol('omit');
  * copied. A key the tree carries as a leaf is copied by reference. A key the
  * tree descends into is rebuilt, or left out when its value cannot be walked.
  *
- * The top level of the value reads a leaf as the flat decision does, so an own
- * getter there answers as it does for any other field. Below it the rebuild
- * reads descriptors only.
+ * The top-level bag is live and a leaf is read as the flat decision reads it, so
+ * an own getter there answers as it does for any other field. Every level below
+ * it is a snapshot.
  */
 function pickObject(
-  source: Record<string, unknown>,
+  source: Bag,
   node: PickNode,
   path: Visited,
-  top: boolean,
 ): Record<string, unknown> {
   const built: Record<string, unknown> = {};
-  for (const key of Object.keys(source)) {
+  for (const key of source.keys()) {
     if (!isFieldName(key)) continue;
     const child = node.children.get(key);
     if (!child) continue;
     if (child.children.size === 0) {
-      if (!child.allowed) continue;
-      if (top) {
-        put(built, key, source[key]);
-        continue;
-      }
-      const slot = slotOf(source, key);
-      if (!slot.opaque) put(built, key, slot.value);
+      if (child.allowed) put(built, key, source.value(key));
       continue;
     }
-    const slot = slotOf(source, key);
+    const slot = source.slot(key);
     if (slot.opaque) continue;
     const picked = pickValue(slot.value, child, path);
     if (picked !== OMIT) put(built, key, picked);
@@ -726,13 +781,14 @@ function pickValue(value: unknown, node: PickNode, path: Visited): unknown {
         put(
           built as unknown as Record<string, unknown>,
           String(index),
-          pickObject(element as Record<string, unknown>, node, path, false),
+          pickObject(element, node, path),
         );
       });
       return built;
     }
-    if (!isPlainObject(value)) return OMIT;
-    const built = pickObject(value, node, path, false);
+    const bag = snapshotOf(value);
+    if (!bag) return OMIT;
+    const built = pickObject(bag, node, path);
     return Object.keys(built).length > 0 ? built : OMIT;
   } catch {
     // A proxy trap threw: the value cannot be walked.
@@ -774,9 +830,8 @@ export function pickAllowedFields<T extends Record<string, unknown>>(
     );
   }
   return pickObject(
-    proposed,
+    liveBag(proposed),
     pickTree(decision.fields),
     new Set(),
-    true,
   ) as Partial<T>;
 }

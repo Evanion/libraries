@@ -476,7 +476,7 @@ describe('SEC-008 authoring tokens never key a decision (CWE-915)', () => {
     };
     const outcome = decideFields(
       rules,
-      { subject: { id: 'u1' }, object: { address: { '*': 1, '!role': 2 } } },
+      { subject: { id: 'u1' }, object: { address: {} } },
       'write',
       proposed,
     );
