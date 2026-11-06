@@ -210,13 +210,15 @@ A row can carry flat keys with a dot in them, such as SQL aliases or Sequelize r
 
 When a raw key contains a `.`, it is decided twice: once as a flat key and once as a path. A dotted key is allowed only if the flat reading permits it **and** the path spelled by splitting the key at the dot is not excluded. The path reading acts as a filter that can only tighten the result.
 
-For example, if your allowed list is `['a']`, a flat key of `{ 'a.b': 1 }` remains hidden, because the flat reading does not list it and the path reading never loosens a decision. Similarly, `['id', 'address.city']` hides a flat `address.city` column. To explicitly allow a flat column containing a dot, use a backslash to escape the character: `address\.city`. On the read axis, an allow entry using this escaped flat key tells the library to let the flat reading decide alone.
+For example, if your allowed list is `['a']`, a flat key of `{ 'a.b': 1 }` remains hidden, because the flat reading does not list it and the path reading never loosens a decision. Similarly, `['id', 'address.city']` hides a flat `address.city` column. To explicitly allow a flat column containing a dot, use a backslash to escape the character: `address\.city`. On the read axis, an allow entry using this escaped flat key tells the library to let the flat reading decide alone. This allows a specific flat column to remain visible even if an ancestor in its path has been excluded. For example, given the pattern `['*', '!address', 'address\.city']`, the `@evanion/acl` package hides the nested `address` object but ensures the flat `address.city` column is shown.
 
 ### Reading Segmented Keys
 
 On the read axis, brackets are treated as ordinary characters within a segment. This means a key containing brackets splits on the `.` character like any other key.
 
 For example, if your rules are `['*', '!data']`, the key `data.x[0]` is denied because it starts with the denied `data` segment. Similarly, under `['*', '!address.street']`, the key `address.street[0]` is marked as `not-traversable`.
+
+A bracket does not split a key; the entire string, including the brackets, is a single segment. For example, under the rule `['*', '!data']`, the key `data[0]` is allowed because the segment `data[0]` is not strictly equal to `data`. Consequently, a rule targeting `data` will not cover query-string style keys like `data[0]`.
 
 ### Traversal and Escaping
 
@@ -251,7 +253,18 @@ A key is marked `not-traversable` on the write axis if:
 
 If the rule list does not include `*`, any raw dotted key is refused even if it touches no existing rule, for instance `other.col` under `['id', 'other\.col']`. However, if `*` is present, a dotted key that touches no rule is allowed.
 
-Because of these protections, an escaped allow entry (like `address\.city`) works on the read axis but not the write axis; it will not make a raw `address.city` key writable. To update a dotted column, you must either write the nested form or use its own specific action. If a write is refused, `pickAllowedFields` will drop the key entirely.
+To control which fields are writable, you must distinguish between escaped and raw dotted keys.
+
+An escaped allow entry, such as `address\.city`, grants access to the read axis only. It does not make the raw `address.city` key writable.
+
+The engine only writes a raw dotted key if the rule list contains a wildcard (`*`) and has no specific rule on the key's path. For example, a dedicated `updateCity` action using `['*', '!note']` would allow this write.
+
+The nested form cannot reach a flat column. Consider these two scenarios:
+
+- Under `['id', 'address\.city']`, the engine refuses `address` as `not-listed`.
+- Under `['id', 'address.city']`, if the stored row holds no `address` object, the engine marks `address` as `missing-field`.
+
+In every refused case, `pickAllowedFields` drops the key, ensuring the write never reaches the column.
 
 ### Handling Arrays
 
