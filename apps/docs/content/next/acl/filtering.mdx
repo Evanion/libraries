@@ -31,49 +31,57 @@ For an example of a filter that incorrectly implements the field step by passing
 
 ## Handling Nested Objects in @evanion/acl
 
-To manage access to specific properties within an object, `@evanion/acl` uses dot-notation paths. While `address` refers to a top-level key of a row, `address.street` targets the street property nested inside that object. If a key contains a literal `.` or `\`, you escape it with a backslash; for example, the flat key `a.b` is written as `a\.b`. This same escaped spelling is used in decision maps.
+To manage permissions for deep data structures, `@evanion/acl` uses path-based field rules. A rule names a path to a value: `address` refers to a top-level key of a row, while `address.street` refers to the street nested inside that object. If a key literally contains a `.` or `\`, escape it with a backslash (e.g., the flat key `a.b` is written as `a\.b`). Decision maps follow this same spelling.
 
-### How Nested Exclusions Work
+### How to hide a nested key
 
-You can hide specific nested keys by combining a baseline allowance with a targeted exclusion. Because an exclusion needs a baseline to function, you must either use the wildcard `*` or list an ancestor of the path you wish to hide.
+To deny access to a specific nested field, you must first establish a baseline of allowed access using `*` or a listed ancestor of the path.
 
-For example, given a row `{ id, address: { city, street } }`, the rule `['*', '!address.street']` marks `id` and `address.city` as `allowed` and `address.street` as `denied`. Consequently, `pickAllowedFields` returns the address object without the street.
+For a row containing `{ id, address: { city, street } }`:
 
-Similarly, listing a parent allows everything beneath it. The rule `['id', 'address', '!address.street']` allows the `id` and the entire `address` object, except for the street. These path-based rules can also be used for `targets` or `transitions` keys, such as `'address.country'`.
+- `['*', '!address.street']` allows `id` and `address.city` but denies `address.street`.
+- `['id', 'address', '!address.street']` allows the `id` and the `address` object, provided the street is removed.
 
-The example below demonstrates how to hide a nested key and the resulting decision.
+In both cases, `pickAllowedFields` returns the address without the street. Note that `targets` or `transitions` keys can also be paths, such as `'address.country'`.
 
 ```ts twoslash file=libs/acl/docs/examples.md region=nested-fields
 
 ```
 
-### Arrays and Traversability
+### Working with arrays
 
-When a rule targets an array, it applies to every element within that array. For instance, `!lines.cost` hides the `cost` property on every line; the resulting map key contains no index.
+When a path segment reaches an array, the rule applies to every element within that array. To hide the `cost` field on every line in a list, use `!lines.cost`; the key remains `lines.cost` without a specific index.
 
-However, the write axis handles arrays differently. Any rule that attempts to descend into an array during a write operation will refuse the entire array, as the engine cannot reliably match stored elements to proposed ones. To modify an array, write each element through its own distinct action.
+The behavior differs by axis:
 
-The engine can walk plain objects and arrays. If it encounters a value it cannot traverse—such as a `Date`, a class instance, a value with a getter, a primitive, `null`, or a circular reference—the value is `denied` with the reason `not-traversable`.
+- **Read Axis:** The array is returned with every element and its index. If an element's children are all withheld, that element returns as `{}`.
+- **Write Axis:** Any array that a rule attempts to enter is refused in its entirety, as the engine cannot reliably match a stored element to a proposed one.
 
-- **On Read:** The entire value is hidden.
-- **On Write:** The value is refused.
+Arrays containing holes, extra own properties, or elements the walk cannot traverse are refused on both axes. To modify these, write the elements through their own dedicated action.
 
-This protection also prevents "accidental erasure." If a write would replace a subtree containing a key the caller is forbidden from writing (e.g., setting `address: null` when `!address.street` is active), the operation is marked `not-traversable`. Additionally, any raw key shaped like a path (containing `[` or `]` or an ambiguous `.`) is refused on the write axis.
+### Handling non-traversable values
 
-### Validation and Constraints
+The permission walk only enters plain objects and arrays. The following are treated as "leaves":
 
-To ensure permission integrity, the construction process refuses lists that contain conflicting intents or invalid paths. An `InvalidPermissionError` (naming the permission key and the entries) is raised for:
+- Primitives, `null`, `Date`, `Map`, class instances, or objects with getters.
+- Cycles (which become `not-traversable` where they repeat).
 
-- Empty segments (e.g., `a..b`).
-- Segments named `__proto__`, `*`, or those starting with `!`.
+If a rule names a path below a leaf, the value is `denied` with the reason `not-traversable`. On read, the entire value is hidden; on write, it is refused. Because ORM rows are typically class instances with getters, you must convert them to plain objects before calling `canFields`.
+
+This logic also protects stored data: a write that would erase a stored key the caller is not permitted to write is refused. If a stored parent contains a denied or undecidable key, that parent is marked `not-traversable` and `pickAllowedFields` excludes it. For further details, see [Field permissions](../fields#how-to-manage-nested-fields-in-evanionacl).
+
+### Validation and build errors
+
+To ensure permission integrity, `@evanion/acl` raises an `InvalidPermissionError` (naming the permission key and entries) if the build encounters:
+
+- An empty segment (e.g., `a..b`).
+- A segment that is `__proto__`, `*`, or starts with `!`.
 - An entry placed beside its own exclusion.
-- An allow rule placed below an excluded ancestor.
-- A `targets` or `transitions` key that has another rule beneath it.
-- Paths exceeding 32 segments.
+- An allow rule positioned below an excluded ancestor.
+- A `targets` or `transitions` key that has another rule below it.
+- A path exceeding 32 segments.
 
-If an exclusion is provided without a baseline, the engine raises a `DenyWithoutBaselineError`.
-
-Finally, conditions maintain a one-field limit. Any path like `object.address.city` used within a condition is refused at build time, as detailed in [What can throw?](../errors).
+Additionally, a `!` entry provided without a baseline raises a `DenyWithoutBaselineError`. Finally, because conditions are limited to a single field, a path like `object.address.city` inside a condition is refused at build time, as described in [What can throw?](../errors).
 
 ## Paging a filtered list with @evanion/acl
 

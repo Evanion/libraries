@@ -151,3 +151,80 @@ The `read` axis answers which fields of an instance this subject may see.
 `canFields` decides a projection on `read` and runs no query: the row was
 already fetched, and a field decided `denied` here was still read out of the
 database.
+
+## How to manage nested fields in @evanion/acl
+
+To control access to deeply nested data, you use paths. While `address` refers to a top-level key of a row, `address.street` targets the street property inside that object.
+
+### Defining Path Rules
+
+You define access by listing paths in a name list. An entry allows that path and everything below it, while an entry starting with `!` hides that path and its descendants.
+
+Because exclusions only work if there is something to exclude, a `!` entry requires a `*` or a listed ancestor above it in the list. For example:
+
+- `['*', '!address.street']` allows everything except the street.
+- `['id', 'address', '!address.street']` allows the ID and the address, but hides the street.
+
+These paths apply to both axes; for instance, a `targets` or `transitions` key can be a path like `'address.country'`.
+
+#### Path Constraints and Escaping
+
+A path can have a maximum of 32 segments. Segments cannot be empty, cannot be `*`, cannot be `__proto__`, and cannot start with `!`.
+
+If a key contains a literal `.` or `\`, you must escape it with a backslash:
+
+- The flat key `a.b` is written as `a\.b`.
+- The key `a\b` is written as `a\\b`.
+  The decision maps use this same spelling.
+
+#### Resolving Leaves
+
+The map tracks only the "leaves" that the rules reach. If you apply `['*', '!address.street']` to `{ id, address: { city, street } }`, the resulting keys are `id` and `address.city`. Note that `address` itself is not a key; a key and its descendant never both appear in the result.
+
+### Writing to Nested Objects
+
+When you use `pickAllowedFields` to filter a row, it rebuilds every parent as a new object containing only the allowed children. This means a parent becomes a "partial" object if some of its children are withheld.
+
+`Object.assign(row, picked)` replaces a full stored parent with one of these partial parents, which would erase any stored key the caller isn't allowed to write. To prevent that, the engine denies the parent before `pickAllowedFields` runs.
+
+The engine determines traversability based on the stored object:
+
+- **Denied (`not-traversable`):** If a stored parent contains a key that is denied, cannot be decided, is not a field name, or is a symbol/non-enumerable property, the parent is marked `not-traversable` and `pickAllowedFields` omits it.
+- **Unevaluable (`missing-field`):** If a rule descends into a parent that the write operation provides but the stored object lacks, the parent is marked `missing-field`.
+
+```ts twoslash file=libs/acl/docs/examples.md region=nested-write
+
+```
+
+**Recommendation:** To change a single nested key without risking its siblings, give the nested object its own action and permission, or define it as its own object kind. This allows the caller to write the street or city via rules that name them directly.
+
+#### Write-Axis Restrictions
+
+The engine refuses path-shaped raw keys on the write axis. A key is marked `not-traversable` if it contains `[` or `]`, contains a `.` that doesn't split into a clean path, or refers to a dotted key that leaves the rule tree (e.g., attempting to write `address.city` when `!address.street` is active). The refusal exists because path writers such as Mongo's `$set` and lodash's `set` would apply such a key as a path and write below the parent.
+
+### Handling Arrays
+
+When a path segment reaches an array, the rule applies to every element within that array. For example, `!lines.cost` hides the `cost` field on every line; the resulting key is `lines.cost` without a specific index. The keys available under an array are the union of all keys carried by its elements.
+
+**Write Limitations:**
+Because the engine cannot reliably match a stored array element to a proposed one, any array that a rule descends into is refused entirely on the write axis. Additionally, any array with holes, extra own properties, or elements the walk cannot see into is refused on both axes. `pickAllowedFields` never drops individual array elements; you must write array elements through their own dedicated action.
+
+### Values the Walk Cannot See Into
+
+The engine's walk only penetrates plain objects and arrays. The following are treated as leaves:
+
+- Primitives, `null`, `Date`, `Map`, class instances, or objects with getters.
+
+If a rule names a path below one of these leaves, the value is `denied` as `not-traversable`. On read, the entire value is hidden; on write, it is refused. Circular references are also marked `not-traversable` at the point of repetition.
+
+**ORM Warning:** Since ORM rows are typically class instances with getters, they are unwalkable. You must convert an ORM row to a plain object before calling `canFields`, otherwise every value under a descending rule will be hidden.
+
+```ts twoslash file=libs/acl/docs/examples.md region=nested-walk
+
+```
+
+### Typed Paths
+
+When using the typed builder, `.fields()` validates every path against the object kind's type. If a path is unknown, it results in a compile error.
+
+If a kind is typed as a generic object (e.g., `Record<string, unknown>`), there are no specific paths to validate. In these cases, use the untyped builder.
