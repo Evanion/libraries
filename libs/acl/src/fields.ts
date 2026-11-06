@@ -227,10 +227,13 @@ interface Bag {
   slot(key: string): Slot;
   /** The own value as the flat decision reads it. */
   value(key: string): unknown;
+  /** The object holds a non-enumerable or symbol key that `keys` does not list. */
+  readonly hidden: boolean;
 }
 
 function liveBag(target: object): Bag {
   return {
+    hidden: false,
     keys() {
       try {
         return Object.keys(target);
@@ -272,13 +275,20 @@ function snapshotOf(target: object): Bag | undefined {
   if (!isPlainObject(target)) return undefined;
   const descriptors = Object.getOwnPropertyDescriptors(target);
   const slots = new Map<string, Slot>();
-  for (const key of Object.keys(descriptors)) {
-    const descriptor = descriptors[key] as PropertyDescriptor;
+  let hidden = false;
+  for (const key of Reflect.ownKeys(descriptors)) {
+    const descriptor = descriptors[key as string] as PropertyDescriptor;
+    if (typeof key === 'symbol' || !descriptor.enumerable) {
+      hidden = true;
+      if (typeof key === 'string' && !('value' in descriptor)) return undefined;
+      continue;
+    }
     if (key === '' || !('value' in descriptor)) return undefined;
-    if (descriptor.enumerable) slots.set(key, slotFrom(descriptor));
+    slots.set(key, slotFrom(descriptor));
   }
   const keys = [...slots.keys()];
   return {
+    hidden,
     keys: () => keys,
     slot: (key) => slots.get(key) ?? ABSENT,
     value: (key) => slots.get(key)?.value,
@@ -292,8 +302,16 @@ function snapshotOf(target: object): Bag | undefined {
  */
 function elementsOf(array: readonly unknown[]): Bag[] | undefined {
   const descriptors = Object.getOwnPropertyDescriptors(array);
+  const length = (descriptors['length'] as PropertyDescriptor).value as number;
+  // An own property other than an index would ride along on the original array
+  // and be lost from a rebuilt one.
+  for (const key of Reflect.ownKeys(descriptors)) {
+    if (key === 'length') continue;
+    const index = typeof key === 'string' && /^(0|[1-9]\d*)$/.test(key);
+    if (!index || Number(key) >= length) return undefined;
+  }
   const elements: Bag[] = [];
-  for (let i = 0; i < array.length; i++) {
+  for (let i = 0; i < length; i++) {
     const descriptor = descriptors[i as unknown as keyof typeof descriptors];
     if (!descriptor || !('value' in descriptor)) return undefined;
     const element = descriptor.value as unknown;
@@ -456,18 +474,21 @@ function ownValue(bags: readonly Bag[], key: string): unknown {
   return undefined;
 }
 
-/** The data value at a path of plain own properties, or undefined. */
+/**
+ * The data value at a path of plain own properties, or undefined. Each nested
+ * object is read through one snapshot, so it answers once.
+ */
 function dataAt(root: Bag | undefined, segments: readonly string[]): unknown {
   try {
-    const [first, ...rest] = segments as [string, ...string[]];
-    const top = root?.slot(first);
-    if (!top || top.opaque) return undefined;
-    let value: unknown = top.value;
-    for (const segment of rest) {
-      if (typeof value !== 'object' || value === null) return undefined;
-      const slot = slotOf(value, segment);
-      if (slot.opaque) return undefined;
+    let bag = root;
+    let value: unknown;
+    for (const [index, segment] of segments.entries()) {
+      const slot = bag?.slot(segment);
+      if (!slot || slot.opaque) return undefined;
       value = slot.value;
+      if (index === segments.length - 1) return value;
+      if (typeof value !== 'object' || value === null) return undefined;
+      bag = snapshotOf(value);
     }
     return value;
   } catch {
@@ -500,15 +521,25 @@ function pathVerdict(
   }
   let at: RuleNode | undefined = node;
   let inheritedAbove = inherited;
-  for (const segment of segments.slice(0, -1)) {
-    at = at?.children.get(segment);
+  for (const [index, segment] of segments.slice(0, -1).entries()) {
+    const next: RuleNode | undefined = at?.children.get(segment);
+    // Leaving the rules below a field that has rules would write around them:
+    // `lines.0.cost` reaches the `cost` that `!lines.cost` hides.
+    if (!next && index > 0 && at && at.children.size > 0) {
+      return NOT_TRAVERSABLE;
+    }
+    at = next;
     if (at?.excluded) return { state: 'denied', reason: 'not-listed' };
     // A config on a parent decides the parent's whole value, which a path
     // through it would write around.
     if (at?.config) return NOT_TRAVERSABLE;
     inheritedAbove = inheritedAbove || state.tree.star || !!at?.listed;
   }
-  at = at?.children.get(segments[segments.length - 1] as string);
+  const last = segments[segments.length - 1] as string;
+  if (!at?.children.has(last) && segments.length > 1 && at) {
+    if (at.children.size > 0) return NOT_TRAVERSABLE;
+  }
+  at = at?.children.get(last);
   // A value written at a path with rules below it replaces that subtree.
   if (at && at.children.size > 0) return NOT_TRAVERSABLE;
   if (at?.config) {
@@ -559,7 +590,8 @@ function walkLevel(
     }
   }
 
-  let blocked = false;
+  // A stored key the walk cannot list would go missing from a replaced parent.
+  let blocked = write && level.stored.some((bag) => bag.hidden);
   for (const key of keys) {
     if (!isFieldName(key)) {
       // The decision names no such key, so a replaced parent would erase it.

@@ -1060,6 +1060,158 @@ describe('decideFields', () => {
       });
     });
   });
+
+  describe('keys that leave the rule tree and keys the walk cannot see', () => {
+    const decide = (
+      fields: FieldRules,
+      axis: 'read' | 'write',
+      object: Record<string, unknown>,
+      proposed?: Record<string, unknown>,
+    ) =>
+      decideFields(
+        perm('order.update', fields),
+        { subject: { id: 's1' }, object },
+        axis,
+        proposed,
+      );
+    const picked = (
+      outcome: ReturnType<typeof decideFields>,
+      proposed: Record<string, unknown>,
+    ) => pickAllowedFields({ ...outcome, action: allowedAction }, proposed);
+    const escaped = (key: string) => key.replace(/\./g, '\\.');
+
+    it.each(['lines.0.cost', 'lines.$.cost', 'lines.0'])(
+      'denies %s, which leaves the rules at a node that has rules below it',
+      (key) => {
+        const proposed = { [key]: 1 };
+        const d = decide(
+          { fields: ['*', '!lines.cost'] },
+          'write',
+          { lines: [{ price: 1, cost: 2 }] },
+          proposed,
+        );
+
+        expect(d.fields[escaped(key)]).toBe('denied');
+        expect(d.reasons[escaped(key)]).toBe('not-traversable');
+        expect(picked(d, proposed)).toEqual({});
+      },
+    );
+
+    it('denies an index path below a config path', () => {
+      const proposed = { 'addresses.0.status': 'pub' };
+      const d = decide(
+        { 'addresses.status': { transitions: { draft: ['pub'] } } },
+        'write',
+        { addresses: [{ status: 'draft' }] },
+        proposed,
+      );
+
+      expect(d.fields['addresses\\.0\\.status']).toBe('denied');
+      expect(d.reasons['addresses\\.0\\.status']).toBe('not-traversable');
+    });
+
+    it('denies a sibling path below a node that has an exclusion', () => {
+      const d = decide(
+        { fields: ['*', '!address.street'] },
+        'write',
+        {},
+        { 'address.zip': '1' },
+      );
+
+      expect(d.fields['address\\.zip']).toBe('denied');
+    });
+
+    it('allows a dotted key under a node with no rules below it', () => {
+      const d = decide(
+        { fields: ['*', '!address.street'] },
+        'write',
+        {},
+        { 'other.zip': '1' },
+      );
+
+      expect(d.fields['other\\.zip']).toBe('allowed');
+    });
+
+    describe('stored keys an enumerating walk does not list', () => {
+      const proposed = { address: { city: 'X' } };
+      const rules = { fields: ['*', '!address.street'] };
+      const hidden = () => {
+        const address: Record<string | symbol, unknown> = { city: 'c' };
+        Object.defineProperty(address, 'street', {
+          value: 's',
+          enumerable: false,
+        });
+        return address;
+      };
+
+      it('a non-enumerable key refuses the replaced parent on write', () => {
+        const d = decide(rules, 'write', { address: hidden() }, proposed);
+
+        expect(d.fields).toEqual({ address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
+        expect(picked(d, proposed)).toEqual({});
+      });
+
+      it('a symbol key refuses the replaced parent on write', () => {
+        const d = decide(
+          rules,
+          'write',
+          { address: { city: 'c', [Symbol('s')]: 1 } },
+          proposed,
+        );
+
+        expect(d.fields).toEqual({ address: 'denied' });
+        expect(d.reasons['address']).toBe('not-traversable');
+      });
+
+      it('leaves the read axis walking the same parent', () => {
+        const d = decide(rules, 'read', { address: hidden() });
+
+        expect(d.fields).toEqual({
+          'address.city': 'allowed',
+          'address.street': 'denied',
+        });
+      });
+    });
+
+    describe('an array with an own non-index property', () => {
+      const lines = () => {
+        const array = [{ price: 1, cost: 2 }] as unknown[] & {
+          secret?: string;
+        };
+        array.secret = 's';
+        return array;
+      };
+
+      it('is not traversable on read', () => {
+        const d = decide({ fields: ['*', '!lines.cost'] }, 'read', {
+          lines: lines(),
+        });
+
+        expect(d.fields).toEqual({ lines: 'denied' });
+        expect(d.reasons['lines']).toBe('not-traversable');
+      });
+
+      it('is not traversable on write', () => {
+        const d = decide(
+          { fields: ['*', '!lines.cost'] },
+          'write',
+          {},
+          { lines: lines() },
+        );
+
+        expect(d.reasons['lines']).toBe('not-traversable');
+      });
+
+      it('is left out by pick where the decision descends', () => {
+        const outcome = decide({ fields: ['*', '!lines.cost'] }, 'read', {
+          lines: [{ price: 1, cost: 2 }],
+        });
+
+        expect(picked(outcome, { lines: lines() })).toEqual({});
+      });
+    });
+  });
 });
 
 const allowedAction: Decision = {
