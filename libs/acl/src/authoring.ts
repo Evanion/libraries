@@ -72,6 +72,9 @@ export type EscapeKey<K extends string | number> =
  * key as its string form. Past `Depth` segments, and under `any`, `unknown`,
  * `object`, `{}` or an index signature, the type is `string`.
  *
+ * A policy over a generic object type should use the untyped builder, because
+ * the typed `fields()` cannot walk a type parameter.
+ *
  * The typed `fields()` does not enumerate this union. It validates each entry
  * by walking its own segments, so its cost does not grow with the size of `T`.
  */
@@ -139,50 +142,55 @@ export type StepMember<T, K extends string> = T extends unknown
 /**
  * `true` when the escaped path `S` names a property chain of `T`, and `false`
  * when a segment is missing, refused or malformed. `Cur` is the segment being
- * read. The walk costs one step per character of `S`, whatever the size of `T`.
+ * read. A remainder of `string` is accepted where `T` has an open key there.
+ * The walk costs one step per character of `S`, whatever the size of `T`.
  */
-export type WalkPath<S extends string, T, Cur extends string = ''> =
-  Record<never, never> extends Record<S, 1>
-    ? true
-    : S extends `\\${infer N}${infer R}`
-      ? N extends '.' | '\\'
-        ? WalkPath<R, T, `${Cur}${N}`>
-        : false
-      : S extends `.${infer R}`
-        ? [StepInto<T, Cur>] extends [never]
+export type WalkPath<
+  S extends string,
+  T,
+  Cur extends string = '',
+> = string extends S
+  ? [StepInto<T, string>] extends [never]
+    ? false
+    : true
+  : S extends `\\${infer N}${infer R}`
+    ? N extends '.' | '\\'
+      ? WalkPath<R, T, `${Cur}${N}`>
+      : false
+    : S extends `.${infer R}`
+      ? [StepInto<T, Cur>] extends [never]
+        ? false
+        : WalkPath<R, StepInto<T, Cur>>
+      : S extends `${infer C}${infer R}`
+        ? C extends '\\'
           ? false
-          : WalkPath<R, StepInto<T, Cur>>
-        : S extends `${infer C}${infer R}`
-          ? C extends '\\'
-            ? false
-            : WalkPath<R, T, `${Cur}${C}`>
-          : [StepInto<T, Cur>] extends [never]
-            ? false
-            : true;
+          : WalkPath<R, T, `${Cur}${C}`>
+        : [StepInto<T, Cur>] extends [never]
+          ? false
+          : true;
 
 /** `S` when it names a path of `T`, and an error message otherwise. */
-export type ValidPath<S extends string, T> =
-  Record<never, never> extends Record<S, 1>
+export type ValidPath<S extends string, T> = string extends S
+  ? S
+  : WalkPath<S, T> extends true
     ? S
-    : WalkPath<S, T> extends true
-      ? S
-      : `unknown field path '${S}' on this resource`;
+    : `unknown field path '${S}' on this resource`;
 
 /**
  * `S` when it is `*`, a path of `Obj`, or `!` and a path of `Obj`, and an error
- * message naming `S` otherwise. A `string` or a template with a non-literal
- * part is accepted.
+ * message naming `S` otherwise. A `string` is accepted. A template is walked
+ * through its literal prefix, and its `string` remainder is accepted where the
+ * type is open at that point.
  */
-export type ValidEntry<S extends string, Obj> =
-  Record<never, never> extends Record<S, 1>
+export type ValidEntry<S extends string, Obj> = string extends S
+  ? S
+  : S extends '*'
     ? S
-    : S extends '*'
-      ? S
-      : S extends `!${infer P}`
-        ? WalkPath<P, Obj> extends true
-          ? S
-          : `unknown field path '${S}' on this resource`
-        : ValidPath<S, Obj>;
+    : S extends `!${infer P}`
+      ? WalkPath<P, Obj> extends true
+        ? S
+        : `unknown field path '${S}' on this resource`
+      : ValidPath<S, Obj>;
 
 /** A field list with each entry checked against `Obj` by `ValidEntry`. */
 export type ValidEntries<E extends readonly string[], Obj> = {

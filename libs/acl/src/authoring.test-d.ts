@@ -625,6 +625,43 @@ describe('typed field paths', () => {
     );
   });
 
+  it('checks the literal prefix of a template entry', () => {
+    type Loose = { id: string; meta: Record<string, string> };
+    const closed = policy<Subject, { order: Order; loose: Loose }>();
+    const hole = 'k' as string;
+    closed.for('loose', (p) =>
+      p.allow('read').fields([`meta.${hole}`, `!meta.${hole}`]),
+    );
+    closed.for('loose', (p) =>
+      p.allow('update').fields({ [`meta.${hole}`]: { targets: ['x'] } }),
+    );
+    closed.for('order', (p) =>
+      // @ts-expect-error nope is not a key
+      p.allow('read').fields([`nope.${hole}`]),
+    );
+    closed.for('order', (p) =>
+      // @ts-expect-error nope is not a key
+      p.allow('read').fields([`!nope.${hole}`]),
+    );
+    closed.for('order', (p) =>
+      // @ts-expect-error id is a leaf
+      p.allow('read').fields([`id.${hole}`]),
+    );
+    closed.for('order', (p) =>
+      // @ts-expect-error address has no open key
+      p.allow('read').fields([`address.${hole}`]),
+    );
+  });
+
+  it('refuses a branded string entry', () => {
+    type Brand = string & { __b: 'x' };
+    const brand = 'id' as Brand;
+    typed.for('order', (p) =>
+      // @ts-expect-error a branded string is not a literal path
+      p.allow('read').fields([brand]),
+    );
+  });
+
   it('refuses a typo under an object whose properties are all optional', () => {
     type Opt = { opt?: { line2?: string; zip?: string }; part: Partial<Order> };
     // eslint-disable-next-line @typescript-eslint/no-empty-object-type
