@@ -993,11 +993,102 @@ describe('collectIssues past a fault', () => {
     ).toThrow(firstMessage);
   });
 
-  it('still names a bigint when it is the first fault', () => {
+  it("names a bigint in the message of a later permission's fault", () => {
     const [issue] = collectIssues(
       doc({ field: 'object.status', op: 10n, value: 1 }),
     ).slice(1);
 
     expect(issue?.message).toContain('has an unknown op 10n');
+  });
+});
+
+describe('collectIssues over a hostile document', () => {
+  const first = perm('read', { visibility: 'x' });
+  const firstMessage =
+    'permission "comment.read": "visibility" is neither "public" nor "internal"';
+  const later = (value: unknown, field = 'now') =>
+    ({
+      permissions: [
+        first,
+        perm('update', { rules: [{ when: [{ field, op: 'before', value }] }] }),
+      ],
+    }) as unknown as Matrix;
+  const only = (value: unknown) =>
+    ({
+      permissions: [
+        perm('update', {
+          rules: [{ when: [{ field: 'now', op: 'before', value }] }],
+        }),
+      ],
+    }) as unknown as Matrix;
+
+  const revoked = (() => {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    return proxy;
+  })();
+  const throwing = {
+    get [Symbol.toPrimitive]() {
+      throw new Error('boom');
+    },
+    get toString() {
+      throw new Error('boom');
+    },
+  };
+  const hostile: [string, unknown][] = [
+    ['a Date prototype with no Date slot', Object.create(Date.prototype)],
+    ['a revoked proxy', revoked],
+    ['a throwing getter', throwing],
+  ];
+
+  it.each(hostile)('keeps the earlier fault with %s later', (_name, value) => {
+    expect(() => collectIssues(later(value))).not.toThrow();
+    expect(() => validateMatrix(later(value))).toThrow(firstMessage);
+  });
+
+  it('reports a Date-less Date as an instant that does not parse', () => {
+    const [issue] = collectIssues(only(Object.create(Date.prototype)));
+
+    expect(issue).toBeInstanceOf(InvalidConditionError);
+    expect(issue?.message).toContain('does not parse');
+  });
+
+  it.each([
+    ['a revoked proxy', revoked],
+    ['a throwing getter', throwing],
+  ])('reports %s as a node that could not be read', (_name, value) => {
+    const issues = collectIssues(only(value));
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toBeInstanceOf(AclConfigError);
+  });
+
+  it('reports a permission whose member getter throws, and goes on', () => {
+    const bad = perm('read');
+    Object.defineProperty(bad, 'rules', {
+      enumerable: true,
+      get(): unknown {
+        throw new Error('boom');
+      },
+    });
+    const issues = collectIssues({
+      permissions: [bad, perm('update', { visibility: 'x' })],
+    } as unknown as Matrix);
+
+    expect(issues.map((i) => [i.code, i.path])).toEqual([
+      ['InvalidPermissionError', '/permissions/0'],
+      ['InvalidPermissionError', '/permissions/1/visibility'],
+    ]);
+    expect(issues[0]?.message).toContain('could not be read');
+    expect(issues[0]?.permissionKey).toBe('comment.read');
+  });
+
+  it('reports a document that cannot be read as one issue at the root', () => {
+    const issues = collectIssues(revoked);
+
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toBeInstanceOf(InvalidMatrixError);
+    expect(issues[0]?.message).toContain('could not be read');
+    expect(issues[0]?.path).toBe('');
   });
 });

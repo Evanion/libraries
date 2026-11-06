@@ -3,7 +3,14 @@ import {
   InvalidSchemaError,
   UnknownFieldError,
 } from './errors.js';
-import { inPermission, show, throwFirst } from './issues.js';
+import {
+  guarded,
+  inPermission,
+  keyOf,
+  show,
+  throwFirst,
+  unreadablePermission,
+} from './issues.js';
 import type { Report, Segment } from './issues.js';
 import type {
   Condition,
@@ -510,25 +517,43 @@ export function assertSchemaFit(
   usable: (condition: unknown) => boolean,
 ): void {
   for (const [index, permission] of permissions.entries()) {
-    if (
-      !isNode(permission) ||
-      typeof permission['key'] !== 'string' ||
-      typeof permission['object'] !== 'string' ||
-      permission['object'].length === 0
-    ) {
-      continue;
-    }
-    const scoped = inPermission(report, permission['key']);
-    for (const side of ['rules', 'denyRules'] as const) {
-      collectRulesFit(
-        scoped,
-        schema,
-        permission as unknown as Permission,
-        side,
-        ['permissions', index, side],
-        permission[side],
-        usable,
-      );
-    }
+    guarded(
+      report,
+      ['permissions', index],
+      () => unreadablePermission(index, permission),
+      () => {
+        fitPermission(schema, index, permission, report, usable);
+      },
+      keyOf(permission),
+    );
+  }
+}
+
+function fitPermission(
+  schema: MatrixSchema,
+  index: number,
+  permission: unknown,
+  report: Report,
+  usable: (condition: unknown) => boolean,
+): void {
+  if (
+    !isNode(permission) ||
+    typeof permission['key'] !== 'string' ||
+    typeof permission['object'] !== 'string' ||
+    permission['object'].length === 0
+  ) {
+    return;
+  }
+  const scoped = inPermission(report, permission['key']);
+  for (const side of ['rules', 'denyRules'] as const) {
+    collectRulesFit(
+      scoped,
+      schema,
+      permission as unknown as Permission,
+      side,
+      ['permissions', index, side],
+      permission[side],
+      usable,
+    );
   }
 }
