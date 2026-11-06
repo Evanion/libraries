@@ -212,8 +212,6 @@ Some tools handle this natively. An ORM with a nested update form, for instance,
 
 Even when every specific field is marked as allowed, `@evanion/acl` will refuse a write in two specific scenarios to prevent data loss or traversal errors.
 
-To ensure write operations do not accidentally corrupt data or bypass security, the library treats certain paths as `not-traversable`.
-
 #### Array-Based Configuration
 
 If a `targets` or `transitions` configuration path passes through an array (for example, `'lines.cost'`), the array is refused as `not-traversable` on every write. This occurs because the write axis is not designed to walk through arrays.
