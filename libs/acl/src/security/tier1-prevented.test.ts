@@ -1494,6 +1494,50 @@ describe('SEC-022 a nested exclusion hides the nested key (CWE-863)', () => {
     expect(decision.fields['address\\.street']).toBe('denied');
     expect(pickAllowedFields(decision, flat)).toEqual({ id: 'o1' });
   });
+
+  /**
+   * Index paths are not supported. A rule that indexes into an array, such as
+   * `!items.0.price`, would otherwise decide nothing and leave every price in
+   * the response, so the array is hidden whole.
+   */
+  it.each([['!items.0.price'], ['!items.0']])(
+    'hides an array that %s indexes into, on both axes',
+    (exclusion) => {
+      const order = { id: 'o1', items: [{ price: 10, sku: 'a' }] };
+      const access = foreign([
+        permission('order', 'read', {
+          rules: [always],
+          fields: { fields: ['*', exclusion] },
+        }),
+        permission('order', 'update', {
+          rules: [always],
+          fields: { fields: ['*', exclusion] },
+        }),
+      ]);
+      const read = access.canFields(
+        { id: 'u1' },
+        'order',
+        'read',
+        order,
+        'read',
+      );
+      const proposed = { items: [{ price: 0, sku: 'a' }] };
+      const write = access.canFields(
+        { id: 'u1' },
+        'order',
+        'update',
+        order,
+        'write',
+        proposed,
+      );
+
+      expect(read.fields['items']).toBe('denied');
+      expect(read.reasons['items']).toBe('not-traversable');
+      expect(pickAllowedFields(read, order)).toEqual({ id: 'o1' });
+      expect(write.reasons['items']).toBe('not-traversable');
+      expect(pickAllowedFields(write, proposed)).toEqual({});
+    },
+  );
   // #endregion sec-022
 });
 
@@ -1534,6 +1578,75 @@ describe('SEC-023 a write cannot replace a subtree holding a key the caller may 
     expect(decision.fields['address']).toBe('denied');
     expect(decision.reasons['address']).toBe('not-traversable');
     expect(decision.allowed).toBe(false);
+    expect(pickAllowedFields(decision, proposed)).toEqual({});
+  });
+
+  it('refuses a stored address the write would replace without its street', () => {
+    const proposed = { address: { city: 'Lund' } };
+    const decision = access().canFields(
+      { id: 'u1' },
+      'order',
+      'update',
+      stored,
+      'write',
+      proposed,
+    );
+
+    expect(decision.reasons['address']).toBe('not-traversable');
+    expect(pickAllowedFields(decision, proposed)).toEqual({});
+  });
+
+  /**
+   * A deep merge or an ORM splits a raw key on `.`, so `customer.address`
+   * writes the whole nested address and its street with it.
+   */
+  it('refuses a raw key that spells the path of the replaced subtree', () => {
+    const proposed = { 'customer.address': { city: 'Lund' } };
+    const decision = foreign([
+      permission('order', 'update', {
+        rules: [always],
+        fields: { fields: ['*', '!customer.address.street'] },
+      }),
+    ]).canFields(
+      { id: 'u1' },
+      'order',
+      'update',
+      { id: 'o1', customer: { address: { street: 'Storgatan 1' } } },
+      'write',
+      proposed,
+    );
+
+    expect(decision.reasons['customer\\.address']).toBe('not-traversable');
+    expect(pickAllowedFields(decision, proposed)).toEqual({});
+  });
+
+  /**
+   * A merge that splits `constructor.prototype.isAdmin` on `.` walks from the
+   * row to `Object.prototype` and sets `isAdmin` on every object (CWE-1321).
+   */
+  it.each([
+    ['constructor.prototype.isAdmin'],
+    ['prototype.isAdmin'],
+    ['a.constructor'],
+  ])('refuses the raw write key %s', (key) => {
+    const proposed = { [key]: true };
+    const decision = foreign([
+      permission('order', 'update', {
+        rules: [always],
+        fields: { fields: ['*'] },
+      }),
+    ]).canFields(
+      { id: 'u1' },
+      'order',
+      'update',
+      { id: 'o1' },
+      'write',
+      proposed,
+    );
+
+    const column = key.replaceAll('.', '\\.');
+    expect(decision.fields[column]).toBe('denied');
+    expect(decision.reasons[column]).toBe('not-traversable');
     expect(pickAllowedFields(decision, proposed)).toEqual({});
   });
   // #endregion sec-023
