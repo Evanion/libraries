@@ -18,7 +18,16 @@ import {
   parsePath,
   pathFault as fieldPathFault,
 } from './field-path.js';
-import { collectInto, inPermission, show, throwFirst } from './issues.js';
+import {
+  collectInto,
+  guarded,
+  inPermission,
+  keyOf,
+  show,
+  throwFirst,
+  unreadableDocument,
+  unreadablePermission,
+} from './issues.js';
 import type { Report, Segment } from './issues.js';
 import { assertSchemaFit, assertSchemaShape } from './schema.js';
 import type {
@@ -81,6 +90,28 @@ function pathFault(path: unknown): string | undefined {
     return 'nests below its scope: a path reads one field of a scope, so at most one dot is resolvable';
   }
   return undefined;
+}
+
+/**
+ * `value` as an epoch, or NaN when reading it throws. An object with a Date
+ * prototype and no Date slot passes `instanceof Date` and then throws in
+ * `getTime`, and a document can hold other values whose conversion throws.
+ */
+function epochOf(value: Instant): number {
+  try {
+    return toEpoch(value);
+  } catch {
+    return Number.NaN;
+  }
+}
+
+/** `String(value)`, or a fixed description when converting throws. */
+function stringOf(value: unknown): string {
+  try {
+    return String(value);
+  } catch {
+    return '[unreadable]';
+  }
 }
 
 /**
@@ -185,13 +216,13 @@ function assertCondition(
     // The boundary comes from the document and is settled once, here. A window
     // whose edge is not a point in time states nothing a decision could read,
     // and the document is the party that can fix it.
-    if (Number.isNaN(toEpoch(value))) {
+    if (Number.isNaN(epochOf(value))) {
       report(
         new InvalidConditionError(
           key,
           where,
           named,
-          `carries an instant that does not parse: ${JSON.stringify(String(value))}`,
+          `carries an instant that does not parse: ${show(stringOf(value))}`,
         ),
         at,
       );
@@ -972,10 +1003,21 @@ export function collectIssues(
 ): AclConfigError[] {
   const issues: AclConfigError[] = [];
   const report = collectInto(issues);
+  guarded(report, [], unreadableDocument, () => {
+    collectDocument(report, matrix, issues, options);
+  });
+  return issues;
+}
 
+function collectDocument(
+  report: Report,
+  matrix: unknown,
+  issues: AclConfigError[],
+  options: ValidateOptions,
+): void {
   if (!isNode(matrix)) {
     report(new InvalidMatrixError(ENVELOPE), []);
-    return issues;
+    return;
   }
 
   const permissions = matrix['permissions'];
@@ -984,7 +1026,7 @@ export function collectIssues(
       new InvalidMatrixError(`"permissions" is not an array: ${ENVELOPE}`),
       ['permissions'],
     );
-    return issues;
+    return;
   }
 
   const version = matrix['version'];
@@ -1020,7 +1062,15 @@ export function collectIssues(
   const keys = new Set<string>();
   const usable = new WeakSet<object>();
   for (const [index, permission] of permissions.entries()) {
-    collectPermission(report, index, permission, keys, usable);
+    guarded(
+      report,
+      ['permissions', index],
+      () => unreadablePermission(index, permission),
+      () => {
+        collectPermission(report, index, permission, keys, usable);
+      },
+      keyOf(permission),
+    );
   }
 
   if (schema !== undefined && schemaOk) {
@@ -1032,7 +1082,6 @@ export function collectIssues(
   }
 
   issues.push(...freshnessIssues(maxStale, options));
-  return issues;
 }
 
 /**

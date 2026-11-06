@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import * as allErrors from './errors.js';
+
 import {
   AclConfigError,
   ActionNotAllowedError,
@@ -40,12 +42,37 @@ describe('errors', () => {
           'subject.id',
           'is bad',
         ),
+      () => new allErrors.OriginCollisionError('a.b', 'one', 'two'),
+      () => new allErrors.InvalidSchemaError('schema', 'is bad'),
+      () => new allErrors.UnknownFieldError('a.b', 'rules[0]', 'f', 'is bad'),
+      () =>
+        new allErrors.FieldTypeMismatchError('a.b', 'rules[0]', 'f', 'is bad'),
+      () => new allErrors.DuplicateRuleIdError('a.b', 'r'),
+      () => new allErrors.AmbiguousRuleIdError('a.b', 'allow', 'r', 2),
+      () => new allErrors.UnvetoablePermissionError('a.b'),
+      () => new allErrors.MissingVetoSchemaError('a.b', 'a'),
     ];
+
+    const subclasses = Object.values(allErrors).filter(
+      (value) =>
+        typeof value === 'function' &&
+        value.prototype instanceof AclConfigError,
+    );
+
+    expect(cases).toHaveLength(subclasses.length);
 
     for (const make of cases) {
       const err = make();
       expect(err).toBeInstanceOf(AclConfigError);
       expect(err).toBeInstanceOf(Error);
+
+      const copy = JSON.parse(JSON.stringify(err)) as Record<string, unknown>;
+      const spread = { ...err } as Record<string, unknown>;
+      expect(Object.keys(err)).toContain('name');
+      expect(spread['name']).toBe(err.name);
+      expect(spread['code']).toBe(err.name);
+      expect(copy['name']).toBe(err.name);
+      expect(copy['code']).toBe(err.name);
     }
   });
 

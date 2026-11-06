@@ -22,6 +22,7 @@ export class AclConfigError extends Error {
     this.code = name;
     Object.defineProperty(this, 'name', {
       configurable: true,
+      enumerable: true,
       get: () => name,
       set: (value: string) => {
         name = value;
