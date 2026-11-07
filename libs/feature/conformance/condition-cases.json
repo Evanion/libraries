@@ -3312,7 +3312,7 @@
                 {
                   "field": "subject.createdAt",
                   "op": "after",
-                  "value": "2026-05-01T00:00:00Z"
+                  "value": "2026-04-15T00:00:00Z"
                 }
               ]
             }
@@ -3328,7 +3328,7 @@
                 {
                   "field": "subject.createdAt",
                   "op": "before",
-                  "value": "2026-05-01T00:00:00Z"
+                  "value": "2026-04-15T00:00:00Z"
                 }
               ]
             }
@@ -3354,7 +3354,7 @@
             "failed": {
               "field": "subject.createdAt",
               "op": "after",
-              "value": "2026-05-01T00:00:00Z"
+              "value": "2026-04-15T00:00:00Z"
             },
             "failedField": {
               "path": "subject.createdAt",
@@ -3374,7 +3374,7 @@
             "failed": {
               "field": "subject.createdAt",
               "op": "before",
-              "value": "2026-05-01T00:00:00Z"
+              "value": "2026-04-15T00:00:00Z"
             },
             "failedField": {
               "path": "subject.createdAt",
@@ -9448,198 +9448,6 @@
     }
   },
   {
-    "name": "relative: now is null, so the condition is false and now is named",
-    "config": {
-      "version": 1,
-      "features": [
-        {
-          "key": "recent",
-          "enabled": true,
-          "rules": [
-            {
-              "id": "r",
-              "when": [
-                {
-                  "field": "subject.createdAt",
-                  "op": "after",
-                  "value": {
-                    "fromNow": "-P30D"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "key": "upcoming",
-          "enabled": true,
-          "rules": [
-            {
-              "id": "r",
-              "when": [
-                {
-                  "field": "subject.createdAt",
-                  "op": "before",
-                  "value": {
-                    "fromNow": "P30D"
-                  }
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    "context": {
-      "now": null,
-      "subject": {
-        "createdAt": "2026-05-25T00:00:00Z"
-      }
-    },
-    "decisions": {
-      "recent": {
-        "key": "recent",
-        "enabled": false,
-        "reason": "no-rule-matched",
-        "rules": [
-          {
-            "rule": "r",
-            "matched": false,
-            "failed": {
-              "field": "subject.createdAt",
-              "op": "after",
-              "value": {
-                "fromNow": "-P30D"
-              }
-            },
-            "failedField": {
-              "path": "now",
-              "present": false
-            }
-          }
-        ]
-      },
-      "upcoming": {
-        "key": "upcoming",
-        "enabled": false,
-        "reason": "no-rule-matched",
-        "rules": [
-          {
-            "rule": "r",
-            "matched": false,
-            "failed": {
-              "field": "subject.createdAt",
-              "op": "before",
-              "value": {
-                "fromNow": "P30D"
-              }
-            },
-            "failedField": {
-              "path": "now",
-              "present": false
-            }
-          }
-        ]
-      }
-    }
-  },
-  {
-    "name": "relative: now is a boolean, so the condition is false and now is named",
-    "config": {
-      "version": 1,
-      "features": [
-        {
-          "key": "recent",
-          "enabled": true,
-          "rules": [
-            {
-              "id": "r",
-              "when": [
-                {
-                  "field": "subject.createdAt",
-                  "op": "after",
-                  "value": {
-                    "fromNow": "-P30D"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        {
-          "key": "upcoming",
-          "enabled": true,
-          "rules": [
-            {
-              "id": "r",
-              "when": [
-                {
-                  "field": "subject.createdAt",
-                  "op": "before",
-                  "value": {
-                    "fromNow": "P30D"
-                  }
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    "context": {
-      "now": false,
-      "subject": {
-        "createdAt": "2026-05-25T00:00:00Z"
-      }
-    },
-    "decisions": {
-      "recent": {
-        "key": "recent",
-        "enabled": false,
-        "reason": "no-rule-matched",
-        "rules": [
-          {
-            "rule": "r",
-            "matched": false,
-            "failed": {
-              "field": "subject.createdAt",
-              "op": "after",
-              "value": {
-                "fromNow": "-P30D"
-              }
-            },
-            "failedField": {
-              "path": "now",
-              "present": false
-            }
-          }
-        ]
-      },
-      "upcoming": {
-        "key": "upcoming",
-        "enabled": false,
-        "reason": "no-rule-matched",
-        "rules": [
-          {
-            "rule": "r",
-            "matched": false,
-            "failed": {
-              "field": "subject.createdAt",
-              "op": "before",
-              "value": {
-                "fromNow": "P30D"
-              }
-            },
-            "failedField": {
-              "path": "now",
-              "present": false
-            }
-          }
-        ]
-      }
-    }
-  },
-  {
     "name": "relative: now is outside the range a Date holds, so the condition is false and now is named",
     "config": {
       "version": 1,
@@ -11018,6 +10826,194 @@
             "failedField": {
               "path": "subject.realms",
               "present": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "rollout: by a null or a boolean leaves the context unbucketed",
+    "config": {
+      "version": 1,
+      "features": [
+        {
+          "key": "null",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "rollout": {
+                "percent": 100,
+                "by": "subject.a",
+                "seed": "seed-a"
+              }
+            }
+          ]
+        },
+        {
+          "key": "boolean",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "rollout": {
+                "percent": 100,
+                "by": "subject.b",
+                "seed": "seed-a"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "context": {
+      "now": "2026-06-01T12:00:00.000Z",
+      "subject": {
+        "a": null,
+        "b": true
+      }
+    },
+    "decisions": {
+      "null": {
+        "key": "null",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "rollout": {
+              "percent": 100,
+              "by": "subject.a",
+              "member": false
+            }
+          }
+        ]
+      },
+      "boolean": {
+        "key": "boolean",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "rollout": {
+              "percent": 100,
+              "by": "subject.b",
+              "member": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "rollout: by a number buckets on its decimal string",
+    "config": {
+      "version": 1,
+      "features": [
+        {
+          "key": "number",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "rollout": {
+                "percent": 0,
+                "by": "subject.n",
+                "seed": "seed-a"
+              }
+            }
+          ]
+        },
+        {
+          "key": "string",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "rollout": {
+                "percent": 0,
+                "by": "subject.s",
+                "seed": "seed-a"
+              }
+            }
+          ]
+        },
+        {
+          "key": "other",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "rollout": {
+                "percent": 0,
+                "by": "subject.o",
+                "seed": "seed-a"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "context": {
+      "now": "2026-06-01T12:00:00.000Z",
+      "subject": {
+        "n": 42,
+        "s": "42",
+        "o": 43
+      }
+    },
+    "decisions": {
+      "number": {
+        "key": "number",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "rollout": {
+              "percent": 0,
+              "by": "subject.n",
+              "bucket": 0.562966956757009,
+              "member": false
+            }
+          }
+        ]
+      },
+      "string": {
+        "key": "string",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "rollout": {
+              "percent": 0,
+              "by": "subject.s",
+              "bucket": 0.562966956757009,
+              "member": false
+            }
+          }
+        ]
+      },
+      "other": {
+        "key": "other",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "rollout": {
+              "percent": 0,
+              "by": "subject.o",
+              "bucket": 0.6061840781476349,
+              "member": false
             }
           }
         ]
