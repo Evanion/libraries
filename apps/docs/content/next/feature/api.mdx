@@ -344,6 +344,37 @@ the observer it holds.
 A pinned assignment is only reproducible where the local context carries every
 field its rule read, and this is the list that question is asked against.
 
+## `requirements`
+
+<!-- reference @evanion/feature#requirements example=publisher-requirements -->
+
+To find the minimum version of `@evanion/feature` needed to evaluate a document, use `requirements(config)`. It returns the lowest version that evaluates a document as written, along with the specific constructs that triggered that version. If a document uses no 0.2 constructs, it returns `{ version: '0.1.0', uses: [] }`. Otherwise, the version is `'0.2.0'` and the `uses` array lists any of the following triggered constructs, sorted and without duplicates:
+
+| Construct            | Triggered by...                                                    | Why 0.1 cannot handle it               |
+| :------------------- | :----------------------------------------------------------------- | :------------------------------------- |
+| `'path'`             | A field name, rollout `by`, or `variantBy` containing a `.` or `\` | 0.1 reads these names as one flat key. |
+| `'exists'`           | Use of `exists` or `not-exists` operators                          | 0.1 refuses these operators.           |
+| `'instant-field'`    | A `before` or `after` condition on any field other than `now`      | 0.1 evaluates these against `now`.     |
+| `'relative-instant'` | A `{ fromNow }` value                                              | 0.1 refuses this value.                |
+
+Schema keys do not set any requirements, as 0.1 reads the schema only for validation.
+
+Because `correlateBy` is a store option and not part of the document itself, `requirements` does not see it. However, any store that sets `correlateBy` to a dotted name requires 0.2.0, regardless of the document's requirements.
+
+## `ambiguousFields`
+
+<!-- reference @evanion/feature#ambiguousFields example=publisher-requirements -->
+
+To identify names that 0.1 read as flat keys and 0.2 reads as paths, use `ambiguousFields(input)`. This function takes a `FeatureConfig` or a `ContextSchema` and returns a list of every `field`, `by`, `variantBy`, and schema key containing an unescaped `.`. Each entry includes the name and its JSON pointer. If no ambiguities exist, it returns an empty list.
+
+Users with stored 0.1 documents should run this before upgrading. Like `requirements`, this function does not see `correlateBy`.
+
+## `escapeField`
+
+<!-- reference @evanion/feature#escapeField example=publisher-requirements -->
+
+To preserve a flat key that contains a dot or backslash, use `escapeField(name)`. This function escapes the `.` and `\` so that the result names that one flat key as a path. If `ambiguousFields` identifies a name where the dot was intended as part of a flat key, rewrite that name using `escapeField`.
+
 ## `evaluateCondition`
 
 <!-- reference @evanion/feature#evaluateCondition example=evaluate-condition -->
@@ -657,6 +688,12 @@ To control how the library evaluates time-based conditions, you provide a `now` 
 This flexibility allows a context to maintain consistency across different environments. Because it supports these formats, a context that crossed an RSC payload, an island's props, a response body, or a cookie resolves every window and day-of-week condition the same way the context it was serialized from did. Similarly, a caller handing on a parsed body passes it straight through.
 
 If a `now` property names no instant, every clock condition becomes unevaluable and answers `false`. Note that `snapshot` refuses such a value outright, as a decision set states its instant specifically as an ISO 8601 string.
+
+## `Requirements`
+
+<!-- reference @evanion/feature#Requirements -->
+
+The result of `requirements`: `version` is the lowest `@evanion/feature` version that evaluates the document as written, and `uses` lists the constructs that set it.
 
 ## `RuleOutcome`
 

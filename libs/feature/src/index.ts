@@ -41,6 +41,9 @@ export type {
 export { serializeConfig } from './lib/serialize.js';
 export { validateConfig } from './lib/validate.js';
 export { DEFAULT_ROLLOUT_FIELD, ruleFields } from './lib/evaluate.js';
+export { escapeField } from './lib/field-path.js';
+export { ambiguousFields, requirements } from './lib/requirements.js';
+export type { Requirements } from './lib/requirements.js';
 
 export {
   DuplicateFeatureError,
