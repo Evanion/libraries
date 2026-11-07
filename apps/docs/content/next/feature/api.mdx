@@ -595,7 +595,7 @@ The `WindowCondition` compares a timestamp from your context against a target va
 
 If you set `field: 'now'`, the condition compares the current time (`now`) from the context. For any other `field` name, the package reads that path from the context to find the instant. For example, to restrict a feature to accounts created after 1 November, you would use `{ field: 'subject.createdAt', op: 'after', value: '2026-11-01' }`.
 
-The value found in the context is interpreted the same way as `now`: it can be a `Date` object, epoch milliseconds, or an ISO 8601 string with an offset. If the field is missing or the value does not name a valid instant, the condition evaluates to `false`. If you are using a schema, the field must be declared as `instant` or `instant?`.
+The value found in the context is interpreted the same way as `now`: it can be a `Date` object, epoch milliseconds, an ISO 8601 string with an offset, or a date with no time, which is read as UTC midnight. If the field is missing or the value does not name a valid instant, the condition evaluates to `false`. If you are using a schema, the field must be declared as `instant` or `instant?`.
 
 The `value` property itself must be an [`Instant`](#instant) or a [`RelativeInstant`](#relativeinstant). To ensure consistency across environments, `createFeatures` will reject any boundary that does not name a moment that every host reads identically.
 

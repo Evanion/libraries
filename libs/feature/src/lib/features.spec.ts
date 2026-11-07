@@ -3974,3 +3974,95 @@ describe('createFeatures, on condition paths', () => {
     );
   });
 });
+
+describe('a relative window, through plan and the wire', () => {
+  const store = (freezeTimeAtBuild: boolean) =>
+    createFeatures([
+      {
+        key: 'recent',
+        enabled: true,
+        freezeTimeAtBuild,
+        rules: [
+          {
+            id: 'new',
+            when: [
+              {
+                field: 'subject.createdAt',
+                op: 'after',
+                value: { fromNow: '-P30D' },
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+  it('defers on the field and on now without a frozen clock', () => {
+    expect(store(false).plan().recent).toMatchObject({
+      resolved: 'deferred',
+      needs: ['now', 'subject.createdAt'],
+    });
+  });
+
+  it('defers on the field alone with a frozen clock', () => {
+    expect(store(true).plan().recent).toMatchObject({
+      resolved: 'deferred',
+      needs: ['subject.createdAt'],
+    });
+  });
+
+  it('states a failed non-now window Date as its ISO string', () => {
+    const features = createFeatures([
+      {
+        key: 'recent',
+        enabled: true,
+        rules: [
+          {
+            id: 'new',
+            when: [
+              {
+                field: 'subject.createdAt',
+                op: 'after',
+                value: new Date('2026-11-01T00:00:00Z'),
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const set = features.snapshot({
+      now: new Date('2026-11-07T00:00:00Z'),
+      subject: { createdAt: '2026-10-01' },
+    });
+
+    expect(set.decisions.recent?.rules?.[0]?.failed?.value).toBe(
+      '2026-11-01T00:00:00.000Z',
+    );
+  });
+
+  it('reloads a duration written another way as unchanged', () => {
+    const document = (fromNow: string) =>
+      ({
+        version: fromNow,
+        features: [
+          {
+            key: 'recent',
+            enabled: true,
+            rules: [
+              {
+                id: 'new',
+                when: [{ field: 'createdAt', op: 'after', value: { fromNow } }],
+              },
+            ],
+          },
+        ],
+      }) as unknown as FeatureConfig;
+    const features = createFeatures(document('-P1D'));
+
+    expect(features.reload(document('-PT24H'))).toMatchObject({
+      ok: true,
+      changed: [],
+    });
+  });
+});

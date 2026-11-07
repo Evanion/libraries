@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { FeatureConfigError } from './errors.js';
 import { createFeatures } from './features.js';
-import { contextEpoch, durationMs, instantEpoch, RANGE } from './instant.js';
+import {
+  contextEpoch,
+  durationMs,
+  instantEpoch,
+  isRelative,
+  RANGE,
+} from './instant.js';
 import type { Instant } from './types.js';
 import { everywhere } from './zones.js';
 
@@ -496,5 +502,77 @@ describe('durationMs', () => {
   it('refuses a duration too long to hold exactly', () => {
     expect(durationMs(`P${'9'.repeat(400)}D`)).toBeUndefined();
     expect(durationMs('P999999999999999999D')).toBeUndefined();
+  });
+});
+
+describe('instantEpoch, on an object that raises under inspection', () => {
+  const hostile = (): Record<string, unknown> => {
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+    const ownGetTime = new Date(Number.NaN);
+    Object.defineProperty(ownGetTime, 'getTime', {
+      value: () => {
+        throw new Error('invoked');
+      },
+    });
+    return {
+      'a revoked proxy': revoked.proxy,
+      'a proxy whose getPrototypeOf throws': new Proxy(
+        {},
+        {
+          getPrototypeOf() {
+            throw new Error('trap');
+          },
+        },
+      ),
+      'an object made from Date.prototype': Object.create(Date.prototype),
+      'a Date with an own getTime that throws': ownGetTime,
+    };
+  };
+
+  it('answers NaN from instantEpoch and contextEpoch, and does not throw', () => {
+    for (const [name, value] of Object.entries(hostile())) {
+      expect(instantEpoch(value as Instant), name).toBeNaN();
+      expect(contextEpoch(value as Instant), name).toBeNaN();
+    }
+  });
+});
+
+describe('isRelative', () => {
+  it('accepts a plain object with a data property fromNow', () => {
+    expect(isRelative({ fromNow: '-P1D' })).toBe(true);
+    expect(
+      isRelative(Object.assign(Object.create(null), { fromNow: 'x' })),
+    ).toBe(true);
+  });
+
+  it('refuses a getter without invoking it', () => {
+    const value = {
+      get fromNow(): string {
+        throw new Error('invoked');
+      },
+    };
+
+    expect(isRelative(value)).toBe(false);
+  });
+
+  it('refuses an inherited fromNow, a class instance, a Date, an array and a primitive', () => {
+    class Boundary {
+      fromNow = '-P1D';
+    }
+
+    expect(isRelative(Object.create({ fromNow: '-P1D' }))).toBe(false);
+    expect(isRelative(new Boundary())).toBe(false);
+    expect(isRelative(new Date())).toBe(false);
+    expect(isRelative(['fromNow'])).toBe(false);
+    expect(isRelative('fromNow')).toBe(false);
+    expect(isRelative(null)).toBe(false);
+  });
+
+  it('refuses a revoked proxy', () => {
+    const revoked = Proxy.revocable({}, {});
+    revoked.revoke();
+
+    expect(isRelative(revoked.proxy)).toBe(false);
   });
 });

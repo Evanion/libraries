@@ -1358,3 +1358,67 @@ describe('validateConditions', () => {
     expect(() => validateConditions(definition)).not.toThrow();
   });
 });
+
+describe('evaluateCondition, on a hostile instant', () => {
+  const revoked = Proxy.revocable({}, {});
+  revoked.revoke();
+  const ownGetTime = new Date(Number.NaN);
+  Object.defineProperty(ownGetTime, 'getTime', {
+    value: () => {
+      throw new Error('invoked');
+    },
+  });
+  const hostile: Record<string, unknown> = {
+    'a revoked proxy': revoked.proxy,
+    'a proxy whose getPrototypeOf throws': new Proxy(
+      {},
+      {
+        getPrototypeOf() {
+          throw new Error('trap');
+        },
+      },
+    ),
+    'an object made from Date.prototype': Object.create(Date.prototype),
+    'a Date with an own getTime that throws': ownGetTime,
+  };
+
+  it.each(Object.entries(hostile))(
+    'is false at a field holding %s',
+    (_, bad) => {
+      const absolute: Condition = {
+        field: 'subject.createdAt',
+        op: 'after',
+        value: '2026-11-01',
+      };
+      const relative: Condition = {
+        field: 'subject.createdAt',
+        op: 'before',
+        value: { fromNow: '-P30D' },
+      };
+      const context = { now: '2026-11-07', subject: { createdAt: bad } };
+
+      expect(evaluateCondition(absolute, context)).toBe(false);
+      expect(evaluateCondition(relative, context)).toBe(false);
+    },
+  );
+
+  it.each(Object.entries(hostile))('is false at now holding %s', (_, bad) => {
+    const window: Condition = {
+      field: 'now',
+      op: 'after',
+      value: '2026-11-01',
+    };
+    const relative: Condition = {
+      field: 'subject.createdAt',
+      op: 'before',
+      value: { fromNow: '-P30D' },
+    };
+    const context = {
+      now: bad,
+      subject: { createdAt: '2026-10-01' },
+    } as EvaluationContext;
+
+    expect(evaluateCondition(window, context)).toBe(false);
+    expect(evaluateCondition(relative, context)).toBe(false);
+  });
+});

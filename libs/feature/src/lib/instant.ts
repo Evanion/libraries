@@ -96,14 +96,32 @@ function namesCalendarDay(value: string): boolean {
  * every unevaluable condition gets.
  */
 export function instantEpoch(value: Instant): number {
-  if (value instanceof Date) return value.getTime();
   if (typeof value === 'number') return value;
+  if (typeof value === 'object' && value !== null) return dateEpoch(value);
   if (typeof value !== 'string') return Number.NaN;
 
   const fixed = value.replace(BASIC_OFFSET, '$1$2:$3');
   if (!FIXED.test(fixed) || !namesCalendarDay(fixed)) return Number.NaN;
 
   return Date.parse(fixed);
+}
+
+/**
+ * Epoch milliseconds of a `Date`, and `NaN` for any other object.
+ *
+ * Reads through `Date.prototype.getTime`, so an own `getTime` is never called.
+ * A revoked proxy, a proxy whose `getPrototypeOf` trap throws and an object
+ * made by `Object.create(Date.prototype)` all raise inside the check, and a
+ * context is caller data that evaluation must not throw on.
+ */
+function dateEpoch(value: object): number {
+  try {
+    return value instanceof Date
+      ? Date.prototype.getTime.call(value)
+      : Number.NaN;
+  } catch {
+    return Number.NaN;
+  }
 }
 
 /** The largest instant a `Date` holds, ECMA-262 21.4.1.1. */
@@ -184,17 +202,21 @@ export function durationMs(text: string): number | undefined {
  * Whether a window value is the `{ fromNow }` form, whatever its duration
  * holds.
  *
- * A document parsed out of JSON reaches here with any value, so the check reads
- * own data properties of a plain object and nothing else.
+ * A document parsed out of JSON reaches here with any value, so the check
+ * accepts a plain object (prototype `Object.prototype` or `null`) whose own
+ * `fromNow` is a data property. A getter is never invoked, and an object that
+ * raises under inspection is not relative.
  */
 export function isRelative(value: unknown): value is RelativeInstant {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !(value instanceof Date) &&
-    !Array.isArray(value) &&
-    Object.prototype.hasOwnProperty.call(value, 'fromNow')
-  );
+  try {
+    if (typeof value !== 'object' || value === null) return false;
+    const prototype: unknown = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return false;
+    const descriptor = Object.getOwnPropertyDescriptor(value, 'fromNow');
+    return descriptor !== undefined && 'value' in descriptor;
+  } catch {
+    return false;
+  }
 }
 
 /**
