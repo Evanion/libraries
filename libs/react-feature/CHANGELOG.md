@@ -1,3 +1,27 @@
+## 0.1.2 (2026-11-07)
+
+### 🚀 Features
+
+- ⚠️  **react-feature:** re-export the 0.2 condition types ([ac261cfa](https://github.com/Evanion/libraries/commit/ac261cfa))
+
+### ⚠️  Breaking Changes
+
+- **react-feature:** re-export the 0.2 condition types  ([ac261cfa](https://github.com/Evanion/libraries/commit/ac261cfa))
+  the re-exported `Condition` gains the `exists` and
+  `not-exists` ops, so an exhaustive switch over `Condition['op']` stops
+  compiling, and `AttributeCondition` and `SerializedAttributeCondition`
+  are unions, so code reading `value` narrows on `op` first.
+  `ContextSchema.fields` keys are paths, and `RuleOutcome.failed.value` is
+  optional.
+
+### 🧱 Updated Dependencies
+
+- Updated @evanion/feature to 0.2.0
+
+### ❤️ Thank You
+
+- Mikael Pettersson @Evanion
+
 ## 0.1.1 (2026-11-05)
 
 ### 🚀 Features

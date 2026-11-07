@@ -1,3 +1,60 @@
+## 0.2.0 (2026-11-07)
+
+### 🚀 Features
+
+- **feature:** name the field a failed condition read ([9f0726e0](https://github.com/Evanion/libraries/commit/9f0726e0))
+- **feature:** `requirements` names the library version a document needs ([be4cded2](https://github.com/Evanion/libraries/commit/be4cded2))
+- **feature:** read `by`, `variantBy` and `correlateBy` as context paths ([ef043645](https://github.com/Evanion/libraries/commit/ef043645))
+- **feature:** compare any instant field, and instants relative to now ([ca03e532](https://github.com/Evanion/libraries/commit/ca03e532))
+- ⚠️  **feature:** read condition fields as context paths ([b78de3a5](https://github.com/Evanion/libraries/commit/b78de3a5))
+
+### 🩹 Fixes
+
+- **feature:** name now when a relative window fails on the clock ([8540397f](https://github.com/Evanion/libraries/commit/8540397f))
+- **feature:** read an unreadable `now` as no instant through `contextEpoch` ([2d7ce5cc](https://github.com/Evanion/libraries/commit/2d7ce5cc))
+- ⚠️  **feature:** keep a null now and an empty `correlateBy` as on 0.1 ([cad05fc0](https://github.com/Evanion/libraries/commit/cad05fc0))
+- ⚠️  **feature:** keep evaluation total over hostile contexts ([9a42a273](https://github.com/Evanion/libraries/commit/9a42a273))
+- **feature:** copy an unreadable context as absent fields in `withNow` ([cdc10f1c](https://github.com/Evanion/libraries/commit/cdc10f1c))
+- **feature:** read an instant field totally ([64155e22](https://github.com/Evanion/libraries/commit/64155e22))
+- **feature:** carry the rollout bucket in a rule outcome ([#539](https://github.com/Evanion/libraries/issues/539))
+
+### 💅 Refactors
+
+- **feature:** read the top level of a context as conditions do today ([012e3b17](https://github.com/Evanion/libraries/commit/012e3b17))
+- **feature:** add the context path reader ([a844b0c1](https://github.com/Evanion/libraries/commit/a844b0c1))
+
+### 📖 Documentation
+
+- **feature:** correct the presence, bucket and migration notes ([4d42e6d8](https://github.com/Evanion/libraries/commit/4d42e6d8))
+- **feature:** context paths, instant fields and presence checks ([d8d34824](https://github.com/Evanion/libraries/commit/d8d34824))
+
+### ⚠️  Breaking Changes
+
+- **feature:** keep a null now and an empty `correlateBy` as on 0.1  ([cad05fc0](https://github.com/Evanion/libraries/commit/cad05fc0))
+  `resolvePlan` reports `missing-field` for a need named like an
+  `Object.prototype` member (`toString`, `hasOwnProperty`), which it counted as
+  carried. A `correlateBy` of `constructor`, `prototype` or `__proto__` throws at
+  construction.
+- **feature:** keep evaluation total over hostile contexts  ([9a42a273](https://github.com/Evanion/libraries/commit/9a42a273))
+  `assignVariant` reads the bucketing field as a path over own
+  properties, so a value inherited through the prototype chain no longer buckets.
+- **feature:** read condition fields as context paths  ([b78de3a5](https://github.com/Evanion/libraries/commit/b78de3a5))
+  a dotted name in `field`, `by`, `variantBy` or
+  `correlateBy`, and in the keys of `ContextSchema.fields`, is now a path.
+  Escape a literal dot with `\.`. A schema declaring a key and a key below
+  it is refused. These flat names are now refused: `""`, `constructor`,
+  `prototype`, `__proto__` and a name with an unpaired `\`. A name
+  containing `\\` is now read as an escaped `\`. A 0.1 evaluator reads
+  these documents differently.
+  Type changes: `Condition['op']` gains `exists` and `not-exists`, so an
+  exhaustive switch over it stops compiling. `AttributeCondition` is a
+  union and can no longer be extended as an interface; `value` is absent
+  for the presence ops. `RuleOutcome.failed.value` is optional.
+
+### ❤️ Thank You
+
+- Mikael Pettersson @Evanion
+
 ## 0.1.1 (2026-11-05)
 
 ### 🚀 Features

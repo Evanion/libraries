@@ -1,6 +1,6 @@
 {
   "name": "@evanion/react-feature",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "The React binding for @evanion/feature: a provider and hooks over an already-built feature store.",
   "keywords": [
     "react",
@@ -54,7 +54,7 @@
     "provenance": true
   },
   "dependencies": {
-    "@evanion/feature": "0.1.1"
+    "@evanion/feature": "0.2.0"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"
