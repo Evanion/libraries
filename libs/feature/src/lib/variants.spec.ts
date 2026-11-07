@@ -727,3 +727,28 @@ describe('assignVariant', () => {
     });
   });
 });
+
+describe('assignVariant, on variantBy paths', () => {
+  const split = {
+    key: 'split',
+    enabled: true,
+    variantBy: 'subject.id',
+    variants: [
+      { name: 'control', weight: 50 },
+      { name: 'blue', weight: 50 },
+    ],
+  };
+
+  it('assigns from the nested value', () => {
+    const nested = assignVariant(split, { subject: { id: 'u-7' } });
+    const flat = assignVariant({ ...split, variantBy: 'id' }, { id: 'u-7' });
+
+    expect(nested?.source).toBe('weighted');
+    expect(nested?.by).toBe('subject.id');
+    expect(nested?.bucket).toBe(flat?.bucket);
+  });
+
+  it('falls back when the path holds no value', () => {
+    expect(assignVariant(split, { subject: {} })?.source).toBe('fallback');
+  });
+});

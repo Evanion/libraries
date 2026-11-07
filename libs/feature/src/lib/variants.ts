@@ -5,6 +5,7 @@ import {
   UnknownVariantError,
 } from './errors.js';
 import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
+import { pathFault, readPath } from './field-path.js';
 import type { ConfigIssueCode } from './config.js';
 import type {
   EvaluationContext,
@@ -156,9 +157,20 @@ function bucketingDefects<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
   options: VariantCheckOptions,
 ): readonly VariantDefect[] {
-  if (options.arrayIsOrder === true) return [];
   const key = String(definition.key);
   const found: VariantDefect[] = [];
+  const by: unknown = definition.variantBy;
+  const fault = typeof by === 'string' ? pathFault(by) : undefined;
+  if (fault !== undefined) {
+    found.push(
+      bare(
+        'invalid-field-path',
+        'variantBy',
+        `feature "${key}" declares "variantBy" as a path no context can be read at: ${fault}`,
+      ),
+    );
+  }
+  if (options.arrayIsOrder === true) return found;
   for (const member of ['variantBy', 'variantSeed'] as const) {
     if (typeof definition[member] === 'string') continue;
     found.push(
@@ -617,7 +629,7 @@ export function assignVariant<F extends FeatureKey>(
     if (held) return { variant: held, source: 'sticky', by };
   }
 
-  const value = context[by];
+  const value = readPath(context, by).value;
   if (typeof value !== 'string' && typeof value !== 'number') {
     const [control] = bucketingOrder(variants);
     return { variant: control as VariantSpec, source: 'fallback', by };

@@ -567,6 +567,21 @@ function rolloutIssues(
     );
   }
 
+  const byFault =
+    typeof rollout['by'] === 'string' ? pathFault(rollout['by']) : undefined;
+  if (byFault !== undefined) {
+    all.push(
+      found(
+        'invalid-field-path',
+        new FeatureConfigError(
+          `${named} declares "by" on the rollout at ${path} as a path this checker cannot read: ${byFault}`,
+        ),
+        key,
+        `${path}/by`,
+      ),
+    );
+  }
+
   for (const member of ['by', 'seed'] as const) {
     const value: unknown = rollout[member];
     if (value === undefined || typeof value === 'string') continue;
