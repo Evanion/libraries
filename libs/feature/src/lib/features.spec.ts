@@ -4120,3 +4120,43 @@ describe('createFeatures, on rollout and plan paths', () => {
     });
   });
 });
+
+describe('a context the engine cannot read', () => {
+  const defs: Definitions = [
+    {
+      key: 'ramp',
+      enabled: true,
+      rules: [{ rollout: { percent: 100 } }],
+    },
+  ];
+  const revoked = (): Record<string, unknown> => {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    return proxy;
+  };
+  const throwing = (): Record<string, unknown> =>
+    Object.defineProperty({ targetingKey: 'u-1' }, 'region', {
+      enumerable: true,
+      get() {
+        throw new Error('getter');
+      },
+    });
+
+  it.each([
+    ['revoked proxy', revoked],
+    ['throwing getter', throwing],
+  ])('resolves under a %s', (_name, make) => {
+    const features = createFeatures(defs);
+
+    expect(() => features.resolve(make())).not.toThrow();
+    expect(() => features.plan(make())).not.toThrow();
+    expect(() => features.snapshot(make())).not.toThrow();
+  });
+
+  it('reads the properties that do not throw', () => {
+    const features = createFeatures(defs);
+
+    expect(features.resolve(throwing()).ramp?.enabled).toBe(true);
+    expect(features.resolve(revoked()).ramp?.enabled).toBe(false);
+  });
+});
