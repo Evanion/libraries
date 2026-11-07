@@ -168,4 +168,23 @@ describe('the document types the react entry re-exports', () => {
   it('names a type and not the escape hatch, on the result a handler reads', () => {
     expectTypeOf<ReloadResult>().not.toBeAny();
   });
+
+  it('carries the presence operators on a serialized condition', () => {
+    expectTypeOf<SerializedCondition['op']>().toEqualTypeOf<
+      CoreSerializedCondition['op']
+    >();
+    expectTypeOf<'exists'>().toExtend<SerializedCondition['op']>();
+    expectTypeOf<'not-exists'>().toExtend<SerializedAttributeCondition['op']>();
+  });
+
+  it('takes a presence condition with no value, and a comparison only with one', () => {
+    expectTypeOf({
+      field: 'subject.realm',
+      op: 'exists',
+    } as const).toExtend<SerializedCondition>();
+
+    // @ts-expect-error -- a comparison without its value compares against nothing.
+    const bare: SerializedCondition = { field: 'plan', op: 'eq' };
+    expectTypeOf(bare).toExtend<SerializedCondition>();
+  });
 });
