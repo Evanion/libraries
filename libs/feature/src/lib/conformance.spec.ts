@@ -38,7 +38,7 @@ interface PlanFixture extends Fixture {
 }
 
 /** One published fixture, read off the directory the tarball carries. */
-function published<T extends Fixture>(name: string): T {
+function published<T>(name: string): T {
   return JSON.parse(
     readFileSync(join(import.meta.dirname, '../../conformance', name), 'utf8'),
   ) as T;
@@ -46,6 +46,25 @@ function published<T extends Fixture>(name: string): T {
 
 const fixture = published<Fixture>('config-decisions.json');
 const planFixture = published<PlanFixture>('plan-decisions.json');
+
+/**
+ * One case of the shared condition file: a small document, one context and the
+ * decisions every port must produce for the pair.
+ *
+ * The context states `now` as the JSON the context crossed in, an ISO string
+ * or a number, and the cases that state a `now` naming no instant leave it as
+ * written.
+ */
+interface ConditionCase {
+  name: string;
+  config: FeatureConfig;
+  context: Record<string, unknown>;
+  decisions: Record<string, unknown>;
+}
+
+const conditionCases = published<readonly ConditionCase[]>(
+  'condition-cases.json',
+);
 
 /** The context a fixture states, with its instant read as one. */
 function supplied(stated: Fixture['context'] = fixture.context) {
@@ -1170,5 +1189,137 @@ describe('the published plan fixture', () => {
     };
 
     expect(configDigest(moved)).not.toBe(planFixture.config.digest);
+  });
+});
+
+describe('the published condition cases', () => {
+  const rules = conditionCases.flatMap(({ config }) =>
+    config.features.flatMap((definition) => definition.rules ?? []),
+  );
+  const conditions = rules.flatMap((rule) => rule.when ?? []);
+
+  it('names each case once', () => {
+    const names = conditionCases.map(({ name }) => name);
+
+    expect(names.length).toBeGreaterThan(0);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it.each(conditionCases.map((each) => [each.name, each] as const))(
+    'decides %s as it publishes',
+    (_name, each) => {
+      const features = createFeatures(each.config);
+
+      const decisions = features.resolve(each.context as EvaluationContext);
+
+      expect(JSON.parse(JSON.stringify(decisions))).toEqual(each.decisions);
+    },
+  );
+
+  it('passes the checker every holder runs before it installs', () => {
+    for (const each of conditionCases) {
+      const result = parseFeatureConfig(each.config);
+
+      expect(result.ok === false && result.issues).toBeFalsy();
+      expect(result.ok).toBe(true);
+    }
+  });
+
+  it('states a rule id on every rule, so no port derives one', () => {
+    expect(rules.length).toBeGreaterThan(0);
+    expect(rules.filter((rule) => rule.id === undefined)).toEqual([]);
+  });
+
+  it('states every context field as JSON', () => {
+    for (const each of conditionCases) {
+      expect(JSON.parse(JSON.stringify(each.context))).toEqual(each.context);
+    }
+  });
+
+  it('reaches every construct a second implementation has to get right', () => {
+    const relative = conditions.filter(
+      (each) =>
+        (each.op === 'before' || each.op === 'after') &&
+        typeof each.value === 'object',
+    );
+    const durations = relative.map(
+      (each) => (each.value as { fromNow: string }).fromNow,
+    );
+
+    expect(conditions.filter((each) => each.op === 'exists')).not.toEqual([]);
+    expect(conditions.filter((each) => each.op === 'not-exists')).not.toEqual(
+      [],
+    );
+    expect(conditions.filter((each) => each.op === 'contains')).not.toEqual([]);
+    expect(
+      conditions.filter((each) => each.op === 'after' && each.field !== 'now'),
+    ).not.toEqual([]);
+    expect(
+      conditions.filter((each) => each.op === 'before' && each.field !== 'now'),
+    ).not.toEqual([]);
+    expect(conditions.filter((each) => each.field.includes('\\.'))).not.toEqual(
+      [],
+    );
+    for (const unit of ['W', 'D', 'H', 'M', 'S']) {
+      expect(durations.some((each) => each.includes(unit))).toBe(true);
+    }
+    expect(durations.some((each) => each.startsWith('-'))).toBe(true);
+    expect(durations.some((each) => each.startsWith('+'))).toBe(true);
+    expect(
+      durations.some((each) => !/^[+-]/.test(each) && /^P\d/.test(each)),
+    ).toBe(true);
+    expect(
+      durations.filter((each) => /\d\.\d/.test(each)).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('prints a bucket on a rollout a path settled and on none it did not', () => {
+    const rollouts = conditionCases
+      .flatMap(({ decisions }) => Object.values(decisions))
+      .flatMap(
+        (decision) =>
+          (
+            decision as {
+              rules?: { rollout?: { by: string; bucket?: number } }[];
+            }
+          ).rules ?? [],
+      )
+      .flatMap((rule) => (rule.rollout ? [rule.rollout] : []));
+    const nested = rollouts.filter(({ by }) => by.includes('.'));
+
+    expect(nested.some(({ bucket }) => typeof bucket === 'number')).toBe(true);
+    expect(nested.some(({ bucket }) => bucket === undefined)).toBe(true);
+  });
+
+  it('buckets a path on the value a flat field of the same value buckets on', () => {
+    const named = conditionCases.find(({ name }) =>
+      name.startsWith('rollout: by a nested path'),
+    );
+    const outcomes = Object.values(named?.decisions ?? {}).map(
+      (decision) =>
+        (decision as { rules?: { rollout?: { bucket?: number } }[] }).rules?.[0]
+          ?.rollout?.bucket,
+    );
+
+    expect(outcomes[0]).toBeTypeOf('number');
+    expect(outcomes[0]).toBe(outcomes[1]);
+  });
+
+  it('names now when a relative window fails on a clock naming no instant', () => {
+    const failed = conditionCases
+      .filter(({ name }) => /^relative: now is /.test(name))
+      .flatMap(({ decisions }) => Object.values(decisions))
+      .flatMap(
+        (decision) =>
+          (
+            decision as {
+              rules?: { failedField?: { path: string; present: boolean } }[];
+            }
+          ).rules ?? [],
+      )
+      .map((rule) => rule.failedField);
+
+    expect(failed.length).toBeGreaterThan(0);
+    expect(failed).toEqual(failed.map(() => ({ path: 'now', present: false })));
   });
 });
