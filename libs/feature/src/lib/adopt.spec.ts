@@ -1144,4 +1144,54 @@ describe('adoptDecisions', () => {
       expect(published).toBe(shipped.decisions);
     });
   });
+
+  describe('context paths', () => {
+    const nested: FeatureDefinition[] = [
+      {
+        key: 'cta',
+        enabled: true,
+        variantBy: 'subject.id',
+        variants: [
+          { name: 'control', weight: 50 },
+          { name: 'blue', weight: 50 },
+        ],
+        rules: [
+          {
+            id: 'pro',
+            variant: 'blue',
+            when: [{ field: 'subject.plan', op: 'eq', value: 'pro' }],
+          },
+        ],
+      },
+    ];
+
+    it('reports nothing for a context carrying the nested fields', () => {
+      const context = { subject: { id: 'u-1', plan: 'pro' } };
+      const shipped = storeAt('v1', nested).snapshot(context);
+      const { reports, observe } = collector();
+
+      adoptDecisions(storeAt('v1', nested), shipped, {
+        context,
+        onDivergence: observe,
+      });
+
+      expect(reports).toEqual([]);
+    });
+
+    it('names the nested field a context does not carry', () => {
+      const shipped = storeAt('v1', nested).snapshot({
+        subject: { id: 'u-1', plan: 'pro' },
+      });
+      const { reports, observe } = collector();
+
+      adoptDecisions(storeAt('v1', nested), shipped, {
+        context: { subject: { id: 'u-1' } },
+        onDivergence: observe,
+      });
+
+      expect(reports).toMatchObject([
+        { kind: 'missing-field', key: 'cta', field: 'subject.plan' },
+      ]);
+    });
+  });
 });

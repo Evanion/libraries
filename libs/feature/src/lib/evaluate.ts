@@ -1,6 +1,7 @@
 import { bucketOf, inRollout } from './bucketing.js';
 import { conditionFields, evaluateCondition } from './conditions.js';
 import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
+import { parsePath, readPath } from './field-path.js';
 import { ruleId } from './rule-id.js';
 import { assignVariant } from './variants.js';
 import type { VariantAssignment } from './variants.js';
@@ -60,7 +61,7 @@ export function evaluateRule<F extends FeatureKey>(
   if (!rollout) return { rule: id, matched: true };
 
   const by = rolloutField(rule);
-  const value = context[by];
+  const value = readPath(context, by).value;
   if (typeof value !== 'string' && typeof value !== 'number') {
     // No bucketing value, so the rollout cannot be evaluated and does not
     // match. Defaulting it to "in" would ramp a rollout to everyone whose
@@ -289,9 +290,9 @@ function planRule<F extends FeatureKey>(
   definition: FeatureDefinition<F>,
   rule: Rule,
   context: EvaluationContext,
-  available: ReadonlySet<string>,
+  isAvailable: (field: string) => boolean,
 ): PlannedRule {
-  const missing = ruleFields(rule).filter((field) => !available.has(field));
+  const missing = ruleFields(rule).filter((field) => !isAvailable(field));
   if (missing.length === 0) {
     return {
       state: 'decided',
@@ -301,7 +302,7 @@ function planRule<F extends FeatureKey>(
 
   let steppedOver = false;
   for (const condition of rule.when ?? []) {
-    if (conditionFields(condition).some((field) => !available.has(field))) {
+    if (conditionFields(condition).some((field) => !isAvailable(field))) {
       steppedOver = true;
       continue;
     }
@@ -386,6 +387,10 @@ export function planFeature<F extends FeatureKey>(
       (field) => field !== 'now' && context[field] !== undefined,
     ),
   );
+  // A path is available once its first segment is: the walk past it decides
+  // the rule whether or not the rest of the path holds a value.
+  const isAvailable = (field: string): boolean =>
+    available.has(parsePath(field)?.[0] ?? field);
   if (definition.freezeTimeAtBuild) available.add('now');
 
   const rules = definition.rules ?? [];
@@ -401,7 +406,7 @@ export function planFeature<F extends FeatureKey>(
 
   if (deferredNeeds.size === 0) {
     for (const rule of rules) {
-      const planned = planRule(definition, rule, context, available);
+      const planned = planRule(definition, rule, context, isAvailable);
       if (planned.state === 'unevaluable') {
         for (const field of planned.missing) ruleNeeds.add(field);
         continue;
@@ -460,7 +465,7 @@ export function planFeature<F extends FeatureKey>(
   // unresolved. `decide` cannot safely run against the incomplete context
   // this plan had, so this branch lists the variant field as outstanding
   // only when the context is missing it, without attaching a decision.
-  const needsVariantField = declaresVariants && !available.has(variantField);
+  const needsVariantField = declaresVariants && !isAvailable(variantField);
   const needs = [
     ...new Set([
       ...deferredNeeds,

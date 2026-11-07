@@ -4108,3 +4108,61 @@ describe('validateConfig, on condition paths and presence tests', () => {
     ).toEqual({ ok: true });
   });
 });
+
+describe('validateConfig, on rollout and variant paths', () => {
+  const document = (feature: Record<string, unknown>) =>
+    ({
+      features: [{ key: 'beta', enabled: true, ...feature }],
+    }) as unknown as FeatureConfig;
+
+  it.each(['a..b', 'a.__proto__', 'a\\x'])(
+    'refuses the rollout by %s',
+    (by) => {
+      const result = validateConfig(
+        document({ rules: [{ rollout: { percent: 50, by } }] }),
+      );
+
+      expect(result.ok).toBe(false);
+      expect(!result.ok && result.issues[0]).toMatchObject({
+        code: 'invalid-field-path',
+        path: '/features/0/rules/0/rollout/by',
+      });
+    },
+  );
+
+  it('accepts a nested rollout by', () => {
+    expect(
+      validateConfig(
+        document({ rules: [{ rollout: { percent: 50, by: 'subject.id' } }] }),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('refuses a variantBy that is no path', () => {
+    const result = validateConfig(
+      document({
+        variantBy: 'a..b',
+        variantSeed: 'beta:variant',
+        variants: [{ name: 'control', weight: 1, order: 0 }],
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.issues[0]).toMatchObject({
+      code: 'invalid-field-path',
+      path: '/features/0/variantBy',
+    });
+  });
+
+  it('accepts a nested variantBy', () => {
+    expect(
+      validateConfig(
+        document({
+          variantBy: 'subject.id',
+          variantSeed: 'beta:variant',
+          variants: [{ name: 'control', weight: 1, order: 0 }],
+        }),
+      ),
+    ).toEqual({ ok: true });
+  });
+});

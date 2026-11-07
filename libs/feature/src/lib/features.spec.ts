@@ -585,7 +585,7 @@ describe('precedence', () => {
 
     const decision = features.resolve().off;
 
-    expect(decision.enabled).toBe(false);
+    expect(decision?.enabled).toBe(false);
     expect(decision.reason).toBe('explicitly-off');
     expect(decision.rules).toBeUndefined();
   });
@@ -2963,7 +2963,7 @@ describe('plan', () => {
       for (const region of ['eu', 'us']) {
         const decision = features.resolve({ ...known, role, region }).cta;
 
-        expect(decision.enabled).toBe(false);
+        expect(decision?.enabled).toBe(false);
       }
     }
   });
@@ -3972,5 +3972,59 @@ describe('createFeatures, on condition paths', () => {
     expect(store.resolve({ subject: { realm: 'a' } })['no-realm'].reason).toBe(
       'no-rule-matched',
     );
+  });
+});
+
+describe('createFeatures, on rollout and plan paths', () => {
+  const ramp: Definitions = [
+    {
+      key: 'ramp',
+      enabled: true,
+      rules: [{ id: 'half', rollout: { percent: 50, by: 'subject.id' } }],
+    },
+  ];
+
+  it('buckets a rollout on the nested value', () => {
+    const definition = ramp[0] as FeatureDefinition;
+    const rule = definition.rules?.[0] as Rule;
+    const flatRule: Rule = { id: 'half', rollout: { percent: 50, by: 'id' } };
+
+    const nested = evaluateRule(definition, rule, { subject: { id: 'u-1' } });
+    const top = evaluateRule(definition, flatRule, { id: 'u-1' });
+
+    expect(nested.rollout?.by).toBe('subject.id');
+    expect(nested.rollout?.bucket).toBe(top.rollout?.bucket);
+    expect(nested.rollout?.member).toBe(top.rollout?.member);
+    expect(nested.rollout?.bucket).toBe(bucketOf('u-1', 'ramp'));
+  });
+
+  it('puts a rollout out of reach when the path holds no value', () => {
+    const decision = createFeatures(ramp).resolve({ subject: {} }).ramp;
+
+    expect(decision?.enabled).toBe(false);
+  });
+
+  it('decides a rule when the first segment is supplied', () => {
+    const features = createFeatures([
+      {
+        key: 'pro',
+        enabled: true,
+        rules: [{ when: [{ field: 'subject.plan', op: 'eq', value: 'pro' }] }],
+      },
+    ]);
+
+    expect(features.plan({ subject: { plan: 'pro' } }).pro).toMatchObject({
+      resolved: true,
+      needs: [],
+    });
+  });
+
+  it('lists the full path when the first segment is not supplied', () => {
+    const plan = createFeatures(ramp).plan({});
+
+    expect(plan.ramp).toMatchObject({
+      resolved: 'deferred',
+      needs: ['subject.id'],
+    });
   });
 });
