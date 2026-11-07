@@ -17,7 +17,7 @@ import type { Checkable } from './validate.js';
 import { unreadable, unreadableText } from './unreadable.js';
 import { FeatureConfigError } from './errors.js';
 import { pathFault, readPath } from './field-path.js';
-import { settleContext } from './settle.js';
+import { copyContext } from './settle.js';
 import { createEmitter } from './observe.js';
 import type {
   FeatureEvent,
@@ -34,6 +34,7 @@ import type {
   FeatureDefinition,
   FeatureKey,
   InferSchema,
+  Instant,
   Plan,
   PlanEntry,
   RuleOutcome,
@@ -993,7 +994,7 @@ export function createFeatures(
   const emit = createEmitter(options);
   const observed = options.observe !== undefined;
   const correlateBy = options.correlateBy ?? DEFAULT_CORRELATE_FIELD;
-  // An empty name is a configured field no context holds: events carry no subject.
+  // An empty name stays legal: it reads the context key `''` as it always has.
   const correlateFault =
     correlateBy === '' ? undefined : pathFault(correlateBy);
   if (correlateFault !== undefined) {
@@ -1015,8 +1016,23 @@ export function createFeatures(
     observed ? deepFreeze(value) : value;
 
   const withNow = (context: EvaluationContext = {}): SettledContext => {
-    const settled = settleContext(context, () => new Date());
-    return { ...settled, now: new Date(contextEpoch(settled.now)) };
+    const copy = copyContext(context);
+    // Only an absent instant reads the clock: a null one names no instant.
+    const now = copy['now'] as Instant | undefined;
+    return {
+      ...copy,
+      now: now === undefined ? new Date() : new Date(contextEpoch(now)),
+    };
+  };
+
+  const ownKey = (context: EvaluationContext, name: string): unknown => {
+    try {
+      return Object.prototype.hasOwnProperty.call(context, name)
+        ? context[name]
+        : undefined;
+    } catch {
+      return undefined;
+    }
   };
 
   /**
@@ -1030,7 +1046,10 @@ export function createFeatures(
   const subjectOf = (
     context: EvaluationContext,
   ): string | number | undefined => {
-    const value = readPath(context, correlateBy).value;
+    const value =
+      correlateBy === ''
+        ? ownKey(context, '')
+        : readPath(context, correlateBy).value;
     if (typeof value === 'string' || typeof value === 'number') return value;
     return undefined;
   };

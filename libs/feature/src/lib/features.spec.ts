@@ -4235,3 +4235,48 @@ describe('a context with unreadable members', () => {
     },
   );
 });
+
+describe('a null now and an empty correlateBy', () => {
+  const windowed: Definitions = [
+    {
+      key: 'sale',
+      enabled: true,
+      rules: [
+        {
+          when: [{ field: 'now', op: 'after', value: '2000-01-01T00:00:00Z' }],
+        },
+      ],
+    },
+  ];
+
+  it('gives a null now no instant', () => {
+    const features = createFeatures(windowed);
+
+    expect(features.isEnabled('sale', { now: null as never })).toBe(false);
+    expect(features.isEnabled('sale', {})).toBe(true);
+    expect(() => features.snapshot({ now: null as never })).toThrow(
+      FeatureConfigError,
+    );
+  });
+
+  it('reads the key "" for an empty correlateBy', () => {
+    const events: { subject?: unknown }[] = [];
+    const features = createFeatures(windowed, {
+      correlateBy: '',
+      observe: (event) => void events.push(event as never),
+    });
+
+    features.resolve({ '': 'x' } as never);
+
+    expect(events[0]?.subject).toBe('x');
+  });
+
+  it.each(['constructor', 'prototype', '__proto__'])(
+    'refuses a correlateBy of %s',
+    (correlateBy) => {
+      expect(() =>
+        createFeatures(windowed, { correlateBy, observe: () => undefined }),
+      ).toThrow(FeatureConfigError);
+    },
+  );
+});
