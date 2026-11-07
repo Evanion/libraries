@@ -1,5 +1,9 @@
 import { bucketOf, inRollout } from './bucketing.js';
-import { conditionFields, evaluateCondition } from './conditions.js';
+import {
+  conditionFieldRead,
+  conditionFields,
+  evaluateCondition,
+} from './conditions.js';
 import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 import { parsePath, readPath } from './field-path.js';
 import { ruleId } from './rule-id.js';
@@ -53,7 +57,12 @@ export function evaluateRule<F extends FeatureKey>(
 
   for (const condition of rule.when ?? []) {
     if (!evaluateCondition(condition, context)) {
-      return { rule: id, matched: false, failed: condition };
+      return {
+        rule: id,
+        matched: false,
+        failed: condition,
+        failedField: conditionFieldRead(condition, context),
+      };
     }
   }
 
@@ -308,7 +317,10 @@ function planRule<F extends FeatureKey>(
     }
     if (!evaluateCondition(condition, context)) {
       const outcome: RuleOutcome = { rule: ruleId(rule), matched: false };
-      if (!steppedOver) outcome.failed = condition;
+      if (!steppedOver) {
+        outcome.failed = condition;
+        outcome.failedField = conditionFieldRead(condition, context);
+      }
       return { state: 'decided', outcome };
     }
   }

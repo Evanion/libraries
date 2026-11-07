@@ -160,6 +160,29 @@ export function conditionFields(condition: Condition): readonly string[] {
 }
 
 /**
+ * The field a condition read and whether the context carried a value there.
+ *
+ * A day-of-week condition and a window over `now` read `now`, which is present
+ * only when it names an instant. Every other condition reads its own `field`,
+ * present when the read finds a value that is not `undefined`.
+ */
+export function conditionFieldRead(
+  condition: Condition,
+  context: EvaluationContext,
+): { path: string; present: boolean } {
+  if (
+    condition.op === 'day-of-week' ||
+    ((condition.op === 'before' || condition.op === 'after') &&
+      condition.field === 'now')
+  ) {
+    return { path: 'now', present: !Number.isNaN(contextEpoch(context.now)) };
+  }
+
+  const { present, value } = readPath(context, condition.field);
+  return { path: condition.field, present: present && value !== undefined };
+}
+
+/**
  * Whether a condition holds for a context.
  *
  * A condition over a field the context does not carry never holds -- including
