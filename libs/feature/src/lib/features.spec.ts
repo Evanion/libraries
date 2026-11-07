@@ -4183,10 +4183,8 @@ describe('a context with unreadable members', () => {
     return proxy as never;
   };
 
-  it.each([
-    ['now', { targetingKey: 'u-1', now: revoked() }],
-    ['stickyVariants', { targetingKey: 'u-1', stickyVariants: revoked() }],
-  ])('answers under an unreadable %s', (_name, context) => {
+  it('answers under an unreadable stickyVariants', () => {
+    const context = { targetingKey: 'u-1', stickyVariants: revoked() };
     const features = createFeatures(defs);
 
     expect(() => features.resolve(context)).not.toThrow();
@@ -4195,10 +4193,14 @@ describe('a context with unreadable members', () => {
     expect(() => features.isEnabled('split', context)).not.toThrow();
   });
 
-  it('reads an unreadable now as absent', () => {
+  it('reads an unreadable now as no instant', () => {
+    const context = { targetingKey: 'u-1', now: revoked() };
     const features = createFeatures(defs);
 
-    expect(features.isEnabled('split', { now: revoked() })).toBe(true);
+    expect(() => features.resolve(context)).not.toThrow();
+    expect(() => features.plan(context)).not.toThrow();
+    expect(features.isEnabled('split', context)).toBe(false);
+    expect(() => features.snapshot(context)).toThrow(FeatureConfigError);
   });
 
   it('assigns by hash under an unreadable stickyVariants', () => {
