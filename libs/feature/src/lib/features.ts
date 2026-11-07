@@ -28,6 +28,7 @@ import type {
   FeatureDefinition,
   FeatureKey,
   InferSchema,
+  Instant,
   Plan,
   PlanEntry,
   RuleOutcome,
@@ -990,13 +991,44 @@ export function createFeatures(
   const frozenWhenObserved = <T>(value: T): T =>
     observed ? deepFreeze(value) : value;
 
-  const withNow = (context: EvaluationContext = {}): SettledContext => ({
-    ...context,
-    now:
-      context.now === undefined
-        ? new Date()
-        : new Date(contextEpoch(context.now)),
-  });
+  /**
+   * Copies the own enumerable properties of a context, one read at a time. A
+   * property whose getter throws is left out as absent, and a context that
+   * cannot be enumerated (a revoked proxy) copies as an empty one.
+   */
+  const copyOf = (context: EvaluationContext): Record<string, unknown> => {
+    const copy: Record<string, unknown> = {};
+    let names: string[];
+    try {
+      names = Object.keys(context);
+    } catch {
+      return copy;
+    }
+    for (const name of names) {
+      try {
+        Object.defineProperty(copy, name, {
+          value: context[name],
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      } catch {
+        // The getter threw: the property reads as absent.
+      }
+    }
+    return copy;
+  };
+
+  const withNow = (context: EvaluationContext = {}): SettledContext => {
+    const copy = copyOf(context);
+    return {
+      ...copy,
+      now:
+        copy['now'] === undefined
+          ? new Date()
+          : new Date(contextEpoch(copy['now'] as Instant)),
+    };
+  };
 
   /**
    * Reads the subject identifier an event carries.
