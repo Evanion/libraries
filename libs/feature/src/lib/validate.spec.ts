@@ -4108,3 +4108,153 @@ describe('validateConfig, on condition paths and presence tests', () => {
     ).toEqual({ ok: true });
   });
 });
+
+describe('validateConfig, on instant fields and relative boundaries', () => {
+  const document = (
+    condition: unknown,
+    fields?: Record<string, string>,
+  ): FeatureConfig =>
+    ({
+      features: [
+        { key: 'recent', enabled: true, rules: [{ when: [condition] }] },
+      ],
+      ...(fields
+        ? { schemaVersion: 's1', schema: { context: { fields } } }
+        : {}),
+    }) as unknown as FeatureConfig;
+
+  it('accepts a non-now window over a declared instant', () => {
+    const config = document(
+      { field: 'subject.createdAt', op: 'after', value: '2026-11-01' },
+      { 'subject.createdAt': 'instant' },
+    );
+
+    expect(validateConfig(config).ok).toBe(true);
+  });
+
+  it('accepts a field declared instant?', () => {
+    const config = document(
+      { field: 'createdAt', op: 'after', value: { fromNow: '-P30D' } },
+      { createdAt: 'instant?' },
+    );
+
+    expect(validateConfig(config).ok).toBe(true);
+  });
+
+  it('refuses a non-now window over a field declared string', () => {
+    const config = document(
+      { field: 'createdAt', op: 'before', value: '2026-11-01' },
+      { createdAt: 'string' },
+    );
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'field-type-mismatch',
+      path: '/features/0/rules/0/when/0/op',
+    });
+  });
+
+  it('refuses a non-now window over an array of instants', () => {
+    const config = document(
+      { field: 'createdAt', op: 'before', value: '2026-11-01' },
+      { createdAt: 'instant[]' },
+    );
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'field-type-mismatch',
+    );
+  });
+
+  it('refuses a non-now window over an undeclared field', () => {
+    const config = document(
+      { field: 'createdAt', op: 'before', value: '2026-11-01' },
+      { plan: 'string' },
+    );
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'unknown-context-field',
+    );
+  });
+
+  it('accepts a non-now window when the document declares no schema', () => {
+    const config = document({
+      field: 'createdAt',
+      op: 'before',
+      value: '2026-11-01',
+    });
+
+    expect(validateConfig(config).ok).toBe(true);
+  });
+
+  it('refuses a calendar duration in a relative boundary', () => {
+    const config = document({
+      field: 'createdAt',
+      op: 'after',
+      value: { fromNow: 'P1M' },
+    });
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'invalid-instant',
+      key: 'recent',
+      path: '/features/0/rules/0/when/0/value',
+    });
+  });
+
+  it('refuses a relative boundary that is not a duration string', () => {
+    for (const fromNow of [30, null, undefined, ['P1D']]) {
+      const config = document({
+        field: 'createdAt',
+        op: 'after',
+        value: { fromNow },
+      });
+      const result = validateConfig(config);
+
+      expect(result.ok === false && result.issues[0]?.code).toBe(
+        'invalid-instant',
+      );
+    }
+  });
+
+  it('refuses a relative boundary with another member', () => {
+    const config = document({
+      field: 'createdAt',
+      op: 'after',
+      value: { fromNow: '-P1D', extra: 1 },
+    });
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'invalid-instant',
+    );
+  });
+
+  it('refuses a relative boundary on field now', () => {
+    const config = document({
+      field: 'now',
+      op: 'after',
+      value: { fromNow: '-P1D' },
+    });
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]).toMatchObject({
+      code: 'invalid-instant',
+      path: '/features/0/rules/0/when/0/value',
+    });
+  });
+
+  it('keeps refusing an unreadable absolute value', () => {
+    const config = document({
+      field: 'createdAt',
+      op: 'after',
+      value: 'next tuesday',
+    });
+    const result = validateConfig(config);
+
+    expect(result.ok === false && result.issues[0]?.code).toBe(
+      'invalid-instant',
+    );
+  });
+});

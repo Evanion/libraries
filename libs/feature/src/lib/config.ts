@@ -2,6 +2,7 @@ import type {
   DayOfWeekCondition,
   FeatureDefinition,
   FeatureKey,
+  RelativeInstant,
   Rule,
   VariantSpec,
 } from './types.js';
@@ -21,9 +22,9 @@ export type SerializedInstant = string | number;
 
 /** A window condition as a document carries it. */
 export interface SerializedWindowCondition {
-  field: 'now';
+  field: string;
   op: 'before' | 'after';
-  value: SerializedInstant;
+  value: SerializedInstant | RelativeInstant;
 }
 
 /**

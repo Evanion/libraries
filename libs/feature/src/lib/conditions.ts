@@ -1,11 +1,19 @@
 import { FeatureConfigError } from './errors.js';
 import { readPath } from './field-path.js';
-import { contextEpoch, instantEpoch, RANGE } from './instant.js';
+import {
+  boundaryEpoch,
+  contextEpoch,
+  durationMs,
+  instantEpoch,
+  isRelative,
+  RANGE,
+} from './instant.js';
 import type {
   Condition,
   EvaluationContext,
   FeatureDefinition,
   FeatureKey,
+  Instant,
   Weekday,
 } from './types.js';
 
@@ -48,7 +56,25 @@ function weekdayIn(instant: Date, zone: string): Weekday | undefined {
  * What the library owes for one is the answer an unevaluable condition gets on
  * the evaluation path, and this check reads the declared types.
  */
-export function windowFault(value: unknown): string | undefined {
+export function windowFault(value: unknown, field = 'now'): string | undefined {
+  if (isRelative(value)) {
+    if (field === 'now')
+      return `is relative to "now" and reads "now", so it compares the clock with itself shifted. Read another field, or write a fixed instant.`;
+
+    const keys = Object.keys(value);
+    if (keys.length !== 1)
+      return `carries a relative boundary with members besides "fromNow" (${keys.join(', ')}). The boundary is { "fromNow": "<duration>" } and nothing else.`;
+
+    const duration: unknown = value.fromNow;
+    if (typeof duration !== 'string')
+      return `carries a "fromNow" that is not a string. Write a signed ISO 8601 duration such as "-P30D".`;
+
+    if (durationMs(duration) === undefined)
+      return `carries the duration "${duration}", which this library does not read. Write a signed ISO 8601 duration of weeks, days, hours, minutes and seconds, in capitals: "-P30D", "PT12H", "-P2W", "-PT90M", "PT1.5S". Years and months are refused because their length depends on the calendar, and fractions are held to milliseconds.`;
+
+    return undefined;
+  }
+
   if (typeof value === 'string') {
     if (!Number.isNaN(instantEpoch(value))) return undefined;
 
@@ -107,7 +133,7 @@ export function validateConditions<F extends FeatureKey>(
   for (const rule of definition.rules ?? []) {
     for (const condition of rule.when ?? []) {
       if (condition.op !== 'before' && condition.op !== 'after') continue;
-      const fault = windowFault(condition.value);
+      const fault = windowFault(condition.value, condition.field);
       if (fault === undefined) continue;
 
       throw new FeatureConfigError(
@@ -123,6 +149,13 @@ export function validateConditions<F extends FeatureKey>(
  * to defer.
  */
 export function conditionFields(condition: Condition): readonly string[] {
+  if (
+    (condition.op === 'before' || condition.op === 'after') &&
+    condition.field !== 'now' &&
+    isRelative(condition.value)
+  ) {
+    return [condition.field, 'now'];
+  }
   return [condition.field];
 }
 
@@ -135,7 +168,7 @@ export function conditionFields(condition: Condition): readonly string[] {
  * equal"; it is unevaluable, and treating it as true would switch features on
  * for exactly the contexts that carry the least information.
  *
- * A window and a day-of-week condition read `context.now` through
+ * A window over `now` and a day-of-week condition read `context.now` through
  * `contextEpoch`, so a context that crossed JSON and carries the ISO 8601
  * string in its place resolves the way the context it was built from did. A
  * `now` naming no instant leaves both unevaluable, which is false.
@@ -157,11 +190,17 @@ export function evaluateCondition(
   }
 
   if (condition.op === 'before' || condition.op === 'after') {
-    const now = contextEpoch(context.now);
-    if (Number.isNaN(now)) return false;
-    const boundary = instantEpoch(condition.value);
+    let subject: number;
+    if (condition.field === 'now') {
+      subject = contextEpoch(context.now);
+    } else {
+      const { present, value } = readPath(context, condition.field);
+      subject = present ? contextEpoch(value as Instant) : Number.NaN;
+    }
+    if (Number.isNaN(subject)) return false;
+    const boundary = boundaryEpoch(condition.value, context.now);
     if (Number.isNaN(boundary)) return false;
-    return condition.op === 'before' ? now < boundary : now > boundary;
+    return condition.op === 'before' ? subject < boundary : subject > boundary;
   }
 
   // `readPath` reads own properties only, so a condition over `constructor` or

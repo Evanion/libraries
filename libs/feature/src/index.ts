@@ -95,6 +95,7 @@ export type {
   FeatureKey,
   InferSchema,
   Instant,
+  RelativeInstant,
   Plan,
   PlanEntry,
   Reason,

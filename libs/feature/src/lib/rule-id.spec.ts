@@ -440,3 +440,39 @@ describe('ruleId', () => {
     );
   });
 });
+
+describe('ruleId, on a relative boundary', () => {
+  const rule = (value: Instant | { fromNow: string }): Rule => ({
+    when: [{ field: 'subject.createdAt', op: 'after', value }],
+  });
+
+  it('is stable for one relative boundary', () => {
+    expect(ruleId(rule({ fromNow: '-P30D' }))).toBe(
+      ruleId(rule({ fromNow: '-P30D' })),
+    );
+  });
+
+  it('names one duration written two ways alike', () => {
+    expect(ruleId(rule({ fromNow: '-P1D' }))).toBe(
+      ruleId(rule({ fromNow: '-PT24H' })),
+    );
+  });
+
+  it('differs for another duration', () => {
+    expect(ruleId(rule({ fromNow: '-P30D' }))).not.toBe(
+      ruleId(rule({ fromNow: '-P31D' })),
+    );
+  });
+
+  it('differs from an absolute boundary of the same number', () => {
+    expect(ruleId(rule({ fromNow: '-P1D' }))).not.toBe(
+      ruleId(rule(-86_400_000)),
+    );
+  });
+
+  it('differs for a duration naming nothing, per text', () => {
+    expect(ruleId(rule({ fromNow: 'P1M' }))).not.toBe(
+      ruleId(rule({ fromNow: 'P1Y' })),
+    );
+  });
+});

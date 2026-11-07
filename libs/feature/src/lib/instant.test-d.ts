@@ -6,6 +6,7 @@ import type {
   Condition,
   FeatureDefinition,
   Instant,
+  RelativeInstant,
   WindowCondition,
 } from './types.js';
 
@@ -15,25 +16,29 @@ describe('Instant', () => {
   });
 
   it('types the value of a window condition', () => {
-    expectTypeOf<WindowCondition['value']>().toEqualTypeOf<Instant>();
+    expectTypeOf<WindowCondition['value']>().toEqualTypeOf<
+      Instant | RelativeInstant
+    >();
   });
 
-  it('keeps the value an Instant once the union is narrowed on op', () => {
+  it('keeps the value an Instant or a relative boundary once the union is narrowed on op', () => {
     type Window = Extract<Condition, { op: 'before' | 'after' }>;
 
-    expectTypeOf<Window['value']>().toEqualTypeOf<Instant>();
+    expectTypeOf<Window['value']>().toEqualTypeOf<Instant | RelativeInstant>();
   });
 
-  it('refuses a window on a field other than now', () => {
-    // @ts-expect-error `before` belongs to the window condition, which reads
-    // `now` and nothing else.
+  it('takes a window on a field other than now', () => {
     const condition: Condition = {
       field: 'signedUpAt',
       op: 'before',
       value: '2026-01-01T00:00:00Z',
     };
 
-    expectTypeOf(condition).toEqualTypeOf<Condition>();
+    expectTypeOf(condition).toExtend<Condition>();
+  });
+
+  it('types a relative boundary as a duration string', () => {
+    expectTypeOf<RelativeInstant>().toEqualTypeOf<{ fromNow: string }>();
   });
 });
 

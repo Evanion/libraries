@@ -142,8 +142,8 @@ describe('Condition', () => {
 });
 
 describe('WindowCondition', () => {
-  it('reads now and no other field', () => {
-    expectTypeOf<WindowCondition['field']>().toEqualTypeOf<'now'>();
+  it('reads any context field', () => {
+    expectTypeOf<WindowCondition['field']>().toEqualTypeOf<string>();
   });
 
   it('faces one of the two directions a window has', () => {

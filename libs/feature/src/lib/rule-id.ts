@@ -1,6 +1,6 @@
 import { canonical } from './canonical.js';
-import { instantEpoch } from './instant.js';
-import type { Condition, Instant, Rule } from './types.js';
+import { durationMs, instantEpoch, isRelative } from './instant.js';
+import type { Condition, Instant, RelativeInstant, Rule } from './types.js';
 
 /**
  * Epoch milliseconds, so one instant written three ways reads as one value.
@@ -17,13 +17,25 @@ import type { Condition, Instant, Rule } from './types.js';
  * each of them as itself, so the rules stay apart in a decision's per-rule
  * breakdown.
  *
+ * A relative boundary writes its duration in milliseconds under a `fromNow:`
+ * prefix, so `-P1D` and `-PT24H` derive one id and no absolute boundary, which
+ * writes digits alone, shares a text with one. A duration this library does not
+ * read is written as its canonical text.
+ *
  * A number and a `Date` that name no instant both write `NaN`, which is the
  * reading of either this package has. `canonical` writes `number:NaN` for the
  * number and `null` for the `Date`, and that `null` is the text a JSON-borne
  * `null` carries, so reading the `Date` off `canonical` would derive one id for
  * it and for a rule holding `null`.
  */
-function instantText(value: Instant): string {
+function instantText(value: Instant | RelativeInstant): string {
+  if (isRelative(value)) {
+    const shift =
+      typeof value.fromNow === 'string' ? durationMs(value.fromNow) : undefined;
+    return shift === undefined
+      ? `fromNow:${canonical(value)}`
+      : `fromNow:${String(shift)}`;
+  }
   const epoch = instantEpoch(value);
   if (!Number.isNaN(epoch)) return String(epoch);
   if (typeof value === 'number' || value instanceof Date) return String(epoch);

@@ -1,6 +1,7 @@
 import { configDigest } from './digest.js';
 import { graphErrors } from './graph.js';
 import { windowFault } from './conditions.js';
+import { isRelative } from './instant.js';
 import { formatPath, parsePath, pathFault } from './field-path.js';
 import { ruleId } from './rule-id.js';
 import { variantErrors } from './variants.js';
@@ -1645,13 +1646,15 @@ function baseOf(declared: FieldType): { base: string; array: boolean } {
  * array. `in` and `not-in` ask whether a scalar is a member of a literal list,
  * so the declared field is a scalar. `eq` and `ne` compare with `===`, which
  * never holds for two arrays, so they take a scalar too. `before` and `after`
- * read `now` and reach no declared field. `exists` and `not-exists` ask only
+ * read an instant, so the declared field is a scalar `instant` and not an
+ * array; over `now` they reach no declared field. `exists` and `not-exists` ask only
  * whether the field is carried, so they fit every declared type.
  */
 function operatorFits(op: string, declared: FieldType): boolean {
   if (op === 'exists' || op === 'not-exists') return true;
-  const { array } = baseOf(declared);
+  const { base, array } = baseOf(declared);
   if (op === 'contains') return array;
+  if (op === 'before' || op === 'after') return base === 'instant' && !array;
   return !array;
 }
 
@@ -1725,7 +1728,8 @@ function whenIssues(
         if (
           typeof value !== 'string' &&
           typeof value !== 'number' &&
-          !(value instanceof Date)
+          !(value instanceof Date) &&
+          !isRelative(value)
         ) {
           issues.push(
             found(
@@ -1739,7 +1743,7 @@ function whenIssues(
           );
           return;
         }
-        const fault = windowFault(condition.value);
+        const fault = windowFault(condition.value, condition.field);
         if (fault !== undefined) {
           issues.push(
             found(
@@ -1752,10 +1756,10 @@ function whenIssues(
             ),
           );
         }
+        if (condition.field === 'now') return;
+      } else if (condition.op === 'day-of-week') {
         return;
       }
-
-      if (condition.op === 'day-of-week') return;
       if (!fields) return;
 
       const declared = Object.prototype.hasOwnProperty.call(

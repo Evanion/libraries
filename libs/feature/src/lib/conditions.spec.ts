@@ -745,6 +745,171 @@ describe('evaluateCondition, on exists and not-exists', () => {
   });
 });
 
+describe('evaluateCondition, on an instant field', () => {
+  const after: Condition = {
+    field: 'subject.createdAt',
+    op: 'after',
+    value: '2026-11-01',
+  };
+  const at = (createdAt: unknown): EvaluationContext => ({
+    subject: { createdAt },
+  });
+
+  it('compares a string instant read from the context', () => {
+    expect(evaluateCondition(after, at('2026-11-02T00:00:00Z'))).toBe(true);
+    expect(evaluateCondition(after, at('2026-10-31'))).toBe(false);
+  });
+
+  it('reads an epoch number and a Date the same way', () => {
+    expect(evaluateCondition(after, at(Date.UTC(2026, 10, 2)))).toBe(true);
+    expect(evaluateCondition(after, at(Date.UTC(2026, 9, 31)))).toBe(false);
+    expect(evaluateCondition(after, at(new Date('2026-11-02T00:00:00Z')))).toBe(
+      true,
+    );
+    expect(evaluateCondition(after, at(new Date('2026-10-31T00:00:00Z')))).toBe(
+      false,
+    );
+  });
+
+  it('holds before and after strictly', () => {
+    const before: Condition = { ...after, op: 'before' } as Condition;
+
+    expect(evaluateCondition(after, at('2026-11-01'))).toBe(false);
+    expect(evaluateCondition(before, at('2026-11-01'))).toBe(false);
+    expect(evaluateCondition(before, at('2026-10-31'))).toBe(true);
+  });
+
+  it('is false for a value that names no instant', () => {
+    expect(evaluateCondition(after, at('next tuesday'))).toBe(false);
+    expect(evaluateCondition(after, at('2026-11-02T00:00:00'))).toBe(false);
+    expect(evaluateCondition(after, at(Number.NaN))).toBe(false);
+    expect(evaluateCondition(after, at(new Date(Number.NaN)))).toBe(false);
+    expect(evaluateCondition(after, at(null))).toBe(false);
+    expect(evaluateCondition(after, at({}))).toBe(false);
+    expect(evaluateCondition(after, at(true))).toBe(false);
+  });
+
+  it('is false when the field is absent', () => {
+    expect(evaluateCondition(after, {})).toBe(false);
+    expect(evaluateCondition(after, { subject: {} })).toBe(false);
+    expect(evaluateCondition(after, { subject: null })).toBe(false);
+  });
+
+  it('does not read the clock', () => {
+    expect(
+      evaluateCondition(after, {
+        now: '2020-01-01',
+        subject: { createdAt: '2026-11-02' },
+      }),
+    ).toBe(true);
+  });
+
+  it('does not invoke a getter on the path', () => {
+    const trap = {
+      get createdAt(): string {
+        throw new Error('invoked');
+      },
+    };
+
+    expect(evaluateCondition(after, { subject: trap })).toBe(false);
+  });
+});
+
+describe('evaluateCondition, on a relative boundary', () => {
+  const recent: Condition = {
+    field: 'subject.createdAt',
+    op: 'after',
+    value: { fromNow: '-P30D' },
+  };
+  const context = (createdAt: unknown, now: unknown = '2026-11-07T00:00:00Z') =>
+    ({ now, subject: { createdAt } }) as EvaluationContext;
+
+  it('puts the boundary at now plus the duration', () => {
+    expect(evaluateCondition(recent, context('2026-10-20'))).toBe(true);
+    expect(evaluateCondition(recent, context('2026-10-01'))).toBe(false);
+  });
+
+  it('holds strictly at the boundary', () => {
+    expect(evaluateCondition(recent, context('2026-10-08T00:00:00Z'))).toBe(
+      false,
+    );
+    expect(evaluateCondition(recent, context('2026-10-08T00:00:01Z'))).toBe(
+      true,
+    );
+  });
+
+  it('shifts forward for a positive duration', () => {
+    const upcoming: Condition = {
+      field: 'subject.expiresAt',
+      op: 'before',
+      value: { fromNow: 'PT12H' },
+    };
+    const at = (expiresAt: string) =>
+      ({
+        now: '2026-11-07T00:00:00Z',
+        subject: { expiresAt },
+      }) as EvaluationContext;
+
+    expect(evaluateCondition(upcoming, at('2026-11-07T11:00:00Z'))).toBe(true);
+    expect(evaluateCondition(upcoming, at('2026-11-07T13:00:00Z'))).toBe(false);
+  });
+
+  it('reads now written as a Date or epoch milliseconds', () => {
+    expect(
+      evaluateCondition(recent, context('2026-10-20', new Date('2026-11-07'))),
+    ).toBe(true);
+    expect(
+      evaluateCondition(recent, context('2026-10-20', Date.UTC(2026, 10, 7))),
+    ).toBe(true);
+  });
+
+  it('is false when now is absent, never now = epoch 0', () => {
+    const noNow = { subject: { createdAt: '2026-10-20' } };
+
+    expect(evaluateCondition(recent, noNow)).toBe(false);
+    expect(
+      evaluateCondition({ ...recent, op: 'before' } as Condition, {
+        subject: { createdAt: '1960-01-01' },
+      }),
+    ).toBe(false);
+  });
+
+  it('is false when now does not parse', () => {
+    expect(evaluateCondition(recent, context('2026-10-20', 'nope'))).toBe(
+      false,
+    );
+    expect(evaluateCondition(recent, context('2026-10-20', null))).toBe(false);
+    expect(evaluateCondition(recent, context('2026-10-20', Number.NaN))).toBe(
+      false,
+    );
+  });
+
+  it('is false when the field is absent or unparseable', () => {
+    expect(evaluateCondition(recent, { now: '2026-11-07' })).toBe(false);
+    expect(evaluateCondition(recent, context('nope'))).toBe(false);
+  });
+
+  it('is false for a duration that does not parse', () => {
+    const bad: Condition = {
+      field: 'subject.createdAt',
+      op: 'after',
+      value: { fromNow: 'P1M' },
+    };
+
+    expect(evaluateCondition(bad, context('2026-10-20'))).toBe(false);
+  });
+
+  it('is false when the shifted boundary leaves the range a Date holds', () => {
+    const far: Condition = {
+      field: 'subject.createdAt',
+      op: 'before',
+      value: { fromNow: 'P200000000D' },
+    };
+
+    expect(evaluateCondition(far, context('2026-10-20'))).toBe(false);
+  });
+});
+
 describe('conditionFields', () => {
   it('returns a path string unchanged', () => {
     expect(conditionFields({ field: 'subject\\.id.x', op: 'exists' })).toEqual([
@@ -759,6 +924,24 @@ describe('conditionFields', () => {
     expect(conditionFields({ field: 'plan', op: 'eq', value: 'pro' })).toEqual([
       'plan',
     ]);
+  });
+});
+
+describe('conditionFields, on an instant field', () => {
+  it('names the field read by a non-now window', () => {
+    expect(
+      conditionFields({ field: 'subject.createdAt', op: 'after', value: 0 }),
+    ).toEqual(['subject.createdAt']);
+  });
+
+  it('names now as well for a relative boundary', () => {
+    expect(
+      conditionFields({
+        field: 'subject.createdAt',
+        op: 'after',
+        value: { fromNow: '-P30D' },
+      }),
+    ).toEqual(['subject.createdAt', 'now']);
   });
 });
 
