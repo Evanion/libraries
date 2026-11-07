@@ -585,7 +585,7 @@ describe('precedence', () => {
 
     const decision = features.resolve().off;
 
-    expect(decision?.enabled).toBe(false);
+    expect(decision.enabled).toBe(false);
     expect(decision.reason).toBe('explicitly-off');
     expect(decision.rules).toBeUndefined();
   });
@@ -2963,7 +2963,7 @@ describe('plan', () => {
       for (const region of ['eu', 'us']) {
         const decision = features.resolve({ ...known, role, region }).cta;
 
-        expect(decision?.enabled).toBe(false);
+        expect(decision.enabled).toBe(false);
       }
     }
   });
@@ -4067,4 +4067,79 @@ describe('a context the engine cannot read', () => {
     expect(features.resolve(throwing()).ramp?.enabled).toBe(true);
     expect(features.resolve(revoked()).ramp?.enabled).toBe(false);
   });
+});
+
+describe('a context with unreadable members', () => {
+  const defs: Definitions = [
+    {
+      key: 'split',
+      enabled: true,
+      variants: [
+        { name: 'control', weight: 50 },
+        { name: 'blue', weight: 50 },
+      ],
+      rules: [
+        {
+          when: [{ field: 'now', op: 'after', value: '2026-01-01T00:00:00Z' }],
+        },
+      ],
+    },
+  ];
+  const revoked = (): never => {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    return proxy as never;
+  };
+
+  it.each([
+    ['now', { targetingKey: 'u-1', now: revoked() }],
+    ['stickyVariants', { targetingKey: 'u-1', stickyVariants: revoked() }],
+  ])('answers under an unreadable %s', (_name, context) => {
+    const features = createFeatures(defs);
+
+    expect(() => features.resolve(context)).not.toThrow();
+    expect(() => features.plan(context)).not.toThrow();
+    expect(() => features.snapshot(context)).not.toThrow();
+    expect(() => features.isEnabled('split', context)).not.toThrow();
+  });
+
+  it('reads an unreadable now as absent', () => {
+    const features = createFeatures(defs);
+
+    expect(features.isEnabled('split', { now: revoked() })).toBe(true);
+  });
+
+  it('assigns by hash under an unreadable stickyVariants', () => {
+    const features = createFeatures(defs);
+    const decision = features.resolve({
+      targetingKey: 'u-1',
+      stickyVariants: revoked(),
+    }).split;
+
+    expect(decision?.assignment?.source).toBe('weighted');
+  });
+
+  it('reads the now an inherited chain carries', () => {
+    const features = createFeatures(defs);
+    const context = Object.create({ now: '2025-01-01T00:00:00Z' });
+
+    expect(features.isEnabled('split', context)).toBe(false);
+  });
+
+  it('refuses a malformed correlateBy', () => {
+    expect(() =>
+      createFeatures([], { correlateBy: 'a..b', observe: () => undefined }),
+    ).toThrow(FeatureConfigError);
+  });
+
+  it.each(['a..b', 'constructor'])(
+    'refuses the literal rollout by %s',
+    (by) => {
+      expect(() =>
+        createFeatures([
+          { key: 'r', enabled: true, rules: [{ rollout: { percent: 5, by } }] },
+        ]),
+      ).toThrow(FeatureConfigError);
+    },
+  );
 });

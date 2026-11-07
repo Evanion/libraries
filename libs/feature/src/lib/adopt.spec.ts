@@ -1194,4 +1194,21 @@ describe('adoptDecisions', () => {
       ]);
     });
   });
+
+  describe('an unreadable context', () => {
+    it('answers under a revoked proxy and an unreadable now', () => {
+      const shipped = storeAt('v1').snapshot(SUBJECT);
+      const { proxy, revoke } = Proxy.revocable({}, {});
+      revoke();
+
+      for (const context of [proxy, { ...SUBJECT, now: proxy }]) {
+        expect(() =>
+          adoptDecisions(storeAt('v1'), shipped, {
+            context: context as never,
+            compare: true,
+          }),
+        ).not.toThrow();
+      }
+    });
+  });
 });

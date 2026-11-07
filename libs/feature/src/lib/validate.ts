@@ -515,6 +515,29 @@ interface ConditionIssues {
   readonly refusedAt: ReadonlySet<number>;
 }
 
+/** The rollout `by` of one rule when it names no readable path. */
+function rolloutByIssues(
+  rule: Readonly<Record<string, unknown>>,
+  named: string,
+  at: string,
+  key: FeatureKey | undefined,
+): readonly Found[] {
+  const rollout: unknown = rule['rollout'];
+  if (!isRecord(rollout) || typeof rollout['by'] !== 'string') return [];
+  const fault = pathFault(rollout['by']);
+  if (fault === undefined) return [];
+  return [
+    found(
+      'invalid-field-path',
+      new FeatureConfigError(
+        `${named} declares "by" on the rollout at ${at}/rollout as a path this checker cannot read: ${fault}`,
+      ),
+      key,
+      `${at}/rollout/by`,
+    ),
+  ];
+}
+
 /**
  * Every member of one rule's rollout that did not reach this holder whole.
  *
@@ -562,21 +585,6 @@ function rolloutIssues(
         `${named} declares "percent" on the rollout at ${path} as ${met(percent)}, and this checker reads the finite number the ramp reaches its share of subjects by, so a holder installing this document would put every subject outside it`,
         `${path}/percent`,
         key,
-      ),
-    );
-  }
-
-  const byFault =
-    typeof rollout['by'] === 'string' ? pathFault(rollout['by']) : undefined;
-  if (byFault !== undefined) {
-    all.push(
-      found(
-        'invalid-field-path',
-        new FeatureConfigError(
-          `${named} declares "by" on the rollout at ${path} as a path this checker cannot read: ${byFault}`,
-        ),
-        key,
-        `${path}/by`,
       ),
     );
   }
@@ -1090,6 +1098,7 @@ function shapeWalk(
             ...rolloutIssues(element, named, path, key),
           );
         }
+        all.push(...rolloutByIssues(element, named, path, key));
         const inner = conditionIssues(element, named, path, key);
         all.push(...inner.refused);
         if (served) all.push(...inner.strange);
