@@ -1,5 +1,7 @@
 import { blockedDecision, decide, withVariant } from './evaluate.js';
+import { readPath } from './field-path.js';
 import { buildGraph } from './graph.js';
+import { settleContext } from './settle.js';
 import { assignVariant } from './variants.js';
 import { reportDivergence } from './divergence.js';
 import type { DivergenceObserver } from './divergence.js';
@@ -64,10 +66,10 @@ export function resolvePlan<S extends Record<keyof S, VariantInfo | never>>(
   const entries = plan as Record<FeatureKey, PlanEntry<FeatureKey>>;
   const observer = options?.onDivergence as
     DivergenceObserver<FeatureKey> | undefined;
-  const settled: EvaluationContext = {
-    ...context,
-    now: context?.now ?? options?.now ?? new Date(),
-  };
+  const settled: EvaluationContext = settleContext(
+    context,
+    () => options?.now ?? new Date(),
+  );
 
   const resolved = new Map<FeatureKey, Decision<FeatureKey>>();
   const held = features.config;
@@ -109,7 +111,8 @@ export function resolvePlan<S extends Record<keyof S, VariantInfo | never>>(
     }
 
     for (const field of entry.needs) {
-      if (settled[field] !== undefined) continue;
+      const read = readPath(settled, field);
+      if (read.present && read.value !== undefined) continue;
       reportDivergence(observer, {
         kind: 'missing-field',
         key,

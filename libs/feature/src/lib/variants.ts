@@ -615,15 +615,21 @@ export function assignVariant<F extends FeatureKey>(
   const by = definition.variantBy ?? DEFAULT_ROLLOUT_FIELD;
 
   const key = String(definition.key);
-  const stickyVariants = context.stickyVariants;
   // A bare index walks the prototype chain, so a feature keyed `constructor`
   // or `toString` reads a function off `Object.prototype` when no entry is
   // stored. `useFeature` in `@evanion/react-feature` guards the same read
-  // the same way.
-  const stored =
-    stickyVariants && Object.prototype.hasOwnProperty.call(stickyVariants, key)
-      ? stickyVariants[key]
-      : undefined;
+  // the same way. An unreadable map holds no entry.
+  let stored: string | undefined;
+  try {
+    const stickyVariants = context.stickyVariants;
+    stored =
+      stickyVariants &&
+      Object.prototype.hasOwnProperty.call(stickyVariants, key)
+        ? stickyVariants[key]
+        : undefined;
+  } catch {
+    stored = undefined;
+  }
   if (stored !== undefined) {
     const held = variants.find((variant) => variant.name === stored);
     if (held) return { variant: held, source: 'sticky', by };
