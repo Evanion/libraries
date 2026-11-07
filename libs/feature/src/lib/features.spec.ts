@@ -3933,3 +3933,44 @@ describe('the documents createFeatures refuses', () => {
     ]);
   });
 });
+
+describe('createFeatures, on condition paths', () => {
+  const store = createFeatures([
+    {
+      key: 'console',
+      enabled: true,
+      rules: [
+        {
+          id: 'operator',
+          when: [{ field: 'subject.role', op: 'eq', value: 'operator' }],
+        },
+      ],
+    },
+    {
+      key: 'no-realm',
+      enabled: true,
+      rules: [
+        { id: 'bare', when: [{ field: 'subject.realm', op: 'not-exists' }] },
+      ],
+    },
+  ]);
+
+  it('reads a condition field as a path', () => {
+    expect(
+      store.resolve({ subject: { role: 'operator' } }).console.reason,
+    ).toBe('rule-match');
+    expect(store.resolve({ subject: { role: 'user' } }).console.reason).toBe(
+      'no-rule-matched',
+    );
+  });
+
+  it('decides a not-exists rule when the parent is missing or not an object', () => {
+    expect(store.resolve({})['no-realm'].reason).toBe('rule-match');
+    expect(store.resolve({ subject: null })['no-realm'].reason).toBe(
+      'rule-match',
+    );
+    expect(store.resolve({ subject: { realm: 'a' } })['no-realm'].reason).toBe(
+      'no-rule-matched',
+    );
+  });
+});

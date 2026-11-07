@@ -1,5 +1,4 @@
 import type {
-  AttributeCondition,
   DayOfWeekCondition,
   FeatureDefinition,
   FeatureKey,
@@ -68,13 +67,21 @@ export type JsonValue =
   | readonly JsonValue[]
   | { readonly [member: string]: JsonValue | undefined };
 
-/** An attribute condition as a document carries it, compared with `===`. */
-export interface SerializedAttributeCondition extends Omit<
-  AttributeCondition,
-  'value'
-> {
-  readonly value: JsonValue;
-}
+/**
+ * An attribute condition as a document carries it. A comparison's `value` is
+ * compared with `===` and narrows to `JsonValue`; a presence test carries none.
+ */
+export type SerializedAttributeCondition =
+  | {
+      field: string;
+      op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains';
+      readonly value: JsonValue;
+    }
+  | {
+      field: string;
+      op: 'exists' | 'not-exists';
+      value?: undefined;
+    };
 
 /** A condition as a document carries it. The instant and the value narrow. */
 export type SerializedCondition =
@@ -252,6 +259,8 @@ export type ConfigIssueCode =
   | 'invalid-instant'
   | 'unknown-context-field'
   | 'field-type-mismatch'
+  | 'invalid-field-path'
+  | 'conflicting-context-fields'
   | 'unfenced-schema'
   | 'missing-schema-version'
   | 'unknown-member'

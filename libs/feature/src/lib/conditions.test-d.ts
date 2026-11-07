@@ -64,6 +64,15 @@ describe('evaluateCondition', () => {
   });
 });
 
+type ComparisonCondition = Extract<
+  AttributeCondition,
+  { op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains' }
+>;
+type PresenceCondition = Extract<
+  AttributeCondition,
+  { op: 'exists' | 'not-exists' }
+>;
+
 describe('Condition', () => {
   it('closes over the three members the engine dispatches on', () => {
     expectTypeOf<Condition>().toEqualTypeOf<
@@ -81,6 +90,8 @@ describe('Condition', () => {
       | 'in'
       | 'not-in'
       | 'contains'
+      | 'exists'
+      | 'not-exists'
     >();
   });
 
@@ -90,10 +101,16 @@ describe('Condition', () => {
     >().toEqualTypeOf<DayOfWeekCondition>();
   });
 
-  it('narrows to the attribute member on the five operators it declares', () => {
+  it('narrows to the comparison member on the five operators it declares', () => {
     expectTypeOf<
       Extract<Condition, { op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains' }>
-    >().toEqualTypeOf<AttributeCondition>();
+    >().toEqualTypeOf<ComparisonCondition>();
+  });
+
+  it('narrows to the presence member on its two operators', () => {
+    expectTypeOf<
+      Extract<Condition, { op: 'exists' | 'not-exists' }>
+    >().toEqualTypeOf<PresenceCondition>();
   });
 
   it('leaves a walk over op nothing to reach, which is what closes it', () => {
@@ -112,6 +129,8 @@ describe('Condition', () => {
         case 'in':
         case 'not-in':
         case 'contains':
+        case 'exists':
+        case 'not-exists':
           throw new Error(String(condition.field));
       }
 
@@ -190,10 +209,22 @@ describe('AttributeCondition', () => {
     expectTypeOf<AttributeCondition['field']>().toEqualTypeOf<string>();
   });
 
-  it('compares with one of five operators', () => {
+  it('compares with one of five operators, or tests presence with one of two', () => {
     expectTypeOf<AttributeCondition['op']>().toEqualTypeOf<
-      'eq' | 'ne' | 'in' | 'not-in' | 'contains'
+      'eq' | 'ne' | 'in' | 'not-in' | 'contains' | 'exists' | 'not-exists'
     >();
+  });
+
+  it('requires a value on a comparison and none on a presence test', () => {
+    expectTypeOf<ComparisonCondition['value']>().toEqualTypeOf<unknown>();
+    expectTypeOf<PresenceCondition['value']>().toEqualTypeOf<undefined>();
+
+    const present: AttributeCondition = { field: 'realm', op: 'exists' };
+    expectTypeOf(present).toExtend<Condition>();
+
+    // @ts-expect-error -- a comparison without its value compares against nothing.
+    const bare: AttributeCondition = { field: 'plan', op: 'eq' };
+    expectTypeOf(bare).toExtend<Condition>();
   });
 
   it('compares against a value of any type, which a document carries', () => {

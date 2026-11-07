@@ -634,7 +634,124 @@ describe('evaluateCondition', () => {
   });
 });
 
+describe('evaluateCondition, on a context path', () => {
+  it('reads a nested field', () => {
+    const condition: Condition = {
+      field: 'subject.role',
+      op: 'eq',
+      value: 'operator',
+    };
+
+    expect(
+      evaluateCondition(condition, { subject: { role: 'operator' } }),
+    ).toBe(true);
+    expect(evaluateCondition(condition, { subject: { role: 'user' } })).toBe(
+      false,
+    );
+  });
+
+  it('holds no comparison over an absent nested field, ne included', () => {
+    expect(
+      evaluateCondition({ field: 'subject.role', op: 'ne', value: 'x' }, {}),
+    ).toBe(false);
+  });
+
+  it('reads a path as nested and an escaped path as the flat key', () => {
+    const context = { 'subject.id': 'x', subject: { id: 'y' } };
+
+    expect(
+      evaluateCondition({ field: 'subject.id', op: 'eq', value: 'y' }, context),
+    ).toBe(true);
+    expect(
+      evaluateCondition(
+        { field: 'subject\\.id', op: 'eq', value: 'x' },
+        context,
+      ),
+    ).toBe(true);
+  });
+
+  it('matches a value inside a nested array with contains', () => {
+    expect(
+      evaluateCondition(
+        { field: 'subject.realms', op: 'contains', value: 'platform' },
+        { subject: { realms: ['platform'] } },
+      ),
+    ).toBe(true);
+  });
+
+  it('reads no field through a getter below the top level', () => {
+    const subject = {
+      get id() {
+        throw new Error('getter ran');
+      },
+    };
+
+    expect(
+      evaluateCondition(
+        { field: 'subject.id', op: 'eq', value: 'x' },
+        { subject },
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('evaluateCondition, on exists and not-exists', () => {
+  const exists: Condition = { field: 'realm', op: 'exists' };
+  const notExists: Condition = { field: 'realm', op: 'not-exists' };
+
+  it.each([
+    ['a value', { realm: 'a' }, true],
+    ['null', { realm: null }, true],
+    ['an empty string', { realm: '' }, true],
+    ['no field', {}, false],
+    ['undefined', { realm: undefined }, false],
+  ])('answers for %s', (_name, context, present) => {
+    expect(evaluateCondition(exists, context)).toBe(present);
+    expect(evaluateCondition(notExists, context)).toBe(!present);
+  });
+
+  it.each([
+    ['an array', { subject: [] }],
+    ['null', { subject: null }],
+    ['a primitive', { subject: 'x' }],
+    [
+      'a class instance',
+      {
+        subject: new (class Subject {
+          x = 1;
+        })(),
+      },
+    ],
+  ])('holds not-exists below %s', (_name, context) => {
+    const path = { field: 'subject.x' } as const;
+
+    expect(evaluateCondition({ ...path, op: 'not-exists' }, context)).toBe(
+      true,
+    );
+    expect(evaluateCondition({ ...path, op: 'exists' }, context)).toBe(false);
+  });
+
+  it('reads an inherited name as absent', () => {
+    expect(evaluateCondition({ field: 'toString', op: 'exists' }, {})).toBe(
+      false,
+    );
+  });
+
+  it('treats a malformed path as absent', () => {
+    expect(evaluateCondition({ field: 'a..b', op: 'exists' }, {})).toBe(false);
+    expect(evaluateCondition({ field: 'a..b', op: 'not-exists' }, {})).toBe(
+      true,
+    );
+  });
+});
+
 describe('conditionFields', () => {
+  it('returns a path string unchanged', () => {
+    expect(conditionFields({ field: 'subject\\.id.x', op: 'exists' })).toEqual([
+      'subject\\.id.x',
+    ]);
+  });
+
   it('names the context field a condition reads', () => {
     expect(conditionFields({ field: 'now', op: 'before', value: 0 })).toEqual([
       'now',

@@ -1,4 +1,5 @@
 import { FeatureConfigError } from './errors.js';
+import { readPath } from './field-path.js';
 import { contextEpoch, instantEpoch, RANGE } from './instant.js';
 import type {
   Condition,
@@ -117,8 +118,9 @@ export function validateConditions<F extends FeatureKey>(
 }
 
 /**
- * The context fields a condition reads. Used by `plan()` to decide what it can
- * resolve at build time and what it has to defer.
+ * The context fields a condition reads, each as the path the condition names.
+ * Used by `plan()` to decide what it can resolve at build time and what it has
+ * to defer.
  */
 export function conditionFields(condition: Condition): readonly string[] {
   return [condition.field];
@@ -128,7 +130,8 @@ export function conditionFields(condition: Condition): readonly string[] {
  * Whether a condition holds for a context.
  *
  * A condition over a field the context does not carry never holds -- including
- * the negative operators. `ne` on an absent field is not "true because it is not
+ * the negative operators -- except `exists` and `not-exists`, the only ops that
+ * answer for an absent field. `ne` on an absent field is not "true because it is not
  * equal"; it is unevaluable, and treating it as true would switch features on
  * for exactly the contexts that carry the least information.
  *
@@ -161,14 +164,16 @@ export function evaluateCondition(
     return condition.op === 'before' ? now < boundary : now > boundary;
   }
 
-  // `in` walks the prototype chain, so a condition over `constructor` or
-  // `toString` reads a function off `Object.prototype` and evaluates against
-  // it, which makes `ne` hold on a field the context does not carry. A context
-  // is caller data, and a field name is config.
-  if (!Object.prototype.hasOwnProperty.call(context, condition.field))
-    return false;
-  const actual = context[condition.field];
-  if (actual === undefined) return false;
+  // `readPath` reads own properties only, so a condition over `constructor` or
+  // `toString` finds no function on `Object.prototype` to evaluate against,
+  // which would make `ne` hold on a field the context does not carry. A context
+  // is caller data, and a field path is config.
+  const { present, value: actual } = readPath(context, condition.field);
+  const carried = present && actual !== undefined;
+
+  if (condition.op === 'exists') return carried;
+  if (condition.op === 'not-exists') return !carried;
+  if (!carried) return false;
 
   switch (condition.op) {
     case 'eq':

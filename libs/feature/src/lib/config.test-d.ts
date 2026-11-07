@@ -528,11 +528,14 @@ describe('JsonValue', () => {
   });
 });
 
+type SerializedComparison = Extract<
+  SerializedAttributeCondition,
+  { op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains' }
+>;
+
 describe('SerializedAttributeCondition', () => {
   it('carries the JSON an evaluator compares the context against', () => {
-    expectTypeOf<
-      SerializedAttributeCondition['value']
-    >().toEqualTypeOf<JsonValue>();
+    expectTypeOf<SerializedComparison['value']>().toEqualTypeOf<JsonValue>();
   });
 
   it('keeps every member a live attribute condition declares', () => {
@@ -563,7 +566,7 @@ describe('SerializedAttributeCondition', () => {
   });
 
   it('refuses a write to the value, which the digest covers', () => {
-    const condition: SerializedAttributeCondition = {
+    const condition: SerializedComparison = {
       field: 'plan',
       op: 'eq',
       value: 'pro',
@@ -573,7 +576,7 @@ describe('SerializedAttributeCondition', () => {
     // document every other process holds under the same digest.
     condition.value = 'free';
 
-    expectTypeOf<Pick<SerializedAttributeCondition, 'value'>>().toEqualTypeOf<{
+    expectTypeOf<Pick<SerializedComparison, 'value'>>().toEqualTypeOf<{
       readonly value: JsonValue;
     }>();
   });
@@ -1055,6 +1058,8 @@ describe('ConfigIssueCode', () => {
       | 'invalid-instant'
       | 'unknown-context-field'
       | 'field-type-mismatch'
+      | 'invalid-field-path'
+      | 'conflicting-context-fields'
       | 'unfenced-schema'
       | 'missing-schema-version'
       | 'unknown-member'

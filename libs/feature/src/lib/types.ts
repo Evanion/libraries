@@ -41,16 +41,35 @@ export interface DayOfWeekCondition {
   value: readonly Weekday[];
 }
 
-/** A context attribute compared against a literal. */
-export interface AttributeCondition {
-  field: string;
-  op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains';
-  value: unknown;
-}
+/**
+ * A check over one context attribute: a comparison against a literal, or a
+ * test of whether the context carries the field.
+ *
+ * `field` is a path: segments joined by `.`, with a literal `.` or `\` in a
+ * segment escaped by `\`. `subject.role` reads `role` inside `subject`, and
+ * `subject\.role` reads the flat key `subject.role`.
+ *
+ * `exists` holds when the path reads a value other than `undefined`, and `null`
+ * is present. `not-exists` holds otherwise, including when a parent of the path
+ * is an array, `null` or a non-plain object. These are the only operators that
+ * answer for an absent field, and they carry no `value`.
+ */
+export type AttributeCondition =
+  | {
+      field: string;
+      op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains';
+      value: unknown;
+    }
+  | {
+      field: string;
+      op: 'exists' | 'not-exists';
+      value?: undefined;
+    };
 
 /**
  * One check a rule makes: a window over `now`, a day of week in a named zone,
- * or a context attribute compared against a literal. The union is closed
+ * a context attribute compared against a literal, or a test of whether the
+ * context carries an attribute (`exists`, `not-exists`). The union is closed
  * because `evaluateCondition` dispatches on `op` and `validateConfig` holds a
  * serialized rule to these three shapes, so a fourth member changes the wire
  * format and every consumer that walks a rule. A caller who needs a check of
