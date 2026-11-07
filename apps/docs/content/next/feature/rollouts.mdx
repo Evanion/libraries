@@ -85,6 +85,26 @@ To achieve a uniform distribution, `@evanion/feature` avoids simple modulus oper
 
 Instead, the library uses MurmurHash3's finalization to mix the entire 32-bit word and takes the bucket from all 32 bits, ensuring a uniform distribution over 2^32 buckets. It also length-prefixes the seed, so a seed and value pair such as (`ab`, `c`) can never hash the same as (`a`, `bc`), and flags whose keys share a prefix do not share buckets.
 
+To determine if a value lands in a bucket, the library calculates a stable hash of the input.
+
+### How the Bucket Input Is Calculated
+
+The library determines the bucket by creating a specific input string: `${seed.length}:${seed}${value}`. In this string, `seed.length` represents the count of UTF-16 code units.
+
+It then hashes the UTF-8 bytes of that text using MurmurHash3 (x86, 32-bit, seed 0) and divides the result by 2^32 to get a value between 0 and 1.
+
+### Which Values Bucket
+
+The bucket calculation behaves differently depending on the type of the `by` value:
+
+- Strings: These are used exactly as provided, including empty strings.
+- Numbers: These are converted to their JavaScript decimal string representation. For example, the number `42` and the string `'42'` will result in the same bucket.
+- Unsupported Types: Any other type—including booleans (`true`), `null`, objects, arrays, or missing values—is not bucketed. In these cases, the rollout does not match.
+
+```ts twoslash file=libs/feature/docs/examples.md region=bucket-input
+
+```
+
 ## Exported Primitives
 
 For snapshot testing or predictive analysis (e.g., "Which 1,000 customers will see this rollout?"), `@evanion/feature` exports the underlying primitives `bucketOf`, `inRollout` and `murmur3`:
