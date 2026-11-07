@@ -4,6 +4,7 @@ import type { DecisionSet } from './decision-set.js';
 import { ruleFields } from './evaluate.js';
 import type { Features } from './features.js';
 import type { DeepReadonly } from './observe.js';
+import { readPath } from './field-path.js';
 import { ruleId } from './rule-id.js';
 import type {
   Decision,
@@ -115,18 +116,14 @@ function compared(
 }
 
 /**
- * Whether a context carries a value at `field`.
+ * Whether a context carries a value at the path `field`.
  *
- * A bare index walks the prototype chain, so a rule or a bucketing field named
- * `constructor` reads a function off `Object.prototype`. `evaluateCondition`
- * guards the same read the same way (`conditions.ts:160-165`), and a context
- * is caller data while a field name is config.
+ * `readPath` reads own properties only, so a rule or a bucketing field named
+ * `constructor` finds nothing on `Object.prototype`.
  */
 function carries(context: EvaluationContext, field: string): boolean {
-  return (
-    Object.prototype.hasOwnProperty.call(context, field) &&
-    context[field] !== undefined
-  );
+  const read = readPath(context, field);
+  return read.present && read.value !== undefined;
 }
 
 /**

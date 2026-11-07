@@ -472,6 +472,18 @@ describe('resolve and isEnabled', () => {
     expect(observe.mock.calls[0]?.[0].subject).toBe('p1');
   });
 
+  it('carries the value at a path correlateBy names', () => {
+    const observe = vi.fn();
+    const features = createFeatures(defs, {
+      observe,
+      correlateBy: 'subject.id',
+    });
+
+    features.resolve({ subject: { id: 's1' } });
+
+    expect(observe.mock.calls[0]?.[0].subject).toBe('s1');
+  });
+
   it('carries no subject for a field holding an object', () => {
     const observe = vi.fn();
     const features = createFeatures(defs, { observe, correlateBy: 'account' });

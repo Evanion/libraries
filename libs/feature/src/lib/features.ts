@@ -11,6 +11,7 @@ import { collectIssues } from './validate.js';
 import type { Checkable } from './validate.js';
 import { unreadable, unreadableText } from './unreadable.js';
 import { FeatureConfigError } from './errors.js';
+import { readPath } from './field-path.js';
 import { createEmitter } from './observe.js';
 import type {
   FeatureEvent,
@@ -1008,7 +1009,7 @@ export function createFeatures(
   const subjectOf = (
     context: EvaluationContext,
   ): string | number | undefined => {
-    const value = context[correlateBy];
+    const value = readPath(context, correlateBy).value;
     if (typeof value === 'string' || typeof value === 'number') return value;
     return undefined;
   };
