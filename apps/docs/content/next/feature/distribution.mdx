@@ -170,7 +170,7 @@ To ensure your migration to version 0.2 is seamless, you must manually audit you
 
 ### Handling Backslashes in Stored Names
 
-`@evanion/feature` handles backslashes differently between versions. In 0.1, a name like `a\.b` was treated as a literal key; in 0.2, it is interpreted as the flat key `a.b`. Because this change alters the meaning of the name without triggering an automated flag, `ambiguousFields` will not list stored names containing backslashes. You must review every stored name containing a `\` by hand to ensure it maps to the intended key.
+`@evanion/feature` handles backslashes differently between versions. In 0.1, a name like `a\.b` was treated as a literal key; in 0.2, it is interpreted as the flat key `a.b`. `ambiguousFields` lists a name only when it holds an unescaped dot, so `a.b\.c` is listed and `a\.b` is not. `requirements` reports `'path'` for `a\.b`, but that says only that the document needs 0.2. It does not say the name changed meaning. You must review every stored name containing a `\` by hand to ensure it maps to the intended key.
 
 ### Validation Sequence
 

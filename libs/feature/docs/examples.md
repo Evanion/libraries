@@ -283,25 +283,8 @@ const features = createFeatures([
       },
     ],
   },
-]);
-
-const subject = { id: 'acct-1', role: 'admin', realms: ['eu'] };
-const admin = (subject: unknown) =>
-  features.isEnabled('admin-console', { subject });
-
-admin(subject); // -> true
-admin({ ...subject, role: 'viewer' }); // -> false
-
-// A subject with no `role` leaves the field absent, so the comparison is false.
-admin({ id: 'acct-1' }); // -> false
-
-// A parent that is an array is not walked, so the field is absent.
-admin([subject]); // -> false
-
-// `ne` over an absent path is false too.
-const notViewer = createFeatures([
   {
-    key: 'admin-console',
+    key: 'not-viewer-tools',
     enabled: true,
     rules: [
       {
@@ -311,10 +294,35 @@ const notViewer = createFeatures([
     ],
   },
 ]);
-const notViewerFor = (subject: unknown) =>
-  notViewer.isEnabled('admin-console', { subject });
-notViewerFor({ id: 'acct-1' }); // -> false
-notViewerFor({ role: 'admin' }); // -> true
+
+const subject = {
+  id: 'acct-1',
+  role: 'admin',
+  realms: ['eu'],
+  createdAt: '2026-10-01T00:00:00Z',
+};
+const now = '2026-11-07T12:00:00Z';
+const adminConsole = (subject: unknown) =>
+  features.isEnabled('admin-console', { targetingKey: 'acct-1', now, subject });
+const tools = (subject: unknown) =>
+  features.isEnabled('not-viewer-tools', {
+    targetingKey: 'acct-1',
+    now,
+    subject,
+  });
+
+adminConsole(subject); // -> true
+adminConsole({ ...subject, role: 'viewer' }); // -> false
+
+// A subject with no `role` leaves the field absent, so the comparison is false.
+adminConsole({ id: 'acct-1' }); // -> false
+
+// A parent that is an array is not walked, so the field is absent.
+adminConsole([subject]); // -> false
+
+// `ne` over an absent path is false too.
+tools({ id: 'acct-1' }); // -> false
+tools({ role: 'admin' }); // -> true
 ```
 
 <!-- #endregion nested-context -->
@@ -325,47 +333,58 @@ notViewerFor({ role: 'admin' }); // -> true
 
 ```ts @import.meta.vitest
 import { createFeatures } from '@evanion/feature';
+import type { EvaluationContext } from '@evanion/feature';
 
 const features = createFeatures([
   {
     key: 'realm-picker',
     enabled: true,
-    rules: [
-      {
-        id: 'no-realm',
-        when: [{ field: 'subject.realm', op: 'not-exists' }],
-      },
-    ],
+    rules: [{ id: 'no-realm', when: [{ field: 'realm', op: 'not-exists' }] }],
   },
   {
     key: 'realm-badge',
     enabled: true,
+    rules: [{ id: 'has-realm', when: [{ field: 'realm', op: 'exists' }] }],
+  },
+  {
+    key: 'account-age',
+    enabled: true,
     rules: [
-      { id: 'has-realm', when: [{ field: 'subject.realm', op: 'exists' }] },
+      { id: 'known', when: [{ field: 'subject.createdAt', op: 'exists' }] },
     ],
   },
 ]);
 
-const picker = (subject?: unknown) =>
-  features.isEnabled('realm-picker', { subject });
-const badge = (subject?: unknown) =>
-  features.isEnabled('realm-badge', { subject });
+const subject = {
+  id: 'acct-1',
+  role: 'admin',
+  realms: ['eu'],
+  createdAt: '2026-10-01T00:00:00Z',
+};
+const base = { targetingKey: 'acct-1', now: '2026-11-07T12:00:00Z', subject };
+const picker = (context: EvaluationContext) =>
+  features.isEnabled('realm-picker', context);
+const badge = (context: EvaluationContext) =>
+  features.isEnabled('realm-badge', context);
+const age = (subject: unknown) =>
+  features.isEnabled('account-age', { ...base, subject });
 
 // A missing key is absent.
-picker({}); // -> true
-badge({}); // -> false
+picker(base); // -> true
+badge(base); // -> false
 
 // `null` is present.
-picker({ realm: null }); // -> false
-badge({ realm: null }); // -> true
+picker({ ...base, realm: null }); // -> false
+badge({ ...base, realm: null }); // -> true
 
 // So is an empty string. `undefined` is absent.
-badge({ realm: '' }); // -> true
-badge({ realm: undefined }); // -> false
+badge({ ...base, realm: '' }); // -> true
+badge({ ...base, realm: undefined }); // -> false
 
-// A parent that is not a plain object leaves the field absent.
-picker([1]); // -> true
-picker(); // -> true
+// A parent that is not a plain object leaves a nested path absent.
+age(subject); // -> true
+age([subject]); // -> false
+age(null); // -> false
 ```
 
 <!-- #endregion exists-ops -->
