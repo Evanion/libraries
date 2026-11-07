@@ -159,27 +159,46 @@ export function conditionFields(condition: Condition): readonly string[] {
   return [condition.field];
 }
 
+/** Whether a condition compares the clock: a day-of-week or a window over `now`. */
+function readsNow(condition: Condition): boolean {
+  return (
+    condition.op === 'day-of-week' ||
+    ((condition.op === 'before' || condition.op === 'after') &&
+      condition.field === 'now')
+  );
+}
+
 /**
  * The field a condition read and whether the context carried a value there.
  *
- * A day-of-week condition and a window over `now` read `now`, which is present
- * only when it names an instant. Every other condition reads its own `field`,
- * present when the read finds a value that is not `undefined`.
+ * A condition that compares the clock reads `now`, present only when `now`
+ * names an instant. Every other condition reads its own `field`, present when
+ * the read finds a value that is not `undefined`. A relative window over
+ * another field reads that field first, and then `now` for the boundary: when
+ * the field is present and `now` names no instant, the field read was not the
+ * failure, so it reports `now` with `present: false`.
  */
 export function conditionFieldRead(
   condition: Condition,
   context: EvaluationContext,
 ): { path: string; present: boolean } {
-  if (
-    condition.op === 'day-of-week' ||
-    ((condition.op === 'before' || condition.op === 'after') &&
-      condition.field === 'now')
-  ) {
-    return { path: 'now', present: !Number.isNaN(contextEpoch(context.now)) };
-  }
+  const nowRead = {
+    path: 'now',
+    present: !Number.isNaN(contextEpoch(context.now)),
+  };
+  if (readsNow(condition)) return nowRead;
 
   const { present, value } = readPath(context, condition.field);
-  return { path: condition.field, present: present && value !== undefined };
+  const carried = present && value !== undefined;
+  if (
+    carried &&
+    (condition.op === 'before' || condition.op === 'after') &&
+    isRelative(condition.value) &&
+    !nowRead.present
+  ) {
+    return nowRead;
+  }
+  return { path: condition.field, present: carried };
 }
 
 /**
@@ -214,7 +233,7 @@ export function evaluateCondition(
 
   if (condition.op === 'before' || condition.op === 'after') {
     let subject: number;
-    if (condition.field === 'now') {
+    if (readsNow(condition)) {
       subject = contextEpoch(context.now);
     } else {
       const { present, value } = readPath(context, condition.field);

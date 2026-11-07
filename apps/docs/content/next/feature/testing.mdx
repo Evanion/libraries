@@ -67,6 +67,13 @@ To ensure different environments or languages produce identical results, the pac
 
 A port of the engine to another language can run these same files to compare its decisions against the fixtures. In a TypeScript project, you can run these to verify that the installed version of `@evanion/feature` still answers as the fixture dictates.
 
+To verify that a port's decisions match a fixture, the port must emit both `rollout.bucket` and `failedField`. The engine sets these values in the fixture's rule outcome.
+
+The `failedField` property is an object containing:
+
+- `path`: The path the failed condition attempted to read.
+- `present`: Whether the context actually carried a value at that path.
+
 ```ts twoslash file=libs/feature/docs/examples.md region=test-agreement
 
 ```

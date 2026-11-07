@@ -4380,6 +4380,70 @@ describe('RuleOutcome', () => {
       });
     });
 
+    it('names `now` when a relative window fails on a clock that names no instant', () => {
+      const rule: Rule = {
+        id: 'recent',
+        when: [
+          {
+            field: 'subject.createdAt',
+            op: 'after',
+            value: { fromNow: '-P30D' },
+          },
+        ],
+      };
+      const subject = { createdAt: '2026-11-01T00:00:00Z' };
+
+      for (const now of [undefined, 'soon']) {
+        expect(
+          evaluateRule(definition, rule, { subject, now }).failedField,
+        ).toEqual({ path: 'now', present: false });
+      }
+      expect(evaluateRule(definition, rule, {}).failedField).toEqual({
+        path: 'subject.createdAt',
+        present: false,
+      });
+      expect(
+        evaluateRule(definition, rule, {
+          subject: { createdAt: '2020-01-01T00:00:00Z' },
+          now: '2026-11-07T00:00:00Z',
+        }).failedField,
+      ).toEqual({ path: 'subject.createdAt', present: true });
+    });
+
+    it.each([
+      ['ne', { op: 'ne', value: 'user' }],
+      ['in', { op: 'in', value: ['admin'] }],
+      ['contains', { op: 'contains', value: 'admin' }],
+    ] as const)('names a failed `%s` over a present value', (_op, spec) => {
+      const rule: Rule = {
+        id: 'r',
+        when: [{ field: 'subject.role', ...spec }],
+      };
+
+      expect(
+        evaluateRule(definition, rule, { subject: { role: 'user' } })
+          .failedField,
+      ).toEqual({ path: 'subject.role', present: true });
+      expect(evaluateRule(definition, rule, {}).failedField).toEqual({
+        path: 'subject.role',
+        present: false,
+      });
+    });
+
+    it('names the escaped path of a flat key', () => {
+      const rule: Rule = {
+        id: 'flat',
+        when: [{ field: 'subject\\.id', op: 'eq', value: 'x' }],
+      };
+
+      expect(
+        evaluateRule(definition, rule, { 'subject.id': 'y' }).failedField,
+      ).toEqual({ path: 'subject\\.id', present: true });
+      expect(
+        evaluateRule(definition, rule, { subject: { id: 'y' } }).failedField,
+      ).toEqual({ path: 'subject\\.id', present: false });
+    });
+
     it('names a failed `exists` and `not-exists` by what the context carries', () => {
       const exists: Rule = {
         id: 'exists',
