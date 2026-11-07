@@ -336,4 +336,37 @@ describe('resolvePlan', () => {
       ),
     ).not.toThrow();
   });
+
+  it('reports nothing for a nested need the context carries', () => {
+    const features = createFeatures([
+      {
+        key: 'ramp',
+        enabled: true,
+        rules: [{ rollout: { percent: 50, by: 'subject.id' } }],
+      },
+    ]);
+    const reports: DivergenceReport[] = [];
+
+    resolvePlan(
+      features,
+      features.plan({}),
+      { subject: { id: 'u-1' } },
+      { onDivergence: (report) => reports.push(report) },
+    );
+
+    expect(reports).toEqual([]);
+  });
+
+  it('answers under an unreadable now', () => {
+    const features = createFeatures(SPLIT);
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+
+    expect(() =>
+      resolvePlan(features, features.plan({}), { now: proxy as never }),
+    ).not.toThrow();
+    expect(() =>
+      resolvePlan(features, features.plan({}), Object.create(proxy)),
+    ).not.toThrow();
+  });
 });
