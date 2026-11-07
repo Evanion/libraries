@@ -1713,9 +1713,9 @@ function operatorFits(op: string, declared: FieldType): boolean {
  * Both walks run for a served document alone, for the reason the member walks
  * do. Neither defect raises anything out of `resolve`: `toEpoch` answers `NaN`
  * and `evaluateCondition` compares against it as `false`, and a condition over a
- * field a context omits reads `undefined` and compares as `false`. The plan's
- * global constraints hold `createFeatures` to the six error classes it throws
- * today plus the five condition shapes Task 4 added, and `serialize.spec.ts`
+ * field a context omits reads `undefined` and compares as `false`. `createFeatures` throws the
+ * error classes it names plus a `FeatureConfigError` for each condition shape
+ * `validateConfig` reports, and `serialize.spec.ts`
  * builds a store over `new Date(NaN)` to prove `serializeConfig` refuses the
  * value JSON cannot carry. An author writing a literal reads the refusal off the
  * document their own store serves.

@@ -101,7 +101,7 @@ describe('Condition', () => {
     >().toEqualTypeOf<DayOfWeekCondition>();
   });
 
-  it('narrows to the comparison member on the five operators it declares', () => {
+  it('narrows to the comparison member on the comparison operators it declares', () => {
     expectTypeOf<
       Extract<Condition, { op: 'eq' | 'ne' | 'in' | 'not-in' | 'contains' }>
     >().toEqualTypeOf<ComparisonCondition>();
@@ -209,7 +209,7 @@ describe('AttributeCondition', () => {
     expectTypeOf<AttributeCondition['field']>().toEqualTypeOf<string>();
   });
 
-  it('compares with one of five operators, or tests presence with one of two', () => {
+  it('compares with a comparison operator, or tests presence with `exists` or `not-exists`', () => {
     expectTypeOf<AttributeCondition['op']>().toEqualTypeOf<
       'eq' | 'ne' | 'in' | 'not-in' | 'contains' | 'exists' | 'not-exists'
     >();

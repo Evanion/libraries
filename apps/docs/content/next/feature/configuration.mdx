@@ -159,11 +159,11 @@ The `exists` operator holds if the field is present; `not-exists` holds if it is
 
 ```
 
-`exists` and `not-exists` do not require entries in a schema's field types. When a condition fails, the decision's `failedField` reports the path read and whether a value was present.
+`exists` and `not-exists` fit any declared field type. A document that carries a schema still declares the field, and `validateConfig` reports `unknown-context-field` for one it leaves out. When a condition fails, the decision's `failedField` reports the path read and whether a value was present.
 
 ### Instant Fields
 
-The `before` and `after` operators work on any field, not just `now`. The store parses these values as ISO 8601 strings with offsets, epoch milliseconds, `Date` objects, or dates without times (interpreted as UTC midnight). If a value cannot be parsed, it is treated as absent and the condition is false. Both comparisons are strict. When the document carries a schema, it must declare the field as `instant` or `instant?`.
+The `before` and `after` operators work on any field, not just `now`. The store parses these values as ISO 8601 strings with offsets, epoch milliseconds, `Date` objects, or dates without times (interpreted as UTC midnight). A value that names no instant makes the condition false. The decision's `failedField` still reports the field as present, because the context carried a value there. Both comparisons are strict. When the document carries a schema, it must declare the field as `instant` or `instant?`.
 
 Boundaries can be relative to the context's `now` using `fromNow`. For example, `{ fromNow: '-P30D' }` represents 30 days ago, allowing you to target "accounts created in the last 30 days" via the `after` operator.
 
@@ -171,7 +171,7 @@ Boundaries can be relative to the context's `now` using `fromNow`. For example, 
 
 ```
 
-Relative durations must be signed ISO 8601 (capitals) and may include weeks (`W`), days (`D`), hours (`H`), minutes (`M`), and seconds (`S`). Seconds support up to three decimal places. Years and months are forbidden because their variable lengths would cause inconsistent resolution across different ports.
+Relative durations are ISO 8601 in capitals, and the sign is optional: `PT12H`, `P1D`, `+P1D` and `-P30D` all read. A duration may include weeks (`W`), days (`D`), hours (`H`), minutes (`M`), and seconds (`S`). Seconds support up to three decimal places. Years and months are forbidden because their variable lengths would cause inconsistent resolution across different ports.
 
 Additionally, relative boundaries cannot be used on `field: 'now'`, as this would compare the clock to a shifted version of itself. If the context's `now` is present but is not a valid instant, the condition is false. If `now` is omitted from the context, the store provides its own clock value.
 
@@ -222,7 +222,7 @@ A context `now` of `null` or a boolean names no instant either. Values that do n
 
 ### Paths in Rollouts
 
-A rollout's `by` property is a path. The store buckets based on the value found at that path. If the path reads no value, the context is not bucketed (matching the behavior of top-level `by`). A `targetingKey` cannot substitute for a missing `by`. The `rollout.bucket` in the outcome is set whenever the path successfully reads a value.
+A rollout's `by` property is a path. The store buckets based on the value found at that path. If the path reads no value, the context is not bucketed (matching the behavior of top-level `by`). A `targetingKey` cannot substitute for a missing `by`. The `rollout.bucket` in the outcome is set only when the value at the path is a string or a number. A `null`, a boolean or any other type leaves the context unbucketed, and the outcome carries no `bucket`.
 
 ```ts twoslash file=libs/feature/docs/examples.md region=rollout-path
 

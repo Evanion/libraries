@@ -365,7 +365,7 @@ Because `correlateBy` is a store option and not part of the document itself, `re
 
 `requirements` assumes it is processing a document that 0.2's `validateConfig` accepts.
 
-If 0.2 refuses a document, it falls outside what `requirements` answers for. This is particularly relevant for invalid names such as `''`, `constructor`, `prototype`, `__proto__`, malformed schema keys, or schema keys that act as prefixes for others. In these cases `requirements` returns `'0.1.0'`, even though 0.2 cannot load the document. Always run `validateConfig` first.
+If 0.2 refuses a document, it falls outside what `requirements` answers for. This is particularly relevant for invalid names such as `''`, `constructor`, `prototype`, `__proto__`, malformed schema keys, or schema keys that act as prefixes for others. In these cases `requirements` may return `'0.1.0'`, which it does when the document uses no 0.2 construct, even though 0.2 cannot load the document. Always run `validateConfig` first.
 
 ## `ambiguousFields`
 
