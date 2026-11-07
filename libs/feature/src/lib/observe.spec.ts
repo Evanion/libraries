@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createFeatures } from './features.js';
+import { FeatureConfigError } from './errors.js';
 import { createEmitter } from './observe.js';
 import type { FeatureEvent } from './observe.js';
 import type { FeatureDefinition, ToggleResult } from './types.js';
@@ -1315,13 +1316,10 @@ describe('the subject an event reports', () => {
     expect(event).not.toHaveProperty('subject');
   });
 
-  it('carries no subject for an empty field name', () => {
-    const event = subjectOf({ correlateBy: '' }, { targetingKey: 'u1' });
-
-    // An empty string is a field name the type accepts and no context holds.
-    // The configured name wins over the default, so the event names no subject
-    // rather than falling back to the bucketing field.
-    expect(event).not.toHaveProperty('subject');
+  it('refuses an empty field name, which is no path', () => {
+    expect(() => subjectOf({ correlateBy: '' }, {})).toThrow(
+      FeatureConfigError,
+    );
   });
 
   it('carries no subject for a field name a prototype supplies', () => {

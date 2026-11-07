@@ -5,6 +5,7 @@ import { ruleFields } from './evaluate.js';
 import type { Features } from './features.js';
 import type { DeepReadonly } from './observe.js';
 import { readPath } from './field-path.js';
+import { copyContext, settleContext } from './settle.js';
 import { ruleId } from './rule-id.js';
 import type {
   Decision,
@@ -383,8 +384,8 @@ export function adoptDecisions<
   // answers.
   const settled: EvaluationContext =
     shipped.origin === 'render'
-      ? { ...context, now: context?.now ?? instantOf(shipped.now) }
-      : { ...context };
+      ? settleContext(context, () => instantOf(shipped.now))
+      : copyContext(context);
 
   const sent = erasedSet(shipped.decisions);
   const diverged = compared(shipped.version, features.version, observer);

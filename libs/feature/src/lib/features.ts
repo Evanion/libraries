@@ -11,7 +11,8 @@ import { collectIssues } from './validate.js';
 import type { Checkable } from './validate.js';
 import { unreadable, unreadableText } from './unreadable.js';
 import { FeatureConfigError } from './errors.js';
-import { readPath } from './field-path.js';
+import { pathFault, readPath } from './field-path.js';
+import { settleContext } from './settle.js';
 import { createEmitter } from './observe.js';
 import type {
   FeatureEvent,
@@ -28,7 +29,6 @@ import type {
   FeatureDefinition,
   FeatureKey,
   InferSchema,
-  Instant,
   Plan,
   PlanEntry,
   RuleOutcome,
@@ -978,6 +978,12 @@ export function createFeatures(
   const emit = createEmitter(options);
   const observed = options.observe !== undefined;
   const correlateBy = options.correlateBy ?? DEFAULT_CORRELATE_FIELD;
+  const correlateFault = pathFault(correlateBy);
+  if (correlateFault !== undefined) {
+    throw new FeatureConfigError(
+      `the option "correlateBy" names a path no context can be read at: ${correlateFault}`,
+    );
+  }
 
   /**
    * Freezes what an entry point emits and returns, when an application
@@ -991,43 +997,9 @@ export function createFeatures(
   const frozenWhenObserved = <T>(value: T): T =>
     observed ? deepFreeze(value) : value;
 
-  /**
-   * Copies the own enumerable properties of a context, one read at a time. A
-   * property whose getter throws is left out as absent, and a context that
-   * cannot be enumerated (a revoked proxy) copies as an empty one.
-   */
-  const copyOf = (context: EvaluationContext): Record<string, unknown> => {
-    const copy: Record<string, unknown> = {};
-    let names: string[];
-    try {
-      names = Object.keys(context);
-    } catch {
-      return copy;
-    }
-    for (const name of names) {
-      try {
-        Object.defineProperty(copy, name, {
-          value: context[name],
-          enumerable: true,
-          writable: true,
-          configurable: true,
-        });
-      } catch {
-        // The getter threw: the property reads as absent.
-      }
-    }
-    return copy;
-  };
-
   const withNow = (context: EvaluationContext = {}): SettledContext => {
-    const copy = copyOf(context);
-    return {
-      ...copy,
-      now:
-        copy['now'] === undefined
-          ? new Date()
-          : new Date(contextEpoch(copy['now'] as Instant)),
-    };
+    const settled = settleContext(context, () => new Date());
+    return { ...settled, now: new Date(contextEpoch(settled.now)) };
   };
 
   /**
