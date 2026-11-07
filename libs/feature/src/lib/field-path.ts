@@ -91,10 +91,13 @@ function isPlainObject(value: unknown): value is object {
 const ABSENT = { present: false } as const;
 
 /**
- * Reads a path off a context. Each segment is an own data property of a plain
- * object, read from its descriptor so a getter never runs. A malformed path, a
- * missing segment, a non-plain parent, an accessor, a trapping proxy or a cycle
- * makes the field absent. An own value of `undefined` is present.
+ * Reads a path off a context. The top level reads as a flat context key does:
+ * an own property of any object, and a getter runs. Below it each segment is an
+ * own data property of a plain object, read from its descriptor so a getter
+ * never runs. A malformed path, a missing segment, a non-plain parent, a nested
+ * accessor or a throw (a top-level getter or a trapping proxy) makes the field
+ * absent. An own value of `undefined` is present. The segment cap bounds the
+ * walk, so a cycle ends with the path.
  */
 export function readPath(
   bag: unknown,
@@ -108,22 +111,29 @@ export function readPath(
   ) {
     return ABSENT;
   }
-  const visited = new Set<object>();
   let current: unknown = bag;
   for (const [index, segment] of segments.entries()) {
-    if (!isPlainObject(current) || visited.has(current)) return ABSENT;
-    visited.add(current);
-    let descriptor: PropertyDescriptor | undefined;
+    let value: unknown;
     try {
-      descriptor = Object.getOwnPropertyDescriptor(current, segment);
+      if (index === 0) {
+        if (typeof current !== 'object' || current === null) return ABSENT;
+        if (!Object.prototype.hasOwnProperty.call(current, segment)) {
+          return ABSENT;
+        }
+        value = (current as Record<string, unknown>)[segment];
+      } else {
+        if (!isPlainObject(current)) return ABSENT;
+        const descriptor = Object.getOwnPropertyDescriptor(current, segment);
+        if (descriptor === undefined || !('value' in descriptor)) {
+          return ABSENT;
+        }
+        value = descriptor.value;
+      }
     } catch {
       return ABSENT;
     }
-    if (descriptor === undefined || !('value' in descriptor)) return ABSENT;
-    if (index === segments.length - 1) {
-      return { present: true, value: descriptor.value };
-    }
-    current = descriptor.value;
+    if (index === segments.length - 1) return { present: true, value };
+    current = value;
   }
   return ABSENT;
 }
