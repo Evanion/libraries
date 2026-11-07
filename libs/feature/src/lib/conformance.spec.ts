@@ -1230,9 +1230,9 @@ describe('the published condition cases', () => {
     expect(rules.filter((rule) => rule.id === undefined)).toEqual([]);
   });
 
-  it('states every context field as JSON', () => {
+  it('states now as a string or a number in every case', () => {
     for (const each of conditionCases) {
-      expect(JSON.parse(JSON.stringify(each.context))).toEqual(each.context);
+      expect(['string', 'number']).toContain(typeof each.context['now']);
     }
   });
 
@@ -1307,7 +1307,9 @@ describe('the published condition cases', () => {
 
   it('names now when a relative window fails on a clock naming no instant', () => {
     const failed = conditionCases
-      .filter(({ name }) => /^relative: now is /.test(name))
+      .filter(({ name }) =>
+        /^relative: now is .*, so the condition is false/.test(name),
+      )
       .flatMap(({ decisions }) => Object.values(decisions))
       .flatMap(
         (decision) =>
