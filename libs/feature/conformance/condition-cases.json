@@ -3916,6 +3916,316 @@
     }
   },
   {
+    "name": "instant field: a fraction beyond milliseconds is truncated, not rounded",
+    "config": {
+      "version": 1,
+      "features": [
+        {
+          "key": "v-after",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "after",
+                  "value": "2026-05-01T00:00:00Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "v-before",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "before",
+                  "value": "2026-05-01T00:00:00Z"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "context": {
+      "now": "2026-06-01T12:00:00.000Z",
+      "subject": {
+        "createdAt": "2026-05-01T00:00:00.000999Z"
+      }
+    },
+    "decisions": {
+      "v-after": {
+        "key": "v-after",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "failed": {
+              "field": "subject.createdAt",
+              "op": "after",
+              "value": "2026-05-01T00:00:00Z"
+            },
+            "failedField": {
+              "path": "subject.createdAt",
+              "present": true
+            }
+          }
+        ]
+      },
+      "v-before": {
+        "key": "v-before",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "failed": {
+              "field": "subject.createdAt",
+              "op": "before",
+              "value": "2026-05-01T00:00:00Z"
+            },
+            "failedField": {
+              "path": "subject.createdAt",
+              "present": true
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "instant field: a six-digit fraction at a millisecond reads as that millisecond",
+    "config": {
+      "version": 1,
+      "features": [
+        {
+          "key": "v-after",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "after",
+                  "value": "2026-05-01T00:00:00Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "v-before",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "before",
+                  "value": "2026-05-01T00:00:00Z"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "context": {
+      "now": "2026-06-01T12:00:00.000Z",
+      "subject": {
+        "createdAt": "2026-05-01T00:00:00.001000Z"
+      }
+    },
+    "decisions": {
+      "v-after": {
+        "key": "v-after",
+        "enabled": true,
+        "reason": "rule-match",
+        "rule": "r"
+      },
+      "v-before": {
+        "key": "v-before",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "failed": {
+              "field": "subject.createdAt",
+              "op": "before",
+              "value": "2026-05-01T00:00:00Z"
+            },
+            "failedField": {
+              "path": "subject.createdAt",
+              "present": true
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "instant field: a year alone is the first instant of that year in UTC",
+    "config": {
+      "version": 1,
+      "features": [
+        {
+          "key": "v-after",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "after",
+                  "value": "2026-05-01T00:00:00Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "v-before",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "before",
+                  "value": "2026-05-01T00:00:00Z"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "context": {
+      "now": "2026-06-01T12:00:00.000Z",
+      "subject": {
+        "createdAt": "2026"
+      }
+    },
+    "decisions": {
+      "v-after": {
+        "key": "v-after",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "failed": {
+              "field": "subject.createdAt",
+              "op": "after",
+              "value": "2026-05-01T00:00:00Z"
+            },
+            "failedField": {
+              "path": "subject.createdAt",
+              "present": true
+            }
+          }
+        ]
+      },
+      "v-before": {
+        "key": "v-before",
+        "enabled": true,
+        "reason": "rule-match",
+        "rule": "r"
+      }
+    }
+  },
+  {
+    "name": "instant field: a year and month is the first instant of that month in UTC",
+    "config": {
+      "version": 1,
+      "features": [
+        {
+          "key": "v-after",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "after",
+                  "value": "2026-05-01T00:00:00Z"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "v-before",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "before",
+                  "value": "2026-05-01T00:00:00Z"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "context": {
+      "now": "2026-06-01T12:00:00.000Z",
+      "subject": {
+        "createdAt": "2026-06"
+      }
+    },
+    "decisions": {
+      "v-after": {
+        "key": "v-after",
+        "enabled": true,
+        "reason": "rule-match",
+        "rule": "r"
+      },
+      "v-before": {
+        "key": "v-before",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "failed": {
+              "field": "subject.createdAt",
+              "op": "before",
+              "value": "2026-05-01T00:00:00Z"
+            },
+            "failedField": {
+              "path": "subject.createdAt",
+              "present": true
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
     "name": "instant field: absent field makes both comparisons false",
     "config": {
       "version": 1,
@@ -9396,6 +9706,198 @@
     },
     "context": {
       "now": "2026-06-01T12:00:00",
+      "subject": {
+        "createdAt": "2026-05-25T00:00:00Z"
+      }
+    },
+    "decisions": {
+      "recent": {
+        "key": "recent",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "failed": {
+              "field": "subject.createdAt",
+              "op": "after",
+              "value": {
+                "fromNow": "-P30D"
+              }
+            },
+            "failedField": {
+              "path": "now",
+              "present": false
+            }
+          }
+        ]
+      },
+      "upcoming": {
+        "key": "upcoming",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "failed": {
+              "field": "subject.createdAt",
+              "op": "before",
+              "value": {
+                "fromNow": "P30D"
+              }
+            },
+            "failedField": {
+              "path": "now",
+              "present": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "relative: now is null, so the condition is false and now is named",
+    "config": {
+      "version": 1,
+      "features": [
+        {
+          "key": "recent",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "after",
+                  "value": {
+                    "fromNow": "-P30D"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "upcoming",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "before",
+                  "value": {
+                    "fromNow": "P30D"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "context": {
+      "now": null,
+      "subject": {
+        "createdAt": "2026-05-25T00:00:00Z"
+      }
+    },
+    "decisions": {
+      "recent": {
+        "key": "recent",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "failed": {
+              "field": "subject.createdAt",
+              "op": "after",
+              "value": {
+                "fromNow": "-P30D"
+              }
+            },
+            "failedField": {
+              "path": "now",
+              "present": false
+            }
+          }
+        ]
+      },
+      "upcoming": {
+        "key": "upcoming",
+        "enabled": false,
+        "reason": "no-rule-matched",
+        "rules": [
+          {
+            "rule": "r",
+            "matched": false,
+            "failed": {
+              "field": "subject.createdAt",
+              "op": "before",
+              "value": {
+                "fromNow": "P30D"
+              }
+            },
+            "failedField": {
+              "path": "now",
+              "present": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "relative: now is a boolean, so the condition is false and now is named",
+    "config": {
+      "version": 1,
+      "features": [
+        {
+          "key": "recent",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "after",
+                  "value": {
+                    "fromNow": "-P30D"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "key": "upcoming",
+          "enabled": true,
+          "rules": [
+            {
+              "id": "r",
+              "when": [
+                {
+                  "field": "subject.createdAt",
+                  "op": "before",
+                  "value": {
+                    "fromNow": "P30D"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "context": {
+      "now": true,
       "subject": {
         "createdAt": "2026-05-25T00:00:00Z"
       }

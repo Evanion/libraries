@@ -1230,9 +1230,9 @@ describe('the published condition cases', () => {
     expect(rules.filter((rule) => rule.id === undefined)).toEqual([]);
   });
 
-  it('states now as a string or a number in every case', () => {
+  it('states its own now key in every case, so none reads the wall clock', () => {
     for (const each of conditionCases) {
-      expect(['string', 'number']).toContain(typeof each.context['now']);
+      expect(Object.hasOwn(each.context, 'now')).toBe(true);
     }
   });
 
