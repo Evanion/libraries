@@ -262,6 +262,448 @@ opening('2026-04-31'); // -> 'FeatureConfigError'
 
 <!-- #endregion instant-strings -->
 
+### Nested Context Fields
+
+<!-- #region nested-context -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'admin-console',
+    enabled: true,
+    rules: [
+      {
+        id: 'eu-admins',
+        when: [
+          { field: 'subject.role', op: 'eq', value: 'admin' },
+          { field: 'subject.realms', op: 'contains', value: 'eu' },
+        ],
+      },
+    ],
+  },
+]);
+
+const subject = { id: 'acct-1', role: 'admin', realms: ['eu'] };
+const admin = (subject: unknown) =>
+  features.isEnabled('admin-console', { subject });
+
+admin(subject); // -> true
+admin({ ...subject, role: 'viewer' }); // -> false
+
+// A subject with no `role` leaves the field absent, so the comparison is false.
+admin({ id: 'acct-1' }); // -> false
+
+// A parent that is an array is not walked, so the field is absent.
+admin([subject]); // -> false
+
+// `ne` over an absent path is false too.
+const notViewer = createFeatures([
+  {
+    key: 'admin-console',
+    enabled: true,
+    rules: [
+      {
+        id: 'not-viewer',
+        when: [{ field: 'subject.role', op: 'ne', value: 'viewer' }],
+      },
+    ],
+  },
+]);
+const notViewerFor = (subject: unknown) =>
+  notViewer.isEnabled('admin-console', { subject });
+notViewerFor({ id: 'acct-1' }); // -> false
+notViewerFor({ role: 'admin' }); // -> true
+```
+
+<!-- #endregion nested-context -->
+
+### Presence Checks
+
+<!-- #region exists-ops -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'realm-picker',
+    enabled: true,
+    rules: [
+      {
+        id: 'no-realm',
+        when: [{ field: 'subject.realm', op: 'not-exists' }],
+      },
+    ],
+  },
+  {
+    key: 'realm-badge',
+    enabled: true,
+    rules: [
+      { id: 'has-realm', when: [{ field: 'subject.realm', op: 'exists' }] },
+    ],
+  },
+]);
+
+const picker = (subject?: unknown) =>
+  features.isEnabled('realm-picker', { subject });
+const badge = (subject?: unknown) =>
+  features.isEnabled('realm-badge', { subject });
+
+// A missing key is absent.
+picker({}); // -> true
+badge({}); // -> false
+
+// `null` is present.
+picker({ realm: null }); // -> false
+badge({ realm: null }); // -> true
+
+// So is an empty string. `undefined` is absent.
+badge({ realm: '' }); // -> true
+badge({ realm: undefined }); // -> false
+
+// A parent that is not a plain object leaves the field absent.
+picker([1]); // -> true
+picker(); // -> true
+```
+
+<!-- #endregion exists-ops -->
+
+### Instant Fields
+
+<!-- #region instant-fields -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'legacy-banner',
+    enabled: true,
+    rules: [
+      {
+        id: 'before-redesign',
+        when: [
+          {
+            field: 'subject.createdAt',
+            op: 'before',
+            value: '2026-11-01T00:00:00Z',
+          },
+        ],
+      },
+    ],
+  },
+  {
+    key: 'welcome-tour',
+    enabled: true,
+    rules: [
+      {
+        id: 'new-account',
+        when: [
+          {
+            field: 'subject.createdAt',
+            op: 'after',
+            value: { fromNow: '-P30D' },
+          },
+        ],
+      },
+    ],
+  },
+]);
+
+const now = '2026-11-07T12:00:00Z';
+const legacy = (createdAt: unknown) =>
+  features.isEnabled('legacy-banner', { subject: { createdAt } });
+const tour = (createdAt: unknown, at?: string) =>
+  features.isEnabled('welcome-tour', { now: at, subject: { createdAt } });
+
+// An absolute boundary reads the field as it reads `now`: a string with an
+// offset, epoch milliseconds or a `Date`.
+legacy('2026-10-01T00:00:00Z'); // -> true
+legacy(Date.parse('2026-12-01')); // -> false
+legacy(new Date('2026-10-01')); // -> true
+
+// `before` is strict, so the boundary itself is outside.
+legacy('2026-11-01T00:00:00Z'); // -> false
+
+// A relative boundary is `now` plus the duration: here 2026-10-08T12:00:00Z.
+tour('2026-10-20T00:00:00Z', now); // -> true
+tour('2026-09-01T00:00:00Z', now); // -> false
+
+// A value that names no instant is absent, so the condition is false.
+tour('last week', now); // -> false
+tour('2026-11-01T00:00:00', now); // -> false
+
+// A `now` that names no instant makes the condition false; the clock never
+// reads as epoch 0.
+tour('2026-11-01T00:00:00Z', 'soon'); // -> false
+```
+
+<!-- #endregion instant-fields -->
+
+<!-- #region duration-units -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const build = (fromNow: string) => {
+  try {
+    createFeatures([
+      {
+        key: 'welcome-tour',
+        enabled: true,
+        rules: [
+          {
+            id: 'window',
+            when: [
+              { field: 'subject.createdAt', op: 'after', value: { fromNow } },
+            ],
+          },
+        ],
+      },
+    ]);
+    return 'built';
+  } catch (error) {
+    return (error as Error).name;
+  }
+};
+
+build('-P30D'); // -> 'built'
+build('PT12H'); // -> 'built'
+build('-P2W'); // -> 'built'
+build('-PT90M'); // -> 'built'
+build('PT1.5S'); // -> 'built'
+build('-P1M'); // -> 'FeatureConfigError'
+build('P1Y'); // -> 'FeatureConfigError'
+build('PT0.0005S'); // -> 'FeatureConfigError'
+build('-p1d'); // -> 'FeatureConfigError'
+```
+
+<!-- #endregion duration-units -->
+
+### Paths in Rollouts
+
+<!-- #region rollout-path -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'new-console',
+    enabled: true,
+    rules: [{ id: 'ramp', rollout: { percent: 50, by: 'subject.id' } }],
+  },
+]);
+
+// The rollout buckets on `subject.id`, and the outcome reports the bucket.
+const out = features.resolve({ subject: { id: 'acct-1' } })['new-console'];
+out; // -> { key: 'new-console', enabled: false, reason: 'no-rule-matched', rules: [{ rule: 'ramp', matched: false, rollout: { percent: 50, by: 'subject.id', bucket: 0.6908393942285329, member: false } }] }
+
+features.isEnabled('new-console', { subject: { id: 'acct-3' } }); // -> true
+
+// A context with no `subject.id` is not bucketed, and `targetingKey` is not a fallback.
+features.isEnabled('new-console', { targetingKey: 'acct-3' }); // -> false
+```
+
+<!-- #endregion rollout-path -->
+
+<!-- #region instant-grammar -->
+
+```ts @import.meta.vitest
+import { createFeatures } from '@evanion/feature';
+
+const features = createFeatures([
+  {
+    key: 'probe',
+    enabled: true,
+    rules: [
+      {
+        id: 'after-2000',
+        when: [{ field: 'at', op: 'after', value: '2000-01-01T00:00:00Z' }],
+      },
+    ],
+  },
+]);
+const reads = (at: unknown) => features.isEnabled('probe', { at });
+
+// A date with no time is UTC midnight. A year or a year and month works too.
+reads('2026-01-01'); // -> true
+reads('2026-01'); // -> true
+reads('2026'); // -> true
+
+// A time needs an offset: `Z`, `+02:00`, or the basic form `+0200`.
+reads('2026-01-01T10:00:00Z'); // -> true
+reads('2026-01-01T10:00Z'); // -> true
+reads('2026-01-01T10:00:00+02:00'); // -> true
+reads('2026-01-01T10:00:00+0200'); // -> true
+reads('2026-01-01T10:00:00'); // -> false
+reads('2026-01-01T10:00:00z'); // -> false
+reads('2026-01-01t10:00:00Z'); // -> false
+reads('2026-01-01T10:00:00+02'); // -> false
+reads('2026-01-01 10:00:00Z'); // -> false
+reads('2026-01-01+02:00'); // -> false
+reads('20260101'); // -> false
+
+// The fraction has one or more digits and is cut to milliseconds, not rounded.
+reads('2026-01-01T10:00:00.5Z'); // -> true
+reads('2026-01-01T10:00:00.123456Z'); // -> true
+reads('2026-01-01T10:00:00.Z'); // -> false
+
+// The calendar is checked. Hour 24 is accepted only as the midnight that closes the day.
+reads('2026-02-29'); // -> false
+reads('2028-02-29'); // -> true
+reads('2026-01-01T24:00:00Z'); // -> true
+reads('2026-01-01T24:01:00Z'); // -> false
+
+// Extended years carry a sign and six digits.
+reads('+002026-01-01'); // -> true
+
+// A number is epoch milliseconds, within the range a `Date` holds. A digit string is not one.
+reads(1767225600000); // -> true
+reads(8.64e15); // -> true
+reads(8.64e15 + 1); // -> false
+reads('1767225600000'); // -> false
+```
+
+<!-- #endregion instant-grammar -->
+
+<!-- #region bucket-input -->
+
+```ts @import.meta.vitest
+import { bucketOf, createFeatures, murmur3 } from '@evanion/feature';
+
+// The bucket is MurmurHash3 (x86, 32-bit, seed 0) over the UTF-8 bytes of
+// `<seed length>:<seed><value>`, divided by 2^32. The length counts UTF-16 code units.
+const seed = 'new-checkout';
+const value = 'cust-0101';
+const input = `${seed.length}:${seed}${value}`;
+input; // -> '12:new-checkoutcust-0101'
+murmur3(input) / 2 ** 32; // -> 0.04385687271133065
+bucketOf(value, seed); // -> 0.04385687271133065
+
+// A string `by` value buckets as it is, including the empty string. A number
+// buckets as its JavaScript decimal string, so `42` and `'42'` share a bucket.
+const features = createFeatures([
+  {
+    key: 'k',
+    enabled: true,
+    rules: [{ id: 'ramp', rollout: { percent: 50, by: 'n' } }],
+  },
+]);
+const bucket = (n: unknown) => {
+  const rule = features.resolve({ n }).k;
+  return 'rules' in rule ? rule.rules?.[0]?.rollout?.bucket : undefined;
+};
+bucket(0) === bucketOf('0', 'k'); // -> true
+bucket('') === bucketOf('', 'k'); // -> true
+bucket(true); // -> undefined
+bucket(null); // -> undefined
+bucket({}); // -> undefined
+```
+
+<!-- #endregion bucket-input -->
+
+### Flat Keys That Contain a Dot
+
+<!-- #region escape-field -->
+
+```ts @import.meta.vitest
+import {
+  ambiguousFields,
+  createFeatures,
+  escapeField,
+  requirements,
+} from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+// `subject\.id` names the flat key, and `subject.id` names the nested one.
+const context = { 'subject.id': 'flat', subject: { id: 'nested' } };
+
+const readsAs = (field: string, value: string) =>
+  createFeatures([
+    {
+      key: 'probe',
+      enabled: true,
+      rules: [{ id: 'r', when: [{ field, op: 'eq', value }] }],
+    },
+  ]).isEnabled('probe', context);
+
+readsAs('subject.id', 'nested'); // -> true
+readsAs('subject.id', 'flat'); // -> false
+readsAs('subject\\.id', 'flat'); // -> true
+
+escapeField('subject.id'); // -> 'subject\\.id'
+escapeField('a\\b'); // -> 'a\\\\b'
+
+// A stored 0.1 document that named the flat key.
+const stored: FeatureConfig = {
+  features: [
+    {
+      key: 'probe',
+      enabled: true,
+      rules: [
+        {
+          id: 'r',
+          when: [
+            { field: 'subject.id', op: 'eq', value: 'flat' },
+            { field: 'subject\\.id', op: 'eq', value: 'flat' },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+// Only the unescaped dot is listed.
+ambiguousFields(stored); // -> [{ pointer: '/features/0/rules/0/when/0/field', name: 'subject.id' }]
+
+// A name with a backslash is not listed, although 0.1 read it as a literal key
+// and 0.2 reads `\.` as an escaped dot. Review such names by hand.
+const backslash: FeatureConfig = {
+  features: [
+    {
+      key: 'probe',
+      enabled: true,
+      rules: [{ id: 'r', when: [{ field: 'a\\.b', op: 'eq', value: 1 }] }],
+    },
+  ],
+};
+ambiguousFields(backslash); // -> []
+requirements(backslash); // -> { version: '0.2.0', uses: ['path'] }
+```
+
+<!-- #endregion escape-field -->
+
+<!-- #region requirements-valid-input -->
+
+```ts @import.meta.vitest
+import { requirements, validateConfig } from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+// `requirements` assumes a document that 0.2's `validateConfig` accepts. This
+// one names `constructor`, which 0.2 refuses, and 0.1 evaluated as a flat key.
+const refused: FeatureConfig = {
+  features: [
+    {
+      key: 'probe',
+      enabled: true,
+      rules: [
+        { id: 'r', when: [{ field: 'constructor', op: 'eq', value: 1 }] },
+      ],
+    },
+  ],
+};
+
+requirements(refused); // -> { version: '0.1.0', uses: [] }
+const result = validateConfig(refused);
+result.ok; // -> false
+result.ok ? undefined : result.issues[0]?.code; // -> 'invalid-field-path'
+```
+
+<!-- #endregion requirements-valid-input -->
+
 ### Typing the Keys and the Variants
 
 <!-- #region typed-schema -->

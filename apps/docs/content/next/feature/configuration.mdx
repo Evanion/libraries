@@ -88,15 +88,18 @@ A rule that declares no `id` is named by a hash of what it matches on, so its na
 
 ### Condition Operators
 
-| `op`               | Effect                                                | Example                                      |
-| :----------------- | :---------------------------------------------------- | :------------------------------------------- |
-| `before` / `after` | Checks if `now` is strictly before/after an instant.  | `value: '2026-10-01T00:00:00Z'`              |
-| `day-of-week`      | Checks if `now` falls on specific weekdays in a zone. | `zone: 'Europe/Stockholm'`, `value: ['mon']` |
-| `eq` / `ne`        | Strict equality or inequality.                        | `value: 'bookseller'`                        |
-| `in` / `not-in`    | Checks if the value is in/not in an array.            | `value: ['bookseller', 'owner']`             |
-| `contains`         | Checks if the field (array) contains the value.       | `value: 'bookseller'`                        |
+The store uses these operators to compare context fields against target values.
 
-A `day-of-week` condition has no default zone: it names an IANA zone, because UTC day-of-week is wrong for a shop open in Stockholm.
+| `op`                    | Effect                                                           | Example                                      |
+| :---------------------- | :--------------------------------------------------------------- | :------------------------------------------- |
+| `before` / `after`      | Checks if an instant field is strictly before/after a boundary.  | `value: '2026-10-01T00:00:00Z'`              |
+| `day-of-week`           | Checks if `now` falls on specific weekdays in a zone.            | `zone: 'Europe/Stockholm'`, `value: ['mon']` |
+| `eq` / `ne`             | Strict equality or inequality.                                   | `value: 'bookseller'`                        |
+| `in` / `not-in`         | Checks if the value is in/not in an array.                       | `value: ['bookseller', 'owner']`             |
+| `contains`              | Checks if the field (which must be an array) contains the value. | `value: 'bookseller'`                        |
+| `exists` / `not-exists` | Checks whether the context carries the field at all.             | (no `value` required)                        |
+
+A `day-of-week` condition requires an IANA zone (e.g., `Europe/Stockholm`) because UTC day-of-week calculations are often incorrect for local business hours.
 
 ### Missing Context Fields
 
@@ -119,6 +122,119 @@ A window's `value` can also be epoch milliseconds or a `Date`. `createFeatures` 
 The control below moves a clock across a launch time. The checkout rule is `after` 09:00 UTC, and `after` is strict, so the checkout is still off at 09:00:00 itself and on from the next instant. The answer depends only on the instant you ask about, so a server and a browser that ask about the same instant always agree, and nobody deploys or flips a switch at launch.
 
 <ScheduleDemo />
+
+### Field Paths
+
+To retrieve data from the context, a condition uses a `field` path. Segments are joined by dots; for example, `subject.role` reads the `role` member of the `subject` object. This same path logic is used by a rollout's `by`, a feature's `variantBy`, and the store's `correlateBy`.
+
+```ts twoslash file=libs/feature/docs/examples.md region=nested-context
+
+```
+
+Each segment is read as an own data property of a plain object (one whose prototype is `Object.prototype` or `null`). The store never calls getters. A field is considered absent if:
+
+- A segment is missing.
+- A parent in the path is an array, a `Date`, a class instance, a primitive, or `null`.
+- The property is an accessor.
+
+The top level of the context is read normally. Paths are limited to 32 segments and cannot contain empty segments or reserved names like `__proto__`, `constructor`, or `prototype`. Literals `.` or `\` must be escaped as `\.` or `\\`; any other use of `\` is forbidden. If a path breaks these rules, `createFeatures` throws a `FeatureConfigError` and `validateConfig` reports `invalid-field-path`. The reserved name `now` always refers to the clock.
+
+If you have a flat context key that contains a literal dot, escape it. In a context like `{ 'subject.id': 'flat', subject: { id: 'nested' } }`, the path `subject.id` reads `'nested'`, while `subject\.id` reads `'flat'`. You can use `escapeField` to handle this formatting.
+
+```ts twoslash file=libs/feature/docs/examples.md region=escape-field
+
+```
+
+In version 0.1, `field: "subject.id"` targeted a flat key. In 0.2, it targets the nested `id` within `subject`. This is the primary change for documents not using new constructs. See [Distribution](../distribution#publishing-to-mixed-sdk-versions) for rewriting guidance.
+
+### Absent and Present Fields
+
+A field is **present** if the path resolves to any value, including `null`, `''`, `0`, or `false`. It is **absent** if the path reads nothing or if the property holds `undefined`.
+
+Following the rule for [Missing Context Fields](#missing-context-fields), any comparison over an absent field is false. This applies to paths as well as top-level names: `ne` over `subject.role` is false if the context has no `subject`.
+
+The `exists` operator holds if the field is present; `not-exists` holds if it is absent. Neither operator accepts a `value`; providing one results in an `unknown-member` report from `validateConfig`. Note that `null` is present, so `not-exists` is false for `{ realm: null }`. However, if a parent in the path is `null` or an array, the field is absent and `not-exists` holds.
+
+```ts twoslash file=libs/feature/docs/examples.md region=exists-ops
+
+```
+
+`exists` and `not-exists` do not require entries in a schema's field types. When a condition fails, the decision's `failedField` reports the path read and whether a value was present.
+
+### Instant Fields
+
+The `before` and `after` operators work on any field, not just `now`. The store parses these values as ISO 8601 strings with offsets, epoch milliseconds, `Date` objects, or dates without times (interpreted as UTC midnight). If a value cannot be parsed, it is treated as absent and the condition is false. Both comparisons are strict. When the document carries a schema, it must declare the field as `instant` or `instant?`.
+
+Boundaries can be relative to the context's `now` using `fromNow`. For example, `{ fromNow: '-P30D' }` represents 30 days ago, allowing you to target "accounts created in the last 30 days" via the `after` operator.
+
+```ts twoslash file=libs/feature/docs/examples.md region=instant-fields
+
+```
+
+Relative durations must be signed ISO 8601 (capitals) and may include weeks (`W`), days (`D`), hours (`H`), minutes (`M`), and seconds (`S`). Seconds support up to three decimal places. Years and months are forbidden because their variable lengths would cause inconsistent resolution across different ports.
+
+Additionally, relative boundaries cannot be used on `field: 'now'`, as this would compare the clock to a shifted version of itself. If the context's `now` is present but is not a valid instant, the condition is false. If `now` is omitted from the context, the store provides its own clock value.
+
+```ts twoslash file=libs/feature/docs/examples.md region=duration-units
+
+```
+
+### What an Instant Field Accepts
+
+To ensure consistent behavior across your application, `@evanion/feature` uses a single grammar to read context values as instants—the same logic applied to `now` and any other instant field. This allows a port to implement the reading logic uniformly.
+
+#### Strings
+
+To define a point in time via a string, you provide an ISO 8601 date, optionally followed by a time and an offset.
+
+Dates are accepted in three formats:
+
+- A four-digit year (e.g., `2026`).
+- A year and month (e.g., `2026-01`).
+- A full date (e.g., `2026-01-01`).
+
+Extended years are supported using a sign and six digits, though `-000000` is refused. All full dates must exist on the calendar; for example, `2028-02-29` is accepted, but `2026-02-29` is refused. If a date is provided without a time, it is treated as UTC midnight. A year alone names the start of that year in UTC (`2026` is `2026-01-01T00:00:00Z`), and a year and month name the start of that month (`2026-05` is `2026-05-01T00:00:00Z`).
+
+A time must follow a `T` separator and be formatted as `HH:mm`, `HH:mm:ss`, or `HH:mm:ss.fraction`. A time requires an offset: `Z`, `+HH:mm`, or the basic form `+HHmm`.
+
+The following are refused:
+
+- Times without an offset.
+- A lower-case `z` offset or a lower-case `t` separator.
+- Offsets missing minutes.
+- A space used in place of `T`.
+- An offset attached to a date with no time.
+
+For the fractional component, one or more digits are accepted and then cut to milliseconds without rounding. Hour `24` is accepted only as `24:00` (or `24:00:00` with a zero fraction) to represent the midnight that ends the day.
+
+#### Other Values
+
+Beyond strings, `@evanion/feature` accepts the following as valid instants:
+
+- Numbers: Treated as epoch milliseconds. The value must fall within the range a `Date` object can hold (±8.64e15).
+- Date Objects: Read as the instant they hold.
+
+A context `now` of `null` or a boolean names no instant either. Values that do not name an instant—such as strings of digits, `null`, objects, booleans, or arrays—result in a false condition.
+
+```ts twoslash file=libs/feature/docs/examples.md region=instant-grammar
+
+```
+
+### Paths in Rollouts
+
+A rollout's `by` property is a path. The store buckets based on the value found at that path. If the path reads no value, the context is not bucketed (matching the behavior of top-level `by`). A `targetingKey` cannot substitute for a missing `by`. The `rollout.bucket` in the outcome is set whenever the path successfully reads a value.
+
+```ts twoslash file=libs/feature/docs/examples.md region=rollout-path
+
+```
+
+### Schema Keys for Paths
+
+The `context.fields` map in a schema remains flat, but its keys use the path syntax: `{ "subject.id": "string", "subject.createdAt": "instant" }`. A condition's path must exactly match a schema key.
+
+Declaring `subject.id` does not automatically declare `subject`. Furthermore, you cannot have a key that is a proper prefix of another (e.g., `subject` and `subject.id`) because a field cannot be both a scalar and an object; this triggers a `conflicting-context-fields` error.
+
+When using `plan()`, a path is considered available if its first segment is available; otherwise, it is deferred. `PlanEntry.needs` will specify the full path.
 
 ## Type-Safe Keys and Variants
 

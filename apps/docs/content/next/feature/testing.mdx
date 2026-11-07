@@ -65,6 +65,20 @@ To ensure different environments or languages produce identical results, the pac
 - `config-decisions.json`: Contains a document, a context, and the decisions `resolve` returns. This covers every reason: `default-on`, `explicitly-off`, `dependency-off`, `rule-match`, and `no-rule-matched`.
 - `plan-decisions.json`: Contains a document, the context of a build plan, the published plan, a client context, and the decisions `resolvePlan` finishes the plan with.
 
+To verify condition logic, `@evanion/feature` ships `condition-cases.json`. This file is a JSON array of test cases, where each entry—containing a `name`, `config`, `context`, and `decisions`—allows a single file to exercise multiple distinct contexts.
+
+These cases specifically validate:
+
+- Context paths
+- `exists` and `not-exists` checks
+- Instant fields
+- Relative boundaries
+- Rollout `by` paths
+
+Every case includes a `now` value. Because the file is JSON, it only holds types that JSON can carry; specialized types like `Date`, class instances, and accessors are tested within the package's own specs rather than through this port.
+
+The port executes `condition-cases.json` in the same manner it runs the other two files.
+
 A port of the engine to another language can run these same files to compare its decisions against the fixtures. In a TypeScript project, you can run these to verify that the installed version of `@evanion/feature` still answers as the fixture dictates.
 
 To verify that a port's decisions match a fixture, the port must emit both `rollout.bucket` and `failedField`. The engine sets these values in the fixture's rule outcome.

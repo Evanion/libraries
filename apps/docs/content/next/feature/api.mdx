@@ -361,6 +361,12 @@ Schema keys do not set any requirements, as 0.1 reads the schema only for valida
 
 Because `correlateBy` is a store option and not part of the document itself, `requirements` does not see it. However, any store that sets `correlateBy` to a dotted name requires 0.2.0, regardless of the document's requirements.
 
+### Handling invalid documents
+
+`requirements` assumes it is processing a document that 0.2's `validateConfig` accepts.
+
+If 0.2 refuses a document, it falls outside what `requirements` answers for. This is particularly relevant for invalid names such as `''`, `constructor`, `prototype`, `__proto__`, malformed schema keys, or schema keys that act as prefixes for others. In these cases `requirements` returns `'0.1.0'`, even though 0.2 cannot load the document. Always run `validateConfig` first.
+
 ## `ambiguousFields`
 
 <!-- reference @evanion/feature#ambiguousFields example=publisher-requirements -->
@@ -368,6 +374,15 @@ Because `correlateBy` is a store option and not part of the document itself, `re
 To identify names that 0.1 read as flat keys and 0.2 reads as paths, use `ambiguousFields(input)`. This function takes a `FeatureConfig` or a `ContextSchema` and returns a list of every `field`, `by`, `variantBy`, and schema key containing an unescaped `.`. Each entry includes the name and its JSON pointer. If no ambiguities exist, it returns an empty list.
 
 Users with stored 0.1 documents should run this before upgrading. Like `requirements`, this function does not see `correlateBy`.
+
+### Names with a backslash
+
+A name is added to the `ambiguousFields` list only if it contains an unescaped dot (`.`). If a stored 0.1 name contains a backslash (`\`), such as `a\.b`, it is not listed, but its meaning changes between versions:
+
+- Version 0.1 read the key literally as `a\.b`.
+- Version 0.2 interprets `\.` as an escaped dot, naming the flat key `a.b`.
+
+`requirements` reports `'path'` for such a name. Because `ambiguousFields` does not list it, you must review every stored name containing a backslash by hand. If the backslash was meant to be part of the key, rewrite the name using `escapeField`.
 
 ## `escapeField`
 
@@ -485,13 +500,13 @@ This is the single checker behind `createFeatures`, `parseFeatureConfig` and `fe
 
 ```
 
-Each `ConfigIssue` reports a `code`, a `message`, the `key` the issue is about (where applicable), and a JSON pointer in `path` for an issue that names a member; a `duplicate-feature` or `unknown-dependency` issue names a key, a `cycle` issue names none, and no graph issue names a member. The codes are closed at 18:
+Each `ConfigIssue` reports a `code`, a `message`, the `key` the issue is about (where applicable), and a JSON pointer in `path` for an issue that names a member; a `duplicate-feature` or `unknown-dependency` issue names a key, a `cycle` issue names none, and no graph issue names a member. The codes are closed at 20:
 
 | Group    | Codes                                                                                                                                          |
 | :------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
 | Graph    | `duplicate-feature`, `unknown-dependency`, `cycle`                                                                                             |
 | Variants | `duplicate-variant`, `unknown-variant`, `invalid-weight`, `empty-variants`, `zero-weights`, `duplicate-variant-order`, `invalid-variant-order` |
-| Rules    | `duplicate-rule-id`, `invalid-instant`, `unknown-context-field`, `field-type-mismatch`                                                         |
+| Rules    | `duplicate-rule-id`, `invalid-instant`, `unknown-context-field`, `field-type-mismatch`, `invalid-field-path`, `conflicting-context-fields`     |
 | Envelope | `unfenced-schema`, `missing-schema-version`, `unknown-member`, `digest-mismatch`                                                               |
 
 ## `parseFeatureConfig(config, options?)`
@@ -653,7 +668,12 @@ Supported durations include weeks, days, hours, minutes, and seconds (e.g., `-P3
 
 ### Execution Context
 
-If the context's `now` is missing or does not name a specific instant, the condition evaluates to `false`. The system never defaults a missing `now` to epoch 0.
+The store determines the value of "now" in this order:
+
+1. If the context passed to a store call carries a `now`, the store uses it. If `now` is present but does not name a valid instant, the relative condition is `false`.
+2. If the context carries no `now`, the store reads its own clock.
+
+The store never defaults a missing or unreadable `now` to epoch 0. If you call `evaluateCondition` directly with a context that lacks `now`, the result is `false`.
 
 ## `DayOfWeekCondition`
 
@@ -665,7 +685,19 @@ To target users based on the day of the week, you use the `DayOfWeekCondition`. 
 
 <!-- reference @evanion/feature#AttributeCondition -->
 
-To match a feature against user or system attributes, you use the `AttributeCondition`. `field` names a context member and `value` is the literal it is compared against. `in` and `not-in` read `value` as the array; `contains` reads the context member as the array.
+To match a feature against user or system attributes, you use the `AttributeCondition`.
+
+### Evaluating values with AttributeCondition
+
+To perform a comparison, you define a `field` (a path into the context) and an operator. The operators `eq`, `ne`, `in`, `not-in` and `contains` compare the path's value against a literal `value`:
+
+- Equality: `eq` and `ne`.
+- Membership: `in` and `not-in` (these treat `value` as an array).
+- Containment: `contains` (this treats the context member as the array).
+
+If a field is absent from the context, all the operators above return `false`, including `ne` and `not-in`. To test for the presence or absence of a field, use `exists` or `not-exists`. These are the only operators that answer for an absent field, and they take no `value`.
+
+For the path syntax, see [Configuration](../configuration#field-paths).
 
 To transmit an attribute condition over the wire, `@evanion/feature` uses the [`SerializedAttributeCondition`](#serializedattributecondition) type. This wire form narrows the `value` to a `JsonValue`.
 
@@ -1203,7 +1235,7 @@ A `duplicate-feature` or `unknown-dependency` issue names a key, a `cycle` issue
 
 <!-- reference @evanion/feature#ConfigIssueCode example=config-validate -->
 
-`ConfigIssueCode` is the closed set of 18 codes, one per class of defect, in four groups: the graph, the variants, the rules and the envelope. The [`validateConfig`](#validateconfigconfig) entry lists them.
+`ConfigIssueCode` is the closed set of 20 codes, one per class of defect, in four groups: the graph, the variants, the rules and the envelope. The [`validateConfig`](#validateconfigconfig) entry lists them.
 
 ## `ReloadResult`
 

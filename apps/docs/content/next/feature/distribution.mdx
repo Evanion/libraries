@@ -166,6 +166,16 @@ Because version 0.1.1 rejects any unknown top-level members, this check requires
 
 Before upgrading stored 0.1 documents to 0.2, run `ambiguousFields` over each document to identify names that were flat keys in 0.1 but are paths in 0.2. If a dot was intended to be part of the flat key name, rewrite that name using `escapeField`.
 
+To ensure your migration to version 0.2 is seamless, you must manually audit your stored names for backslashes.
+
+### Handling Backslashes in Stored Names
+
+`@evanion/feature` handles backslashes differently between versions. In 0.1, a name like `a\.b` was treated as a literal key; in 0.2, it is interpreted as the flat key `a.b`. Because this change alters the meaning of the name without triggering an automated flag, `ambiguousFields` will not list stored names containing backslashes. You must review every stored name containing a `\` by hand to ensure it maps to the intended key.
+
+### Validation Sequence
+
+To avoid inconsistent version reporting, always run `validateConfig` before calling `requirements` on a document. The `requirements` function assumes the document has already been accepted by 0.2's `validateConfig`. If you skip this step, `requirements` may return `'0.1.0'` for a name that 0.2 would otherwise refuse.
+
 ## `maxStale` Travels, and Your Poller Is What Acts on It
 
 The `maxStale` member indicates how long the publisher believes a holder may keep a document, in milliseconds. This is purely advisory; no `@evanion/feature` entry point—including `resolve`, `plan`, `toggle`, `reload`, or `validateConfig`—reads or acts on it. A store built from a document with `maxStale: 1` resolves identically to one without it.
