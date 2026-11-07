@@ -703,6 +703,17 @@ To debug why a rule matched or failed, you can inspect the `RuleOutcome`. The `f
 
 An outcome `plan()` settled omits `failed` when the walk stepped over a condition the build-time context could not read. A request carrying that field may still fail the rule on that one. This rule is described in [Build-time plans](../build-time).
 
+To understand why a condition failed, look at `failedField`, `path`, and `present`.
+
+The `failedField` property identifies the specific context field the condition read, while `path` provides the full path to that value. The `present` boolean distinguishes between a value that was missing from the context ("absent") and a value that was provided but did not satisfy the condition ("present, not matched").
+
+The behavior of `present` depends on the field being read:
+
+- **Time-based fields:** A day-of-week condition or a window over `now` reads the `now` field. Here, `present` is `true` only if `now` names a valid instant. For example, a `now` value of `'soon'` reports `present: false`.
+- **Custom fields:** A window over any other field reads that specific field. In this case, `present` is `true` as long as the context holds any value there, even if that value does not name a valid instant.
+
+Not every failure provides this context. A rollout failure sets no `failedField`, nor does a `plan()` outcome that omits `failed`.
+
 If the rule includes a rollout, the outcome provides the following rollout details:
 
 - `rollout.bucket`: The bucket the context's bucketing value falls into (a number in `[0, 1)` returned by `bucketOf`). This value is included as long as the context carries the bucketing field, regardless of whether the rollout admits the context.

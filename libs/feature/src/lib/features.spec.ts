@@ -686,6 +686,7 @@ describe('precedence', () => {
         rule: 'window-q4',
         matched: false,
         failed: { field: 'now', op: 'after', value: WINDOW },
+        failedField: { path: 'now', present: true },
       },
     ]);
   });
@@ -2557,6 +2558,7 @@ describe('plan', () => {
         rule: 'plan-first',
         matched: false,
         failed: { field: 'plan', op: 'eq', value: 'pro' },
+        failedField: { path: 'plan', present: true },
       },
     ]);
   });
@@ -4281,4 +4283,206 @@ describe('a null now and an empty correlateBy', () => {
       ).toThrow(FeatureConfigError);
     },
   );
+});
+
+describe('RuleOutcome', () => {
+  const definition: FeatureDefinition = { key: 'ops', enabled: true };
+  const operator: Rule = {
+    id: 'operator',
+    when: [{ field: 'subject.role', op: 'eq', value: 'operator' }],
+  };
+  const beforeWindow: Rule = {
+    id: 'window',
+    when: [{ field: 'now', op: 'before', value: '2026-01-01T00:00:00Z' }],
+  };
+
+  describe('failedField', () => {
+    it('names the path and that the context carried a value there', () => {
+      const outcome = evaluateRule(definition, operator, {
+        subject: { role: 'user' },
+      });
+
+      expect(outcome.failedField).toEqual({
+        path: 'subject.role',
+        present: true,
+      });
+    });
+
+    it('reports present: false when the context carries no value at the path', () => {
+      expect(evaluateRule(definition, operator, {}).failedField).toEqual({
+        path: 'subject.role',
+        present: false,
+      });
+      expect(
+        evaluateRule(definition, operator, { subject: { role: undefined } })
+          .failedField,
+      ).toEqual({ path: 'subject.role', present: false });
+    });
+
+    it('names `now` for a failed window over `now`', () => {
+      expect(
+        evaluateRule(definition, beforeWindow, { now: '2027-01-01T00:00:00Z' })
+          .failedField,
+      ).toEqual({ path: 'now', present: true });
+    });
+
+    it('reports a `now` that names no instant as absent', () => {
+      for (const context of [{}, { now: 'soon' }]) {
+        expect(
+          evaluateRule(definition, beforeWindow, context).failedField,
+        ).toEqual({ path: 'now', present: false });
+      }
+    });
+
+    it('names `now` for a failed day-of-week condition', () => {
+      const rule: Rule = {
+        id: 'weekend',
+        when: [
+          {
+            field: 'now',
+            op: 'day-of-week',
+            value: ['sat', 'sun'],
+            zone: 'UTC',
+          },
+        ],
+      };
+
+      expect(
+        evaluateRule(definition, rule, { now: '2026-11-04T12:00:00Z' })
+          .failedField,
+      ).toEqual({ path: 'now', present: true });
+      expect(evaluateRule(definition, rule, {}).failedField).toEqual({
+        path: 'now',
+        present: false,
+      });
+    });
+
+    it('names the field of a window over another field', () => {
+      const rule: Rule = {
+        id: 'new-account',
+        when: [
+          {
+            field: 'subject.createdAt',
+            op: 'after',
+            value: '2026-01-01T00:00:00Z',
+          },
+        ],
+      };
+
+      expect(
+        evaluateRule(definition, rule, {
+          subject: { createdAt: '2025-01-01T00:00:00Z' },
+        }).failedField,
+      ).toEqual({ path: 'subject.createdAt', present: true });
+      expect(evaluateRule(definition, rule, {}).failedField).toEqual({
+        path: 'subject.createdAt',
+        present: false,
+      });
+    });
+
+    it('names a failed `exists` and `not-exists` by what the context carries', () => {
+      const exists: Rule = {
+        id: 'exists',
+        when: [{ field: 'subject.id', op: 'exists' }],
+      };
+      const notExists: Rule = {
+        id: 'not-exists',
+        when: [{ field: 'subject.id', op: 'not-exists' }],
+      };
+
+      expect(evaluateRule(definition, exists, {}).failedField).toEqual({
+        path: 'subject.id',
+        present: false,
+      });
+      expect(
+        evaluateRule(definition, notExists, { subject: { id: 'u' } })
+          .failedField,
+      ).toEqual({ path: 'subject.id', present: true });
+    });
+
+    it('is absent on a rollout failure', () => {
+      const rule: Rule = {
+        id: 'ramp',
+        rollout: { percent: 0, by: 'subject.id' },
+      };
+
+      const outcome = evaluateRule(definition, rule, {
+        subject: { id: 'u-1' },
+      });
+
+      expect(outcome.matched).toBe(false);
+      expect(outcome.rollout).toBeDefined();
+      expect(outcome).not.toHaveProperty('failedField');
+    });
+
+    it('is absent on a matched rule', () => {
+      expect(
+        evaluateRule(definition, operator, { subject: { role: 'operator' } }),
+      ).not.toHaveProperty('failedField');
+    });
+
+    it('is absent on a `plan()` outcome that stepped over a condition, as `failed` is', () => {
+      const features = createFeatures([
+        {
+          key: 'promo',
+          enabled: true,
+          rules: [
+            {
+              id: 'eu-pro',
+              when: [
+                { field: 'region', op: 'eq', value: 'eu' },
+                { field: 'plan', op: 'eq', value: 'pro' },
+              ],
+            },
+          ],
+        },
+      ]);
+
+      const outcome = features.plan({ plan: 'free' }).promo.decision
+        ?.rules?.[0];
+
+      expect(outcome).toEqual({ rule: 'eu-pro', matched: false });
+    });
+
+    it('is present on a `plan()` outcome that names its condition', () => {
+      const features = createFeatures([
+        {
+          key: 'promo',
+          enabled: true,
+          rules: [
+            {
+              id: 'eu-pro',
+              when: [
+                { field: 'plan', op: 'eq', value: 'pro' },
+                { field: 'region', op: 'eq', value: 'eu' },
+              ],
+            },
+          ],
+        },
+      ]);
+
+      const outcome = features.plan({ plan: 'free' }).promo.decision
+        ?.rules?.[0];
+
+      expect(outcome?.failed).toBeDefined();
+      expect(outcome?.failedField).toEqual({ path: 'plan', present: true });
+    });
+
+    it('crosses a decision set as plain JSON', () => {
+      const features = createFeatures([
+        { key: 'ops', enabled: true, rules: [operator] },
+      ]);
+
+      const set = features.snapshot({
+        subject: { role: 'user' },
+        now: '2026-11-07T00:00:00Z',
+      });
+      const wire = JSON.parse(JSON.stringify(set)) as typeof set;
+
+      expect(wire.decisions['ops']?.rules?.[0]?.failedField).toEqual({
+        path: 'subject.role',
+        present: true,
+      });
+    });
+  });
 });

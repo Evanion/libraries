@@ -332,6 +332,19 @@ export interface RuleOutcome {
    * and a build serves its planned decision to every such request.
    */
   failed?: Condition;
+  /**
+   * The context field `failed` read, so a why-view can say "absent" or
+   * "present, not matched". Set exactly where `failed` is set.
+   *
+   * `path` is the full path the condition read. A day-of-week condition and a
+   * window over `now` read `now`, and a window over another field reads that
+   * field. `present` is whether the context carries a value at `path`: the read
+   * finds the path and its value is not `undefined`. For `now` it is `true`
+   * only when that value names an instant, so an unparseable `now` is
+   * `present: false`. For a window over another field it is the read alone, so
+   * a value that names no instant is `present: true`.
+   */
+  failedField?: { path: string; present: boolean };
   /** Present when the rule's rollout was the reason it did not match. */
   rollout?: {
     percent: number;
