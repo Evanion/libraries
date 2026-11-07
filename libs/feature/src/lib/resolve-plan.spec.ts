@@ -369,4 +369,23 @@ describe('resolvePlan', () => {
       resolvePlan(features, features.plan({}), Object.create(proxy)),
     ).not.toThrow();
   });
+
+  it('reports a prototype-named need as missing', () => {
+    const features = createFeatures(SPLIT);
+    const reports: DivergenceReport[] = [];
+    const entry = { key: 'cta', resolved: 'deferred', needs: ['toString'] };
+
+    resolvePlan(
+      features,
+      { cta: entry } as never,
+      {},
+      {
+        onDivergence: (report) => reports.push(report),
+      },
+    );
+
+    expect(reports).toMatchObject([
+      { kind: 'missing-field', field: 'toString' },
+    ]);
+  });
 });
