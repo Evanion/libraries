@@ -3928,13 +3928,13 @@ describe('the envelope', () => {
     });
   });
 
-  it('refuses a condition over constructor when the schema declares no such field', () => {
+  it('refuses a condition over toString when the schema declares no such field', () => {
     const config: FeatureConfig = {
       features: [
         {
           key: 'beta',
           enabled: true,
-          rules: [{ when: [{ field: 'constructor', op: 'eq', value: 1 }] }],
+          rules: [{ when: [{ field: 'toString', op: 'eq', value: 1 }] }],
         },
       ],
       schemaVersion: 's1',
@@ -3946,5 +3946,147 @@ describe('the envelope', () => {
     expect(result.ok === false && result.issues[0]?.code).toBe(
       'unknown-context-field',
     );
+  });
+});
+
+describe('validateConfig, on condition paths and presence tests', () => {
+  const document = (
+    when: readonly Record<string, unknown>[],
+    fields?: Record<string, string>,
+  ) =>
+    ({
+      features: [{ key: 'beta', enabled: true, rules: [{ when }] }],
+      schemaVersion: 's1',
+      ...(fields ? { schema: { context: { fields } } } : {}),
+    }) as unknown as FeatureConfig;
+
+  const codes = (config: FeatureConfig) => {
+    const result = validateConfig(config);
+    return result.ok ? [] : result.issues.map((issue) => issue.code);
+  };
+
+  it('accepts exists and not-exists without a value', () => {
+    expect(
+      validateConfig(
+        document([
+          { field: 'a', op: 'exists' },
+          { field: 'a.b', op: 'not-exists' },
+        ]),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it.each(['exists', 'not-exists'])('refuses a value on %s', (op) => {
+    const result = validateConfig(document([{ field: 'a', op, value: 1 }]));
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.issues[0]).toMatchObject({
+      path: '/features/0/rules/0/when/0/value',
+    });
+  });
+
+  it('keeps an unknown operator an issue', () => {
+    expect(codes(document([{ field: 'a', op: 'exist' }]))).toEqual([
+      'unknown-member',
+    ]);
+  });
+
+  it.each(['a..b', 'a.__proto__', 'a.constructor', 'a\\x', '.a', 'a.'])(
+    'refuses the field path %s',
+    (field) => {
+      const result = validateConfig(document([{ field, op: 'exists' }]));
+
+      expect(result.ok).toBe(false);
+      expect(!result.ok && result.issues[0]).toMatchObject({
+        path: '/features/0/rules/0/when/0/field',
+      });
+    },
+  );
+
+  it('accepts a nested path and an escaped flat key', () => {
+    expect(
+      validateConfig(
+        document([
+          { field: 'subject.id', op: 'eq', value: 'x' },
+          { field: 'subject\\.id', op: 'eq', value: 'x' },
+        ]),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('refuses a schema that declares a field and one below it', () => {
+    const result = validateConfig(
+      document([], { subject: 'string', 'subject.id': 'string' }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.issues[0]).toMatchObject({
+      path: '/schema/context/fields/subject',
+    });
+  });
+
+  it('accepts a flat key beside the path it spells', () => {
+    expect(
+      validateConfig(
+        document([], { 'subject\\.id': 'string', 'subject.id': 'string' }),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('refuses a schema key that is no path', () => {
+    expect(codes(document([], { 'a..b': 'string' }))).toEqual([
+      'unknown-member',
+    ]);
+  });
+
+  it('accepts a condition on a declared path', () => {
+    expect(
+      validateConfig(
+        document([{ field: 'subject.id', op: 'eq', value: 'x' }], {
+          'subject.id': 'string',
+        }),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('refuses a condition on a path the schema declares only as its parent', () => {
+    expect(
+      codes(
+        document([{ field: 'subject.id', op: 'eq', value: 'x' }], {
+          subject: 'string',
+        }),
+      ),
+    ).toEqual(['unknown-context-field']);
+  });
+
+  it('gives exists over an undeclared field the issue any other op gets', () => {
+    expect(
+      codes(document([{ field: 'tier', op: 'exists' }], { plan: 'string' })),
+    ).toEqual(['unknown-context-field']);
+  });
+
+  it('accepts exists over a declared array and a declared scalar', () => {
+    expect(
+      validateConfig(
+        document(
+          [
+            { field: 'realms', op: 'exists' },
+            { field: 'plan', op: 'not-exists' },
+          ],
+          { realms: 'string[]', plan: 'string' },
+        ),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it('accepts contains over a declared nested array', () => {
+    expect(
+      validateConfig(
+        document(
+          [{ field: 'subject.realms', op: 'contains', value: 'platform' }],
+          { 'subject.realms': 'string[]' },
+        ),
+      ),
+    ).toEqual({ ok: true });
   });
 });

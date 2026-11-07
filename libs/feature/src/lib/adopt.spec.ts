@@ -823,7 +823,7 @@ describe('adoptDecisions', () => {
           {
             id: 'proto',
             variant: 'blue',
-            when: [{ field: 'constructor', op: 'eq', value: 'x' }],
+            when: [{ field: 'toString', op: 'eq', value: 'x' }],
           },
         ],
       },
@@ -832,7 +832,7 @@ describe('adoptDecisions', () => {
     it('names a rule field a context only inherits off Object.prototype', () => {
       const shipped = storeAt('v1', PINNED).snapshot({
         ...SUBJECT,
-        constructor: 'x',
+        toString: 'x',
       });
       const { reports, observe } = collector();
 
@@ -843,14 +843,14 @@ describe('adoptDecisions', () => {
 
       expect(shipped.decisions.cta?.assignment?.source).toBe('pinned');
       expect(reports).toMatchObject([
-        { kind: 'missing-field', key: 'cta', field: 'constructor' },
+        { kind: 'missing-field', key: 'cta', field: 'toString' },
       ]);
     });
 
     it('names nothing for a pin naming a rule this store does not hold', () => {
       const shipped = storeAt('v1', PINNED).snapshot({
         ...SUBJECT,
-        constructor: 'x',
+        toString: 'x',
       });
       const cta = shipped.decisions.cta;
       const forged = {
