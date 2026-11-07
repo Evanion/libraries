@@ -297,7 +297,13 @@ export interface RuleOutcome {
   rollout?: {
     percent: number;
     by: string;
-    /** Absent when the context did not carry the bucketing field. */
+    /**
+     * The bucket the context's bucketing value falls in, in [0, 1), from the
+     * same `bucketOf` call the rollout check reads. The context is a member
+     * when `bucket * 100` is below `percent`. Present whether or not the
+     * rollout admits the context, and absent when the context did not carry
+     * the bucketing field.
+     */
     bucket?: number;
     member: boolean;
   };
