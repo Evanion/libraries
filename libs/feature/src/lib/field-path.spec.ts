@@ -200,19 +200,35 @@ describe('readPath', () => {
     expect(readPath(bag, path)).toEqual({ present: false });
   });
 
-  it.each([null, undefined, 'x', 1, [1]])(
-    'is absent when the bag is %j',
-    (bag) => {
-      expect(readPath(bag, 'a').present).toBe(false);
-    },
-  );
+  it.each([null, undefined, 'x', 1])('is absent when the bag is %j', (bag) => {
+    expect(readPath(bag, 'a').present).toBe(false);
+  });
 
-  it('is absent for a getter and never calls it', () => {
+  it('reads a top-level getter, calling it once', () => {
     const getter = vi.fn(() => 'x');
     const bag = {
       get id() {
         return getter();
       },
+    };
+
+    expect(readPath(bag, 'id')).toEqual({ present: true, value: 'x' });
+    expect(getter).toHaveBeenCalledTimes(1);
+  });
+
+  it('is absent when a top-level getter throws', () => {
+    const bag = {
+      get id(): string {
+        throw new Error('boom');
+      },
+    };
+
+    expect(readPath(bag, 'id').present).toBe(false);
+  });
+
+  it('is absent for a nested getter and never calls it', () => {
+    const getter = vi.fn(() => 'x');
+    const bag = {
       subject: {
         get id() {
           return getter();
@@ -220,20 +236,34 @@ describe('readPath', () => {
       },
     };
 
-    expect(readPath(bag, 'id').present).toBe(false);
     expect(readPath(bag, 'subject.id').present).toBe(false);
     expect(getter).not.toHaveBeenCalled();
   });
 
-  it('is absent beneath a getter and never calls it', () => {
+  it('reads an own prop of a class-instance, array or prototyped context', () => {
+    const instance = new (class {
+      id = 1;
+    })();
+    const array = Object.assign([], { id: 2 });
+    const prototyped = Object.assign(Object.create({ x: 0 }), { id: 3 });
+
+    expect(readPath(instance, 'id').value).toBe(1);
+    expect(readPath(array, 'id').value).toBe(2);
+    expect(readPath(prototyped, 'id').value).toBe(3);
+    expect(readPath(prototyped, 'x').present).toBe(false);
+  });
+
+  it('is absent beneath a nested getter and never calls it', () => {
     const getter = vi.fn(() => ({ id: 1 }));
     const bag = {
-      get subject() {
-        return getter();
+      a: {
+        get subject() {
+          return getter();
+        },
       },
     };
 
-    expect(readPath(bag, 'subject.id').present).toBe(false);
+    expect(readPath(bag, 'a.subject.id').present).toBe(false);
     expect(getter).not.toHaveBeenCalled();
   });
 
@@ -265,12 +295,16 @@ describe('readPath', () => {
     expect(readPath(hostile, 'subject').present).toBe(false);
   });
 
-  it('is absent when the walk revisits an object on a cycle', () => {
-    const loop: Record<string, unknown> = {};
+  it('reads through a cycle, bounded by the segment cap', () => {
+    const loop: Record<string, unknown> = { x: 1 };
     loop['self'] = loop;
 
-    expect(readPath(loop, 'self.self.x').present).toBe(false);
-    expect(readPath({ a: loop }, 'a.self.self').present).toBe(false);
+    expect(readPath({ x: 1, self: loop }, 'self.x')).toEqual({
+      present: true,
+      value: 1,
+    });
+    expect(readPath(loop, 'self.self.self.x').value).toBe(1);
+    expect(readPath(loop, 'self.self.y').present).toBe(false);
   });
 
   it('is absent for a path over the segment cap', () => {
