@@ -1875,6 +1875,44 @@ ruleFields(weekendMembers); // -> ['customerId', 'now', 'tier']
 
 <!-- #endregion rule-fields -->
 
+<!-- #region publisher-requirements -->
+
+```ts @import.meta.vitest
+import { ambiguousFields, escapeField, requirements } from '@evanion/feature';
+import type { FeatureConfig } from '@evanion/feature';
+
+const config: FeatureConfig = {
+  features: [
+    {
+      key: 'new-onboarding',
+      enabled: true,
+      rules: [
+        {
+          id: 'recent-accounts',
+          when: [
+            {
+              field: 'subject.createdAt',
+              op: 'after',
+              value: { fromNow: '-P30D' },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+// A 0.1 client reads `subject.createdAt` as one flat key and compares `now`.
+requirements(config).version; // -> '0.2.0'
+requirements(config).uses; // -> ['instant-field', 'path', 'relative-instant']
+
+// A stored 0.1 document that meant a flat key with a dot lists it here.
+ambiguousFields(config)[0]?.name; // -> 'subject.createdAt'
+escapeField('subject.createdAt'); // -> 'subject\\.createdAt'
+```
+
+<!-- #endregion publisher-requirements -->
+
 <!-- #region identity-primitives -->
 
 ```ts @import.meta.vitest

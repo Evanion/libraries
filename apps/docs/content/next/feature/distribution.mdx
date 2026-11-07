@@ -152,6 +152,20 @@ A holder that finds a `digest` on an incoming document recomputes it and reports
 
 This is not a cryptographic digest. No security properties rely on the difficulty of finding collisions, and since Web Crypto's `digest` returns a promise, it cannot be used in the synchronous entry points of this library.
 
+## Publishing to Mixed SDK Versions
+
+In an environment where a publisher serves one document to all SDKs, version 0.1.1 may encounter 0.2 constructs. This creates two types of failure.
+
+The SDK may refuse the construct. An `exists` or `not-exists` operator is an unknown operator, and a `{ fromNow }` value names no instant. In these cases, `validateConfig` reports the error, and the holder retains its previously installed document.
+
+The SDK may also accept the construct and evaluate it incorrectly. A dotted `field`, `by`, or `variantBy` is read as a single flat key; because that flat key is absent, the condition returns `false`. A `before` or `after` operator applied to any field other than `now` is evaluated against `now`.
+
+To prevent these failures, call `requirements(config)` before publishing. Compare the returned `version` with the oldest SDK version currently present in your environment, and warn or block the publish if the required version is higher.
+
+Because version 0.1.1 rejects any unknown top-level members, this check requires no marker within the document itself.
+
+Before upgrading stored 0.1 documents to 0.2, run `ambiguousFields` over each document to identify names that were flat keys in 0.1 but are paths in 0.2. If a dot was intended to be part of the flat key name, rewrite that name using `escapeField`.
+
 ## `maxStale` Travels, and Your Poller Is What Acts on It
 
 The `maxStale` member indicates how long the publisher believes a holder may keep a document, in milliseconds. This is purely advisory; no `@evanion/feature` entry point—including `resolve`, `plan`, `toggle`, `reload`, or `validateConfig`—reads or acts on it. A store built from a document with `maxStale: 1` resolves identically to one without it.
