@@ -2,7 +2,12 @@ import { validateConditions } from './conditions.js';
 import { boundFeatures } from './bound.js';
 import type { BoundFeatures } from './bound.js';
 import { configCopier } from './document-copy.js';
-import { contextEpoch, instantEpoch, isRelative } from './instant.js';
+import {
+  contextEpoch,
+  durationMs,
+  instantEpoch,
+  isRelative,
+} from './instant.js';
 import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
 import { bucketingStated } from './variants.js';
@@ -482,6 +487,9 @@ function sameMembers(
  * serialization names every windowed feature, and a poller that invalidates a
  * cache on `changed` invalidates on every poll.
  *
+ * A relative boundary states its duration in milliseconds, so `-P1D` and
+ * `-PT24H` compare equal the way `ruleId` names them alike.
+ *
  * Only `before` and `after` convert, which is the pair `documentCondition`
  * converts and the pair `AttributeCondition.op` excludes. `evaluateCondition`
  * runs every other operator over `===`, so a `Date` and its ISO string decide
@@ -511,7 +519,14 @@ function windowsRead(
           if (condition.op !== 'before' && condition.op !== 'after') {
             return condition;
           }
-          if (isRelative(condition.value)) return condition;
+          if (isRelative(condition.value)) {
+            const { fromNow } = condition.value;
+            const shift =
+              typeof fromNow === 'string' ? durationMs(fromNow) : undefined;
+            return shift === undefined
+              ? condition
+              : { ...condition, value: { fromNow: String(shift) } };
+          }
           return { ...condition, value: instantEpoch(condition.value) };
         }),
       };

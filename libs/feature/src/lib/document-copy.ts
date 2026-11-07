@@ -91,11 +91,11 @@ function elementPlace(place: Place): Place {
  * members with `features` deleted, so a condition a rule holds is what reaches
  * the place above.
  *
- * The gate reads no `field`. `WindowCondition` declares `field: 'now'`, and
- * `validateConditions` at `conditions.ts:111`, `ruleId` at `rule-id.ts:57` and
- * `documentCondition` at `serialize.ts:181` each read the operator and none of
- * them reads the field, so a condition whose field is another string is a
- * window to every reader in the library and is one here too.
+ * The gate reads no `field`. `WindowCondition` declares `field` as any
+ * string, and `validateConditions`, `ruleId` and `documentCondition` read the
+ * operator and none of them reads the field to decide whether a condition is a
+ * window, so a condition over any field is a window to every reader in the
+ * library and is one here too.
  */
 function boundary(value: object, place: Place): boolean {
   if (place !== 'condition') return false;
