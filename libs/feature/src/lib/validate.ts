@@ -1,6 +1,7 @@
 import { configDigest } from './digest.js';
 import { graphErrors } from './graph.js';
 import { windowFault } from './conditions.js';
+import { formatPath, parsePath, pathFault } from './field-path.js';
 import { ruleId } from './rule-id.js';
 import { variantErrors } from './variants.js';
 import {
@@ -442,6 +443,8 @@ const CONDITION_OPS: Record<Condition['op'], true> = {
   in: true,
   'not-in': true,
   contains: true,
+  exists: true,
+  'not-exists': true,
 };
 
 const OPS: ReadonlySet<string> = new Set(Object.keys(CONDITION_OPS));
@@ -659,6 +662,22 @@ function conditionIssues(
       );
     }
 
+    const field: unknown = condition['field'];
+    const fieldFault = typeof field === 'string' ? pathFault(field) : undefined;
+    if (fieldFault !== undefined) {
+      refusedAt.add(inside);
+      refused.push(
+        found(
+          'invalid-field-path',
+          new FeatureConfigError(
+            `${named} declares "field" on the condition at ${path} as a path this checker cannot read: ${fieldFault}`,
+          ),
+          key,
+          `${path}/field`,
+        ),
+      );
+    }
+
     if (condition['op'] === 'day-of-week') {
       const zone: unknown = condition['zone'];
       if (typeof zone !== 'string') {
@@ -699,6 +718,19 @@ function conditionIssues(
         unreadable(
           `${named} declares "op" on the condition at ${path} as ${JSON.stringify(op)}, and this checker dispatches on no operator by that name, so a holder installing this document would resolve the rule off for every subject`,
           `${path}/op`,
+          key,
+        ),
+      );
+    }
+
+    if (
+      (op === 'exists' || op === 'not-exists') &&
+      condition['value'] !== undefined
+    ) {
+      strange.push(
+        unreadable(
+          `${named} declares "value" on the "${op}" condition at ${path}, and "${op}" reads no value, so the member says something the evaluation ignores`,
+          `${path}/value`,
           key,
         ),
       );
@@ -1538,6 +1570,62 @@ function schemaIssues(config: Checkable): readonly Found[] {
   });
 }
 
+/**
+ * Every context field name the schema declares that no path can read, and every
+ * name that has another declared name as a proper prefix.
+ *
+ * A key is a path, so a malformed one names a field no condition reaches. Keys
+ * `subject` and `subject.id` declare `subject` as a value and as an object, and
+ * a context cannot be both; the issue sits on the longer key. A flat key
+ * spelled `subject\.id` is another path and prefixes nothing. A key that is no
+ * path is skipped when the parents are collected, so it yields one issue.
+ */
+function contextFieldIssues(config: Checkable): readonly Found[] {
+  const fields: unknown = config.schema?.context?.fields;
+  if (!isRecord(fields)) return [];
+  const issues: Found[] = [];
+  const declared = new Set<string>();
+  const readable: [string, readonly string[]][] = [];
+  for (const name of Object.keys(fields)) {
+    const at = `/schema/context/fields/${token(name)}`;
+    const fault = pathFault(name);
+    const segments = fault === undefined ? parsePath(name) : undefined;
+    if (segments === undefined) {
+      issues.push(
+        found(
+          'invalid-field-path',
+          new FeatureConfigError(
+            `the schema declares a context field name no path can read: ${fault ?? name}`,
+          ),
+          undefined,
+          at,
+        ),
+      );
+      continue;
+    }
+    declared.add(name);
+    readable.push([name, segments]);
+  }
+  for (const [name, segments] of readable) {
+    for (let end = 1; end < segments.length; end++) {
+      const parent = formatPath(segments.slice(0, end));
+      if (!declared.has(parent)) continue;
+      issues.push(
+        found(
+          'conflicting-context-fields',
+          new FeatureConfigError(
+            `the schema declares the context field "${parent}" and "${name}" below it, and a context cannot carry "${parent}" as a value and as an object`,
+          ),
+          undefined,
+          `/schema/context/fields/${token(name)}`,
+        ),
+      );
+      break;
+    }
+  }
+  return issues;
+}
+
 /** The base of a declared type, with the array and optional suffixes stripped. */
 function baseOf(declared: FieldType): { base: string; array: boolean } {
   const withoutOptional = declared.endsWith('?')
@@ -1557,9 +1645,11 @@ function baseOf(declared: FieldType): { base: string; array: boolean } {
  * array. `in` and `not-in` ask whether a scalar is a member of a literal list,
  * so the declared field is a scalar. `eq` and `ne` compare with `===`, which
  * never holds for two arrays, so they take a scalar too. `before` and `after`
- * read `now` and reach no declared field.
+ * read `now` and reach no declared field. `exists` and `not-exists` ask only
+ * whether the field is carried, so they fit every declared type.
  */
 function operatorFits(op: string, declared: FieldType): boolean {
+  if (op === 'exists' || op === 'not-exists') return true;
   const { array } = baseOf(declared);
   if (op === 'contains') return array;
   return !array;
@@ -1619,9 +1709,7 @@ function whenIssues(
     // built from the position in this array would name the rule the document
     // carries one place earlier.
     const ruleAt = positions?.[walkedAt] ?? walkedAt;
-    const when: readonly Condition[] = Array.isArray(rule.when)
-      ? rule.when
-      : [];
+    const when: readonly unknown[] = Array.isArray(rule.when) ? rule.when : [];
     when.forEach((condition, whenAt) => {
       if (!isRecord(condition)) return;
       if (typeof condition.field !== 'string') return;
@@ -1722,6 +1810,7 @@ function envelopeIssues(config: Checkable): readonly Found[] {
     ...digestIssues(config),
     ...schemaVersionIssues(config),
     ...schemaIssues(config),
+    ...contextFieldIssues(config),
   ];
 }
 

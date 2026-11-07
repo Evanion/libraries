@@ -93,12 +93,8 @@ describe('pathFault', () => {
     },
   );
 
-  it.each(['*', 'a.*'])('names the * segment in %j', (path) => {
-    expect(pathFault(path)).toContain('"*" segment');
-  });
-
-  it.each(['!b', 'a.!b'])('names the leading ! in %j', (path) => {
-    expect(pathFault(path)).toContain('segment starting with "!"');
+  it.each(['*', 'a.*', '!b', 'a.!b'])('accepts %j as a field name', (path) => {
+    expect(pathFault(path)).toBeUndefined();
   });
 
   it.each(['a.constructor', 'a.prototype', 'constructor', 'prototype'])(

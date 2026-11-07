@@ -49,8 +49,8 @@ export function escapeField(name: string): string {
 
 /**
  * Describes why a path cannot name a field, or returns `undefined` when it
- * can. A segment may not be `__proto__`, `constructor`, `prototype` or `*`, nor
- * start with `!`, and a path has at most 32 segments.
+ * can. A segment may not be `__proto__`, `constructor` or `prototype`, and a path
+ * has at most 32 segments.
  */
 export function pathFault(path: string): string | undefined {
   const segments = parsePath(path);
@@ -67,10 +67,6 @@ export function pathFault(path: string): string | undefined {
       segment === 'prototype'
     )
       return `${JSON.stringify(path)} has a "${segment}" segment, which cannot name a field.`;
-    if (segment === '*')
-      return `${JSON.stringify(path)} has a "*" segment; "*" is only valid as a whole list entry.`;
-    if (segment.startsWith('!'))
-      return `${JSON.stringify(path)} has a segment starting with "!"; "!" is only valid at the start of a list entry.`;
   }
   return undefined;
 }

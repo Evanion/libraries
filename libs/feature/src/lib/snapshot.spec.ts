@@ -619,7 +619,7 @@ describe('Features.snapshot', () => {
     /** What a frozen and an unfrozen decision both carry of a failed rule. */
     interface FailedRule {
       readonly rules?: readonly {
-        readonly failed?: { readonly value: unknown };
+        readonly failed?: { readonly value?: unknown };
       }[];
     }
 

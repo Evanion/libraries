@@ -427,4 +427,16 @@ describe('ruleId', () => {
 
     expect(asNull).not.toBe(asDate);
   });
+
+  it('derives a stable id for an exists condition', () => {
+    const exists: Rule = { when: [{ field: 'subject.realm', op: 'exists' }] };
+
+    expect(ruleId(exists)).toBe(ruleId({ ...exists, when: [...exists.when!] }));
+    expect(ruleId(exists)).not.toBe(
+      ruleId({ when: [{ field: 'subject.realm', op: 'not-exists' }] }),
+    );
+    expect(ruleId(exists)).not.toBe(
+      ruleId({ when: [{ field: 'subject.other', op: 'exists' }] }),
+    );
+  });
 });
