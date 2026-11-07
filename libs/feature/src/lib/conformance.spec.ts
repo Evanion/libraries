@@ -690,6 +690,26 @@ describe('the document the fixture publishes', () => {
     expect(outcome?.matched).toBe(false);
   });
 
+  it('prints the bucket on a rollout outcome the rollout refused', () => {
+    const rollout = fixture.config.features.find(
+      (definition) => definition.key === 'new-nav',
+    )?.rules?.[0]?.rollout;
+    const decision = fixture.decisions['new-nav'] as {
+      rules: readonly { rollout?: { bucket?: number; member: boolean } }[];
+    };
+    const outcome = decision.rules[0]?.rollout;
+    const value = fixture.context[rollout?.by ?? DEFAULT_ROLLOUT_FIELD];
+
+    // The bucket is the hash a port computes for the rollout check, printed
+    // whether or not the rollout admits the context. A port that prints it only
+    // for members, or never, publishes an outcome this one does not.
+    expect(outcome?.member).toBe(false);
+    expect(typeof value).toBe('string');
+    expect(outcome?.bucket).toBe(
+      bucketOf(String(value), rollout?.seed ?? 'new-nav'),
+    );
+  });
+
   it('lists its variants in an order its own `order` values disagree with', () => {
     const variants = fixture.config.features.flatMap(
       (definition) => definition.variants ?? [],

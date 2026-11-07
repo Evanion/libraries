@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { inRollout } from './bucketing.js';
+import { bucketOf, inRollout } from './bucketing.js';
 import { configDigest } from './digest.js';
 import {
   DuplicateFeatureError,
@@ -9,6 +9,7 @@ import {
   UnknownDependencyError,
   UnknownVariantError,
 } from './errors.js';
+import { evaluateRule } from './evaluate.js';
 import { createFeatures, type Definitions } from './features.js';
 import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 import { serializeConfig } from './serialize.js';
@@ -19,6 +20,7 @@ import type {
   EvaluationContext,
   FeatureDefinition,
   FeatureKey,
+  Rule,
 } from './types.js';
 import { everywhere } from './zones.js';
 
@@ -706,9 +708,71 @@ describe('precedence', () => {
       {
         rule: 'ramp',
         matched: false,
-        rollout: { percent: 0, by: 'targetingKey', member: false },
+        rollout: {
+          percent: 0,
+          by: 'targetingKey',
+          bucket: bucketOf('u1', 'ramped'),
+          member: false,
+        },
       },
     ]);
+  });
+
+  it('carries the bucket of a context that a rollout admits', () => {
+    const definition: FeatureDefinition = {
+      key: 'ramped',
+      enabled: true,
+      rules: [{ id: 'ramp', rollout: { percent: 100, seed: 'ramp-seed' } }],
+    };
+    const rule = definition.rules?.[0] as Rule;
+
+    const outcome = evaluateRule(definition, rule, { targetingKey: 'u1' });
+
+    expect(outcome.matched).toBe(true);
+    expect(outcome.rollout).toEqual({
+      percent: 100,
+      by: 'targetingKey',
+      bucket: bucketOf('u1', 'ramp-seed'),
+      member: true,
+    });
+  });
+
+  it('carries the bucket of a context that a rollout refuses', () => {
+    const features = createFeatures([
+      {
+        key: 'ramped',
+        enabled: true,
+        rules: [
+          { id: 'ramp', rollout: { percent: 0, by: 'accountId', seed: 's' } },
+        ],
+      },
+    ]);
+
+    const outcome = features.resolve({ accountId: 'acct-1' }).ramped.rules?.[0];
+
+    expect(outcome?.rollout?.member).toBe(false);
+    expect(outcome?.rollout?.bucket).toBe(bucketOf('acct-1', 's'));
+    expect(outcome?.rollout?.bucket).toBeGreaterThanOrEqual(0);
+    expect(outcome?.rollout?.bucket).toBeLessThan(1);
+  });
+
+  it('carries no bucket key when the context lacks the bucketing field', () => {
+    const features = createFeatures([
+      {
+        key: 'ramped',
+        enabled: true,
+        rules: [{ id: 'ramp', rollout: { percent: 50 } }],
+      },
+    ]);
+
+    const outcome = features.resolve({}).ramped.rules?.[0];
+
+    expect(outcome?.rollout).toEqual({
+      percent: 50,
+      by: 'targetingKey',
+      member: false,
+    });
+    expect('bucket' in (outcome?.rollout ?? {})).toBe(false);
   });
 
   it('buckets a rollout on the context field the rule names', () => {
@@ -2851,7 +2915,12 @@ describe('plan', () => {
       {
         rule: 'ramp',
         matched: false,
-        rollout: { percent: 0, by: 'targetingKey', member: false },
+        rollout: {
+          percent: 0,
+          by: 'targetingKey',
+          bucket: bucketOf('u1', 'ramped'),
+          member: false,
+        },
       },
     ]);
     expect(entry.decision).toEqual(features.resolve(context).ramped);

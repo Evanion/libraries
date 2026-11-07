@@ -629,7 +629,14 @@ If a `now` property names no instant, every clock condition becomes unevaluable 
 
 <!-- reference @evanion/feature#RuleOutcome -->
 
-To understand why a rule did or did not match, you can inspect the `RuleOutcome`. `failed` names the first condition that failed. An outcome `plan()` settled drops it when the walk stepped over a condition the build-time context could not read, because a request carrying that field may fail the rule on that one instead. [Build-time plans](../build-time) states the rule.
+To debug why a rule matched or failed, you can inspect the `RuleOutcome`. The `failed` property identifies the first condition that caused the match to fail.
+
+An outcome `plan()` settled omits `failed` when the walk stepped over a condition the build-time context could not read. A request carrying that field may still fail the rule on that one. This rule is described in [Build-time plans](../build-time).
+
+If the rule includes a rollout, the outcome provides the following rollout details:
+
+- `rollout.bucket`: The bucket the context's bucketing value falls into (a number in `[0, 1)` returned by `bucketOf`). This value is included as long as the context carries the bucketing field, regardless of whether the rollout admits the context.
+- Membership: The context is considered a member of the rollout when `bucket * 100` is less than the defined `percent`.
 
 ## `VariantSpec`
 

@@ -1,4 +1,4 @@
-import { inRollout } from './bucketing.js';
+import { bucketOf, inRollout } from './bucketing.js';
 import { conditionFields, evaluateCondition } from './conditions.js';
 import { DEFAULT_ROLLOUT_FIELD } from './fields.js';
 import { ruleId } from './rule-id.js';
@@ -72,16 +72,14 @@ export function evaluateRule<F extends FeatureKey>(
     };
   }
 
-  const member = inRollout(
-    String(value),
-    rollout.percent,
-    rolloutSeed(definition, rule),
-  );
+  const seed = rolloutSeed(definition, rule);
+  const member = inRollout(String(value), rollout.percent, seed);
+  const bucket = bucketOf(String(value), seed);
 
   return {
     rule: id,
     matched: member,
-    rollout: { percent: rollout.percent, by, member },
+    rollout: { percent: rollout.percent, by, bucket, member },
   };
 }
 

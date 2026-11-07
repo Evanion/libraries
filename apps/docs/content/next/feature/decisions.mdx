@@ -83,7 +83,9 @@ To debug why a feature is disabled despite being generally enabled, you can exam
 
 ```
 
-If a condition failed, the `failed` object names the first condition that did not hold: its field, operator, and value. If a rollout left the customer out, the `rollout` object gives the percentage, the field it bucketed on, and `member: false`. Note that since the first rule above declares no `id`, its outcome carries the hash-derived name `rule-d69c7f2b`.
+If a condition failed, the `failed` object identifies the first non-holding condition by specifying its field, operator, and value. If a rollout excluded the customer, the `rollout` object provides the percentage, the field used for bucketing, the customer's specific `bucket`, and `member: false`.
+
+Because the first rule in the example above declares no `id`, its outcome is identified by the hash-derived name `rule-d69c7f2b`.
 
 ## Managing State with `toggle`
 
