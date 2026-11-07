@@ -1,16 +1,13 @@
-import { contextEpoch } from './instant.js';
 import type { EvaluationContext, Instant } from './types.js';
 
 /**
- * The instant a context carries, or `undefined` when it carries none or cannot
- * be read. The read follows the prototype chain, and a getter, a trapping proxy
- * or a value `contextEpoch` cannot read makes the instant absent.
+ * The instant a context carries, or `undefined` when it carries none or the
+ * read throws. The read follows the prototype chain. A value that names no
+ * instant stays: `contextEpoch` reads it as `NaN`.
  */
 function readNow(context: unknown): Instant | undefined {
   try {
-    const value = (context as { now?: Instant } | undefined)?.now;
-    if (value !== undefined) contextEpoch(value);
-    return value;
+    return (context as { now?: Instant } | undefined)?.now;
   } catch {
     return undefined;
   }
@@ -20,7 +17,7 @@ function readNow(context: unknown): Instant | undefined {
  * Copies the own enumerable properties of a context, one read at a time. A
  * property whose getter throws is left out as absent, and a context that cannot
  * be enumerated (a revoked proxy) copies as an empty one. `now` is read apart
- * from the rest, so an unreadable one is absent from the copy.
+ * from the rest, so a throwing read leaves it absent from the copy.
  */
 export function copyContext(context: unknown): Record<string, unknown> {
   const copy: Record<string, unknown> = {};
