@@ -342,7 +342,9 @@ export interface RuleOutcome {
    * finds the path and its value is not `undefined`. For `now` it is `true`
    * only when that value names an instant, so an unparseable `now` is
    * `present: false`. For a window over another field it is the read alone, so
-   * a value that names no instant is `present: true`.
+   * a value that names no instant is `present: true`. A window over another
+   * field bounded by `{ fromNow }` whose field is present, failing because
+   * `now` names no instant, reads `now`: `{ path: 'now', present: false }`.
    */
   failedField?: { path: string; present: boolean };
   /** Present when the rule's rollout was the reason it did not match. */

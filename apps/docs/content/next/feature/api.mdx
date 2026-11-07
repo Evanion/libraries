@@ -710,7 +710,7 @@ The `failedField` property identifies the specific context field the condition r
 The behavior of `present` depends on the field being read:
 
 - **Time-based fields:** A day-of-week condition or a window over `now` reads the `now` field. Here, `present` is `true` only if `now` names a valid instant. For example, a `now` value of `'soon'` reports `present: false`.
-- **Custom fields:** A window over any other field reads that specific field. In this case, `present` is `true` as long as the context holds any value there, even if that value does not name a valid instant.
+- **Custom fields:** A window over any other field reads that field, and `present` is `true` as long as the context holds any value there, even one that names no instant. The exception is a window bounded by `{ fromNow }` whose field is present while `now` names no instant. The clock was the missing input, so the outcome reports `now` with `present: false`.
 
 Not every failure provides this context. A rollout failure sets no `failedField`, nor does a `plan()` outcome that omits `failed`.
 
