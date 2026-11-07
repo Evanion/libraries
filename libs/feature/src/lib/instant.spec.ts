@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { FeatureConfigError } from './errors.js';
 import { createFeatures } from './features.js';
-import { contextEpoch, instantEpoch, RANGE } from './instant.js';
+import { contextEpoch, durationMs, instantEpoch, RANGE } from './instant.js';
 import type { Instant } from './types.js';
 import { everywhere } from './zones.js';
 
@@ -438,5 +438,63 @@ describe('createFeatures', () => {
     ])('refuses %s at construction, as the table states', (_name, value) => {
       expect(() => withWindow(value)).toThrow(FeatureConfigError);
     });
+  });
+});
+
+describe('durationMs', () => {
+  const DAY = 86_400_000;
+
+  it('reads a signed duration of days', () => {
+    expect(durationMs('-P30D')).toBe(-30 * DAY);
+    expect(durationMs('P1D')).toBe(DAY);
+    expect(durationMs('+P1D')).toBe(DAY);
+  });
+
+  it('reads weeks, hours, minutes and seconds', () => {
+    expect(durationMs('PT12H')).toBe(12 * 3_600_000);
+    expect(durationMs('-P2W')).toBe(-14 * DAY);
+    expect(durationMs('-PT90M')).toBe(-90 * 60_000);
+    expect(durationMs('PT45S')).toBe(45_000);
+    expect(durationMs('P1DT2H3M4S')).toBe(DAY + 2 * 3_600_000 + 184_000);
+  });
+
+  it('reads a fraction of a second down to the millisecond', () => {
+    expect(durationMs('PT1.5S')).toBe(1500);
+    expect(durationMs('-PT0.001S')).toBe(-1);
+    expect(durationMs('PT0.250S')).toBe(250);
+  });
+
+  it('refuses a fraction finer than a millisecond', () => {
+    expect(durationMs('PT0.0005S')).toBeUndefined();
+  });
+
+  it('refuses a fraction on any unit but seconds', () => {
+    expect(durationMs('P1.5D')).toBeUndefined();
+    expect(durationMs('PT1.5H')).toBeUndefined();
+  });
+
+  it('refuses the calendar units, whose length depends on the date', () => {
+    expect(durationMs('P1M')).toBeUndefined();
+    expect(durationMs('P1Y')).toBeUndefined();
+    expect(durationMs('P1Y2M3D')).toBeUndefined();
+  });
+
+  it('refuses text that is not a duration', () => {
+    expect(durationMs('30D')).toBeUndefined();
+    expect(durationMs('')).toBeUndefined();
+    expect(durationMs('P')).toBeUndefined();
+    expect(durationMs('PT')).toBeUndefined();
+    expect(durationMs('P1DT')).toBeUndefined();
+    expect(durationMs('p1d')).toBeUndefined();
+    expect(durationMs(' P1D')).toBeUndefined();
+    expect(durationMs('P1D ')).toBeUndefined();
+    expect(durationMs('PT1D')).toBeUndefined();
+    expect(durationMs('P1H')).toBeUndefined();
+    expect(durationMs('P1,5D')).toBeUndefined();
+  });
+
+  it('refuses a duration too long to hold exactly', () => {
+    expect(durationMs(`P${'9'.repeat(400)}D`)).toBeUndefined();
+    expect(durationMs('P999999999999999999D')).toBeUndefined();
   });
 });

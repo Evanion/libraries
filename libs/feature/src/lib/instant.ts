@@ -1,4 +1,4 @@
-import type { Instant } from './types.js';
+import type { Instant, RelativeInstant } from './types.js';
 
 /**
  * An ISO 8601 string that names one instant on every host.
@@ -129,4 +129,93 @@ export function contextEpoch(now: Instant | undefined): number {
 
   const epoch = instantEpoch(now);
   return Math.abs(epoch) > RANGE ? Number.NaN : epoch;
+}
+
+const MS = { W: 604_800_000, D: 86_400_000, H: 3_600_000, M: 60_000 } as const;
+
+/**
+ * A signed ISO 8601 duration of weeks, days, hours, minutes and seconds.
+ *
+ * Capitals only, and the time units follow a `T`. The seconds take a fraction
+ * of up to three digits, which is the millisecond a `Date` holds, so the
+ * reading is exact and no port rounds differently. A designator for years or
+ * months matches nothing here.
+ */
+const DURATION =
+  /^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.(\d{1,3}))?S)?)?$/;
+
+/**
+ * Milliseconds in a signed ISO 8601 duration, and `undefined` for text that is
+ * not one this package reads.
+ *
+ * Years and months are refused because their length depends on the date they
+ * are added to, and two ports would place one boundary at two instants. A
+ * duration with no component (`P`, `PT`, `P1DT`) and a total too large to hold
+ * exactly are refused as well.
+ */
+export function durationMs(text: string): number | undefined {
+  const match = DURATION.exec(text);
+  if (match === null) return undefined;
+  const [, sign, weeks, days, hours, minutes, seconds, fraction] = match;
+  if (text.endsWith('T')) return undefined;
+  if (
+    weeks === undefined &&
+    days === undefined &&
+    hours === undefined &&
+    minutes === undefined &&
+    seconds === undefined
+  ) {
+    return undefined;
+  }
+
+  const total =
+    Number(weeks ?? 0) * MS.W +
+    Number(days ?? 0) * MS.D +
+    Number(hours ?? 0) * MS.H +
+    Number(minutes ?? 0) * MS.M +
+    Number(seconds ?? 0) * 1000 +
+    Number((fraction ?? '').padEnd(3, '0'));
+  if (!Number.isSafeInteger(total)) return undefined;
+
+  return sign === '-' ? -total : total;
+}
+
+/**
+ * Whether a window value is the `{ fromNow }` form, whatever its duration
+ * holds.
+ *
+ * A document parsed out of JSON reaches here with any value, so the check reads
+ * own data properties of a plain object and nothing else.
+ */
+export function isRelative(value: unknown): value is RelativeInstant {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !(value instanceof Date) &&
+    !Array.isArray(value) &&
+    Object.prototype.hasOwnProperty.call(value, 'fromNow')
+  );
+}
+
+/**
+ * Epoch milliseconds for the boundary a window value names against `now`, and
+ * `NaN` when it names none.
+ *
+ * A fixed instant reads as {@link instantEpoch}. A relative one needs a `now`
+ * that {@link contextEpoch} reads and a duration {@link durationMs} reads, and
+ * the sum has to stay inside the range a `Date` holds.
+ */
+export function boundaryEpoch(
+  value: unknown,
+  now: Instant | undefined,
+): number {
+  if (!isRelative(value)) return instantEpoch(value as Instant);
+
+  const shift =
+    typeof value.fromNow === 'string' ? durationMs(value.fromNow) : undefined;
+  const epoch = contextEpoch(now);
+  if (shift === undefined || Number.isNaN(epoch)) return Number.NaN;
+
+  const boundary = epoch + shift;
+  return Math.abs(boundary) > RANGE ? Number.NaN : boundary;
 }

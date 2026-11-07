@@ -21,11 +21,31 @@ export type Weekday = 'sun' | 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat';
  */
 export type Instant = string | number | Date;
 
-/** `now` is before / after a fixed instant. */
+/**
+ * A boundary placed relative to the context's `now`: `now` plus a signed ISO
+ * 8601 duration of weeks, days, hours, minutes and seconds (`-P30D`, `PT12H`,
+ * `-P2W`, `-PT90M`, `PT1.5S`). Years and months are refused, because their
+ * length depends on the calendar.
+ */
+export interface RelativeInstant {
+  fromNow: string;
+}
+
+/**
+ * A context instant is before / after a boundary.
+ *
+ * `field` is `now`, or the path of any context field carrying an instant in
+ * one of the forms `Instant` takes. A field value that names no instant, or an
+ * absent field, leaves the condition false.
+ *
+ * `value` is a fixed instant or a {@link RelativeInstant}. A relative boundary
+ * with `field: 'now'` compares the clock with itself shifted, so validation
+ * refuses it. When `now` names no instant a relative condition is false.
+ */
 export interface WindowCondition {
-  field: 'now';
+  field: string;
   op: 'before' | 'after';
-  value: Instant;
+  value: Instant | RelativeInstant;
 }
 
 /**

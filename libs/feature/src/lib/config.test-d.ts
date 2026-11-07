@@ -50,6 +50,7 @@ import type {
   FeatureDefinition,
   FeatureKey,
   Instant,
+  RelativeInstant,
   Rule,
   VariantSpec,
   WindowCondition,
@@ -427,8 +428,8 @@ describe('SerializedInstant', () => {
 });
 
 describe('SerializedWindowCondition', () => {
-  it('fences the field to now', () => {
-    expectTypeOf<SerializedWindowCondition['field']>().toEqualTypeOf<'now'>();
+  it('reads any context field', () => {
+    expectTypeOf<SerializedWindowCondition['field']>().toEqualTypeOf<string>();
   });
 
   it('fences the operator to the two window comparisons', () => {
@@ -438,9 +439,9 @@ describe('SerializedWindowCondition', () => {
   });
 
   it('carries its instant in the two forms a document holds', () => {
-    expectTypeOf<
-      SerializedWindowCondition['value']
-    >().toEqualTypeOf<SerializedInstant>();
+    expectTypeOf<SerializedWindowCondition['value']>().toEqualTypeOf<
+      SerializedInstant | RelativeInstant
+    >();
   });
 
   it('takes epoch milliseconds, which a producer with no ISO formatter writes', () => {

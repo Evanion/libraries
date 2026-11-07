@@ -2,7 +2,7 @@ import { validateConditions } from './conditions.js';
 import { boundFeatures } from './bound.js';
 import type { BoundFeatures } from './bound.js';
 import { configCopier } from './document-copy.js';
-import { contextEpoch, instantEpoch } from './instant.js';
+import { contextEpoch, instantEpoch, isRelative } from './instant.js';
 import { decide, planFeature } from './evaluate.js';
 import { buildGraph } from './graph.js';
 import { bucketingStated } from './variants.js';
@@ -511,6 +511,7 @@ function windowsRead(
           if (condition.op !== 'before' && condition.op !== 'after') {
             return condition;
           }
+          if (isRelative(condition.value)) return condition;
           return { ...condition, value: instantEpoch(condition.value) };
         }),
       };
@@ -582,8 +583,7 @@ function failedWindowDate(
   outcome: RuleOutcome,
 ): (WindowCondition & { value: Date }) | undefined {
   const failed = outcome.failed;
-  if (failed?.field !== 'now') return undefined;
-  if (failed.op !== 'before' && failed.op !== 'after') return undefined;
+  if (failed?.op !== 'before' && failed?.op !== 'after') return undefined;
   const value: unknown = failed.value;
   return value instanceof Date ? { ...failed, value } : undefined;
 }

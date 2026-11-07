@@ -3,6 +3,7 @@ import { createFeatures } from './features.js';
 import { serializeConfig } from './serialize.js';
 import { serializeConfig as publishedSerializeConfig } from '../index.js';
 import type { Features } from './features.js';
+import type { RelativeInstant } from './types.js';
 import type {
   ConfigEnvelope,
   FeatureConfig,
@@ -69,9 +70,9 @@ describe('serializeConfig', () => {
     expectTypeOf(condition)
       .extract<{ op: 'before' | 'after' }>()
       .toEqualTypeOf<{
-        field: 'now';
+        field: string;
         op: 'before' | 'after';
-        value: SerializedInstant;
+        value: SerializedInstant | RelativeInstant;
       }>();
   });
 

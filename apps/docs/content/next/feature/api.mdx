@@ -587,9 +587,42 @@ To transmit a condition over the wire, `@evanion/feature` uses the [`SerializedC
 
 <!-- reference @evanion/feature#WindowCondition -->
 
-To restrict a feature to a specific time frame, `@evanion/feature` provides the `WindowCondition`. `value` is an [`Instant`](#instant), and `createFeatures` refuses a boundary that names no moment every host reads the same way.
+To restrict a feature to a specific time frame, you use the `WindowCondition` provided by `@evanion/feature`.
 
-To transmit a window condition over the wire, `@evanion/feature` uses the [`SerializedWindowCondition`](#serializedwindowcondition) type. In this wire form, the `value` is represented as either an ISO 8601 string or epoch milliseconds.
+### How to define a time window
+
+The `WindowCondition` compares a timestamp from your context against a target value.
+
+If you set `field: 'now'`, the condition compares the current time (`now`) from the context. For any other `field` name, the package reads that path from the context to find the instant. For example, to restrict a feature to accounts created after 1 November, you would use `{ field: 'subject.createdAt', op: 'after', value: '2026-11-01' }`.
+
+The value found in the context is interpreted the same way as `now`: it can be a `Date` object, epoch milliseconds, or an ISO 8601 string with an offset. If the field is missing or the value does not name a valid instant, the condition evaluates to `false`. If you are using a schema, the field must be declared as `instant` or `instant?`.
+
+The `value` property itself must be an [`Instant`](#instant) or a [`RelativeInstant`](#relativeinstant). To ensure consistency across environments, `createFeatures` will reject any boundary that does not name a moment that every host reads identically.
+
+### Transmitting conditions over the wire
+
+When sending a window condition over the wire, `@evanion/feature` uses the [`SerializedWindowCondition`](#serializedwindowcondition) type. In this serialized form, the `value` is represented as epoch milliseconds, an ISO 8601 string, or a `RelativeInstant`.
+
+## `RelativeInstant`
+
+<!-- reference @evanion/feature#RelativeInstant -->
+
+To define a window boundary relative to the current time, you use a `RelativeInstant`. This is represented as `{ fromNow: '<duration>' }`, where the boundary is calculated as the context's `now` plus a signed ISO 8601 duration.
+
+Supported durations include weeks, days, hours, minutes, and seconds (e.g., `-P30D`, `PT12H`, `-P2W`, `-PT90M`, `PT1.5S`). For example, to target accounts created in the last 30 days, you would use `{ field: 'subject.createdAt', op: 'after', value: { fromNow: '-P30D' } }`.
+
+### Duration Precision and Constraints
+
+`@evanion/feature` handles precision and calendar edge cases as follows:
+
+- **Precision:** Seconds support up to three decimal places to accommodate the millisecond precision of a JavaScript `Date`.
+- **Calendar Stability:** Durations containing years or months are refused. Because their lengths vary by calendar, they could cause two different ports to resolve the same boundary to two different instants.
+- **Validation:** Both `createFeatures` and `validateConfig` refuse a duration that contains years or months, and a `fromNow` used with `field: 'now'` (which would result in comparing the clock with a shifted version of itself).
+- **Equivalency:** Durations that describe the same amount of time—such as `-P1D` and `-PT24H`—name the same boundary and derive the same rule id.
+
+### Execution Context
+
+If the context's `now` is missing or does not name a specific instant, the condition evaluates to `false`. The system never defaults a missing `now` to epoch 0.
 
 ## `DayOfWeekCondition`
 
@@ -1222,7 +1255,7 @@ A day-of-week condition needs no wire form of its own because its `zone` is a st
 
 <!-- reference @evanion/feature#SerializedWindowCondition -->
 
-To represent a window condition in a document, `@evanion/feature` uses the `SerializedWindowCondition` type, where a live store would carry a [`WindowCondition`](#windowcondition). In this type, the `field` is `'now'`, the `op` is `'before'` or `'after'`, and `value` is a [`SerializedInstant`](#serializedinstant).
+To represent a window condition in a document, `@evanion/feature` uses the `SerializedWindowCondition` type, where a live store would carry a [`WindowCondition`](#windowcondition). In this type, the `field` is `'now'` or the path of a context field, the `op` is `'before'` or `'after'`, and `value` is a [`SerializedInstant`](#serializedinstant) or a [`RelativeInstant`](#relativeinstant).
 
 A live window condition does not reach this type because `Instant` admits a `Date`. The two forms decide the window alike, since a window condition is read as a point in time and a string, a number, and a `Date` naming one instant all read to one epoch. The function [`serializeConfig`](#serializeconfigfeatures-envelope) converts the `Date` on the way out. Epoch milliseconds are a member of the type, which is what a producer with no ISO formatter writes.
 
