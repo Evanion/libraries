@@ -978,7 +978,9 @@ export function createFeatures(
   const emit = createEmitter(options);
   const observed = options.observe !== undefined;
   const correlateBy = options.correlateBy ?? DEFAULT_CORRELATE_FIELD;
-  const correlateFault = pathFault(correlateBy);
+  // An empty name is a configured field no context holds: events carry no subject.
+  const correlateFault =
+    correlateBy === '' ? undefined : pathFault(correlateBy);
   if (correlateFault !== undefined) {
     throw new FeatureConfigError(
       `the option "correlateBy" names a path no context can be read at: ${correlateFault}`,
