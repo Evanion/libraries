@@ -64,6 +64,6 @@
   "devDependencies": {
     "@evanion/doc-examples": "*",
     "@types/express": "^5.0.0",
-    "express": "^5.0.0"
+    "express": "^5.3.0"
   }
 }
