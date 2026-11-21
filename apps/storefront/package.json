@@ -10,7 +10,7 @@
     "@evanion/baize-ui": "*",
     "@evanion/feature": "*",
     "@evanion/urn": "*",
-    "astro": "^7.3.8",
+    "astro": "^7.4.12",
     "cookie": "^2.0.1"
   }
 }
