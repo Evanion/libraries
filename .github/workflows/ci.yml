@@ -105,7 +105,7 @@ jobs:
       # same-repo pull requests get a one-hour write token through the job's
       # OIDC token; fork pull requests get no secrets and run without the
       # remote cache.
-      - uses: Evanion/ci-cache-action@c9d9a6c7498b0b7f00ca4bd159dbcfaf049a0524 # v0.4.0
+      - uses: Evanion/ci-cache-action@4a6a7477116093f7bb6bb8b3460613b7020139e1 # v0.4.1
         with:
           server: ${{ vars.CI_CACHE_SERVER }}
           read-token: ${{ secrets.CI_CACHE_READ_TOKEN }}
